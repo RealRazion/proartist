@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.db.models import Q, Count, Max
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from .models import (
     ROLE_CHOICES, Profile, Role, Example, Request, ChatThread, ChatMessage,
@@ -109,6 +110,14 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
             instance.read = True
             instance.save(update_fields=["read"])
 # --- Team only ---
+def _bool_param(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in {"1", "true", "yes", "on"}
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.prefetch_related("participants").order_by("-created_at")
     serializer_class=ProjectSerializer
@@ -118,20 +127,77 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated(), IsTeam()]
 
-    def get_queryset(self):
+    def _base_queryset(self):
+        qs = Project.objects.prefetch_related("participants").order_by("-created_at")
         me = self.request.user.profile
-        qs = super().get_queryset()
         if me.roles.filter(key="TEAM").exists():
             return qs
         return qs.filter(participants=me)
+
+    def _apply_visibility_filters(self, qs):
+        include_archived = _bool_param(self.request.query_params.get("include_archived"))
+        include_done = _bool_param(self.request.query_params.get("include_done"))
+        archived_only = _bool_param(self.request.query_params.get("archived_only"))
+        if archived_only:
+            qs = qs.filter(is_archived=True)
+        elif not include_archived:
+            qs = qs.filter(is_archived=False)
+        if not include_done:
+            qs = qs.exclude(status="DONE")
+        return qs
+
+    def get_queryset(self):
+        qs = self._base_queryset()
+        return self._apply_visibility_filters(qs)
+
+    def perform_destroy(self, instance):
+        instance.is_archived = True
+        instance.archived_at = timezone.now()
+        instance.save(update_fields=["is_archived", "archived_at"])
+
+    @action(detail=False, methods=["GET"], url_path="summary")
+    def summary(self, request):
+        qs = self._base_queryset()
+        total = qs.count()
+        archived = qs.filter(is_archived=True).count()
+        completed = qs.filter(status="DONE").count()
+        active = qs.filter(is_archived=False).exclude(status="DONE").count()
+        by_status = {
+            row["status"]: row["c"]
+            for row in qs.values("status").annotate(c=Count("id"))
+        }
+        return Response(
+            {
+                "total": total,
+                "archived": archived,
+                "done": completed,
+                "active": active,
+                "by_status": by_status,
+            }
+        )
 
 class TaskViewSet(viewsets.ModelViewSet):
     queryset=Task.objects.all().order_by("-created_at")
     serializer_class=TaskSerializer
     permission_classes=[permissions.IsAuthenticated, IsTeam]
 
+    def _base_queryset(self):
+        return Task.objects.select_related("project", "assignee__user").order_by("-created_at")
+
+    def _apply_visibility_filters(self, qs):
+        include_archived = _bool_param(self.request.query_params.get("include_archived"))
+        include_done = _bool_param(self.request.query_params.get("include_done"))
+        archived_only = _bool_param(self.request.query_params.get("archived_only"))
+        if archived_only:
+            qs = qs.filter(is_archived=True)
+        elif not include_archived:
+            qs = qs.filter(is_archived=False)
+        if not include_done:
+            qs = qs.exclude(status="DONE")
+        return qs
+
     def get_queryset(self):
-        qs = super().get_queryset().select_related("project", "assignee__user")
+        qs = self._base_queryset()
         project_id = self.request.query_params.get("project")
         status = self.request.query_params.get("status")
         if project_id:
@@ -140,7 +206,33 @@ class TaskViewSet(viewsets.ModelViewSet):
             statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
             if statuses:
                 qs = qs.filter(status__in=statuses)
-        return qs
+        return self._apply_visibility_filters(qs)
+
+    def perform_destroy(self, instance):
+        instance.is_archived = True
+        instance.archived_at = timezone.now()
+        instance.save(update_fields=["is_archived", "archived_at"])
+
+    @action(detail=False, methods=["GET"], url_path="summary")
+    def summary(self, request):
+        qs = self._base_queryset()
+        total = qs.count()
+        archived = qs.filter(is_archived=True).count()
+        completed = qs.filter(status="DONE").count()
+        active = qs.filter(is_archived=False).exclude(status="DONE").count()
+        by_status = {
+            row["status"]: row["c"]
+            for row in qs.values("status").annotate(c=Count("id"))
+        }
+        return Response(
+            {
+                "total": total,
+                "archived": archived,
+                "done": completed,
+                "active": active,
+                "by_status": by_status,
+            }
+        )
 
 class ContractViewSet(viewsets.ModelViewSet):
     queryset=Contract.objects.all(); serializer_class=ContractSerializer

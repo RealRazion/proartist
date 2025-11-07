@@ -92,8 +92,18 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Project
-        fields = ["id", "title", "description", "status", "created_at", "participants", "participant_ids"]
-        read_only_fields = ["id", "created_at", "participants"]
+        fields = [
+            "id",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "participants",
+            "participant_ids",
+            "is_archived",
+            "archived_at",
+        ]
+        read_only_fields = ["id", "created_at", "participants", "is_archived", "archived_at"]
 
     def get_participants(self, obj):
         return [
@@ -116,7 +126,10 @@ class ProjectSerializer(serializers.ModelSerializer):
         return project
 
 class TaskSerializer(serializers.ModelSerializer):
-    class Meta: model=Task; fields="__all__"
+    class Meta:
+        model=Task
+        fields="__all__"
+        read_only_fields = ["is_archived", "archived_at"]
 
 class ContractSerializer(serializers.ModelSerializer):
     class Meta: model=Contract; fields="__all__"

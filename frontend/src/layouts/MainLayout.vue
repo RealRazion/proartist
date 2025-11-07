@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="layout" :class="{ 'sidebar-collapsed': collapsed && !isMobile }">
     <aside :class="['sidebar', { collapsed: collapsed && !isMobile, 'mobile-open': mobileOpen && isMobile }]">
       <div class="sidebar-top">
@@ -95,6 +95,10 @@
           <button class="iconbtn" type="button" @click="toggleTheme" :title="`Theme: ${themeLabel}`">
             {{ themeIcon }}
           </button>
+          <button class="iconbtn" type="button" @click="notify('Request-Ansicht folgt bald')" title="Offene Requests">
+            📨
+            <span v-if="openRequests" class="pill">{{ openRequests }}</span>
+          </button>
           <button class="iconbtn" type="button" @click="goToChats" title="Chats öffnen">
             💬
             <span v-if="unreadCount" class="pill">{{ unreadCount }}</span>
@@ -148,6 +152,7 @@ const loadingUnread = ref(false);
 const collapsed = ref(false);
 const mobileOpen = ref(false);
 const isMobile = ref(false);
+const openRequests = ref(0);
 
 let unreadInterval = null;
 
@@ -216,7 +221,16 @@ function performSearch() {
     notify("Bitte einen Suchbegriff eingeben");
     return;
   }
-  notify(`Suche nach „${term}“ ist noch nicht verfügbar`);
+  notify(`Suche nach "${term}" ist noch nicht verfuegbar`);
+}
+
+async function loadStats() {
+  try {
+    const { data } = await api.get("stats/");
+    openRequests.value = data?.open_requests || 0;
+  } catch (err) {
+    console.error("Konnte Stats nicht laden", err);
+  }
 }
 
 function updateViewport() {
@@ -286,6 +300,7 @@ onMounted(async () => {
       return;
     }
   }
+  await loadStats();
   await loadUnread();
   unreadInterval = setInterval(loadUnread, 15000);
 });
@@ -300,3 +315,7 @@ onBeforeUnmount(() => {
   }
 });
 </script>
+
+
+
+

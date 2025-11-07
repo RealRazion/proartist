@@ -1,4 +1,4 @@
-<template>
+﻿Ã¯Â»Â¿<template>
   <div class="chat">
     <aside class="card">
       <div class="aside-header">
@@ -28,72 +28,75 @@
       </div>
     </aside>
 
-    <section class="card">
-      <header v-if="activeThread" class="thread-header">
-        <div class="avatar large">{{ initial(activeThread) }}</div>
-        <div>
-          <div class="name">{{ threadTitle(activeThread) }}</div>
-          <div class="muted">{{ threadPreview(activeThread) }}</div>
-        </div>
-      </header>
+    <section class="card conversation">
+      <div class="conversation-body">
+        <header v-if="activeThread" class="thread-header">
+          <div class="avatar large">{{ initial(activeThread) }}</div>
+          <div>
+            <div class="name">{{ threadTitle(activeThread) }}</div>
+            <div class="muted">{{ threadPreview(activeThread) }}</div>
+          </div>
+        </header>
 
-      <div class="messages" ref="msgBox">
-        <div v-if="!messages.length" class="empty muted">
-          Noch keine Nachrichten – starte die Unterhaltung.
+        <div class="messages" ref="msgBox">
+          <div v-if="!messages.length" class="empty muted">
+            Noch keine Nachrichten ? starte die Unterhaltung.
+          </div>
+          <div
+            v-for="m in messages"
+            :key="m.id"
+            class="msg"
+            :class="m.sender === meId ? 'me' : 'other'"
+          >
+            <div class="meta">
+              <span class="author">{{ m.sender === meId ? "Du" : m.sender_name || "Kontakt" }}</span>
+              <span class="time">{{ formatMessageTime(m.created_at) }}</span>
+            </div>
+            <div v-if="m.file_url" class="file">
+              <a :href="m.file_url" target="_blank" rel="noopener" class="link">
+                ?? {{ m.file_name || extractFilename(m.file_url) }}
+              </a>
+              <span v-if="m.file_size" class="file-meta">{{ formatFileSize(m.file_size) }}</span>
+            </div>
+            <div v-if="m.text" class="text">{{ m.text }}</div>
+            <div v-if="m.sender === meId" class="read-indicator" :class="{ seen: m.read }">
+              {{ m.read ? "Gelesen" : "Gesendet" }}
+            </div>
+          </div>
         </div>
-        <div
-          v-for="m in messages"
-          :key="m.id"
-          class="msg"
-          :class="m.sender === meId ? 'me' : 'other'"
-        >
-          <div class="meta">
-            <span class="author">{{ m.sender === meId ? "Du" : m.sender_name || "Kontakt" }}</span>
-            <span class="time">{{ formatMessageTime(m.created_at) }}</span>
-          </div>
-          <div v-if="m.file_url" class="file">
-            <a :href="m.file_url" target="_blank" rel="noopener" class="link">
-              📎 {{ m.file_name || extractFilename(m.file_url) }}
-            </a>
-            <span v-if="m.file_size" class="file-meta">{{ formatFileSize(m.file_size) }}</span>
-          </div>
-          <div v-if="m.text" class="text">{{ m.text }}</div>
-          <div v-if="m.sender === meId" class="read-indicator" :class="{ seen: m.read }">
-            {{ m.read ? "Gelesen" : "Gesendet" }}
+
+        <p v-if="typingDisplay" class="typing-indicator">{{ typingDisplay }}</p>
+
+        <div class="send">
+          <textarea
+            ref="composerRef"
+            class="input"
+            :disabled="!activeId"
+            rows="2"
+            v-model="text"
+            @keydown="handleInputKeydown"
+            @input="handleComposerInput"
+            @blur="handleComposerBlur"
+            placeholder="Nachricht schreiben..."
+          ></textarea>
+          <div class="actions">
+            <label class="file-btn" :class="{ disabled: !activeId || uploading }">
+              <input type="file" :disabled="!activeId || uploading" @change="sendFile" />
+              <span>??</span>
+            </label>
+            <button class="btn" type="button" @click="sendWS" :disabled="!canSend">
+              {{ isWsReady ? "Senden" : "Verbinde..." }}
+            </button>
           </div>
         </div>
+        <p v-if="activeId && !isWsReady" class="status muted">Verbindung wird hergestellt...</p>
       </div>
-
-      <p v-if="typingDisplay" class="typing-indicator">{{ typingDisplay }}</p>
-
-      <div class="send">
-        <textarea
-          class="input"
-          :disabled="!activeId"
-          rows="2"
-          v-model="text"
-          @keydown="handleInputKeydown"
-          @input="handleComposerInput"
-          @blur="handleComposerBlur"
-          placeholder="Nachricht schreiben..."
-        ></textarea>
-        <div class="actions">
-          <label class="file-btn" :class="{ disabled: !activeId || uploading }">
-            <input type="file" :disabled="!activeId || uploading" @change="sendFile" />
-            <span>📎</span>
-          </label>
-          <button class="btn" type="button" @click="sendWS" :disabled="!canSend">
-            {{ isWsReady ? "Senden" : "Verbinde…" }}
-          </button>
-        </div>
-      </div>
-      <p v-if="activeId && !isWsReady" class="status muted">Verbindung wird hergestellt…</p>
     </section>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
 
@@ -110,6 +113,7 @@ const messages = ref([]);
 const text = ref("");
 const ws = ref(null);
 const msgBox = ref(null);
+const composerRef = ref(null);
 const isWsReady = ref(false);
 const loadingThreads = ref(false);
 const uploading = ref(false);
@@ -198,10 +202,10 @@ function threadPreview(thread) {
   const last = thread.messages?.[thread.messages.length - 1];
   if (!last) return "Noch keine Nachrichten";
   if (last.text) {
-    return last.text.length > 60 ? `${last.text.slice(0, 57)}…` : last.text;
+    return last.text.length > 60 ? `${last.text.slice(0, 57)}Ãƒâ€Ãƒâ€¡Ã‚Âª` : last.text;
   }
-  if (last.file_url) return "📎 Anhang gesendet";
-  return "Neue Aktivität";
+  if (last.file_url) return "Ã‚Â­Ã†â€™ÃƒÂ´Ãƒâ€ž Anhang gesendet";
+  return "Neue AktivitÃ¢â€Å“ÃƒÂ±t";
 }
 
 function extractFilename(url) {
@@ -304,6 +308,7 @@ function handleComposerInput() {
     composerTyping = false;
     typingNotifyTimer = null;
   }, 1500);
+  nextTick(resizeComposer);
 }
 
 function handleComposerBlur() {
@@ -480,6 +485,7 @@ function sendWS() {
   handleComposerBlur();
   ws.value.send(JSON.stringify({ text: payload }));
   text.value = "";
+  nextTick(resizeComposer);
 }
 
 async function sendFile(event) {
@@ -500,6 +506,14 @@ async function sendFile(event) {
   } finally {
     uploading.value = false;
   }
+}
+
+function resizeComposer() {
+  const el = composerRef.value;
+  if (!el) return;
+  el.style.height = "auto";
+  const nextHeight = Math.min(240, Math.max(80, el.scrollHeight));
+  el.style.height = `${nextHeight}px`;
 }
 
 function handleInputKeydown(event) {
@@ -532,6 +546,16 @@ watch(
   }
 );
 
+watch(
+  () => text.value,
+  () => nextTick(resizeComposer)
+);
+
+watch(
+  () => activeId.value,
+  () => nextTick(resizeComposer)
+);
+
 onMounted(async () => {
   await loadMe();
   await loadThreads();
@@ -552,6 +576,7 @@ onMounted(async () => {
     sessionStorage.removeItem(PENDING_THREAD_KEY);
   }
   pollHandle = setInterval(loadThreads, POLL_INTERVAL);
+  nextTick(resizeComposer);
 });
 
 onBeforeUnmount(() => {
@@ -579,10 +604,12 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.chat{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;min-height:74vh;width:100%;}
+.chat{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:18px;min-height:74vh;width:100%;}
 .card{background:#0f1115;border:1px solid #1c2230;border-radius:14px;padding:16px;color:#e8eaf0;display:flex;flex-direction:column;gap:16px;}
+.conversation{padding:0;}
+.conversation-body{display:flex;flex-direction:column;gap:16px;height:100%;padding:18px 20px;}
 .aside-header{display:flex;align-items:center;justify-content:space-between;}
-.list{display:flex;flex-direction:column;gap:8px;max-height:68vh;overflow:auto;padding-right:4px;}
+.list{display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow:auto;padding-right:4px;}
 .thread{display:flex;gap:12px;padding:10px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .2s,border-color .2s;}
 .thread:hover{background:#131826;border-color:#1f2740;}
 .thread.active{background:#151b2b;border-color:#2a3658;}
@@ -593,8 +620,8 @@ onBeforeUnmount(() => {
 .empty{padding:16px 8px;text-align:center;}
 .thread-header{display:flex;gap:12px;align-items:center;margin-bottom:-8px;}
 .chat section.card{width:100%;}
-.messages{flex:1;min-height:60vh;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:16px;background:#0c0f15;border-radius:10px;border:1px solid #1a2235;width:100%;}
-.msg{max-width:72%;padding:12px 14px;border-radius:12px;line-height:1.5;background:#1b2133;display:flex;flex-direction:column;gap:6px;}
+.messages{flex:1;min-height:65vh;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:16px;background:#0c0f15;border-radius:10px;border:1px solid #1a2235;width:100%;}
+.msg{max-width:85%;width:fit-content;padding:12px 14px;border-radius:12px;line-height:1.5;background:#1b2133;display:flex;flex-direction:column;gap:6px;}
 .msg.me{align-self:flex-end;background:#243b55;}
 .msg.other{align-self:flex-start;}
 .msg .meta{display:flex;gap:8px;font-size:11px;color:#98a3b7;text-transform:uppercase;letter-spacing:.06em;}
@@ -607,8 +634,8 @@ onBeforeUnmount(() => {
 .msg .read-indicator.seen{color:#34d399;}
 .msg .meta .time{margin-left:auto;opacity:.8;text-transform:none;letter-spacing:0;}
 .typing-indicator{font-size:12px;color:#9aa3b2;margin:6px 0;}
-.send{display:flex;gap:12px;align-items:flex-end;margin-top:8px;}
-.input{flex:1;min-height:72px;max-height:200px;padding:12px 14px;border-radius:12px;border:1px solid #2a3658;background:#0f1422;color:#e8eaf0;resize:vertical;font:inherit;line-height:1.5;}
+.send{display:flex;gap:12px;align-items:flex-end;margin-top:12px;}
+.input{flex:1;min-height:80px;max-height:220px;padding:12px 14px;border-radius:12px;border:1px solid #2a3658;background:#0f1422;color:#e8eaf0;resize:none;font:inherit;line-height:1.5;}
 .input:disabled{opacity:.6;cursor:not-allowed;}
 .actions{display:flex;gap:12px;align-items:center;}
 .file-btn{width:44px;height:44px;border-radius:12px;border:1px solid #2a3658;background:#18213a;color:#e8eaf0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s,border-color .2s;}
@@ -626,3 +653,11 @@ onBeforeUnmount(() => {
   .aside-header{flex-direction:column;align-items:flex-start;gap:8px;}
 }
 </style>
+
+
+
+
+
+
+
+

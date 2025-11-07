@@ -8,62 +8,62 @@
         <label>
           Benutzername
           <input
-            class="input"
+            :class="['input', { invalid: touched.username && usernameError }]"
             v-model.trim="form.username"
             placeholder="z. B. beatmaster"
             autocomplete="username"
+            @blur="markTouched('username')"
           />
+          <small v-if="touched.username && usernameError" class="hint error">{{ usernameError }}</small>
         </label>
 
         <label>
           E-Mail
           <input
-            class="input"
+            :class="['input', { invalid: touched.email && emailError }]"
             v-model.trim="form.email"
             placeholder="du@example.com"
             autocomplete="email"
-            :class="{ invalid: emailTouched && !isEmailValid }"
-            @blur="emailTouched = true"
+            @blur="markTouched('email')"
           />
-          <small v-if="emailTouched && !isEmailValid" class="hint error">Bitte gueltige E-Mail angeben.</small>
+          <small v-if="touched.email && emailError" class="hint error">{{ emailError }}</small>
         </label>
 
         <label>
           Passwort
           <input
-            class="input"
+            :class="['input', { invalid: touched.password && passwordError }]"
             v-model.trim="form.password"
             type="password"
             placeholder="Mindestens 8 Zeichen"
             autocomplete="new-password"
-            :class="{ invalid: passwordTouched && passwordScore < 3 }"
-            @input="handlePasswordInput"
-            @blur="passwordTouched = true"
+            @blur="markTouched('password')"
           />
+          <div class="password-strength">
+            <div class="bar">
+              <div class="fill" :style="{ width: `${passwordStrength.percent}%` }" :data-strength="passwordStrength.level"></div>
+            </div>
+            <span class="strength-label">{{ passwordStrength.label }}</span>
+          </div>
+          <ul class="password-rules">
+            <li v-for="rule in passwordRules" :key="rule.key" :class="{ ok: rule.ok }">{{ rule.label }}</li>
+          </ul>
+          <small v-if="touched.password && passwordError" class="hint error">{{ passwordError }}</small>
         </label>
-        <p class="password-strength" :data-score="passwordScore">{{ passwordStrengthText }}</p>
-        <ul class="password-rules">
-          <li
-            v-for="rule in passwordRules"
-            :key="rule.key"
-            :class="{ ok: passwordChecks[rule.key] }"
-          >
-            {{ rule.label }}
-          </li>
-        </ul>
 
         <div>
           <p class="roles-title">Ich bin ...</p>
           <div class="roles">
             <label v-for="role in roles" :key="role.id" class="role-option">
-              <input type="checkbox" :value="role.key" v-model="form.roles" />
+              <input type="checkbox" :value="role.key" v-model="form.roles" @change="markTouched('roles')" />
               {{ labelForRole(role.key) }}
             </label>
           </div>
+          <small v-if="touched.roles && rolesError" class="hint error">{{ rolesError }}</small>
         </div>
 
-        <button class="btn" type="submit" :disabled="loading || !canSubmit">
-          {{ loading ? "Registrieren..." : "Konto erstellen" }}
+        <button class="btn" type="submit" :disabled="!canSubmit">
+          {{ loading ? "Registriere..." : "Konto erstellen" }}
         </button>
       </form>
 
@@ -77,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api";
 
@@ -90,50 +90,80 @@ const form = ref({
   password: "",
   roles: [],
 });
+const touched = ref({
+  username: false,
+  email: false,
+  password: false,
+  roles: false,
+});
 const loading = ref(false);
 const message = ref("");
 const messageType = ref("info");
-const emailTouched = ref(false);
-const passwordTouched = ref(false);
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const passwordRules = [
-  { key: "length", label: "Mindestens 8 Zeichen" },
-  { key: "upper", label: "Ein Grossbuchstabe" },
-  { key: "lower", label: "Ein Kleinbuchstabe" },
-  { key: "number", label: "Eine Zahl" },
-];
 
-const isEmailValid = computed(() => emailPattern.test((form.value.email || "").trim()));
+const usernameError = computed(() => {
+  const value = form.value.username.trim();
+  if (!value) return "Benutzername wird benoetigt.";
+  if (value.length < 3) return "Mindestens 3 Zeichen.";
+  if (!/^[a-zA-Z0-9._-]+$/.test(value)) return "Nur Buchstaben, Zahlen, Punkt, Unterstrich.";
+  return "";
+});
 
-const passwordChecks = computed(() => {
+const emailError = computed(() => {
+  const value = form.value.email.trim();
+  if (!value) return "E-Mail wird benoetigt.";
+  if (!emailPattern.test(value)) return "Bitte gueltige E-Mail eingeben.";
+  return "";
+});
+
+const passwordRules = computed(() => {
   const value = form.value.password || "";
-  return {
-    length: value.length >= 8,
-    upper: /[A-Z]/.test(value),
-    lower: /[a-z]/.test(value),
-    number: /\d/.test(value),
-  };
+  return [
+    { key: "length", label: "Mindestens 8 Zeichen", ok: value.length >= 8 },
+    { key: "number", label: "Mindestens eine Zahl", ok: /\d/.test(value) },
+    { key: "upper", label: "Mindestens ein Grossbuchstabe", ok: /[A-Z]/.test(value) },
+    { key: "special", label: "Mindestens ein Sonderzeichen", ok: /[^A-Za-z0-9]/.test(value) },
+  ];
 });
 
-const passwordScore = computed(() => Object.values(passwordChecks.value).filter(Boolean).length);
-
-const passwordStrengthText = computed(() => {
-  const score = passwordScore.value;
-  if (!form.value.password) return "Noch kein Passwort eingegeben";
-  if (score <= 1) return "Passwort ist sehr schwach";
-  if (score === 2) return "Passwort ist mittel";
-  if (score === 3) return "Passwort ist gut";
-  return "Passwort ist stark";
+const passwordError = computed(() => {
+  if (!form.value.password) return "Passwort wird benoetigt.";
+  const allRulesMet = passwordRules.value.every((rule) => rule.ok);
+  return allRulesMet ? "" : "Passwort erfuellt noch nicht alle Regeln.";
 });
 
-const canSubmit = computed(() => {
-  return (
-    form.value.username.trim().length > 0 &&
-    isEmailValid.value &&
-    passwordScore.value >= 3
-  );
+const passwordStrength = computed(() => {
+  const rules = passwordRules.value;
+  const passed = rules.filter((rule) => rule.ok).length;
+  const percent = form.value.password ? Math.round((passed / rules.length) * 100) : 0;
+  let level = "weak";
+  let label = "Sehr schwach";
+  if (percent >= 75) {
+    level = "strong";
+    label = "Sehr stark";
+  } else if (percent >= 50) {
+    level = "ok";
+    label = "Stark";
+  } else if (percent >= 25) {
+    level = "mid";
+    label = "Mittel";
+  }
+  return { percent, level, label };
 });
+
+const rolesError = computed(() =>
+  form.value.roles.length ? "" : "Bitte mindestens eine Rolle auswaehlen."
+);
+
+const canSubmit = computed(
+  () =>
+    !loading.value &&
+    !usernameError.value &&
+    !emailError.value &&
+    !passwordError.value &&
+    !rolesError.value
+);
 
 function labelForRole(key) {
   const map = {
@@ -153,10 +183,6 @@ function showMessage(text, type = "info") {
   messageType.value = type;
 }
 
-function handlePasswordInput() {
-  passwordTouched.value = true;
-}
-
 async function loadRoles() {
   try {
     const { data } = await api.get("roles/");
@@ -170,29 +196,30 @@ async function loadRoles() {
       { id: "MERCH", key: "MERCH" },
       { id: "MKT", key: "MKT" },
       { id: "LOC", key: "LOC" },
+      { id: "TEAM", key: "TEAM" },
     ];
   }
 }
 
+function markTouched(field) {
+  touched.value[field] = true;
+}
+
 async function submit() {
-  if (!form.value.username || !form.value.password) {
-    showMessage("Bitte Benutzername und Passwort ausfuellen.", "error");
-    return;
-  }
-  if (!isEmailValid.value) {
-    showMessage("Bitte eine gueltige E-Mail-Adresse eingeben.", "error");
-    emailTouched.value = true;
-    return;
-  }
+  ["username", "email", "password", "roles"].forEach((field) => markTouched(field));
   if (!canSubmit.value) {
-    showMessage("Passwort nicht stark genug.", "error");
-    passwordTouched.value = true;
+    showMessage("Bitte korrigiere die markierten Felder.", "error");
     return;
   }
   loading.value = true;
   showMessage("");
   try {
-    await api.post("register/", form.value);
+    const payload = {
+      ...form.value,
+      username: form.value.username.trim(),
+      email: form.value.email.trim(),
+    };
+    await api.post("register/", payload);
     showMessage("Registrierung erfolgreich - bitte einloggen.", "success");
     setTimeout(() => router.replace({ name: "login" }), 600);
   } catch (err) {
@@ -258,9 +285,39 @@ onMounted(loadRoles);
   color: #f97316;
 }
 .password-strength {
-  font-size: 13px;
-  margin: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 8px;
+  font-size: 12px;
   color: var(--muted);
+}
+.password-strength .bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.password-strength .fill {
+  height: 100%;
+  border-radius: inherit;
+  width: 0;
+  background: #ef4444;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+.password-strength .fill[data-strength="mid"] {
+  background: #f97316;
+}
+.password-strength .fill[data-strength="ok"] {
+  background: #fbbf24;
+}
+.password-strength .fill[data-strength="strong"] {
+  background: #22c55e;
+}
+.strength-label {
+  min-width: 80px;
+  text-align: right;
 }
 .password-rules {
   list-style: none;

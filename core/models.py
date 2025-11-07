@@ -62,6 +62,8 @@ class Project(models.Model):
     description=models.TextField(blank=True)
     status=models.CharField(max_length=50,default="PLANNED")
     created_at=models.DateTimeField(auto_now_add=True)
+    is_archived = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
     participants = models.ManyToManyField('Profile', blank=True, related_name="projects")
     def __str__(self): return self.title
 
@@ -72,6 +74,8 @@ class Task(models.Model):
     assignee=models.ForeignKey(Profile,on_delete=models.SET_NULL,null=True,blank=True)
     due_date=models.DateField(null=True,blank=True)
     created_at=models.DateTimeField(auto_now_add=True)
+    is_archived = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
     def __str__(self): return self.title
 
 class Contract(models.Model):

@@ -1,15 +1,29 @@
-<template>
-  <div class="profiles">
+﻿<template>
+  <div :class="['profiles', { compact: compactCards }]">
     <header class="card header">
       <div>
         <h1>Profiles entdecken</h1>
         <p class="muted">Suche nach Artists, Produzenten oder Locations und starte direkt einen Chat.</p>
       </div>
-      <input
-        class="input search"
-        v-model.trim="query"
-        placeholder="Filter nach Name, Rolle, Genre oder Stadt…"
-      />
+      <div class="search-area">
+        <input
+          class="input search"
+          v-model.trim="queryInput"
+          placeholder="Filter nach Name, Rolle, Genre oder Stadt..."
+        />
+        <span class="result-info">
+          <span v-if="filtering">? Filtert...</span>
+          <span v-else>{{ filteredCount }} Treffer</span>
+        </span>
+        <button
+          type="button"
+          class="view-toggle"
+          :aria-pressed="compactCards"
+          @click="toggleCompact"
+        >
+          {{ compactCards ? "Groessere Karten" : "Kompakte Karten" }}
+        </button>
+      </div>
     </header>
 
     <div class="filters card">
@@ -26,7 +40,11 @@
     </div>
 
     <section class="grid">
-      <article v-for="profile in filteredProfiles" :key="profile.id" class="card profile-card">
+      <article
+        v-for="profile in filteredProfiles"
+        :key="profile.id"
+        :class="['card profile-card', { compact: compactCards }]"
+      >
         <div class="profile-header">
           <div class="avatar">{{ profile.initials }}</div>
           <div>
@@ -43,6 +61,19 @@
           </span>
         </div>
         <p class="muted">{{ profile.genre || "Kein Genre angegeben" }}</p>
+        <div v-if="socialLinks(profile).length" class="socials">
+          <a
+            v-for="link in socialLinks(profile)"
+            :key="link.label"
+            class="social-link"
+            :href="link.url"
+            target="_blank"
+            rel="noopener"
+            :title="link.label"
+          >
+            {{ link.icon }}
+          </a>
+        </div>
         <footer class="footer">
           <a v-if="profile.email" class="link" :href="`mailto:${profile.email}`">{{ profile.email }}</a>
           <button
@@ -64,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
@@ -72,10 +103,20 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 const router = useRouter();
 const { profile: me, fetchProfile } = useCurrentProfile();
 
+const COMPACT_KEY = "profiles:compactMode";
 const profiles = ref([]);
-const query = ref("");
+const queryInput = ref("");
+const debouncedQuery = ref("");
 const startingChat = ref(null);
 const roleFilter = ref("ALL");
+const filtering = ref(false);
+const compactCards = ref(false);
+let debounceTimer = null;
+
+if (typeof window !== "undefined") {
+  const saved = window.localStorage.getItem(COMPACT_KEY);
+  compactCards.value = saved === "1";
+}
 
 const roleLabels = {
   ARTIST: "Artist",
@@ -99,7 +140,7 @@ const roleFilterOptions = computed(() => {
 });
 
 const filteredProfiles = computed(() => {
-  const term = query.value.trim().toLowerCase();
+  const term = debouncedQuery.value.trim().toLowerCase();
   return profiles.value.filter((profile) => {
     const haystack = [
       profile.name,
@@ -118,6 +159,11 @@ const filteredProfiles = computed(() => {
     return matchesText && matchesRole;
   });
 });
+const filteredCount = computed(() => filteredProfiles.value.length);
+
+function toggleCompact() {
+  compactCards.value = !compactCards.value;
+}
 
 function decorateProfile(profile) {
   const name = profile.name || profile.username || "";
@@ -153,6 +199,17 @@ function isTeamMember(profile) {
   return (profile.roles || []).some((role) => role.key === "TEAM");
 }
 
+function socialLinks(profile) {
+  const socials = profile.socials || {};
+  const links = [];
+  if (socials.instagram) links.push({ icon: "??", label: "Instagram", url: socials.instagram });
+  if (socials.youtube) links.push({ icon: "??", label: "YouTube", url: socials.youtube });
+  if (socials.soundcloud) links.push({ icon: "??", label: "SoundCloud", url: socials.soundcloud });
+  if (socials.tiktok) links.push({ icon: "??", label: "TikTok", url: socials.tiktok });
+  if (socials.spotify) links.push({ icon: "??", label: "Spotify", url: socials.spotify });
+  return links;
+}
+
 function setRoleFilter(key) {
   if (key === "ALL") {
     roleFilter.value = "ALL";
@@ -165,6 +222,31 @@ onMounted(async () => {
   await fetchProfile();
   const { data } = await api.get("profiles/");
   profiles.value = data.map(decorateProfile);
+});
+
+watch(
+  () => queryInput.value,
+  (value) => {
+    filtering.value = true;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      debouncedQuery.value = value;
+      filtering.value = false;
+    }, 250);
+  }
+);
+
+watch(
+  () => compactCards.value,
+  (value) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(COMPACT_KEY, value ? "1" : "0");
+    }
+  }
+);
+
+onBeforeUnmount(() => {
+  if (debounceTimer) clearTimeout(debounceTimer);
 });
 </script>
 
@@ -182,6 +264,31 @@ onMounted(async () => {
 }
 .search {
   max-width: 400px;
+}
+.search-area {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.result-info {
+  font-size: 12px;
+  color: var(--muted);
+}
+.view-toggle {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease, border 0.2s ease;
+}
+.view-toggle[aria-pressed="true"] {
+  background: rgba(112, 130, 255, 0.18);
+  color: #fff;
+  border-color: transparent;
 }
 .filters {
   display: flex;
@@ -213,15 +320,25 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 10px;
 }
+.profiles.compact .grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
 .profile-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 14px;
 }
+.profile-card.compact {
+  gap: 8px;
+  padding: 12px;
+}
 .profile-card h2 {
   margin: 0;
   font-size: 1.05rem;
+}
+.profile-card.compact h2 {
+  font-size: 1rem;
 }
 .profile-card p {
   margin: 0;
@@ -243,10 +360,35 @@ onMounted(async () => {
   font-weight: 700;
   font-size: 18px;
 }
+.profile-card.compact .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  font-size: 16px;
+}
 .roles {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.profile-card.compact .roles {
+  gap: 6px;
+}
+.socials {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.social-link {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(75, 91, 255, 0.16);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  text-decoration: none;
 }
 .team-badge {
   margin-left: 8px;
@@ -266,6 +408,10 @@ onMounted(async () => {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+.profile-card.compact .role-pill {
+  font-size: 11px;
+  padding: 3px 8px;
 }
 .footer {
   display: flex;
@@ -290,3 +436,4 @@ onMounted(async () => {
   padding: 24px 0;
 }
 </style>
+

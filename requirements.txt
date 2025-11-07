@@ -6,6 +6,6 @@ redis==5.0.1          # falls du Redis nutzt
 gunicorn==21.2.0
 whitenoise==6.6.0     # statische Dateien
 django-cors-headers==4.2.0
-psycopg[binary]==3.2.1 # PostgreSQL Client
+psycopg[binary]==3.2.12 # PostgreSQL Client
 dj-database-url>=2.1
 python-dotenv>=1.0

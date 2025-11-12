@@ -68,15 +68,53 @@ class Project(models.Model):
     def __str__(self): return self.title
 
 class Task(models.Model):
+    PRIORITY_CHOICES = [
+        ("LOW", "Niedrig"),
+        ("MEDIUM", "Mittel"),
+        ("HIGH", "Hoch"),
+        ("CRITICAL", "Kritisch"),
+    ]
+
     project=models.ForeignKey(Project,on_delete=models.CASCADE,related_name="tasks")
     title=models.CharField(max_length=200)
     status=models.CharField(max_length=50,default="OPEN")
     assignee=models.ForeignKey(Profile,on_delete=models.SET_NULL,null=True,blank=True)
     due_date=models.DateField(null=True,blank=True)
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="MEDIUM")
     created_at=models.DateTimeField(auto_now_add=True)
     is_archived = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)
     def __str__(self): return self.title
+
+class ProjectAttachment(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="attachments")
+    uploaded_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="project_uploads")
+    file = models.FileField(upload_to="project_attachments/")
+    label = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self): return self.label or self.file.name
+
+class TaskAttachment(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="attachments")
+    uploaded_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="task_uploads")
+    file = models.FileField(upload_to="task_attachments/")
+    label = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self): return self.label or self.file.name
+
+class TaskComment(models.Model):
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="task_comments")
+    body = models.TextField()
+    mentions = models.ManyToManyField(Profile, blank=True, related_name="mentioned_in_task_comments")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self): return f"{self.author} -> {self.task}"
 
 class Contract(models.Model):
     STATUS=[("DRAFT","Entwurf"),("PENDING","Ausstehend"),("ACTIVE","Aktiv"),("ENDED","Beendet")]
@@ -117,3 +155,38 @@ class Booking(models.Model):
     slot_time = models.CharField(max_length=80, blank=True)
     payout_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     status = models.CharField(max_length=12, choices=STATUS, default="APPLIED")
+
+class ActivityEntry(models.Model):
+    SEVERITY_CHOICES = [
+        ("INFO","Info"),
+        ("SUCCESS","Erfolg"),
+        ("WARNING","Hinweis"),
+        ("DANGER","Alarm"),
+    ]
+    event_type = models.CharField(max_length=50)
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default="INFO")
+    actor = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="activities")
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True, related_name="activities")
+    task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True, blank=True, related_name="activities")
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self): return f"{self.title} ({self.event_type})"
+
+class NewsPost(models.Model):
+    author = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, related_name="news_posts")
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self): return self.title

@@ -26,11 +26,12 @@
           <div>
             <p class="section-title">Rollen</p>
             <div class="roles">
-              <label v-for="role in roles" :key="role.id">
+              <label v-for="role in visibleRoles" :key="role.id">
                 <input type="checkbox" :value="role.id" v-model="form.role_ids" />
                 {{ roleLabels[role.key] || role.key }}
               </label>
             </div>
+            <small v-if="!isTeam" class="hint muted">Team-Rollen werden vom Admin vergeben.</small>
           </div>
 
           <div>
@@ -88,11 +89,11 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from "vue";
+import { reactive, ref, onMounted, computed } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
-const { profile: me, fetchProfile } = useCurrentProfile();
+const { profile: me, fetchProfile, isTeam } = useCurrentProfile();
 
 const roles = ref([]);
 const examples = ref([]);
@@ -100,6 +101,9 @@ const saving = ref(false);
 const uploading = ref(false);
 const message = ref("");
 const messageType = ref("info");
+const visibleRoles = computed(() =>
+  roles.value.filter((role) => isTeam.value || role.key !== "TEAM")
+);
 
 const socialKeys = ["instagram", "youtube", "soundcloud", "tiktok", "spotify"];
 const socialLabels = {

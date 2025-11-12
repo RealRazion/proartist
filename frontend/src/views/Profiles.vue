@@ -96,11 +96,12 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const router = useRouter();
+const route = useRoute();
 const { profile: me, fetchProfile } = useCurrentProfile();
 
 const COMPACT_KEY = "profiles:compactMode";
@@ -222,6 +223,12 @@ onMounted(async () => {
   await fetchProfile();
   const { data } = await api.get("profiles/");
   profiles.value = data.map(decorateProfile);
+  const initialSearch = route.query.q;
+  if (initialSearch) {
+    const value = String(initialSearch);
+    queryInput.value = value;
+    debouncedQuery.value = value;
+  }
 });
 
 watch(
@@ -241,6 +248,17 @@ watch(
   (value) => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(COMPACT_KEY, value ? "1" : "0");
+    }
+  }
+);
+
+watch(
+  () => route.query.q,
+  (value) => {
+    const normalized = value ? String(value) : "";
+    if (normalized !== queryInput.value) {
+      queryInput.value = normalized;
+      debouncedQuery.value = normalized;
     }
   }
 );

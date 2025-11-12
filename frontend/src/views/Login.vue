@@ -124,6 +124,7 @@ label {
 .checkbox {
   display: flex;
   align-items: center;
+  flex-direction: row;
   gap: 6px;
   font-weight: 400;
 }

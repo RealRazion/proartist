@@ -59,6 +59,7 @@
               {{ labelForRole(role.key) }}
             </label>
           </div>
+          <small class="hint muted">Team-Mitgliedschaften werden intern vergeben.</small>
           <small v-if="touched.roles && rolesError" class="hint error">{{ rolesError }}</small>
         </div>
 
@@ -186,7 +187,7 @@ function showMessage(text, type = "info") {
 async function loadRoles() {
   try {
     const { data } = await api.get("roles/");
-    roles.value = data;
+    roles.value = data.filter((role) => role.key !== "TEAM");
   } catch (err) {
     console.error("Rollen konnten nicht geladen werden", err);
     roles.value = [
@@ -196,7 +197,6 @@ async function loadRoles() {
       { id: "MERCH", key: "MERCH" },
       { id: "MKT", key: "MKT" },
       { id: "LOC", key: "LOC" },
-      { id: "TEAM", key: "TEAM" },
     ];
   }
 }

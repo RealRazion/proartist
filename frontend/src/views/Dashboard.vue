@@ -62,6 +62,41 @@
         <button v-if="isTeam" class="btn ghost" type="button" @click="goTo('projects')">Neues Projekt</button>
       </div>
     </section>
+
+    <section v-if="isTeam" class="card overdue">
+      <div class="overdue-head">
+        <div>
+          <h2>Überfällige Tasks</h2>
+          <p class="muted">Deadlines im Blick behalten</p>
+        </div>
+        <button class="btn ghost tiny" type="button" @click="loadOverdueTasks" :disabled="loadingOverdue">
+          {{ loadingOverdue ? "Lade..." : "Aktualisieren" }}
+        </button>
+      </div>
+      <ul v-if="overdueTasks.length">
+        <li v-for="task in overdueTasks" :key="task.id">
+          <div class="row">
+            <strong>{{ task.title }}</strong>
+            <span class="badge danger">{{ formatTaskDate(task.due_date) }}</span>
+          </div>
+          <p class="muted">{{ taskProjectLabel(task) }}</p>
+        </li>
+      </ul>
+      <p v-else class="muted empty">Aktuell keine überfälligen Tasks.</p>
+    </section>
+
+    <section v-if="newsPosts.length" class="card news-preview">
+      <div class="news-head">
+        <h2>Neuigkeiten</h2>
+        <router-link class="btn ghost tiny" to="/news">Alle News</router-link>
+      </div>
+      <ul>
+        <li v-for="post in newsPosts" :key="post.id">
+          <strong>{{ post.title }}</strong>
+          <p class="muted">{{ previewBody(post.body) }}</p>
+        </li>
+      </ul>
+    </section>
   </div>
 </template>
 
@@ -82,6 +117,9 @@ const stats = ref({
 });
 const examples = ref([]);
 const projects = ref([]);
+const overdueTasks = ref([]);
+const loadingOverdue = ref(false);
+const newsPosts = ref([]);
 const loading = ref(false);
 
 const greetingName = computed(() => me.value?.name || me.value?.username || "Artist");
@@ -144,10 +182,37 @@ async function loadStats() {
 async function loadProjects() {
   try {
     const { data } = await api.get("projects/");
-    projects.value = data;
+    projects.value = Array.isArray(data) ? data : data.results || [];
   } catch (err) {
     console.error("Projekte konnten nicht geladen werden", err);
     projects.value = [];
+  }
+}
+
+async function loadOverdueTasks() {
+  if (!isTeam.value) {
+    overdueTasks.value = [];
+    return;
+  }
+  loadingOverdue.value = true;
+  try {
+    const { data } = await api.get("tasks/overdue/");
+    overdueTasks.value = data || [];
+  } catch (err) {
+    console.error("Überfällige Tasks konnten nicht geladen werden", err);
+    overdueTasks.value = [];
+  } finally {
+    loadingOverdue.value = false;
+  }
+}
+
+async function loadNewsPreview() {
+  try {
+    const { data } = await api.get("news/");
+    newsPosts.value = (data || []).slice(0, 3);
+  } catch (err) {
+    console.error("News konnten nicht geladen werden", err);
+    newsPosts.value = [];
   }
 }
 
@@ -156,8 +221,12 @@ async function refresh() {
   loading.value = true;
   try {
     await fetchProfile(true);
-    const loaders = [loadStats(), loadExamples()];
-    if (!isTeam.value) loaders.push(loadProjects());
+    const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
+    if (isTeam.value) {
+      loaders.push(loadOverdueTasks());
+    } else {
+      loaders.push(loadProjects());
+    }
     await Promise.all(loaders);
   } finally {
     loading.value = false;
@@ -166,8 +235,12 @@ async function refresh() {
 
 onMounted(async () => {
   await fetchProfile();
-  const loaders = [loadStats(), loadExamples()];
-  if (!isTeam.value) loaders.push(loadProjects());
+  const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
+  if (isTeam.value) {
+    loaders.push(loadOverdueTasks());
+  } else {
+    loaders.push(loadProjects());
+  }
   await Promise.all(loaders);
 });
 
@@ -180,6 +253,20 @@ function statusLabel(status) {
     ON_HOLD: "Pausiert",
   };
   return map[status] || status;
+}
+
+function previewBody(text = "") {
+  if (!text) return "";
+  return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+}
+
+function formatTaskDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" }).format(new Date(value));
+}
+
+function taskProjectLabel(task) {
+  return task.project_title || `Projekt #${task.project}`;
 }
 </script>
 
@@ -255,6 +342,57 @@ function statusLabel(status) {
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 12px;
+}
+.overdue ul {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.overdue .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.overdue .badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(248, 113, 113, 0.18);
+  color: #b91c1c;
+}
+.overdue .empty {
+  margin: 6px 0 0;
+}
+.news-preview .news-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.news-preview ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.news-preview li {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.btn.tiny {
+  padding: 4px 10px;
+  font-size: 12px;
 }
 .project-overview ul {
   list-style: none;

@@ -5,10 +5,27 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from core.views import (
-    register, stats,
-    ProfileViewSet, RoleViewSet, ExampleViewSet, RequestViewSet,
-    ChatThreadViewSet, ChatMessageViewSet, ProjectViewSet, TaskViewSet,
-    ContractViewSet, PaymentViewSet, ReleaseViewSet, EventViewSet, BookingViewSet,
+    ActivityFeedView,
+    BookingViewSet,
+    ChatMessageViewSet,
+    ChatThreadViewSet,
+    ContractViewSet,
+    EventViewSet,
+    ExampleViewSet,
+    NewsPostViewSet,
+    PaymentViewSet,
+    ProfileViewSet,
+    ProjectAttachmentViewSet,
+    ProjectViewSet,
+    ReleaseViewSet,
+    RequestViewSet,
+    RoleViewSet,
+    TaskAttachmentViewSet,
+    TaskCommentViewSet,
+    TaskViewSet,
+    admin_overview,
+    register,
+    stats,
 )
 
 router = routers.DefaultRouter()
@@ -20,16 +37,22 @@ router.register(r"threads", ChatThreadViewSet)
 router.register(r"messages", ChatMessageViewSet)
 router.register(r"projects", ProjectViewSet)
 router.register(r"tasks", TaskViewSet)
+router.register(r"project-attachments", ProjectAttachmentViewSet, basename="project-attachments")
+router.register(r"task-attachments", TaskAttachmentViewSet, basename="task-attachments")
+router.register(r"task-comments", TaskCommentViewSet, basename="task-comments")
 router.register(r"contracts", ContractViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"releases", ReleaseViewSet)
 router.register(r"events", EventViewSet)
 router.register(r"bookings", BookingViewSet)
+router.register(r"news", NewsPostViewSet)
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/register/", register),
     path("api/stats/", stats),
+    path("api/admin/overview/", admin_overview),
+    path("api/activity-feed/", ActivityFeedView.as_view(), name="activity-feed"),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/", include(router.urls)),

@@ -139,6 +139,12 @@ class RequestViewSet(viewsets.ModelViewSet):
         me=self.request.user.profile
         return Request.objects.filter(Q(sender=me)|Q(receiver=me)).order_by("-created_at")
 
+    @action(detail=False, methods=["GET"], url_path="team-open", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def team_open(self, request):
+        qs = Request.objects.filter(status="OPEN").order_by("-created_at")[:25]
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
 # --- Chat ---
 class ChatThreadViewSet(viewsets.ModelViewSet):
     queryset = ChatThread.objects.all()
@@ -483,6 +489,21 @@ class TaskViewSet(viewsets.ModelViewSet):
             .filter(is_archived=False, due_date__lt=today)
             .exclude(status="DONE")
             .order_by("due_date")[:15]
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["GET"], url_path="upcoming")
+    def upcoming(self, request):
+        days = int(request.query_params.get("days", 7))
+        limit = min(max(int(request.query_params.get("limit", 8)), 1), 25)
+        start = timezone.now().date()
+        end = start + timedelta(days=days)
+        qs = (
+            self._base_queryset()
+            .filter(is_archived=False, due_date__gte=start, due_date__lte=end)
+            .exclude(status="DONE")
+            .order_by("due_date", "priority")[:limit]
         )
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)

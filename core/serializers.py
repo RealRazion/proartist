@@ -96,9 +96,18 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class RequestSerializer(serializers.ModelSerializer):
+    sender_name = serializers.SerializerMethodField()
+    receiver_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Request
         fields = "__all__"
+
+    def get_sender_name(self, obj):
+        return getattr(obj.sender, "name", "") or obj.sender.user.username
+
+    def get_receiver_name(self, obj):
+        return getattr(obj.receiver, "name", "") or obj.receiver.user.username
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):

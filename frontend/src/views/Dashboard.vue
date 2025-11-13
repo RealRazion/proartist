@@ -1,16 +1,28 @@
 <template>
   <div class="dashboard">
-    <section class="card welcome">
+    <section v-if="isTeam" class="card team-hero">
+      <div>
+        <p class="eyebrow">Team</p>
+        <h1>Team Dashboard</h1>
+        <p class="muted">Schneller Überblick über Todos, Projekte und Anfragen.</p>
+      </div>
+      <div class="hero-actions">
+        <button class="btn" type="button" @click="goTo('projects')">Projekt anlegen</button>
+        <button class="btn ghost" type="button" @click="goTo('tasks')">Task Board</button>
+        <button class="btn ghost" type="button" @click="goTo('profiles')">Profile scannen</button>
+        <button class="btn ghost" type="button" @click="refresh">Aktualisieren</button>
+      </div>
+    </section>
+
+    <section v-else class="card welcome">
       <div>
         <p class="eyebrow">Hi {{ greetingName }}</p>
         <h1>Willkommen zurück bei ProArtist</h1>
         <p class="muted">
-          {{ isTeam ? "Behalte Team, Projekte und Requests im Blick." : "Mach dein Profil sichtbar und starte neue Kollaborationen." }}
+          Mach dein Profil sichtbar und starte neue Kollaborationen.
         </p>
       </div>
-      <button class="btn ghost" type="button" @click="refresh">
-        Aktualisieren
-      </button>
+      <button class="btn ghost" type="button" @click="refresh">Aktualisieren</button>
     </section>
 
     <section v-if="isTeam" class="kpi-grid">
@@ -54,35 +66,87 @@
       <p v-if="!projects.length" class="muted empty">Noch keine Projekte.</p>
     </section>
 
-    <section class="card quick-actions">
+    <section v-if="!isTeam" class="card quick-actions">
       <h2>Schnellaktionen</h2>
       <div class="actions">
         <button class="btn" type="button" @click="goTo('profiles')">Profile entdecken</button>
         <button class="btn ghost" type="button" @click="goTo('chats')">Chat öffnen</button>
-        <button v-if="isTeam" class="btn ghost" type="button" @click="goTo('projects')">Neues Projekt</button>
+        <button class="btn ghost" type="button" @click="goTo('projects')">Neues Projekt</button>
       </div>
     </section>
 
-    <section v-if="isTeam" class="card overdue">
-      <div class="overdue-head">
+    <section v-if="isTeam" class="card deadlines">
+      <div class="deadlines-head">
         <div>
-          <h2>Überfällige Tasks</h2>
-          <p class="muted">Deadlines im Blick behalten</p>
+          <h2>Fristen im Blick</h2>
+          <p class="muted">Überfällige und anstehende Tasks sortiert nach Fälligkeit.</p>
         </div>
-        <button class="btn ghost tiny" type="button" @click="loadOverdueTasks" :disabled="loadingOverdue">
-          {{ loadingOverdue ? "Lade..." : "Aktualisieren" }}
+        <div class="head-actions">
+          <button class="btn ghost tiny" type="button" @click="loadOverdueTasks" :disabled="loadingOverdue">
+            {{ loadingOverdue ? "Aktualisiere..." : "Überfällig laden" }}
+          </button>
+          <button class="btn ghost tiny" type="button" @click="loadUpcomingTasks" :disabled="loadingUpcoming">
+            {{ loadingUpcoming ? "Aktualisiere..." : "Nächste Woche laden" }}
+          </button>
+        </div>
+      </div>
+      <div class="deadlines-grid">
+        <div class="deadline-column">
+          <header>
+            <h3>Überfällig</h3>
+            <small>{{ overdueTasks.length }} Tasks</small>
+          </header>
+          <ul v-if="overdueTasks.length">
+            <li v-for="task in overdueTasks" :key="`overdue-${task.id}`">
+              <div class="row">
+                <strong>{{ task.title }}</strong>
+                <span class="badge danger">{{ formatTaskDate(task.due_date) }}</span>
+              </div>
+              <p class="muted">{{ taskProjectLabel(task) }}</p>
+            </li>
+          </ul>
+          <p v-else class="muted empty">Keine überfälligen Tasks 🎉</p>
+        </div>
+        <div class="deadline-column">
+          <header>
+            <h3>Nächste Woche</h3>
+            <small>{{ upcomingTasks.length }} Tasks</small>
+          </header>
+          <ul v-if="upcomingTasks.length">
+            <li v-for="task in upcomingTasks" :key="`upcoming-${task.id}`">
+              <div class="row">
+                <strong>{{ task.title }}</strong>
+                <span class="badge">{{ formatTaskDate(task.due_date) }}</span>
+              </div>
+              <p class="muted">{{ taskProjectLabel(task) }}</p>
+            </li>
+          </ul>
+          <p v-else class="muted empty">Keine anstehenden Aufgaben.</p>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="isTeam" class="card requests-card">
+      <div class="requests-head">
+        <div>
+          <h2>Offene Anfragen</h2>
+          <p class="muted">Neueste Requests aus dem Netzwerk.</p>
+        </div>
+        <button class="btn ghost tiny" type="button" @click="loadTeamRequests" :disabled="loadingRequests">
+          {{ loadingRequests ? "Aktualisiere..." : "Neu laden" }}
         </button>
       </div>
-      <ul v-if="overdueTasks.length">
-        <li v-for="task in overdueTasks" :key="task.id">
+      <ul v-if="teamRequests.length">
+        <li v-for="request in teamRequests" :key="request.id">
           <div class="row">
-            <strong>{{ task.title }}</strong>
-            <span class="badge danger">{{ formatTaskDate(task.due_date) }}</span>
+            <strong>{{ request.sender_name }}</strong>
+            <span class="pill">{{ requestTypeLabel(request.req_type) }}</span>
           </div>
-          <p class="muted">{{ taskProjectLabel(task) }}</p>
+          <p class="muted">An {{ request.receiver_name }} • {{ statusLabelMap[request.status] }}</p>
+          <p class="message">{{ request.message || "Keine Nachricht hinterlegt." }}</p>
         </li>
       </ul>
-      <p v-else class="muted empty">Aktuell keine überfälligen Tasks.</p>
+      <p v-else class="muted empty">Keine offenen Anfragen.</p>
     </section>
 
     <section v-if="newsPosts.length" class="card news-preview">
@@ -119,6 +183,10 @@ const examples = ref([]);
 const projects = ref([]);
 const overdueTasks = ref([]);
 const loadingOverdue = ref(false);
+const upcomingTasks = ref([]);
+const loadingUpcoming = ref(false);
+const teamRequests = ref([]);
+const loadingRequests = ref(false);
 const newsPosts = ref([]);
 const loading = ref(false);
 
@@ -154,6 +222,23 @@ const teamKpis = computed(() => [
   { icon: "💸", label: "Offene Zahlungen", value: stats.value.due_payments || 0 },
   { icon: "📨", label: "Offene Anfragen", value: stats.value.open_requests || 0 },
 ]);
+
+const statusLabelMap = {
+  PLANNED: "Geplant",
+  IN_PROGRESS: "In Arbeit",
+  REVIEW: "Review",
+  DONE: "Abgeschlossen",
+  ON_HOLD: "Pausiert",
+  OPEN: "Offen",
+  ACCEPTED: "Angenommen",
+  DECLINED: "Abgelehnt",
+};
+
+const requestTypeLabels = {
+  COLLAB: "Collab",
+  BOOK: "Booking",
+  OTHER: "Andere",
+};
 
 function goTo(name) {
   router.push({ name });
@@ -206,6 +291,40 @@ async function loadOverdueTasks() {
   }
 }
 
+async function loadUpcomingTasks() {
+  if (!isTeam.value) {
+    upcomingTasks.value = [];
+    return;
+  }
+  loadingUpcoming.value = true;
+  try {
+    const { data } = await api.get("tasks/upcoming/", { params: { days: 7, limit: 6 } });
+    upcomingTasks.value = data || [];
+  } catch (err) {
+    console.error("Anstehende Tasks konnten nicht geladen werden", err);
+    upcomingTasks.value = [];
+  } finally {
+    loadingUpcoming.value = false;
+  }
+}
+
+async function loadTeamRequests() {
+  if (!isTeam.value) {
+    teamRequests.value = [];
+    return;
+  }
+  loadingRequests.value = true;
+  try {
+    const { data } = await api.get("requests/team-open/");
+    teamRequests.value = data || [];
+  } catch (err) {
+    console.error("Anfragen konnten nicht geladen werden", err);
+    teamRequests.value = [];
+  } finally {
+    loadingRequests.value = false;
+  }
+}
+
 async function loadNewsPreview() {
   try {
     const { data } = await api.get("news/");
@@ -223,7 +342,7 @@ async function refresh() {
     await fetchProfile(true);
     const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
     if (isTeam.value) {
-      loaders.push(loadOverdueTasks());
+      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests());
     } else {
       loaders.push(loadProjects());
     }
@@ -237,7 +356,7 @@ onMounted(async () => {
   await fetchProfile();
   const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
   if (isTeam.value) {
-    loaders.push(loadOverdueTasks());
+    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests());
   } else {
     loaders.push(loadProjects());
   }
@@ -245,14 +364,11 @@ onMounted(async () => {
 });
 
 function statusLabel(status) {
-  const map = {
-    PLANNED: "Geplant",
-    IN_PROGRESS: "In Arbeit",
-    REVIEW: "Review",
-    DONE: "Abgeschlossen",
-    ON_HOLD: "Pausiert",
-  };
-  return map[status] || status;
+  return statusLabelMap[status] || status;
+}
+
+function requestTypeLabel(type) {
+  return requestTypeLabels[type] || type;
 }
 
 function previewBody(text = "") {
@@ -276,13 +392,22 @@ function taskProjectLabel(task) {
   gap: 20px;
   width: 100%;
 }
-.welcome {
+.welcome,
+.team-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  flex-wrap: wrap;
 }
-.welcome .muted {
+.hero-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.welcome .muted,
+.team-hero .muted {
   margin: 8px 0 0;
 }
 .eyebrow {
@@ -343,7 +468,35 @@ function taskProjectLabel(task) {
   flex-wrap: wrap;
   margin-top: 12px;
 }
-.overdue ul {
+.deadlines-head,
+.requests-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.deadlines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.deadline-column {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.deadline-column header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.deadlines ul,
+.requests-card ul {
   list-style: none;
   margin: 12px 0 0;
   padding: 0;
@@ -351,48 +504,38 @@ function taskProjectLabel(task) {
   flex-direction: column;
   gap: 10px;
 }
-.overdue .row {
+.deadlines .row,
+.requests-card .row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
 }
-.overdue .badge {
+.deadlines .badge {
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  background: rgba(59, 130, 246, 0.18);
+  color: #1d4ed8;
+}
+.deadlines .badge.danger {
   background: rgba(248, 113, 113, 0.18);
   color: #b91c1c;
 }
-.overdue .empty {
+.deadlines .empty {
   margin: 6px 0 0;
 }
-.news-preview .news-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+.requests-card .pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(75, 91, 255, 0.16);
+  font-size: 11px;
+  font-weight: 600;
 }
-.news-preview ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.news-preview li {
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 10px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.btn.tiny {
-  padding: 4px 10px;
-  font-size: 12px;
+.requests-card .message {
+  margin: 4px 0 0;
+  font-size: 13px;
 }
 .project-overview ul {
   list-style: none;
@@ -439,15 +582,35 @@ function taskProjectLabel(task) {
 .project-overview .empty {
   margin: 0;
 }
-
+.news-preview .news-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.news-preview ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.btn.tiny {
+  padding: 4px 10px;
+  font-size: 12px;
+}
 @media (max-width: 760px) {
-  .welcome {
+  .welcome,
+  .team-hero {
     flex-direction: column;
     align-items: flex-start;
   }
+  .hero-actions {
+    justify-content: flex-start;
+  }
   .checklist li {
     grid-template-columns: auto 1fr;
-    gap: 10px;
   }
   .checklist li .btn {
     grid-column: span 2;

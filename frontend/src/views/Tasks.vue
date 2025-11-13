@@ -776,9 +776,10 @@ onBeforeUnmount(() => {
 }
 .columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 18px;
   width: 100%;
+  align-items: flex-start;
 }
 .columns ul {
   list-style: none;
@@ -795,6 +796,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 160px;
 }
 .columns li.overdue {
   border-color: #dc2626;
@@ -971,6 +973,12 @@ onBeforeUnmount(() => {
 @media (max-width: 960px) {
   .content {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1200px) {
+  .columns {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>

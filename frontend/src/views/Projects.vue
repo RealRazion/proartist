@@ -630,8 +630,8 @@ onBeforeUnmount(() => {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 14px;
 }
 .list li {
@@ -641,6 +641,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
 }
 .meta {
   display: flex;
@@ -801,6 +802,12 @@ onBeforeUnmount(() => {
   .stats,
   .list {
     grid-column: span 1;
+  }
+}
+
+@media (min-width: 1200px) {
+  .list ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 </style>

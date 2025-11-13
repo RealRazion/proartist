@@ -339,6 +339,10 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 .profiles.compact .grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+.profiles.compact .grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 .profile-card {
@@ -349,7 +353,17 @@ onBeforeUnmount(() => {
 }
 .profile-card.compact {
   gap: 8px;
-  padding: 12px;
+  padding: 10px;
+  font-size: 13px;
+}
+.profiles.compact .profile-card .muted {
+  font-size: 12px;
+}
+.profiles.compact .profile-card .roles {
+  display: none;
+}
+.profiles.compact .profile-card .socials {
+  display: none;
 }
 .profile-card h2 {
   margin: 0;
@@ -383,6 +397,11 @@ onBeforeUnmount(() => {
   height: 36px;
   border-radius: 12px;
   font-size: 16px;
+}
+.profiles.compact .footer {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 .roles {
   display: flex;

@@ -47,6 +47,15 @@
           <small v-if="unreadCount" class="pill">{{ unreadCount }}</small>
         </router-link>
         <router-link
+          to="/news"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'News' : null"
+        >
+          <span class="icon">N</span>
+          <span class="label">News</span>
+        </router-link>
+        <router-link
           v-if="isTeam"
           to="/projects"
           class="nav-link"
@@ -65,6 +74,26 @@
         >
           <span class="icon">🗒️</span>
           <span class="label">Tasks</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
+          to="/activity"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Aktivitaet' : null"
+        >
+          <span class="icon">🕒</span>
+          <span class="label">Aktivitaet</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
+          to="/admin"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Admin' : null"
+        >
+          <span class="icon">⚙</span>
+          <span class="label">Admin</span>
         </router-link>
         <router-link
           to="/me"
@@ -90,6 +119,9 @@
             v-model="search"
             @keyup.enter="performSearch"
           />
+          <button class="btn ghost tiny search-btn" type="button" @click="performSearch">
+            Suchen
+          </button>
         </div>
         <div class="right">
           <button class="iconbtn" type="button" @click="toggleTheme" :title="`Theme: ${themeLabel}`">
@@ -221,7 +253,7 @@ function performSearch() {
     notify("Bitte einen Suchbegriff eingeben");
     return;
   }
-  notify(`Suche nach "${term}" ist noch nicht verfuegbar`);
+  router.push({ name: "profiles", query: { q: term } });
 }
 
 async function loadStats() {
@@ -316,6 +348,17 @@ onBeforeUnmount(() => {
 });
 </script>
 
-
-
+<style scoped>
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search-input {
+  flex: 1;
+}
+.search-btn {
+  white-space: nowrap;
+}
+</style>
 

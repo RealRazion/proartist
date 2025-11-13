@@ -8,6 +8,9 @@ import Projects from "../views/Projects.vue";
 import Tasks from "../views/Tasks.vue";
 import Chats from "../views/Chats.vue";
 import MyProfile from "../views/MyProfile.vue";
+import News from "../views/News.vue";
+import ActivityFeed from "../views/ActivityFeed.vue";
+import Admin from "../views/Admin.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
 const routes = [
@@ -24,6 +27,9 @@ const routes = [
       { path: "profiles", name: "profiles", component: Profiles, alias: "/profiles", meta: { requiresAuth: true } },
       { path: "projects", name: "projects", component: Projects, alias: "/projects", meta: { requiresAuth: true } },
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
+      { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },
+      { path: "activity", name: "activity", component: ActivityFeed, alias: "/activity", meta: { requiresAuth: true } },
+      { path: "admin", name: "admin", component: Admin, alias: "/admin", meta: { requiresAuth: true } },
       { path: "chats", name: "chats", component: Chats, alias: "/chats", meta: { requiresAuth: true } },
       { path: "me", name: "me", component: MyProfile, alias: "/me", meta: { requiresAuth: true } },
     ],

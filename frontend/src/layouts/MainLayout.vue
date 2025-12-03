@@ -86,6 +86,15 @@
           <span class="label">Aktivitaet</span>
         </router-link>
         <router-link
+          to="/songs"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Songs' : null"
+        >
+          <span class="icon">🎵</span>
+          <span class="label">Songs</span>
+        </router-link>
+        <router-link
           v-if="isTeam"
           to="/admin"
           class="nav-link"
@@ -94,6 +103,16 @@
         >
           <span class="icon">⚙</span>
           <span class="label">Admin</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
+          to="/growpro"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'GrowPro' : null"
+        >
+          <span class="icon">📈</span>
+          <span class="label">GrowPro</span>
         </router-link>
         <router-link
           to="/me"

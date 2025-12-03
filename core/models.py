@@ -156,6 +156,79 @@ class Booking(models.Model):
     payout_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     status = models.CharField(max_length=12, choices=STATUS, default="APPLIED")
 
+class Song(models.Model):
+    STATUS = [
+        ("ACTIVE", "Aktiv"),
+        ("INACTIVE", "Inaktiv"),
+        ("ARCHIVED", "Archiviert"),
+    ]
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="songs")
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True, related_name="songs")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=12, choices=STATUS, default="ACTIVE")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self): return self.title
+
+class SongVersion(models.Model):
+    song = models.ForeignKey(Song, on_delete=models.CASCADE, related_name="versions")
+    version_number = models.PositiveIntegerField(default=1)
+    file = models.FileField(upload_to="songs/", blank=True)
+    notes = models.TextField(blank=True)
+    is_mix_ready = models.BooleanField(default=False)
+    is_master_ready = models.BooleanField(default=False)
+    is_final = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-version_number"]
+
+    def __str__(self): return f"{self.song.title} v{self.version_number}"
+
+
+class GrowProGoal(models.Model):
+    STATUS = [
+        ("ACTIVE", "Aktiv"),
+        ("ON_HOLD", "Pausiert"),
+        ("DONE", "Erledigt"),
+        ("ARCHIVED", "Archiviert"),
+    ]
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="growpro_goals")
+    created_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="growpro_created")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    metric = models.CharField(max_length=100, help_text="z.B. Monatliche Hörer, Streams, Follower")
+    target_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    current_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    unit = models.CharField(max_length=32, blank=True, help_text="z.B. Hörer, Streams, %")
+    due_date = models.DateField(null=True, blank=True)
+    status = models.CharField(max_length=12, choices=STATUS, default="ACTIVE")
+    last_logged_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_date", "-created_at"]
+
+    def __str__(self): return self.title
+
+
+class GrowProUpdate(models.Model):
+    goal = models.ForeignKey(GrowProGoal, on_delete=models.CASCADE, related_name="updates")
+    value = models.DecimalField(max_digits=12, decimal_places=2)
+    note = models.TextField(blank=True)
+    created_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="growpro_updates")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self): return f"{self.goal.title} @ {self.value}"
+
 class ActivityEntry(models.Model):
     SEVERITY_CHOICES = [
         ("INFO","Info"),

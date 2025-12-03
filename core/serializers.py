@@ -8,6 +8,10 @@ from .models import (
     Contract,
     Event,
     Example,
+    Song,
+    SongVersion,
+    GrowProGoal,
+    GrowProUpdate,
     NewsPost,
     Payment,
     Profile,
@@ -297,6 +301,84 @@ class TaskCommentSerializer(serializers.ModelSerializer):
         model = TaskComment
         fields = ["id", "task", "author", "body", "mentions", "mention_profiles", "created_at"]
         read_only_fields = ["author", "created_at", "mention_profiles"]
+
+
+class SongVersionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SongVersion
+        fields = "__all__"
+        read_only_fields = ["created_at", "version_number"]
+
+    def create(self, validated_data):
+        song = validated_data["song"]
+        if "version_number" not in validated_data or not validated_data.get("version_number"):
+            last = song.versions.order_by("-version_number").first()
+            validated_data["version_number"] = (last.version_number + 1) if last else 1
+        return super().create(validated_data)
+
+
+class SongSerializer(serializers.ModelSerializer):
+    profile = ProfileMiniSerializer(read_only=True)
+    versions = SongVersionSerializer(many=True, read_only=True)
+    project_title = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Song
+        fields = [
+            "id",
+            "profile",
+            "project",
+            "project_title",
+            "title",
+            "description",
+            "status",
+            "created_at",
+            "versions",
+        ]
+        read_only_fields = ["id", "profile", "project_title", "created_at", "versions"]
+
+    def get_project_title(self, obj):
+        return obj.project.title if obj.project else None
+
+
+class GrowProUpdateSerializer(serializers.ModelSerializer):
+    created_by = ProfileMiniSerializer(read_only=True)
+
+    class Meta:
+        model = GrowProUpdate
+        fields = ["id", "goal", "value", "note", "created_by", "created_at"]
+        read_only_fields = ["id", "created_by", "created_at"]
+
+
+class GrowProGoalSerializer(serializers.ModelSerializer):
+    profile = ProfileMiniSerializer(read_only=True)
+    created_by = ProfileMiniSerializer(read_only=True)
+    updates = GrowProUpdateSerializer(many=True, read_only=True)
+    profile_id = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(), source="profile", write_only=True, required=False
+    )
+
+    class Meta:
+        model = GrowProGoal
+        fields = [
+            "id",
+            "profile",
+            "profile_id",
+            "created_by",
+            "title",
+            "description",
+            "metric",
+            "unit",
+            "target_value",
+            "current_value",
+            "due_date",
+            "status",
+            "last_logged_at",
+            "created_at",
+            "updated_at",
+            "updates",
+        ]
+        read_only_fields = ["id", "created_by", "last_logged_at", "created_at", "updated_at", "updates"]
 
 
 class ContractSerializer(serializers.ModelSerializer):

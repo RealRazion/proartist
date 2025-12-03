@@ -36,6 +36,10 @@ from .models import (
     Task,
     TaskAttachment,
     TaskComment,
+    Song,
+    SongVersion,
+    GrowProGoal,
+    GrowProUpdate,
 )
 from .permissions import IsTeam, IsTeamOrReadOnly
 from .serializers import (
@@ -54,6 +58,10 @@ from .serializers import (
     ReleaseSerializer,
     RequestSerializer,
     RoleSerializer,
+    GrowProGoalSerializer,
+    GrowProUpdateSerializer,
+    SongSerializer,
+    SongVersionSerializer,
     TaskAttachmentSerializer,
     TaskCommentSerializer,
     TaskSerializer,
@@ -621,6 +629,164 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
             project=instance.task.project,
         )
         super().perform_destroy(instance)
+
+
+class SongViewSet(viewsets.ModelViewSet):
+    serializer_class = SongSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Song.objects.select_related("profile__user", "project").prefetch_related("versions")
+        me = getattr(self.request.user, "profile", None)
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            statuses = [s.strip().upper() for s in status_param.split(",") if s.strip()]
+            if statuses and "ALL" not in statuses:
+                qs = qs.filter(status__in=statuses)
+        if me and not me.roles.filter(key="TEAM").exists():
+            qs = qs.filter(profile=me)
+        profile_id = self.request.query_params.get("profile")
+        if profile_id:
+            qs = qs.filter(profile_id=profile_id)
+        project_id = self.request.query_params.get("project")
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        return qs.order_by("-created_at")
+
+    def perform_create(self, serializer):
+        song = serializer.save(profile=self.request.user.profile)
+        log_activity(
+            "song_created",
+            f"Song angelegt: {song.title}",
+            actor=self.request.user.profile,
+            severity="INFO",
+        )
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        me = self.request.user.profile
+        data = serializer.validated_data
+        if not me.roles.filter(key="TEAM").exists():
+            data.pop("project", None)
+        song = serializer.save()
+        log_activity(
+            "song_updated",
+            f"Song aktualisiert: {song.title}",
+            actor=me,
+            severity="INFO",
+            project=song.project,
+        )
+
+    def perform_destroy(self, instance):
+        log_activity(
+            "song_deleted",
+            f"Song gelöscht: {instance.title}",
+            actor=getattr(self.request.user, "profile", None),
+            severity="WARNING",
+            project=instance.project,
+        )
+        super().perform_destroy(instance)
+
+    def update(self, request, *args, **kwargs):
+        song = self.get_object()
+        me = request.user.profile
+        if song.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+            return Response({"detail": "Nicht erlaubt"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        song = self.get_object()
+        me = request.user.profile
+        if song.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+            return Response({"detail": "Nicht erlaubt"}, status=403)
+        return super().destroy(request, *args, **kwargs)
+
+
+class SongVersionViewSet(viewsets.ModelViewSet):
+    serializer_class = SongVersionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = SongVersion.objects.select_related("song__profile__user", "song__project")
+        song_id = self.request.query_params.get("song")
+        if song_id:
+            qs = qs.filter(song_id=song_id)
+        return qs.order_by("-created_at")
+
+    def perform_create(self, serializer):
+        song = serializer.validated_data["song"]
+        me = self.request.user.profile
+        if song.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+            return Response({"detail": "Nicht erlaubt"}, status=403)
+        version = serializer.save()
+        log_activity(
+            "song_version_created",
+            f"Neue Version: {song.title} v{version.version_number}",
+            actor=me,
+            severity="INFO",
+            project=song.project,
+        )
+
+
+class GrowProGoalViewSet(viewsets.ModelViewSet):
+    serializer_class = GrowProGoalSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = GrowProGoal.objects.select_related("profile__user", "created_by__user").prefetch_related("updates__created_by__user")
+        me = self.request.user.profile
+        if not me.roles.filter(key="TEAM").exists():
+            qs = qs.filter(profile=me)
+        profile_id = self.request.query_params.get("profile")
+        if profile_id:
+            qs = qs.filter(profile_id=profile_id)
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            statuses = [s.strip().upper() for s in status_param.split(",") if s.strip()]
+            if statuses and "ALL" not in statuses:
+                qs = qs.filter(status__in=statuses)
+        return qs.order_by("due_date", "-created_at")
+
+    def perform_create(self, serializer):
+        me = self.request.user.profile
+        data = serializer.validated_data
+        if not me.roles.filter(key="TEAM").exists():
+            data["profile"] = me
+            data["created_by"] = me
+        goal = serializer.save(created_by=me)
+        log_activity(
+            "growpro_created",
+            f"GrowPro Ziel: {goal.title}",
+            actor=me,
+            severity="INFO",
+            project=goal.profile.projects.first() if goal.profile else None,
+        )
+
+    def perform_update(self, serializer):
+        goal = serializer.save()
+        log_activity(
+            "growpro_updated",
+            f"GrowPro Ziel aktualisiert: {goal.title}",
+            actor=getattr(self.request.user, "profile", None),
+            severity="INFO",
+        )
+
+    @action(detail=True, methods=["POST"], url_path="log", permission_classes=[permissions.IsAuthenticated])
+    def log_value(self, request, pk=None):
+        goal = self.get_object()
+        me = request.user.profile
+        if goal.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+            return Response({"detail": "Nicht erlaubt"}, status=403)
+        try:
+            value = float(request.data.get("value"))
+        except (TypeError, ValueError):
+            return Response({"detail": "Wert fehlt oder ist ungültig"}, status=400)
+        note = request.data.get("note", "")
+        update = GrowProUpdate.objects.create(goal=goal, value=value, note=note, created_by=me)
+        goal.current_value = value
+        goal.last_logged_at = timezone.now()
+        goal.save(update_fields=["current_value", "last_logged_at", "updated_at"])
+        return Response(GrowProUpdateSerializer(update).data)
 
     @action(detail=False, methods=["GET"], url_path="summary")
     def summary(self, request):

@@ -187,6 +187,8 @@ const upcomingTasks = ref([]);
 const loadingUpcoming = ref(false);
 const teamRequests = ref([]);
 const loadingRequests = ref(false);
+const growProGoals = ref([]);
+const loadingGrowPro = ref(false);
 const newsPosts = ref([]);
 const loading = ref(false);
 
@@ -221,6 +223,8 @@ const teamKpis = computed(() => [
   { icon: "📝", label: "Aktive Verträge", value: stats.value.active_contracts || 0 },
   { icon: "💸", label: "Offene Zahlungen", value: stats.value.due_payments || 0 },
   { icon: "📨", label: "Offene Anfragen", value: stats.value.open_requests || 0 },
+  { icon: "⏳", label: "GrowPro <24h", value: growProDueSoon.value },
+  { icon: "⚠️", label: "GrowPro überfällig", value: growProOverdue.value },
 ]);
 
 const statusLabelMap = {
@@ -325,6 +329,23 @@ async function loadTeamRequests() {
   }
 }
 
+async function loadGrowProGoals() {
+  if (!isTeam.value) {
+    growProGoals.value = [];
+    return;
+  }
+  loadingGrowPro.value = true;
+  try {
+    const { data } = await api.get("growpro/", { params: { status: "ACTIVE,ON_HOLD" } });
+    growProGoals.value = data || [];
+  } catch (err) {
+    console.error("GrowPro konnte nicht geladen werden", err);
+    growProGoals.value = [];
+  } finally {
+    loadingGrowPro.value = false;
+  }
+}
+
 async function loadNewsPreview() {
   try {
     const { data } = await api.get("news/");
@@ -342,7 +363,7 @@ async function refresh() {
     await fetchProfile(true);
     const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
     if (isTeam.value) {
-      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests());
+      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals());
     } else {
       loaders.push(loadProjects());
     }
@@ -356,7 +377,7 @@ onMounted(async () => {
   await fetchProfile();
   const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
   if (isTeam.value) {
-    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests());
+    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals());
   } else {
     loaders.push(loadProjects());
   }
@@ -384,6 +405,28 @@ function formatTaskDate(value) {
 function taskProjectLabel(task) {
   return task.project_title || `Projekt #${task.project}`;
 }
+
+const growProDueSoon = computed(() => {
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+  return (growProGoals.value || []).filter((goal) => {
+    if (!goal.due_date) return false;
+    if (["DONE", "ARCHIVED"].includes(goal.status)) return false;
+    const due = new Date(goal.due_date).getTime();
+    const diff = due - now;
+    return diff >= 0 && diff < oneDay;
+  }).length;
+});
+
+const growProOverdue = computed(() => {
+  const now = Date.now();
+  return (growProGoals.value || []).filter((goal) => {
+    if (!goal.due_date) return false;
+    if (["DONE", "ARCHIVED"].includes(goal.status)) return false;
+    const due = new Date(goal.due_date).getTime();
+    return due < now;
+  }).length;
+});
 </script>
 
 <style scoped>

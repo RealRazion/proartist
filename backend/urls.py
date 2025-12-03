@@ -12,6 +12,7 @@ from core.views import (
     ContractViewSet,
     EventViewSet,
     ExampleViewSet,
+    GrowProGoalViewSet,
     NewsPostViewSet,
     PaymentViewSet,
     ProfileViewSet,
@@ -20,6 +21,8 @@ from core.views import (
     ReleaseViewSet,
     RequestViewSet,
     RoleViewSet,
+    SongViewSet,
+    SongVersionViewSet,
     TaskAttachmentViewSet,
     TaskCommentViewSet,
     TaskViewSet,
@@ -40,6 +43,9 @@ router.register(r"tasks", TaskViewSet)
 router.register(r"project-attachments", ProjectAttachmentViewSet, basename="project-attachments")
 router.register(r"task-attachments", TaskAttachmentViewSet, basename="task-attachments")
 router.register(r"task-comments", TaskCommentViewSet, basename="task-comments")
+router.register(r"songs", SongViewSet, basename="songs")
+router.register(r"song-versions", SongVersionViewSet, basename="song-versions")
+router.register(r"growpro", GrowProGoalViewSet, basename="growpro-goals")
 router.register(r"contracts", ContractViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"releases", ReleaseViewSet)

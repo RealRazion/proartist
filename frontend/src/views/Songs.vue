@@ -3,7 +3,9 @@
     <header class="card header">
       <div>
         <h1>Songs & Versionen</h1>
-        <p class="muted">Verwalte deine Songs und lade neue Versionen hoch. Projekt-Zuordnung nur für Team.</p>
+        <p class="muted">
+          Verwalte Songs, lade neue Versionen hoch. Projekte zuweisen d&uuml;rfen nur Team-Mitglieder.
+        </p>
       </div>
       <button class="btn ghost" type="button" @click="refresh" :disabled="loading">
         {{ loading ? "Lade..." : "Aktualisieren" }}
@@ -14,22 +16,37 @@
       <div class="filter-row">
         <label>
           Suche
-          <input class="input" v-model.trim="search" placeholder="Titel oder Beschreibung..." />
+          <input class="input" v-model.trim="search" placeholder="Titel oder Beschreibung..." @keyup.enter="applyFilters" />
         </label>
         <label>
           Status
-          <select class="input" v-model="filterStatus" @change="loadSongs">
+          <select class="input" v-model="filterStatus" @change="applyFilters">
             <option value="ALL">Alle</option>
             <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
           </select>
         </label>
         <label v-if="isTeam">
           Projekt
-          <select class="input" v-model="filterProject" @change="loadSongs">
+          <select class="input" v-model="filterProject" @change="applyFilters">
             <option value="ALL">Alle</option>
             <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
           </select>
         </label>
+        <label>
+          Sortierung
+          <select class="input" v-model="sort" @change="applyFilters">
+            <option value="-created_at">Neueste zuerst</option>
+            <option value="created_at">&Auml;lteste zuerst</option>
+            <option value="title">Titel A-Z</option>
+            <option value="-title">Titel Z-A</option>
+            <option value="status">Status</option>
+          </select>
+        </label>
+      </div>
+      <div class="filter-row secondary">
+        <label class="check"><input type="checkbox" v-model="filterMix" @change="applyFilters" /> Mix vorhanden</label>
+        <label class="check"><input type="checkbox" v-model="filterMaster" @change="applyFilters" /> Master vorhanden</label>
+        <label class="check"><input type="checkbox" v-model="filterFinal" @change="applyFilters" /> Finale Version</label>
       </div>
     </section>
 
@@ -58,13 +75,16 @@
           </select>
         </label>
       </div>
-      <button class="btn" type="button" @click="createSong" :disabled="creating">
-        {{ creating ? "Speichere..." : "Song speichern" }}
-      </button>
+      <div class="form-actions">
+        <button class="btn" type="button" @click="createSong" :disabled="creating || loading">
+          {{ creating ? "Speichere..." : "Song speichern" }}
+        </button>
+        <p v-if="formMessage" :class="['feedback', formMessageType]">{{ formMessage }}</p>
+      </div>
     </section>
 
     <section class="song-grid">
-      <article v-for="song in filteredSongs" :key="song.id" class="card song">
+      <article v-for="song in filteredSongs" :key="song.id" class="card song" :data-status="song.status">
         <div class="song-head">
           <div>
             <h3>{{ song.title }}</h3>
@@ -83,14 +103,16 @@
           <ul v-if="versions[song.id]?.length">
             <li v-for="v in versions[song.id]" :key="v.id">
               <div class="row">
-                <strong>v{{ v.version_number }}</strong>
-                <span class="tags">
-                  <span v-if="v.is_mix_ready" class="tag">Mix</span>
-                  <span v-if="v.is_master_ready" class="tag">Master</span>
-                  <span v-if="v.is_final" class="tag final">Final</span>
-                </span>
+                <div>
+                  <strong>v{{ v.version_number }}</strong>
+                  <span class="tags">
+                    <span v-if="v.is_mix_ready" class="tag">Mix</span>
+                    <span v-if="v.is_master_ready" class="tag">Master</span>
+                    <span v-if="v.is_final" class="tag final">Final</span>
+                  </span>
+                </div>
+                <small class="muted">{{ formatDateTime(v.created_at) }}</small>
               </div>
-              <p class="muted small">{{ formatDateTime(v.created_at) }}</p>
               <p class="muted small">{{ v.notes || "Keine Notiz" }}</p>
               <a v-if="v.file" class="link" :href="v.file" target="_blank" rel="noopener">Download</a>
             </li>
@@ -100,7 +122,7 @@
             <input class="input" v-model.trim="versionDraft(song.id).notes" placeholder="Notiz" />
             <label class="file-picker">
               <input type="file" @change="onFile(song.id, $event)" />
-              {{ versionDraft(song.id).file ? versionDraft(song.id).file.name : "Datei wählen" }}
+              {{ versionDraft(song.id).file ? versionDraft(song.id).file.name : "Datei w&auml;hlen" }}
             </label>
             <div class="flags">
               <label><input type="checkbox" v-model="versionDraft(song.id).is_mix_ready" /> Mix</label>
@@ -108,11 +130,36 @@
               <label><input type="checkbox" v-model="versionDraft(song.id).is_final" /> Final</label>
             </div>
             <button class="btn tiny" type="submit" :disabled="uploading[song.id]">
-              {{ uploading[song.id] ? "Lädt..." : "Version hochladen" }}
+              {{ uploading[song.id] ? "L&auml;dt..." : "Version hochladen" }}
             </button>
           </form>
         </div>
       </article>
+    </section>
+
+    <div class="pagination" v-if="pageCount > 1">
+      <button class="btn ghost tiny" type="button" :disabled="page === 1 || loading" @click="changePage(-1)">Zur&uuml;ck</button>
+      <span>Seite {{ page }} / {{ pageCount }}</span>
+      <button class="btn ghost tiny" type="button" :disabled="page === pageCount || loading" @click="changePage(1)">Weiter</button>
+    </div>
+
+    <section v-if="isTeam" class="card activity">
+      <div class="activity-head">
+        <h2>Aktivit&auml;t</h2>
+        <button class="btn ghost tiny" type="button" @click="loadActivity" :disabled="loadingActivity">
+          {{ loadingActivity ? "Lade..." : "Neu laden" }}
+        </button>
+      </div>
+      <ul v-if="activities.length">
+        <li v-for="item in activities" :key="item.id">
+          <div class="row">
+            <strong>{{ item.title }}</strong>
+            <span class="pill subtle">{{ formatDateTime(item.created_at) }}</span>
+          </div>
+          <p class="muted small">{{ item.description || item.event_type }}</p>
+        </li>
+      </ul>
+      <p v-else class="muted small">Keine Aktivit&auml;ten vorhanden.</p>
     </section>
   </div>
 </template>
@@ -127,13 +174,24 @@ const { isTeam, fetchProfile } = useCurrentProfile();
 const songs = ref([]);
 const versions = ref({});
 const projects = ref([]);
+const activities = ref([]);
+
 const loading = ref(false);
 const creating = ref(false);
 const uploading = ref({});
+const loadingActivity = ref(false);
 
 const search = ref("");
 const filterStatus = ref("ALL");
 const filterProject = ref("ALL");
+const filterMix = ref(false);
+const filterMaster = ref(false);
+const filterFinal = ref(false);
+const sort = ref("-created_at");
+
+const page = ref(1);
+const pageSize = ref(9);
+const total = ref(0);
 
 const statusOptions = ["ACTIVE", "INACTIVE", "ARCHIVED"];
 const statusLabels = {
@@ -148,11 +206,13 @@ const form = ref({
   status: "ACTIVE",
   project: "",
 });
+const formMessage = ref("");
+const formMessageType = ref("info");
 
 const drafts = ref({});
 
-const filteredSongs = computed(() =>
-  songs.value.filter((song) => {
+const filteredSongs = computed(() => {
+  return songs.value.filter((song) => {
     const term = search.value.trim().toLowerCase();
     const matchesText =
       !term ||
@@ -161,9 +221,18 @@ const filteredSongs = computed(() =>
     const matchesStatus = filterStatus.value === "ALL" || song.status === filterStatus.value;
     const matchesProject =
       filterProject.value === "ALL" || String(song.project) === String(filterProject.value);
-    return matchesText && matchesStatus && matchesProject;
-  })
-);
+    const flags = versions.value[song.id] || [];
+    const hasMix = flags.some((v) => v.is_mix_ready);
+    const hasMaster = flags.some((v) => v.is_master_ready);
+    const hasFinal = flags.some((v) => v.is_final);
+    const matchesMix = !filterMix.value || hasMix;
+    const matchesMaster = !filterMaster.value || hasMaster;
+    const matchesFinal = !filterFinal.value || hasFinal;
+    return matchesText && matchesStatus && matchesProject && matchesMix && matchesMaster && matchesFinal;
+  });
+});
+
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
 
 function versionDraft(songId) {
   if (!drafts.value[songId]) {
@@ -180,26 +249,36 @@ function formatDateTime(value) {
 async function loadProjects() {
   if (!isTeam.value) return;
   try {
-    const { data } = await api.get("projects/");
-    projects.value = Array.isArray(data) ? data : data.results || [];
+    const { data } = await api.get("projects/", { params: { page_size: 100 } });
+    const list = Array.isArray(data) ? data : data.results || [];
+    projects.value = list;
   } catch (err) {
     projects.value = [];
   }
 }
 
-async function loadSongs() {
+async function loadSongs(resetPage = false) {
+  if (resetPage) page.value = 1;
   loading.value = true;
   try {
-    const params = {};
+    const params = {
+      page: page.value,
+      page_size: pageSize.value,
+      ordering: sort.value,
+    };
     if (filterStatus.value !== "ALL") params.status = filterStatus.value;
     if (filterProject.value !== "ALL") params.project = filterProject.value;
+    if (search.value.trim()) params.search = search.value.trim();
     const { data } = await api.get("songs/", { params });
-    songs.value = data || [];
-    // Lazy load versions for visible songs
-    songs.value.forEach((song) => ensureVersions(song.id));
+    const payload = data || {};
+    const items = Array.isArray(payload) ? payload : payload.results || [];
+    songs.value = items;
+    total.value = payload.count || items.length;
+    items.forEach((song) => ensureVersions(song.id));
   } catch (err) {
     console.error("Songs konnten nicht geladen werden", err);
     songs.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
@@ -208,22 +287,48 @@ async function loadSongs() {
 async function ensureVersions(songId, force = false) {
   if (!force && versions.value[songId]) return;
   try {
-    const { data } = await api.get("song-versions/", { params: { song: songId } });
-    versions.value = { ...versions.value, [songId]: data || [] };
+    const { data } = await api.get("song-versions/", { params: { song: songId, ordering: "-created_at", page_size: 50 } });
+    const payload = data || {};
+    const items = Array.isArray(payload) ? payload : payload.results || [];
+    versions.value = { ...versions.value, [songId]: items };
   } catch (err) {
     console.error("Versionen konnten nicht geladen werden", err);
   }
 }
 
+async function loadActivity() {
+  if (!isTeam.value) {
+    activities.value = [];
+    return;
+  }
+  loadingActivity.value = true;
+  try {
+    const { data } = await api.get("activity/", {
+      params: { limit: 40, types: "song_created,song_updated,song_version_created" },
+    });
+    activities.value = data || [];
+  } catch (err) {
+    activities.value = [];
+  } finally {
+    loadingActivity.value = false;
+  }
+}
+
 async function createSong() {
-  if (!form.value.title) return;
+  if (!form.value.title) {
+    showFormMessage("Titel ist erforderlich", "error");
+    return;
+  }
   creating.value = true;
+  showFormMessage("");
   try {
     await api.post("songs/", form.value);
     form.value = { title: "", description: "", status: "ACTIVE", project: "" };
-    await loadSongs();
+    await loadSongs(true);
+    showFormMessage("Song angelegt", "success");
   } catch (err) {
     console.error("Song konnte nicht erstellt werden", err);
+    showFormMessage("Fehler beim Speichern", "error");
   } finally {
     creating.value = false;
   }
@@ -235,7 +340,10 @@ function onFile(songId, event) {
 
 async function uploadVersion(songId) {
   const draft = versionDraft(songId);
-  if (!draft.file) return;
+  if (!draft.file) {
+    showFormMessage("Bitte eine Datei ausw&auml;hlen", "error");
+    return;
+  }
   uploading.value = { ...uploading.value, [songId]: true };
   try {
     const formData = new FormData();
@@ -254,20 +362,41 @@ async function uploadVersion(songId) {
     draft.is_master_ready = false;
     draft.is_final = false;
     await ensureVersions(songId, true);
+    showFormMessage("Version hochgeladen", "success");
   } catch (err) {
     console.error("Version konnte nicht hochgeladen werden", err);
+    showFormMessage("Fehler beim Upload", "error");
   } finally {
     uploading.value = { ...uploading.value, [songId]: false };
   }
 }
 
+function showFormMessage(text, type = "info") {
+  formMessage.value = text;
+  formMessageType.value = type;
+  if (text) {
+    setTimeout(() => (formMessage.value = ""), 2500);
+  }
+}
+
 async function refresh() {
-  await loadSongs();
+  await Promise.all([loadProjects(), loadSongs(), loadActivity()]);
+}
+
+function changePage(delta) {
+  const next = page.value + delta;
+  if (next < 1 || next > pageCount.value) return;
+  page.value = next;
+  loadSongs();
+}
+
+function applyFilters() {
+  loadSongs(true);
 }
 
 onMounted(async () => {
   await fetchProfile();
-  await Promise.all([loadProjects(), loadSongs()]);
+  await Promise.all([loadProjects(), loadSongs(), loadActivity()]);
 });
 </script>
 
@@ -287,6 +416,16 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  align-items: flex-end;
+}
+.filters .secondary {
+  margin-top: 6px;
+}
+.filters .check {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .form {
   display: flex;
@@ -298,6 +437,21 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.feedback {
+  margin: 0;
+  font-size: 14px;
+}
+.feedback.error {
+  color: #dc2626;
+}
+.feedback.success {
+  color: #16a34a;
+}
 .song-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -307,6 +461,16 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  border-top: 4px solid transparent;
+}
+.song[data-status="ARCHIVED"] {
+  border-top-color: rgba(148, 163, 184, 0.6);
+}
+.song[data-status="INACTIVE"] {
+  border-top-color: rgba(234, 179, 8, 0.5);
+}
+.song[data-status="ACTIVE"] {
+  border-top-color: rgba(59, 130, 246, 0.5);
 }
 .song-head {
   display: flex;
@@ -328,6 +492,10 @@ onMounted(async () => {
   background: rgba(0, 0, 0, 0.08);
   color: #475569;
 }
+.pill.subtle {
+  background: rgba(15, 23, 42, 0.06);
+  color: #475569;
+}
 .versions ul {
   list-style: none;
   margin: 0;
@@ -347,10 +515,12 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  align-items: center;
 }
 .tags {
-  display: flex;
+  display: inline-flex;
   gap: 6px;
+  margin-left: 6px;
 }
 .tag {
   background: rgba(59, 130, 246, 0.18);
@@ -393,9 +563,33 @@ onMounted(async () => {
   padding: 4px 10px;
   font-size: 12px;
 }
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+.activity ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.activity-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
 @media (min-width: 1200px) {
   .song-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .upload {
+    grid-template-columns: 1fr;
   }
 }
 </style>

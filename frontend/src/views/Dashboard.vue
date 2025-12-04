@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="dashboard">
     <section v-if="isTeam" class="card team-hero">
       <div>
@@ -142,11 +142,49 @@
             <strong>{{ request.sender_name }}</strong>
             <span class="pill">{{ requestTypeLabel(request.req_type) }}</span>
           </div>
-          <p class="muted">An {{ request.receiver_name }} • {{ statusLabelMap[request.status] }}</p>
+          <p class="muted">An {{ request.receiver_name }} · {{ statusLabelMap[request.status] }}</p>
           <p class="message">{{ request.message || "Keine Nachricht hinterlegt." }}</p>
+          <div class="request-actions">
+            <button class="btn tiny" type="button" @click="respondRequest(request.id, 'accept')" :disabled="request.status !== 'OPEN'">Annehmen</button>
+            <button class="btn ghost tiny" type="button" @click="respondRequest(request.id, 'decline')" :disabled="request.status !== 'OPEN'">Ablehnen</button>
+          </div>
         </li>
       </ul>
       <p v-else class="muted empty">Keine offenen Anfragen.</p>
+    </section>
+
+    <section v-if="isTeam" class="card activity">
+      <div class="activity-head">
+        <div>
+          <h2>Aktivitäten</h2>
+          <p class="muted">Gefiltert nach Typ.</p>
+        </div>
+        <div class="activity-controls">
+          <select class="input" v-model="activityFilter" @change="loadActivity">
+            <option value="all">Alle</option>
+            <option value="song_created,song_updated,song_version_created">Songs</option>
+            <option value="growpro_created,growpro_updated,growpro_logged">GrowPro</option>
+            <option value="task_overdue,task_status_updated,task_created">Tasks</option>
+            <option value="request_accepted,request_declined">Requests</option>
+          </select>
+          <button class="btn ghost tiny" type="button" @click="loadActivity" :disabled="loadingActivity">
+            {{ loadingActivity ? "Lade..." : "Neu laden" }}
+          </button>
+        </div>
+      </div>
+      <ul v-if="activities.length">
+        <li v-for="item in activities" :key="item.id">
+          <div class="row">
+            <span class="badge activity-type">{{ activityIcon(item.event_type) }}</span>
+            <div class="flex-1">
+              <strong>{{ item.title }}</strong>
+              <p class="muted small">{{ item.description || item.event_type }}</p>
+            </div>
+            <small class="muted">{{ formatDateTime(item.created_at) }}</small>
+          </div>
+        </li>
+      </ul>
+      <p v-else class="muted small">Keine Aktivitäten vorhanden.</p>
     </section>
 
     <section v-if="newsPosts.length" class="card news-preview">
@@ -160,6 +198,62 @@
           <p class="muted">{{ previewBody(post.body) }}</p>
         </li>
       </ul>
+    </section>
+
+    <section v-if="isTeam" class="card quick-team">
+      <div class="quick-head">
+        <div>
+          <h2>Quick Actions</h2>
+          <p class="muted">GrowPro-Update oder Song-Version direkt hier.</p>
+        </div>
+        <p v-if="quickMessage" :class="['feedback', quickMessageType]">{{ quickMessage }}</p>
+      </div>
+      <div class="quick-grid">
+        <div class="quick-block">
+          <h3>GrowPro Update</h3>
+          <label>
+            Ziel
+            <select class="input" v-model="quickGoalId">
+              <option value="">Wählen</option>
+              <option v-for="goal in growProGoals" :key="goal.id" :value="goal.id">
+                {{ goal.title }} ({{ goal.profile?.name || goal.profile?.username || "?" }})
+              </option>
+            </select>
+          </label>
+          <div class="inline-fields">
+            <input class="input" type="number" v-model.number="quickGoalValue" placeholder="Wert" />
+            <input class="input" v-model.trim="quickGoalNote" placeholder="Notiz" />
+          </div>
+          <button class="btn tiny" type="button" @click="submitQuickGoal" :disabled="savingQuickGoal">
+            {{ savingQuickGoal ? "Speichere..." : "Update speichern" }}
+          </button>
+        </div>
+        <div class="quick-block">
+          <h3>Song-Version</h3>
+          <label>
+            Song
+            <select class="input" v-model="quickSongId">
+              <option value="">Wählen</option>
+              <option v-for="song in teamSongs" :key="song.id" :value="song.id">
+                {{ song.title }}
+              </option>
+            </select>
+          </label>
+          <label class="file-picker">
+            <input type="file" @change="onQuickFile($event)" />
+            {{ quickFile ? quickFile.name : "Datei wählen" }}
+          </label>
+          <input class="input" v-model.trim="quickVersionNote" placeholder="Notiz" />
+          <div class="flags">
+            <label><input type="checkbox" v-model="quickFlags.mix" /> Mix</label>
+            <label><input type="checkbox" v-model="quickFlags.master" /> Master</label>
+            <label><input type="checkbox" v-model="quickFlags.final" /> Final</label>
+          </div>
+          <button class="btn tiny" type="button" @click="submitQuickVersion" :disabled="savingQuickVersion">
+            {{ savingQuickVersion ? "Lädt..." : "Version hochladen" }}
+          </button>
+        </div>
+      </div>
     </section>
   </div>
 </template>
@@ -189,8 +283,23 @@ const teamRequests = ref([]);
 const loadingRequests = ref(false);
 const growProGoals = ref([]);
 const loadingGrowPro = ref(false);
+const teamSongs = ref([]);
 const newsPosts = ref([]);
 const loading = ref(false);
+const quickGoalId = ref("");
+const quickGoalValue = ref("");
+const quickGoalNote = ref("");
+const quickSongId = ref("");
+const quickFile = ref(null);
+const quickVersionNote = ref("");
+const quickFlags = ref({ mix: false, master: false, final: false });
+const savingQuickGoal = ref(false);
+const savingQuickVersion = ref(false);
+const quickMessage = ref("");
+const quickMessageType = ref("info");
+const activities = ref([]);
+const loadingActivity = ref(false);
+const activityFilter = ref("all");
 
 const greetingName = computed(() => me.value?.name || me.value?.username || "Artist");
 const hasRoles = computed(() => (me.value?.roles || []).length > 0);
@@ -243,6 +352,23 @@ const requestTypeLabels = {
   BOOK: "Booking",
   OTHER: "Andere",
 };
+
+function activityIcon(type) {
+  if (!type) return "•";
+  if (type.startsWith("song")) return "♪";
+  if (type.startsWith("growpro")) return "↗";
+  if (type.startsWith("task")) return "⏰";
+  if (type.startsWith("request")) return "✉";
+  return "•";
+}
+
+function setQuickMessage(text, type = "info") {
+  quickMessage.value = text;
+  quickMessageType.value = type;
+  if (text) {
+    setTimeout(() => (quickMessage.value = ""), 2500);
+  }
+}
 
 function goTo(name) {
   router.push({ name });
@@ -329,6 +455,19 @@ async function loadTeamRequests() {
   }
 }
 
+async function respondRequest(id, action) {
+  if (!isTeam.value) return;
+  const endpoint = action === "accept" ? "accept" : "decline";
+  try {
+    await api.post(`requests/${id}/${endpoint}/`);
+    await loadTeamRequests();
+    setQuickMessage(`Request ${action === "accept" ? "angenommen" : "abgelehnt"}`, "success");
+  } catch (err) {
+    console.error("Request-Aktion fehlgeschlagen", err);
+    setQuickMessage("Aktion fehlgeschlagen", "error");
+  }
+}
+
 async function loadGrowProGoals() {
   if (!isTeam.value) {
     growProGoals.value = [];
@@ -336,13 +475,28 @@ async function loadGrowProGoals() {
   }
   loadingGrowPro.value = true;
   try {
-    const { data } = await api.get("growpro/", { params: { status: "ACTIVE,ON_HOLD" } });
-    growProGoals.value = data || [];
+    const { data } = await api.get("growpro/", { params: { status: "ACTIVE,ON_HOLD", page_size: 50, ordering: "due_date" } });
+    const payload = data || {};
+    growProGoals.value = Array.isArray(payload) ? payload : payload.results || [];
   } catch (err) {
     console.error("GrowPro konnte nicht geladen werden", err);
     growProGoals.value = [];
   } finally {
     loadingGrowPro.value = false;
+  }
+}
+
+async function loadTeamSongs() {
+  if (!isTeam.value) {
+    teamSongs.value = [];
+    return;
+  }
+  try {
+    const { data } = await api.get("songs/", { params: { page_size: 50, ordering: "-created_at" } });
+    const payload = data || {};
+    teamSongs.value = Array.isArray(payload) ? payload : payload.results || [];
+  } catch (err) {
+    teamSongs.value = [];
   }
 }
 
@@ -356,6 +510,81 @@ async function loadNewsPreview() {
   }
 }
 
+async function loadActivity() {
+  if (!isTeam.value) {
+    activities.value = [];
+    return;
+  }
+  loadingActivity.value = true;
+  try {
+    const params = { limit: 40 };
+    if (activityFilter.value !== "all") {
+      params.types = activityFilter.value;
+    }
+    const { data } = await api.get("activity/", { params });
+    activities.value = data || [];
+  } catch (err) {
+    activities.value = [];
+  } finally {
+    loadingActivity.value = false;
+  }
+}
+
+function onQuickFile(event) {
+  quickFile.value = event.target.files?.[0] || null;
+}
+
+async function submitQuickGoal() {
+  if (!quickGoalId.value || quickGoalValue.value === "" || quickGoalValue.value === null) {
+    setQuickMessage("Ziel und Wert wÇ¤hlen", "error");
+    return;
+  }
+  savingQuickGoal.value = true;
+  try {
+    await api.post(`growpro/${quickGoalId.value}/log/`, {
+      value: quickGoalValue.value,
+      note: quickGoalNote.value,
+    });
+    quickGoalValue.value = "";
+    quickGoalNote.value = "";
+    await loadGrowProGoals();
+    setQuickMessage("Update gespeichert", "success");
+  } catch (err) {
+    console.error("Quick-GrowPro fehlgeschlagen", err);
+    setQuickMessage("Fehler beim Update", "error");
+  } finally {
+    savingQuickGoal.value = false;
+  }
+}
+
+async function submitQuickVersion() {
+  if (!quickSongId.value || !quickFile.value) {
+    setQuickMessage("Song und Datei wÇ¤hlen", "error");
+    return;
+  }
+  savingQuickVersion.value = true;
+  try {
+    const formData = new FormData();
+    formData.append("song", quickSongId.value);
+    formData.append("file", quickFile.value);
+    formData.append("notes", quickVersionNote.value || "");
+    formData.append("is_mix_ready", quickFlags.value.mix ? 1 : 0);
+    formData.append("is_master_ready", quickFlags.value.master ? 1 : 0);
+    formData.append("is_final", quickFlags.value.final ? 1 : 0);
+    await api.post("song-versions/", formData, { headers: { "Content-Type": "multipart/form-data" } });
+    quickFile.value = null;
+    quickSongId.value = "";
+    quickVersionNote.value = "";
+    quickFlags.value = { mix: false, master: false, final: false };
+    setQuickMessage("Version hochgeladen", "success");
+  } catch (err) {
+    console.error("Quick-Version fehlgeschlagen", err);
+    setQuickMessage("Fehler beim Upload", "error");
+  } finally {
+    savingQuickVersion.value = false;
+  }
+}
+
 async function refresh() {
   if (loading.value) return;
   loading.value = true;
@@ -363,7 +592,7 @@ async function refresh() {
     await fetchProfile(true);
     const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
     if (isTeam.value) {
-      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals());
+      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadTeamSongs(), loadActivity());
     } else {
       loaders.push(loadProjects());
     }
@@ -377,7 +606,7 @@ onMounted(async () => {
   await fetchProfile();
   const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
   if (isTeam.value) {
-    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals());
+    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadTeamSongs(), loadActivity());
   } else {
     loaders.push(loadProjects());
   }
@@ -442,6 +671,55 @@ const growProOverdue = computed(() => {
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
+}
+.quick-team {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.quick-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.quick-block {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inline-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+.file-picker {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.file-picker input {
+  display: none;
+}
+.flags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.feedback {
+  margin: 0;
 }
 .hero-actions {
   display: flex;
@@ -580,6 +858,39 @@ const growProOverdue = computed(() => {
   margin: 4px 0 0;
   font-size: 13px;
 }
+.request-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.activity {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.activity-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.activity-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.activity ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.activity-type {
+  background: rgba(15, 23, 42, 0.08);
+}
 .project-overview ul {
   list-style: none;
   padding: 0;
@@ -661,3 +972,5 @@ const growProOverdue = computed(() => {
   }
 }
 </style>
+
+

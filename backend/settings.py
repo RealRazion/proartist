@@ -74,7 +74,24 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 REST_FRAMEWORK = {
   "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
   "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+  "DEFAULT_THROTTLE_CLASSES": (
+      "rest_framework.throttling.AnonRateThrottle",
+      "rest_framework.throttling.UserRateThrottle",
+  ),
+  "DEFAULT_THROTTLE_RATES": {
+      "anon": os.getenv("THROTTLE_ANON", "50/hour"),
+      "user": os.getenv("THROTTLE_USER", "200/hour"),
+  },
 }
+
+# Security headers (konfigurierbar per ENV)
+SECURE_HSTS_SECONDS = int(os.getenv("HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("HSTS_INCLUDE_SUBDOMAINS", "False") == "True"
+SECURE_HSTS_PRELOAD = os.getenv("HSTS_PRELOAD", "False") == "True"
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = os.getenv("REFERRER_POLICY", "same-origin")
+CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False") == "True"
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

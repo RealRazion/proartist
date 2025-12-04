@@ -309,6 +309,12 @@ class SongVersionSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["created_at", "version_number"]
 
+    def validate(self, attrs):
+        # Datei nur bei Erstellung zwingend, bei PATCH kann sie fehlen
+        if not self.instance and not attrs.get("file"):
+            raise serializers.ValidationError({"file": "Datei ist erforderlich"})
+        return attrs
+
     def create(self, validated_data):
         song = validated_data["song"]
         if "version_number" not in validated_data or not validated_data.get("version_number"):
@@ -339,6 +345,17 @@ class SongSerializer(serializers.ModelSerializer):
 
     def get_project_title(self, obj):
         return obj.project.title if obj.project else None
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        me = getattr(getattr(request, "user", None), "profile", None) if request else None
+        if not me:
+            return attrs
+        is_team = me.roles.filter(key="TEAM").exists()
+        if not is_team:
+            if "project" in attrs:
+                raise serializers.ValidationError({"project": "Nur Team darf Projekte zuweisen"})
+        return attrs
 
 
 class GrowProUpdateSerializer(serializers.ModelSerializer):
@@ -379,6 +396,16 @@ class GrowProGoalSerializer(serializers.ModelSerializer):
             "updates",
         ]
         read_only_fields = ["id", "created_by", "last_logged_at", "created_at", "updated_at", "updates"]
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        me = getattr(getattr(request, "user", None), "profile", None) if request else None
+        if not me:
+            return attrs
+        is_team = me.roles.filter(key="TEAM").exists()
+        if not is_team:
+            attrs["profile"] = me
+        return attrs
 
 
 class ContractSerializer(serializers.ModelSerializer):

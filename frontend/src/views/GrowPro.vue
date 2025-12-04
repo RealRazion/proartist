@@ -5,10 +5,10 @@
         <p class="eyebrow">Team</p>
         <h1>GrowPro Ziele</h1>
         <p class="muted">
-          Ziele für die nächsten 3 Monate, schnell aktualisiert. Älteste Updates zuerst.
+          Ziele f&uuml;r die n&auml;chsten 3 Monate, mit schnellen Updates. F&auml;lligkeiten im Blick.
         </p>
       </div>
-      <button class="btn ghost" type="button" @click="loadGoals" :disabled="loading">
+      <button class="btn ghost" type="button" @click="loadGoals()" :disabled="loading">
         {{ loading ? "Lade..." : "Aktualisieren" }}
       </button>
     </header>
@@ -17,18 +17,37 @@
       <div class="filter-row">
         <label>
           Suche
-          <input class="input" v-model.trim="search" placeholder="Titel oder Kennzahl..." />
+          <input class="input" v-model.trim="search" placeholder="Titel oder Kennzahl..." @keyup.enter="applyFilters" />
         </label>
         <label>
           Status
-          <select class="input" v-model="filterStatus" @change="loadGoals">
+          <select class="input" v-model="filterStatus" @change="applyFilters">
             <option value="ALL">Alle</option>
             <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
           </select>
         </label>
+        <label>
+          F&auml;lligkeit
+          <select class="input" v-model="dueFilter" @change="applyFilters">
+            <option value="ALL">Alle</option>
+            <option value="SOON">&lt; 24h</option>
+            <option value="OVERDUE">&Uuml;berf&auml;llig</option>
+            <option value="STALE">&gt;72h ohne Update</option>
+          </select>
+        </label>
+        <label>
+          Sortierung
+          <select class="input" v-model="sort" @change="applyFilters">
+            <option value="due_date">F&auml;lligkeit aufsteigend</option>
+            <option value="-due_date">F&auml;lligkeit absteigend</option>
+            <option value="-last_logged_at">Letztes Update (neueste)</option>
+            <option value="-updated_at">Zuletzt ge&auml;ndert</option>
+            <option value="-created_at">Neueste zuerst</option>
+          </select>
+        </label>
         <label v-if="isTeam">
-          Künstler
-          <select class="input" v-model="filterProfile" @change="loadGoals">
+          K&uuml;nstler
+          <select class="input" v-model="filterProfile" @change="applyFilters">
             <option value="ALL">Alle</option>
             <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
@@ -40,23 +59,23 @@
       <h2>Neues Ziel anlegen</h2>
       <div class="form-grid">
         <label>
-          Künstler
+          K&uuml;nstler
           <select class="input" v-model="form.profile_id">
-            <option value="">Wähle Profil</option>
+            <option value="">Profil w&auml;hlen</option>
             <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </label>
         <label>
           Titel
-          <input class="input" v-model.trim="form.title" placeholder="z.B. Monatliche Hörer" />
+          <input class="input" v-model.trim="form.title" placeholder="z.B. Monatliche H&ouml;rer" />
         </label>
         <label>
           Kennzahl
-          <input class="input" v-model.trim="form.metric" placeholder="Monatliche Hörer, Streams..." />
+          <input class="input" v-model.trim="form.metric" placeholder="Monatliche H&ouml;rer, Streams..." />
         </label>
         <label>
           Einheit
-          <input class="input" v-model.trim="form.unit" placeholder="Hörer / Streams / %" />
+          <input class="input" v-model.trim="form.unit" placeholder="H&ouml;rer / Streams / %" />
         </label>
         <label>
           Zielwert
@@ -67,7 +86,7 @@
           <input class="input" type="number" v-model.number="form.current_value" />
         </label>
         <label>
-          Fällig am
+          F&auml;llig am
           <input class="input" type="date" v-model="form.due_date" />
         </label>
         <label>
@@ -77,16 +96,23 @@
           </select>
         </label>
       </div>
-      <button class="btn" type="button" @click="createGoal" :disabled="creating">
-        {{ creating ? "Speichere..." : "Ziel speichern" }}
-      </button>
-      <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
+      <div class="form-actions">
+        <button class="btn" type="button" @click="createGoal" :disabled="creating">
+          {{ creating ? "Speichere..." : "Ziel speichern" }}
+        </button>
+        <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
+      </div>
     </section>
 
     <section class="goals">
       <div v-if="!filteredGoals.length && !loading" class="card muted empty">Keine Ziele vorhanden.</div>
       <div v-else class="goal-grid">
-        <article v-for="goal in filteredGoals" :key="goal.id" class="card goal">
+        <article
+          v-for="goal in filteredGoals"
+          :key="goal.id"
+          class="card goal"
+          :data-due="dueState(goal)"
+        >
           <div class="goal-head">
             <div>
               <p class="muted small">{{ goal.profile?.name || goal.profile?.username || "Unbekannt" }}</p>
@@ -105,12 +131,16 @@
               <strong>{{ goal.target_value }}</strong>
             </div>
             <div>
-              <p class="label">Fällig</p>
+              <p class="label">F&auml;llig</p>
               <strong>{{ formatDate(goal.due_date) || "-" }}</strong>
             </div>
           </div>
-          <p class="muted">Letztes Update: {{ formatDateTime(goal.last_logged_at) || "Noch keines" }}</p>
-          <div v-if="stale(goal)" class="badge warn">>72h ohne Update</div>
+          <div class="meta-row">
+            <p class="muted">Letztes Update: {{ formatDateTime(goal.last_logged_at) || "Noch keines" }}</p>
+            <span v-if="dueState(goal) === 'OVERDUE'" class="badge danger">&Uuml;berf&auml;llig</span>
+            <span v-else-if="dueState(goal) === 'SOON'" class="badge warn">&lt;24h</span>
+            <span v-else-if="dueState(goal) === 'STALE'" class="badge warn">>72h ohne Update</span>
+          </div>
           <div class="log-row">
             <input
               class="input"
@@ -128,7 +158,7 @@
             </button>
           </div>
           <div class="updates" v-if="goal.updates?.length">
-            <p class="small muted">Letzte Einträge:</p>
+            <p class="small muted">Letzte Eintr&auml;ge:</p>
             <ul>
               <li v-for="update in goal.updates.slice(0, 3)" :key="update.id">
                 <span>{{ update.value }}</span>
@@ -138,6 +168,31 @@
           </div>
         </article>
       </div>
+    </section>
+
+    <div class="pagination" v-if="pageCount > 1">
+      <button class="btn ghost tiny" type="button" :disabled="page === 1 || loading" @click="changePage(-1)">Zur&uuml;ck</button>
+      <span>Seite {{ page }} / {{ pageCount }}</span>
+      <button class="btn ghost tiny" type="button" :disabled="page === pageCount || loading" @click="changePage(1)">Weiter</button>
+    </div>
+
+    <section v-if="isTeam" class="card activity">
+      <div class="activity-head">
+        <h2>Aktivit&auml;t</h2>
+        <button class="btn ghost tiny" type="button" @click="loadActivity" :disabled="loadingActivity">
+          {{ loadingActivity ? "Lade..." : "Neu laden" }}
+        </button>
+      </div>
+      <ul v-if="activities.length">
+        <li v-for="item in activities" :key="item.id">
+          <div class="row">
+            <strong>{{ item.title }}</strong>
+            <span class="pill subtle">{{ formatDateTime(item.created_at) }}</span>
+          </div>
+          <p class="muted small">{{ item.description || item.event_type }}</p>
+        </li>
+      </ul>
+      <p v-else class="muted small">Keine Aktivit&auml;ten vorhanden.</p>
     </section>
   </div>
 </template>
@@ -151,15 +206,20 @@ const { isTeam, fetchProfile } = useCurrentProfile();
 
 const goals = ref([]);
 const profiles = ref([]);
+const activities = ref([]);
 const loading = ref(false);
 const creating = ref(false);
 const logging = ref({});
+const loadingActivity = ref(false);
+
 const message = ref("");
 const messageType = ref("info");
 
 const filterStatus = ref("ALL");
 const filterProfile = ref("ALL");
+const dueFilter = ref("ALL");
 const search = ref("");
+const sort = ref("due_date");
 
 const statusOptions = ["ACTIVE", "ON_HOLD", "DONE", "ARCHIVED"];
 const statusLabels = {
@@ -182,16 +242,11 @@ const form = ref({
 });
 
 const logDrafts = ref({});
+const page = ref(1);
+const pageSize = ref(9);
+const total = ref(0);
 
-const sortedGoals = computed(() =>
-  goals.value
-    .slice()
-    .sort((a, b) => {
-      const aDue = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-      const bDue = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-      return aDue - bDue;
-    })
-);
+const sortedGoals = computed(() => goals.value);
 
 const filteredGoals = computed(() =>
   sortedGoals.value.filter((goal) => {
@@ -199,10 +254,21 @@ const filteredGoals = computed(() =>
     const matchesText =
       !term ||
       goal.title.toLowerCase().includes(term) ||
-      (goal.metric || "").toLowerCase().includes(term);
-    return matchesText;
+      (goal.metric || "").toLowerCase().includes(term) ||
+      (goal.description || "").toLowerCase().includes(term);
+    const matchesStatus = filterStatus.value === "ALL" || goal.status === filterStatus.value;
+    const matchesProfile = filterProfile.value === "ALL" || String(goal.profile?.id) === String(filterProfile.value);
+    const due = dueState(goal);
+    const matchesDue =
+      dueFilter.value === "ALL" ||
+      (dueFilter.value === "SOON" && due === "SOON") ||
+      (dueFilter.value === "OVERDUE" && due === "OVERDUE") ||
+      (dueFilter.value === "STALE" && due === "STALE");
+    return matchesText && matchesStatus && matchesProfile && matchesDue;
   })
 );
+
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
 
 function logDraft(id) {
   if (!logDrafts.value[id]) {
@@ -211,12 +277,15 @@ function logDraft(id) {
   return logDrafts.value[id];
 }
 
-function stale(goal) {
-  if (!goal.last_logged_at) return true;
-  const last = new Date(goal.last_logged_at).getTime();
+function dueState(goal) {
+  if (!goal || ["DONE", "ARCHIVED"].includes(goal.status)) return "OK";
   const now = Date.now();
-  const diffHours = (now - last) / (1000 * 60 * 60);
-  return diffHours > 72;
+  const dueDate = goal.due_date ? new Date(goal.due_date).getTime() : null;
+  const lastLogged = goal.last_logged_at ? new Date(goal.last_logged_at).getTime() : null;
+  if (dueDate && dueDate < now) return "OVERDUE";
+  if (dueDate && dueDate - now < 24 * 60 * 60 * 1000) return "SOON";
+  if (!lastLogged || (now - lastLogged) / (1000 * 60 * 60) > 72) return "STALE";
+  return "OK";
 }
 
 function formatDate(value) {
@@ -240,32 +309,42 @@ function showMessage(text, type = "info") {
 async function loadProfiles() {
   if (!isTeam.value) return;
   try {
-    const { data } = await api.get("profiles/");
-    profiles.value = data.map((p) => ({ id: p.id, name: p.name || p.username }));
+    const { data } = await api.get("profiles/", { params: { page_size: 200 } });
+    profiles.value = (data || []).map((p) => ({ id: p.id, name: p.name || p.username }));
   } catch (err) {
     profiles.value = [];
   }
 }
 
-async function loadGoals() {
+async function loadGoals(resetPage = false) {
+  if (resetPage) page.value = 1;
   loading.value = true;
   try {
-    const params = {};
+    const params = {
+      page: page.value,
+      page_size: pageSize.value,
+      ordering: sort.value,
+    };
     if (filterStatus.value !== "ALL") params.status = filterStatus.value;
     if (filterProfile.value !== "ALL") params.profile = filterProfile.value;
+    if (search.value.trim()) params.search = search.value.trim();
     const { data } = await api.get("growpro/", { params });
-    goals.value = data || [];
+    const payload = data || {};
+    const items = Array.isArray(payload) ? payload : payload.results || [];
+    goals.value = items;
+    total.value = payload.count || items.length;
   } catch (err) {
     console.error("GrowPro konnte nicht geladen werden", err);
     goals.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
 }
 
 async function createGoal() {
-  if (!form.value.title || !form.value.metric || !form.value.profile_id) {
-    showMessage("Titel, Kennzahl und Künstler sind erforderlich.", "error");
+  if (!form.value.title || !form.value.metric || (!form.value.profile_id && isTeam.value)) {
+    showMessage("Titel, Kennzahl und K&uuml;nstler sind erforderlich.", "error");
     return;
   }
   creating.value = true;
@@ -283,7 +362,7 @@ async function createGoal() {
       due_date: "",
       status: "ACTIVE",
     };
-    await loadGoals();
+    await loadGoals(true);
     showMessage("Ziel angelegt", "success");
   } catch (err) {
     console.error("Ziel konnte nicht gespeichert werden", err);
@@ -316,9 +395,38 @@ async function logValue(goal) {
   }
 }
 
+async function loadActivity() {
+  if (!isTeam.value) {
+    activities.value = [];
+    return;
+  }
+  loadingActivity.value = true;
+  try {
+    const { data } = await api.get("activity/", {
+      params: { limit: 40, types: "growpro_created,growpro_updated,growpro_logged" },
+    });
+    activities.value = data || [];
+  } catch (err) {
+    activities.value = [];
+  } finally {
+    loadingActivity.value = false;
+  }
+}
+
+function changePage(delta) {
+  const next = page.value + delta;
+  if (next < 1 || next > pageCount.value) return;
+  page.value = next;
+  loadGoals();
+}
+
+function applyFilters() {
+  loadGoals(true);
+}
+
 onMounted(async () => {
   await fetchProfile();
-  await Promise.all([loadProfiles(), loadGoals()]);
+  await Promise.all([loadProfiles(), loadGoals(), loadActivity()]);
 });
 </script>
 
@@ -356,6 +464,11 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 10px;
 }
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .feedback {
   margin: 0;
   font-size: 14px;
@@ -380,6 +493,16 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  border-top: 4px solid transparent;
+}
+.goal[data-due="OVERDUE"] {
+  border-top-color: rgba(239, 68, 68, 0.7);
+}
+.goal[data-due="SOON"] {
+  border-top-color: rgba(59, 130, 246, 0.6);
+}
+.goal[data-due="STALE"] {
+  border-top-color: rgba(234, 179, 8, 0.7);
 }
 .goal-head {
   display: flex;
@@ -416,13 +539,19 @@ onMounted(async () => {
   color: var(--muted);
   margin: 0 0 2px;
 }
-.badge.warn {
-  background: rgba(248, 113, 113, 0.15);
-  color: #b91c1c;
+.badge {
   padding: 4px 8px;
   border-radius: 8px;
   font-size: 12px;
   width: fit-content;
+}
+.badge.warn {
+  background: rgba(234, 179, 8, 0.18);
+  color: #a16207;
+}
+.badge.danger {
+  background: rgba(248, 113, 113, 0.15);
+  color: #b91c1c;
 }
 .log-row {
   display: grid;
@@ -450,6 +579,35 @@ onMounted(async () => {
 }
 .muted.empty {
   padding: 12px 0;
+}
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+.activity ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.activity-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.pill.subtle {
+  background: rgba(15, 23, 42, 0.06);
+  color: #475569;
 }
 @media (min-width: 1200px) {
   .goal-grid {

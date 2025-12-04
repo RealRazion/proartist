@@ -73,7 +73,10 @@ from .utils import log_activity
 @permission_classes([permissions.AllowAny])
 def register(request):
     username = request.data.get("username"); email = request.data.get("email")
-    password = request.data.get("password"); role_keys = [key for key in request.data.get("roles", []) if key != "TEAM"]
+    password = request.data.get("password")
+    # Nur Nicht-Team-Rollen erlauben, TEAM wird ignoriert
+    allowed_roles = {"ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC"}
+    role_keys = [key for key in request.data.get("roles", []) if key in allowed_roles]
     if not username or not password:
         return Response({"error":"username & password required"}, status=400)
     if User.objects.filter(username=username).exists():
@@ -136,22 +139,69 @@ class ProfileViewSet(viewsets.ModelViewSet):
             profile.roles.remove(team_role)
         return Response({"is_team_member": profile.roles.filter(key="TEAM").exists()})
 
+# --- Paginierung ---
+class StandardPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 # --- Examples/Requests ---
 class ExampleViewSet(viewsets.ModelViewSet):
     queryset=Example.objects.all(); serializer_class=ExampleSerializer; permission_classes=[permissions.IsAuthenticated]
 
 class RequestViewSet(viewsets.ModelViewSet):
     queryset = Request.objects.all()
-    serializer_class=RequestSerializer; permission_classes=[permissions.IsAuthenticated]
+    serializer_class=RequestSerializer; permission_classes=[permissions.IsAuthenticated]; pagination_class = StandardPagination
     def get_queryset(self):
         me=self.request.user.profile
-        return Request.objects.filter(Q(sender=me)|Q(receiver=me)).order_by("-created_at")
+        qs = Request.objects.filter(Q(sender=me)|Q(receiver=me))
+        status_param = self.request.query_params.get("status")
+        if status_param and status_param.upper() != "ALL":
+            qs = qs.filter(status=status_param.upper())
+        req_type = self.request.query_params.get("type")
+        if req_type and req_type.upper() != "ALL":
+            qs = qs.filter(req_type=req_type.upper())
+        search = (self.request.query_params.get("search") or "").strip()
+        if search:
+            qs = qs.filter(
+                Q(sender__name__icontains=search)
+                | Q(receiver__name__icontains=search)
+                | Q(message__icontains=search)
+            )
+        return qs.order_by("-created_at")
 
     @action(detail=False, methods=["GET"], url_path="team-open", permission_classes=[permissions.IsAuthenticated, IsTeam])
     def team_open(self, request):
         qs = Request.objects.filter(status="OPEN").order_by("-created_at")[:25]
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["POST"], url_path="accept", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def accept(self, request, pk=None):
+        req = self.get_object()
+        req.status = "ACCEPTED"
+        req.save(update_fields=["status"])
+        log_activity(
+            "request_accepted",
+            f"Request angenommen: {req.sender} -> {req.receiver}",
+            actor=getattr(request.user, "profile", None),
+            severity="SUCCESS",
+        )
+        return Response({"status": req.status})
+
+    @action(detail=True, methods=["POST"], url_path="decline", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def decline(self, request, pk=None):
+        req = self.get_object()
+        req.status = "DECLINED"
+        req.save(update_fields=["status"])
+        log_activity(
+            "request_declined",
+            f"Request abgelehnt: {req.sender} -> {req.receiver}",
+            actor=getattr(request.user, "profile", None),
+            severity="WARNING",
+        )
+        return Response({"status": req.status})
 
 # --- Chat ---
 class ChatThreadViewSet(viewsets.ModelViewSet):
@@ -322,9 +372,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def summary(self, request):
         qs = self._base_queryset()
         total = qs.count()
-        archived = qs.filter(is_archived=True).count()
         completed = qs.filter(status="DONE").count()
-        active = qs.filter(is_archived=False).exclude(status="DONE").count()
+        active = qs.exclude(status="DONE").count()
         by_status = {
             row["status"]: row["c"]
             for row in qs.values("status").annotate(c=Count("id"))
@@ -332,7 +381,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 "total": total,
-                "archived": archived,
                 "done": completed,
                 "active": active,
                 "by_status": by_status,
@@ -634,10 +682,14 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
 class SongViewSet(viewsets.ModelViewSet):
     serializer_class = SongSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         qs = Song.objects.select_related("profile__user", "project").prefetch_related("versions")
         me = getattr(self.request.user, "profile", None)
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
         status_param = self.request.query_params.get("status")
         if status_param:
             statuses = [s.strip().upper() for s in status_param.split(",") if s.strip()]
@@ -651,7 +703,13 @@ class SongViewSet(viewsets.ModelViewSet):
         project_id = self.request.query_params.get("project")
         if project_id:
             qs = qs.filter(project_id=project_id)
-        return qs.order_by("-created_at")
+        ordering = self.request.query_params.get("ordering")
+        allowed = {"created_at", "-created_at", "title", "-title", "status", "-status"}
+        if ordering in allowed:
+            qs = qs.order_by(ordering)
+        else:
+            qs = qs.order_by("-created_at")
+        return qs
 
     def perform_create(self, serializer):
         song = serializer.save(profile=self.request.user.profile)
@@ -705,13 +763,20 @@ class SongViewSet(viewsets.ModelViewSet):
 class SongVersionViewSet(viewsets.ModelViewSet):
     serializer_class = SongVersionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         qs = SongVersion.objects.select_related("song__profile__user", "song__project")
         song_id = self.request.query_params.get("song")
         if song_id:
             qs = qs.filter(song_id=song_id)
-        return qs.order_by("-created_at")
+        ordering = self.request.query_params.get("ordering")
+        allowed = {"created_at", "-created_at", "version_number", "-version_number"}
+        if ordering in allowed:
+            qs = qs.order_by(ordering)
+        else:
+            qs = qs.order_by("-created_at")
+        return qs
 
     def perform_create(self, serializer):
         song = serializer.validated_data["song"]
@@ -731,10 +796,14 @@ class SongVersionViewSet(viewsets.ModelViewSet):
 class GrowProGoalViewSet(viewsets.ModelViewSet):
     serializer_class = GrowProGoalSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
 
     def get_queryset(self):
         qs = GrowProGoal.objects.select_related("profile__user", "created_by__user").prefetch_related("updates__created_by__user")
         me = self.request.user.profile
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(Q(title__icontains=search) | Q(metric__icontains=search) | Q(description__icontains=search))
         if not me.roles.filter(key="TEAM").exists():
             qs = qs.filter(profile=me)
         profile_id = self.request.query_params.get("profile")
@@ -745,7 +814,22 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
             statuses = [s.strip().upper() for s in status_param.split(",") if s.strip()]
             if statuses and "ALL" not in statuses:
                 qs = qs.filter(status__in=statuses)
-        return qs.order_by("due_date", "-created_at")
+        ordering = self.request.query_params.get("ordering")
+        allowed = {
+            "due_date",
+            "-due_date",
+            "last_logged_at",
+            "-last_logged_at",
+            "updated_at",
+            "-updated_at",
+            "created_at",
+            "-created_at",
+        }
+        if ordering in allowed:
+            qs = qs.order_by(ordering, "-created_at")
+        else:
+            qs = qs.order_by("due_date", "-created_at")
+        return qs
 
     def perform_create(self, serializer):
         me = self.request.user.profile
@@ -786,6 +870,16 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
         goal.current_value = value
         goal.last_logged_at = timezone.now()
         goal.save(update_fields=["current_value", "last_logged_at", "updated_at"])
+        severity = "DANGER" if (goal.due_date and goal.due_date < timezone.now().date()) else "SUCCESS"
+        log_activity(
+            "growpro_logged",
+            f"GrowPro Update: {goal.title}",
+            description=note[:200] if note else "",
+            actor=me,
+            severity=severity,
+            project=goal.profile.projects.first() if goal.profile else None,
+            metadata={"value": value, "goal_id": goal.id},
+        )
         return Response(GrowProUpdateSerializer(update).data)
 
     @action(detail=False, methods=["GET"], url_path="summary")
@@ -872,11 +966,18 @@ class ActivityFeedView(APIView):
     def get(self, request):
         limit = int(request.query_params.get("limit", 100))
         limit = max(1, min(limit, 200))
+        types_param = request.query_params.get("types")
+        types = None
+        if types_param:
+            types = [t.strip() for t in types_param.split(",") if t.strip()]
         self._ensure_overdue_entries()
         qs = (
             ActivityEntry.objects.select_related("actor__user", "project", "task")
-            .order_by("-created_at")[:limit]
+            .order_by("-created_at")
         )
+        if types:
+            qs = qs.filter(event_type__in=types)
+        qs = qs[:limit]
         serializer = ActivityEntrySerializer(qs, many=True)
         return Response(serializer.data)
 

@@ -1,11 +1,12 @@
 ﻿<template>
   <div class="dashboard">
     <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
+
     <section v-if="isTeam" class="card team-hero">
       <div>
         <p class="eyebrow">Team</p>
         <h1>Team Dashboard</h1>
-        <p class="muted">Schneller Ãœberblick Ã¼ber Todos, Projekte und Anfragen.</p>
+        <p class="muted">Schneller Ueberblick ueber Todos, Projekte und Anfragen.</p>
       </div>
       <div class="hero-actions">
         <button class="btn" type="button" @click="goTo('projects')">Projekt anlegen</button>
@@ -18,30 +19,18 @@
     <section v-else class="card welcome">
       <div>
         <p class="eyebrow">Hi {{ greetingName }}</p>
-        <h1>Willkommen zurÃ¼ck bei ProArtist</h1>
-        <p class="muted">
-          Mach dein Profil sichtbar und starte neue Kollaborationen.
-        </p>
+        <h1>Willkommen zurueck bei ProArtist</h1>
+        <p class="muted">Mach dein Profil sichtbar und starte neue Kollaborationen.</p>
       </div>
       <button class="btn ghost" type="button" @click="refresh">Aktualisieren</button>
     </section>
 
-    <section v-if="isTeam" class="kpi-grid">
-      <div class="card kpi" v-for="kpi in teamKpis" :key="kpi.label">
-        <div class="kpi-icon">{{ kpi.icon }}</div>
-        <div>
-          <p class="kpi-label">{{ kpi.label }}</p>
-          <strong class="kpi-value">{{ kpi.value }}</strong>
-        </div>
-      </div>
-    </section>
-
-    <section v-else class="card checklist">
+    <section v-if="!isTeam" class="card checklist">
       <h2>Onboarding</h2>
-      <p class="muted">VervollstÃ¤ndige dein Profil, damit andere dich schneller finden.</p>
+      <p class="muted">Vervollstaendige dein Profil, damit andere dich schneller finden.</p>
       <ul>
         <li v-for="item in onboarding" :key="item.label">
-          <span class="check">{{ item.done ? "âœ…" : "â¬œ" }}</span>
+          <span class="check">{{ item.done ? "*" : "o" }}</span>
           <div>
             <p>{{ item.label }}</p>
             <small class="muted">{{ item.hint }}</small>
@@ -71,7 +60,7 @@
       <h2>Schnellaktionen</h2>
       <div class="actions">
         <button class="btn" type="button" @click="goTo('profiles')">Profile entdecken</button>
-        <button class="btn ghost" type="button" @click="goTo('chats')">Chat Ã¶ffnen</button>
+        <button class="btn ghost" type="button" @click="goTo('chats')">Chat oeffnen</button>
         <button class="btn ghost" type="button" @click="goTo('projects')">Neues Projekt</button>
       </div>
     </section>
@@ -80,21 +69,21 @@
       <div class="deadlines-head">
         <div>
           <h2>Fristen im Blick</h2>
-          <p class="muted">ÃœberfÃ¤llige und anstehende Tasks sortiert nach FÃ¤lligkeit.</p>
+          <p class="muted">Ueberfaellige und anstehende Tasks nach Faelligkeit.</p>
         </div>
         <div class="head-actions">
           <button class="btn ghost tiny" type="button" @click="loadOverdueTasks" :disabled="loadingOverdue">
-            {{ loadingOverdue ? "Aktualisiere..." : "ÃœberfÃ¤llig laden" }}
+            {{ loadingOverdue ? "Aktualisiere..." : "Ueberfaellig laden" }}
           </button>
           <button class="btn ghost tiny" type="button" @click="loadUpcomingTasks" :disabled="loadingUpcoming">
-            {{ loadingUpcoming ? "Aktualisiere..." : "NÃ¤chste Woche laden" }}
+            {{ loadingUpcoming ? "Aktualisiere..." : "Naechste Woche laden" }}
           </button>
         </div>
       </div>
       <div class="deadlines-grid">
         <div class="deadline-column">
           <header>
-            <h3>ÃœberfÃ¤llig</h3>
+            <h3>Ueberfaellig</h3>
             <small>{{ overdueTasks.length }} Tasks</small>
           </header>
           <ul v-if="overdueTasks.length">
@@ -106,11 +95,11 @@
               <p class="muted">{{ taskProjectLabel(task) }}</p>
             </li>
           </ul>
-          <p v-else class="muted empty">Keine Ã¼berfÃ¤lligen Tasks ðŸŽ‰</p>
+          <p v-else class="muted empty">Keine ueberfaelligen Tasks.</p>
         </div>
         <div class="deadline-column">
           <header>
-            <h3>NÃ¤chste Woche</h3>
+            <h3>Naechste Woche</h3>
             <small>{{ upcomingTasks.length }} Tasks</small>
           </header>
           <ul v-if="upcomingTasks.length">
@@ -127,52 +116,36 @@
       </div>
     </section>
 
-        <section v-if="isTeam" class="card requests-card">
+        <section v-if="isTeam" class="card growpro-summary">
       <div class="requests-head">
         <div>
-          <h2>Offene Anfragen</h2>
-          <p class="muted">Neueste Requests aus dem Netzwerk.</p>
+          <h2>GrowPro Snapshot</h2>
+          <p class="muted">Faellige Ziele im Blick.</p>
         </div>
-        <button class="btn ghost tiny" type="button" @click="loadTeamRequests" :disabled="loadingRequests">
-          {{ loadingRequests ? "Aktualisiere..." : "Neu laden" }}
+        <button class="btn ghost tiny" type="button" @click="loadGrowProGoals" :disabled="loadingGrowPro">
+          {{ loadingGrowPro ? "Lade..." : "Neu laden" }}
         </button>
       </div>
-      <div class="request-filters">
-        <input class="input small" placeholder="Suche" v-model.trim="requestSearch" @keyup.enter="applyRequestFilters" />
-        <select class="input small" v-model="requestStatusFilter" @change="applyRequestFilters">
-          <option v-for="opt in requestStatusFilterOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
-        </select>
-        <select class="input small" v-model="requestTypeFilter" @change="applyRequestFilters">
-          <option v-for="opt in requestTypeFilterOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
-        </select>
+      <div class="growpro-stats">
+        <div class="stat">
+          <p class="label">Faellig < 24h</p>
+          <strong>{{ growProDueSoon }}</strong>
+        </div>
+        <div class="stat">
+          <p class="label">Ueberfaellig</p>
+          <strong>{{ growProOverdue }}</strong>
+        </div>
+        <div class="stat">
+          <p class="label">Aktive Ziele</p>
+          <strong>{{ (growProGoals || []).length }}</strong>
+        </div>
       </div>
-      <ul v-if="teamRequests.length">
-        <li v-for="request in teamRequests" :key="request.id">
-          <div class="row">
-            <strong>{{ request.sender_name }}</strong>
-            <span class="pill">{{ requestTypeLabel(request.req_type) }}</span>
-          </div>
-          <p class="muted">An {{ request.receiver_name }} · {{ statusLabelMap[request.status] }}</p>
-          <p class="message">{{ request.message || "Keine Nachricht hinterlegt." }}</p>
-          <div class="request-actions">
-            <button class="btn tiny" type="button" @click="respondRequest(request.id, 'accept')" :disabled="request.status !== 'OPEN'">Annehmen</button>
-            <button class="btn ghost tiny" type="button" @click="respondRequest(request.id, 'decline')" :disabled="request.status !== 'OPEN'">Ablehnen</button>
-          </div>
-        </li>
-      </ul>
-      <div class="request-pagination" v-if="requestPageCount > 1">
-        <button class="btn ghost tiny" type="button" :disabled="requestsPage === 1 || loadingRequests" @click="changeRequestPage(-1)">Zurück</button>
-        <span>Seite {{ requestsPage }} / {{ requestPageCount }}</span>
-        <button class="btn ghost tiny" type="button" :disabled="requestsPage === requestPageCount || loadingRequests" @click="changeRequestPage(1)">Weiter</button>
-      </div>
-      <p v-else-if="loadingRequests" class="muted empty">Lade Anfragen...</p>
-      <p v-else class="muted empty">Keine offenen Anfragen.</p>
     </section>
 
     <section v-if="isTeam" class="card activity">
       <div class="activity-head">
         <div>
-          <h2>AktivitÃ¤ten</h2>
+          <h2>Aktivitaeten</h2>
           <p class="muted">Gefiltert nach Typ.</p>
         </div>
         <div class="activity-controls">
@@ -200,7 +173,7 @@
           </div>
         </li>
       </ul>
-      <p v-else class="muted small">Keine AktivitÃ¤ten vorhanden.</p>
+      <p v-else class="muted small">Keine Aktivitaeten vorhanden.</p>
     </section>
 
     <section v-if="newsPosts.length" class="card news-preview">
@@ -230,7 +203,7 @@
           <label>
             Ziel
             <select class="input" v-model="quickGoalId">
-              <option value="">WÃ¤hlen</option>
+              <option value="">Waehlen</option>
               <option v-for="goal in growProGoals" :key="goal.id" :value="goal.id">
                 {{ goal.title }} ({{ goal.profile?.name || goal.profile?.username || "?" }})
               </option>
@@ -249,7 +222,7 @@
           <label>
             Song
             <select class="input" v-model="quickSongId">
-              <option value="">WÃ¤hlen</option>
+              <option value="">Waehlen</option>
               <option v-for="song in teamSongs" :key="song.id" :value="song.id">
                 {{ song.title }}
               </option>
@@ -257,7 +230,7 @@
           </label>
           <label class="file-picker">
             <input type="file" @change="onQuickFile($event)" />
-            {{ quickFile ? quickFile.name : "Datei wÃ¤hlen" }}
+            {{ quickFile ? quickFile.name : "Datei waehlen" }}
           </label>
           <input class="input" v-model.trim="quickVersionNote" placeholder="Notiz" />
           <div class="flags">
@@ -266,7 +239,7 @@
             <label><input type="checkbox" v-model="quickFlags.final" /> Final</label>
           </div>
           <button class="btn tiny" type="button" @click="submitQuickVersion" :disabled="savingQuickVersion">
-            {{ savingQuickVersion ? "LÃ¤dt..." : "Version hochladen" }}
+            {{ savingQuickVersion ? "Laedt..." : "Version hochladen" }}
           </button>
         </div>
       </div>
@@ -286,12 +259,6 @@ const router = useRouter();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { toast, showToast, hideToast } = useToast();
 
-const stats = ref({
-  roles: {},
-  open_requests: 0,
-  active_contracts: 0,
-  due_payments: 0,
-});
 const examples = ref([]);
 const projects = ref([]);
 const overdueTasks = ref([]);
@@ -311,6 +278,10 @@ const requestsPageSize = ref(8);
 const requestStatusFilter = ref("OPEN");
 const requestTypeFilter = ref("ALL");
 const requestSearch = ref("");
+const activities = ref([]);
+const loadingActivity = ref(false);
+const activityFilter = ref("all");
+
 const quickGoalId = ref("");
 const quickGoalValue = ref("");
 const quickGoalNote = ref("");
@@ -322,9 +293,6 @@ const savingQuickGoal = ref(false);
 const savingQuickVersion = ref(false);
 const quickMessage = ref("");
 const quickMessageType = ref("info");
-const activities = ref([]);
-const loadingActivity = ref(false);
-const activityFilter = ref("all");
 
 const greetingName = computed(() => me.value?.name || me.value?.username || "Artist");
 const hasRoles = computed(() => (me.value?.roles || []).length > 0);
@@ -332,33 +300,23 @@ const hasExample = computed(() => examples.value.length > 0);
 
 const onboarding = computed(() => [
   {
-    label: "Profilinformationen vervollstÃ¤ndigen",
+    label: "Profilinformationen vervollstaendigen",
     hint: "Name, Genre, Stadt und Social Links helfen beim Matching.",
     done: Boolean(me.value?.name && me.value?.city),
     cta: { label: "Profil bearbeiten", action: () => goTo("me") },
   },
   {
-    label: "Rollen auswÃ¤hlen",
-    hint: "WÃ¤hle aus, welche Rolle du im Netzwerk einnehmen mÃ¶chtest.",
+    label: "Rollen auswaehlen",
+    hint: "Waehle aus, welche Rolle du im Netzwerk einnehmen moechtest.",
     done: hasRoles.value,
-    cta: hasRoles.value ? null : { label: "Rollen wÃ¤hlen", action: () => goTo("me") },
+    cta: hasRoles.value ? null : { label: "Rollen waehlen", action: () => goTo("me") },
   },
   {
     label: "Mindestens ein Beispiel teilen",
-    hint: "FÃ¼ge einen Track, ein Video oder ein Dokument hinzu.",
+    hint: "Fuege einen Track, ein Video oder ein Dokument hinzu.",
     done: hasExample.value,
     cta: hasExample.value ? null : { label: "Beispiel hochladen", action: () => goTo("me") },
   },
-]);
-
-const teamKpis = computed(() => [
-  { icon: "ðŸŽ¤", label: "Artists", value: stats.value.roles.ARTIST || 0 },
-  { icon: "ðŸŽšï¸", label: "Producer", value: stats.value.roles.PROD || 0 },
-  { icon: "ðŸ“", label: "Aktive VertrÃ¤ge", value: stats.value.active_contracts || 0 },
-  { icon: "ðŸ’¸", label: "Offene Zahlungen", value: stats.value.due_payments || 0 },
-  { icon: "ðŸ“¨", label: "Offene Anfragen", value: stats.value.open_requests || 0 },
-  { icon: "â³", label: "GrowPro <24h", value: growProDueSoon.value },
-  { icon: "âš ï¸", label: "GrowPro Ã¼berfÃ¤llig", value: growProOverdue.value },
 ]);
 
 const statusLabelMap = {
@@ -372,11 +330,7 @@ const statusLabelMap = {
   DECLINED: "Abgelehnt",
 };
 
-const requestTypeLabels = {
-  COLLAB: "Collab",
-  BOOK: "Booking",
-  OTHER: "Andere",
-};
+const requestTypeLabels = { COLLAB: "Collab", BOOK: "Booking", OTHER: "Andere" };
 
 const requestStatusFilterOptions = [
   { key: "ALL", label: "Alle" },
@@ -392,24 +346,29 @@ const requestTypeFilterOptions = [
   { key: "OTHER", label: "Andere" },
 ];
 
+const growProDueSoon = computed(() => {
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+  return (growProGoals.value || []).filter((goal) => {
+    if (!goal.due_date) return false;
+    if (["DONE", "ARCHIVED"].includes(goal.status)) return false;
+    const due = new Date(goal.due_date).getTime();
+    const diff = due - now;
+    return diff >= 0 && diff < oneDay;
+  }).length;
+});
+
+const growProOverdue = computed(() => {
+  const now = Date.now();
+  return (growProGoals.value || []).filter((goal) => {
+    if (!goal.due_date) return false;
+    if (["DONE", "ARCHIVED"].includes(goal.status)) return false;
+    const due = new Date(goal.due_date).getTime();
+    return due < now;
+  }).length;
+});
+
 const requestPageCount = computed(() => Math.max(1, Math.ceil((requestsTotal.value || 0) / requestsPageSize.value)));
-
-function activityIcon(type) {
-  if (!type) return "â€¢";
-  if (type.startsWith("song")) return "â™ª";
-  if (type.startsWith("growpro")) return "â†—";
-  if (type.startsWith("task")) return "â°";
-  if (type.startsWith("request")) return "âœ‰";
-  return "â€¢";
-}
-
-function setQuickMessage(text, type = "info") {
-  quickMessage.value = text;
-  quickMessageType.value = type;
-  if (text) {
-    setTimeout(() => (quickMessage.value = ""), 2500);
-  }
-}
 
 function goTo(name) {
   router.push({ name });
@@ -423,15 +382,6 @@ async function loadExamples() {
   } catch (err) {
     console.error("Beispiele konnten nicht geladen werden", err);
     examples.value = [];
-  }
-}
-
-async function loadStats() {
-  try {
-    const { data } = await api.get("stats/");
-    stats.value = data;
-  } catch (err) {
-    console.error("Statistiken konnten nicht geladen werden", err);
   }
 }
 
@@ -455,7 +405,7 @@ async function loadOverdueTasks() {
     const { data } = await api.get("tasks/overdue/");
     overdueTasks.value = data || [];
   } catch (err) {
-    console.error("ÃœberfÃ¤llige Tasks konnten nicht geladen werden", err);
+    console.error("Ueberfaellige Tasks konnten nicht geladen werden", err);
     overdueTasks.value = [];
   } finally {
     loadingOverdue.value = false;
@@ -503,33 +453,6 @@ async function loadTeamRequests() {
     requestsTotal.value = 0;
   } finally {
     loadingRequests.value = false;
-  }
-}
-
-function applyRequestFilters() {
-  requestsPage.value = 1;
-  loadTeamRequests();
-}
-
-function changeRequestPage(delta) {
-  const next = requestsPage.value + delta;
-  if (next < 1 || next > requestPageCount.value) return;
-  requestsPage.value = next;
-  loadTeamRequests();
-}
-
-async function respondRequest(id, action) {
-  if (!isTeam.value) return;
-  const endpoint = action === "accept" ? "accept" : "decline";
-  try {
-    await api.post(`requests/${id}/${endpoint}/`);
-    await loadTeamRequests();
-    setQuickMessage(`Request ${action === "accept" ? "angenommen" : "abgelehnt"}`, "success");
-    showToast(`Request ${action === "accept" ? "angenommen" : "abgelehnt"}`, "success");
-  } catch (err) {
-    console.error("Request-Aktion fehlgeschlagen", err);
-    setQuickMessage("Aktion fehlgeschlagen", "error");
-    showToast("Aktion fehlgeschlagen", "error");
   }
 }
 
@@ -583,9 +506,7 @@ async function loadActivity() {
   loadingActivity.value = true;
   try {
     const params = { limit: 40 };
-    if (activityFilter.value !== "all") {
-      params.types = activityFilter.value;
-    }
+    if (activityFilter.value !== "all") params.types = activityFilter.value;
     const { data } = await api.get("activity/", { params });
     activities.value = data || [];
   } catch (err) {
@@ -599,24 +520,30 @@ function onQuickFile(event) {
   quickFile.value = event.target.files?.[0] || null;
 }
 
+function setQuickMessage(text, type = "info") {
+  quickMessage.value = text;
+  quickMessageType.value = type;
+  if (text) setTimeout(() => (quickMessage.value = ""), 2500);
+}
+
 async function submitQuickGoal() {
   if (!quickGoalId.value || quickGoalValue.value === "" || quickGoalValue.value === null) {
-    setQuickMessage("Ziel und Wert wÃ‡Â¤hlen", "error");
+    setQuickMessage("Ziel und Wert waehlen", "error");
+    showToast("Ziel und Wert waehlen", "error");
     return;
   }
   savingQuickGoal.value = true;
   try {
-    await api.post(`growpro/${quickGoalId.value}/log/`, {
-      value: quickGoalValue.value,
-      note: quickGoalNote.value,
-    });
+    await api.post(`growpro/${quickGoalId.value}/log/`, { value: quickGoalValue.value, note: quickGoalNote.value });
     quickGoalValue.value = "";
     quickGoalNote.value = "";
     await loadGrowProGoals();
     setQuickMessage("Update gespeichert", "success");
+    showToast("Update gespeichert", "success");
   } catch (err) {
     console.error("Quick-GrowPro fehlgeschlagen", err);
     setQuickMessage("Fehler beim Update", "error");
+    showToast("Fehler beim Update", "error");
   } finally {
     savingQuickGoal.value = false;
   }
@@ -624,7 +551,8 @@ async function submitQuickGoal() {
 
 async function submitQuickVersion() {
   if (!quickSongId.value || !quickFile.value) {
-    setQuickMessage("Song und Datei wÃ‡Â¤hlen", "error");
+    setQuickMessage("Song und Datei waehlen", "error");
+    showToast("Song und Datei waehlen", "error");
     return;
   }
   savingQuickVersion.value = true;
@@ -642,12 +570,39 @@ async function submitQuickVersion() {
     quickVersionNote.value = "";
     quickFlags.value = { mix: false, master: false, final: false };
     setQuickMessage("Version hochgeladen", "success");
+    showToast("Version hochgeladen", "success");
   } catch (err) {
     console.error("Quick-Version fehlgeschlagen", err);
     setQuickMessage("Fehler beim Upload", "error");
+    showToast("Fehler beim Upload", "error");
   } finally {
     savingQuickVersion.value = false;
   }
+}
+
+async function respondRequest(id, action) {
+  if (!isTeam.value) return;
+  const endpoint = action === "accept" ? "accept" : "decline";
+  try {
+    await api.post(`requests/${id}/${endpoint}/`);
+    await loadTeamRequests();
+    showToast(action === "accept" ? "Request angenommen" : "Request abgelehnt", "success");
+  } catch (err) {
+    console.error("Request-Aktion fehlgeschlagen", err);
+    showToast("Aktion fehlgeschlagen", "error");
+  }
+}
+
+function applyRequestFilters() {
+  requestsPage.value = 1;
+  loadTeamRequests();
+}
+
+function changeRequestPage(delta) {
+  const next = requestsPage.value + delta;
+  if (next < 1 || next > requestPageCount.value) return;
+  requestsPage.value = next;
+  loadTeamRequests();
 }
 
 async function refresh() {
@@ -655,7 +610,7 @@ async function refresh() {
   loading.value = true;
   try {
     await fetchProfile(true);
-    const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
+    const loaders = [loadExamples(), loadNewsPreview()];
     if (isTeam.value) {
       loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadTeamSongs(), loadActivity());
     } else {
@@ -669,7 +624,7 @@ async function refresh() {
 
 onMounted(async () => {
   await fetchProfile();
-  const loaders = [loadStats(), loadExamples(), loadNewsPreview()];
+  const loaders = [loadExamples(), loadNewsPreview()];
   if (isTeam.value) {
     loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadTeamSongs(), loadActivity());
   } else {
@@ -700,27 +655,14 @@ function taskProjectLabel(task) {
   return task.project_title || `Projekt #${task.project}`;
 }
 
-const growProDueSoon = computed(() => {
-  const now = Date.now();
-  const oneDay = 24 * 60 * 60 * 1000;
-  return (growProGoals.value || []).filter((goal) => {
-    if (!goal.due_date) return false;
-    if (["DONE", "ARCHIVED"].includes(goal.status)) return false;
-    const due = new Date(goal.due_date).getTime();
-    const diff = due - now;
-    return diff >= 0 && diff < oneDay;
-  }).length;
-});
-
-const growProOverdue = computed(() => {
-  const now = Date.now();
-  return (growProGoals.value || []).filter((goal) => {
-    if (!goal.due_date) return false;
-    if (["DONE", "ARCHIVED"].includes(goal.status)) return false;
-    const due = new Date(goal.due_date).getTime();
-    return due < now;
-  }).length;
-});
+function activityIcon(type) {
+  if (!type) return "*";
+  if (type.startsWith("song")) return "S";
+  if (type.startsWith("growpro")) return "G";
+  if (type.startsWith("task")) return "T";
+  if (type.startsWith("request")) return "R";
+  return "*";
+}
 </script>
 
 <style scoped>
@@ -729,72 +671,19 @@ const growProOverdue = computed(() => {
   gap: 20px;
   width: 100%;
 }
-.welcome,
-.team-hero {
+.team-hero,
+.welcome {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
 }
-.quick-team {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.quick-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-}
-.quick-block {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.inline-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
-}
-.file-picker {
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.file-picker input {
-  display: none;
-}
-.flags {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
-.feedback {
-  margin: 0;
-}
 .hero-actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-.welcome .muted,
-.team-hero .muted {
-  margin: 8px 0 0;
 }
 .eyebrow {
   margin: 0;
@@ -825,12 +714,20 @@ const growProOverdue = computed(() => {
   color: #fff;
   font-size: 22px;
 }
-.kpi-label {
-  margin: 0;
-  color: var(--muted);
+.kpi-label { margin: 0; color: var(--muted); }
+.kpi-value { font-size: 1.6rem; }
+.growpro-summary .growpro-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
 }
-.kpi-value {
-  font-size: 1.6rem;
+.growpro-summary .stat {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .checklist ul {
   list-style: none;
@@ -845,9 +742,7 @@ const growProOverdue = computed(() => {
   gap: 12px;
   align-items: center;
 }
-.check {
-  font-size: 20px;
-}
+.check { font-size: 20px; }
 .quick-actions .actions {
   display: flex;
   gap: 12px;
@@ -909,15 +804,22 @@ const growProOverdue = computed(() => {
   background: rgba(248, 113, 113, 0.18);
   color: #b91c1c;
 }
-.deadlines .empty {
-  margin: 6px 0 0;
-}
 .requests-card .pill {
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(75, 91, 255, 0.16);
   font-size: 11px;
   font-weight: 600;
+}
+.requests-card .message {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.request-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
 }
 .request-filters {
   display: flex;
@@ -929,48 +831,11 @@ const growProOverdue = computed(() => {
   width: 160px;
   padding: 6px 8px;
 }
-.requests-card .message {
-  margin: 4px 0 0;
-  font-size: 13px;
-}
 .request-pagination {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-top: 8px;
-}
-.request-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-.activity {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.activity-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.activity-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.activity ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 8px;
-}
-.activity-type {
-  background: rgba(15, 23, 42, 0.08);
 }
 .project-overview ul {
   list-style: none;
@@ -1002,21 +867,9 @@ const growProOverdue = computed(() => {
   background: rgba(75, 91, 255, 0.18);
   color: var(--brand);
 }
-.status-pill[data-status="IN_PROGRESS"] {
-  background: rgba(249, 115, 22, 0.16);
-  color: #ea580c;
-}
-.status-pill[data-status="DONE"] {
-  background: rgba(52, 211, 153, 0.16);
-  color: #059669;
-}
-.status-pill[data-status="ON_HOLD"] {
-  background: rgba(148, 163, 184, 0.18);
-  color: #475569;
-}
-.project-overview .empty {
-  margin: 0;
-}
+.status-pill[data-status="IN_PROGRESS"] { background: rgba(249, 115, 22, 0.16); color: #ea580c; }
+.status-pill[data-status="DONE"] { background: rgba(52, 211, 153, 0.16); color: #059669; }
+.status-pill[data-status="ON_HOLD"] { background: rgba(148, 163, 184, 0.18); color: #475569; }
 .news-preview .news-head {
   display: flex;
   justify-content: space-between;
@@ -1031,29 +884,91 @@ const growProOverdue = computed(() => {
   flex-direction: column;
   gap: 10px;
 }
-.btn.tiny {
-  padding: 4px 10px;
-  font-size: 12px;
+.quick-team {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
+.quick-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.quick-block {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.inline-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+.file-picker {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.file-picker input { display: none; }
+.flags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.activity {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.activity-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.activity-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.activity ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.activity-type {
+  background: rgba(15, 23, 42, 0.08);
+}
+.feedback { margin: 0; }
+.btn.tiny { padding: 4px 10px; font-size: 12px; }
+
 @media (max-width: 760px) {
   .welcome,
   .team-hero {
     flex-direction: column;
     align-items: flex-start;
   }
-  .hero-actions {
-    justify-content: flex-start;
-  }
-  .checklist li {
-    grid-template-columns: auto 1fr;
-  }
-  .checklist li .btn {
-    grid-column: span 2;
-    justify-self: flex-start;
-  }
+  .hero-actions { justify-content: flex-start; }
+  .checklist li { grid-template-columns: auto 1fr; }
+  .checklist li .btn { grid-column: span 2; justify-self: flex-start; }
 }
 </style>
-
 
 
 

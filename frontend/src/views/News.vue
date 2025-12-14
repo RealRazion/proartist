@@ -1,5 +1,5 @@
 <template>
-  <div class="news">
+  <div class="news wide">
     <header class="card header">
       <div>
         <h1>News & Updates</h1>
@@ -232,3 +232,4 @@ onMounted(async () => {
   }
 }
 </style>
+

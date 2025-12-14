@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="tasks">
     <header class="card header">
       <div>
@@ -15,106 +15,18 @@
       <p class="muted">Nur Team-Mitglieder koennen Aufgaben verwalten. Bitte wende dich an das Team.</p>
     </section>
 
-    <section v-else class="content">
-      <aside class="sidebar">
-        <form class="card form" @submit.prevent="createTask">
-          <h2>Neue Aufgabe</h2>
-          <label>
-            Titel
-            <input class="input" v-model.trim="newTask.title" placeholder="z. B. Mix finalisieren" required />
-          </label>
-          <label>
-            Projekt
-            <select class="input" v-model="newTask.project" required>
-              <option value="" disabled>Projekt waehlen</option>
-              <option v-for="project in projects" :key="project.id" :value="project.id">
-                {{ project.title }}
-              </option>
-            </select>
-          </label>
-          <label>
-            Status
-            <select class="input" v-model="newTask.status">
-              <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
-            </select>
-          </label>
-          <label>
-            Prioritaet
-            <select class="input" v-model="newTask.priority">
-              <option v-for="opt in priorityOptions" :key="opt" :value="opt">{{ priorityLabels[opt] }}</option>
-            </select>
-          </label>
-          <label>
-            Faellig am
-            <input class="input" type="date" v-model="newTask.due_date" />
-          </label>
-          <button class="btn" type="submit" :disabled="creating">
-            {{ creating ? "Speichere..." : "Task anlegen" }}
-          </button>
-        </form>
-
-        <div class="card filters">
-          <h2>Filter & Sortierung</h2>
-          <label>
-            Suche
-            <input class="input" v-model.trim="searchTasks" placeholder="Titel oder Projekt" />
-          </label>
-          <label>
-            Projekt
-            <select class="input" v-model="filterProject">
-              <option value="ALL">Alle</option>
-              <option v-for="project in projects" :key="project.id" :value="project.id">
-                {{ project.title }}
-              </option>
-            </select>
-          </label>
-          <label>
-            Status
-            <select class="input" v-model="filterStatus">
-              <option value="ALL">Alle</option>
-              <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
-            </select>
-          </label>
-          <label>
-            Prioritaet
-            <select class="input" v-model="priorityFilter">
-              <option value="ALL">Alle</option>
-              <option v-for="opt in priorityOptions" :key="opt" :value="opt">{{ priorityLabels[opt] }}</option>
-            </select>
-          </label>
-          <label>
-            Sortierung
-            <select class="input" v-model="sortOrder">
-              <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-          </label>
-          <div class="due-chips">
-            <button
-              v-for="option in dueFilterOptions"
-              :key="option.key"
-              type="button"
-              class="chip"
-              :class="{ active: dueFilter === option.key }"
-              @click="dueFilter = option.key"
-            >
-              {{ option.label }}
-            </button>
+    <section v-else class="content single">
+      <div class="board card">
+        <div class="board-head">
+          <div>
+            <h2>Task Board</h2>
+            <p class="muted small">Filter und neue Aufgaben per Dialog.</p>
           </div>
-          <div class="visibility">
-            <label class="toggle">
-              <input type="checkbox" v-model="showCompleted" />
-              Abgeschlossene anzeigen
-            </label>
-            <label class="toggle">
-              <input type="checkbox" v-model="showArchived" />
-              Archivierte anzeigen
-            </label>
+          <div class="board-actions">
+            <button class="btn ghost" type="button" @click="openFilterModal">Filter</button>
+            <button class="btn" type="button" @click="openCreateModal" :disabled="creating">Task erstellen</button>
           </div>
         </div>
-      </aside>
-
-      <div class="board card">
-        <h2>Task Board</h2>
         <div v-if="taskSummary.total" class="progress-strip">
           <div class="progress-bar">
             <div
@@ -198,9 +110,7 @@
                 {{ file.label || file.file_name || "Datei" }}
               </a>
               <small class="muted">{{ file.uploaded_by?.name || file.uploaded_by?.username }}</small>
-              <button class="iconbtn danger" type="button" @click="removeTaskAttachment(activeTask.id, file.id)">
-                ✕
-              </button>
+              <button class="iconbtn danger" type="button" @click="removeTaskAttachment(activeTask.id, file.id)">X</button>
             </li>
           </ul>
           <p v-else class="muted">Noch keine Anhaenge.</p>
@@ -257,6 +167,122 @@
         </section>
       </div>
     </section>
+
+    <div v-if="showFilterModal" class="modal-backdrop" @click.self="closeFilterModal">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Filter</h3>
+          <button class="btn ghost tiny" type="button" @click="closeFilterModal">Schliessen</button>
+        </div>
+        <form class="form" @submit.prevent="applyFilters">
+          <label>
+            Suche
+            <input class="input" v-model.trim="searchTasks" placeholder="Titel oder Projekt" />
+          </label>
+          <label>
+            Projekt
+            <select class="input" v-model="filterProject">
+              <option value="ALL">Alle</option>
+              <option v-for="project in projects" :key="project.id" :value="project.id">
+                {{ project.title }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select class="input" v-model="filterStatus">
+              <option value="ALL">Alle</option>
+              <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
+            </select>
+          </label>
+          <label>
+            Prioritaet
+            <select class="input" v-model="priorityFilter">
+              <option value="ALL">Alle</option>
+              <option v-for="opt in priorityOptions" :key="opt" :value="opt">{{ priorityLabels[opt] }}</option>
+            </select>
+          </label>
+          <label>
+            Sortierung
+            <select class="input" v-model="sortOrder">
+              <option v-for="opt in sortOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+          </label>
+          <div class="due-chips">
+            <button
+              v-for="option in dueFilterOptions"
+              :key="option.key"
+              type="button"
+              class="chip"
+              :class="{ active: dueFilter === option.key }"
+              @click="dueFilter = option.key"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <div class="visibility">
+            <label class="toggle">
+              <input type="checkbox" v-model="showCompleted" />
+              Abgeschlossene anzeigen
+            </label>
+            <label class="toggle">
+              <input type="checkbox" v-model="showArchived" />
+              Archivierte anzeigen
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="resetFilters">Zuruecksetzen</button>
+            <button class="btn" type="submit">Anwenden</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showCreateModal" class="modal-backdrop" @click.self="closeCreateModal">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Neue Aufgabe</h3>
+          <button class="btn ghost tiny" type="button" @click="closeCreateModal" :disabled="creating">Schliessen</button>
+        </div>
+        <form class="form" @submit.prevent="createTask">
+          <label>
+            Titel
+            <input class="input" v-model.trim="newTask.title" placeholder="z. B. Mix finalisieren" required />
+          </label>
+          <label>
+            Projekt (optional)
+            <select class="input" v-model="newTask.project">
+              <option value="">Kein Projekt</option>
+              <option v-for="project in projects" :key="project.id" :value="project.id">
+                {{ project.title }}
+              </option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select class="input" v-model="newTask.status">
+              <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
+            </select>
+          </label>
+          <label>
+            Prioritaet
+            <select class="input" v-model="newTask.priority">
+              <option v-for="opt in priorityOptions" :key="opt" :value="opt">{{ priorityLabels[opt] }}</option>
+            </select>
+          </label>
+          <label>
+            Faellig am
+            <input class="input" type="date" v-model="newTask.due_date" />
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="closeCreateModal" :disabled="creating">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="creating">
+              {{ creating ? "Speichere..." : "Task anlegen" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -265,7 +291,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
-const { isTeam, fetchProfile } = useCurrentProfile();
+const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 
 const projects = ref([]);
 const tasks = ref([]);
@@ -279,6 +305,8 @@ const projectMap = computed(() =>
 const loadingTasks = ref(false);
 const loadingProjects = ref(false);
 const creating = ref(false);
+const showCreateModal = ref(false);
+const showFilterModal = ref(false);
 const showArchived = ref(false);
 const showCompleted = ref(false);
 const taskSummary = ref({
@@ -296,6 +324,9 @@ const newTask = ref({
   priority: "MEDIUM",
   due_date: "",
 });
+function resetNewTask() {
+  newTask.value = { title: "", project: "", status: "OPEN", priority: "MEDIUM", due_date: "" };
+}
 const filterProject = ref("ALL");
 const filterStatus = ref("ALL");
 const priorityFilter = ref("ALL");
@@ -331,6 +362,17 @@ const priorityLabels = {
   HIGH: "Hoch",
   CRITICAL: "Kritisch",
 };
+
+function resetFilters() {
+  searchTasks.value = "";
+  filterProject.value = "ALL";
+  filterStatus.value = "ALL";
+  priorityFilter.value = "ALL";
+  dueFilter.value = "ALL";
+  showCompleted.value = false;
+  showArchived.value = false;
+  sortOrder.value = "-due_date";
+}
 
 const filteredTasks = computed(() => tasks.value);
 const boardColumns = computed(() =>
@@ -488,17 +530,39 @@ async function refreshTasks() {
 }
 
 async function createTask() {
-  if (!newTask.value.title || !newTask.value.project) return;
+  if (!newTask.value.title) return;
   creating.value = true;
   try {
-    await api.post("tasks/", newTask.value);
+    const payload = { ...newTask.value };
+    if (!payload.project) delete payload.project;
+    await api.post("tasks/", payload);
     newTask.value = { title: "", project: "", status: "OPEN", priority: "MEDIUM", due_date: "" };
     await refreshTasks();
+    showCreateModal.value = false;
   } catch (err) {
     console.error("Task konnte nicht erstellt werden", err);
   } finally {
     creating.value = false;
   }
+}
+
+function openCreateModal() {
+  showCreateModal.value = true;
+}
+function closeCreateModal() {
+  if (creating.value) return;
+  showCreateModal.value = false;
+}
+
+function openFilterModal() {
+  showFilterModal.value = true;
+}
+function closeFilterModal() {
+  showFilterModal.value = false;
+}
+function applyFilters() {
+  loadTasks();
+  closeFilterModal();
 }
 
 async function updateStatus(task) {
@@ -671,9 +735,12 @@ onBeforeUnmount(() => {
   max-width: 600px;
 }
 .content {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 18px;
+}
+.content.single {
+  width: 100%;
 }
 .sidebar {
   display: flex;
@@ -972,7 +1039,7 @@ onBeforeUnmount(() => {
 }
 @media (max-width: 960px) {
   .content {
-    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 
@@ -981,4 +1048,53 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+.board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.board-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 999;
+}
+.modal {
+  max-width: 520px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
 </style>
+
+
+
+
+

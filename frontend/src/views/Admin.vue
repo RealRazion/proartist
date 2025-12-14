@@ -1,5 +1,5 @@
 <template>
-  <div class="admin">
+  <div class="admin wide">
     <header class="card header">
       <div>
         <h1>Admin Dashboard</h1>
@@ -446,3 +446,4 @@ th {
   }
 }
 </style>
+

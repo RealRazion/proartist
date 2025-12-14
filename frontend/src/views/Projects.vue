@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="projects">
     <header class="card header">
       <div>
@@ -22,86 +22,7 @@
       </p>
     </section>
 
-    <section v-else class="grid">
-      <form class="card form" @submit.prevent="createProject">
-        <h2>Neues Projekt</h2>
-        <label>
-          Titel
-          <input class="input" v-model.trim="newProject.title" placeholder="z. B. Album Release" required />
-        </label>
-        <label>
-          Beschreibung
-          <textarea class="input textarea" v-model.trim="newProject.description" placeholder="Kurzbeschreibung"></textarea>
-        </label>
-        <label>
-          Status
-          <select class="input" v-model="newProject.status">
-            <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
-          </select>
-        </label>
-        <label>
-          Team / Artists
-          <select class="input" v-model="newProject.participant_ids" multiple size="6">
-            <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
-              {{ profile.name }}
-            </option>
-          </select>
-          <small class="hint muted">Mehrfachauswahl mit Strg/Command moeglich.</small>
-        </label>
-        <button class="btn" type="submit" :disabled="creating">
-          {{ creating ? "Speichere..." : "Projekt anlegen" }}
-        </button>
-      </form>
-
-      <div class="card filters-panel">
-        <h2>Filter</h2>
-        <div class="filters">
-          <label>
-            Suche
-            <input class="input" v-model.trim="search" placeholder="Titel durchsuchen" />
-          </label>
-          <label>
-            Status
-            <select class="input" v-model="filterStatus">
-              <option value="ALL">Alle</option>
-              <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
-            </select>
-          </label>
-          <label>
-            Teilnehmer
-            <select class="input" v-model="filterMember">
-              <option value="ALL">Alle</option>
-              <option v-for="profile in profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
-            </select>
-          </label>
-        </div>
-        <div class="status-chips">
-          <button
-            v-for="opt in statusChipOptions"
-            :key="`chip-${opt}`"
-            type="button"
-            class="chip"
-            :class="{ active: filterStatus === opt }"
-            @click="setStatusFilter(opt)"
-          >
-            {{ opt === "ALL" ? "Alle" : statusLabels[opt] }}
-          </button>
-          <button v-if="hasActiveFilters" type="button" class="chip clear" @click="resetFilters">
-            Filter zuruecksetzen
-          </button>
-        </div>
-        <div class="visibility">
-          <label class="toggle">
-            <input type="checkbox" v-model="showCompleted" />
-            Abgeschlossene anzeigen
-          </label>
-          <label class="toggle">
-            <input type="checkbox" v-model="showArchived" />
-            Archivierte anzeigen
-          </label>
-        </div>
-      </div>
-
+    <section v-else class="stack">
       <div v-if="summaryTotals.total" class="card stats">
         <h2>Pipeline</h2>
         <div class="kpis">
@@ -120,10 +41,16 @@
 
       <div class="card list">
         <div class="list-head">
-          <h2>Aktuelle Projekte</h2>
-          <p class="muted" v-if="projectPagination.count">
-            {{ projects.length }} von {{ projectPagination.count }} geladen
-          </p>
+          <div>
+            <h2>Aktuelle Projekte</h2>
+            <p class="muted" v-if="projectPagination.count">
+              {{ projects.length }} von {{ projectPagination.count }} geladen
+            </p>
+          </div>
+          <div class="list-actions">
+            <button class="btn ghost" type="button" @click="openFilterModal">Filter</button>
+            <button class="btn" type="button" @click="openCreateModal">Projekt anlegen</button>
+          </div>
         </div>
         <div v-if="loading" class="skeleton-list">
           <div class="skeleton-card" v-for="n in 3" :key="`sk-${n}`"></div>
@@ -140,11 +67,18 @@
                 <span v-if="project.is_archived" class="badge archived">Archiviert</span>
               </div>
               <div class="meta-actions">
+                <label class="inline-select">
+                  Status
+                  <select class="input" v-model="project.status" @change="updateProjectStatus(project)">
+                    <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
+                  </select>
+                </label>
                 <span class="created">{{ formatDate(project.created_at) }}</span>
                 <button class="btn ghost sm" type="button" @click="toggleProjectDetails(project.id)">
                   {{ openProjectId === project.id ? "Details schliessen" : "Details" }}
                 </button>
                 <button class="btn ghost danger sm" type="button" @click="archiveProject(project)">Archivieren</button>
+                <button class="btn ghost danger sm" type="button" @click="deleteProject(project)">Loeschen</button>
               </div>
             </div>
             <p class="muted description">{{ project.description || "Keine Beschreibung hinterlegt." }}</p>
@@ -169,9 +103,7 @@
                       {{ file.label || file.file_name || "Datei" }}
                     </a>
                     <small class="muted">von {{ file.uploaded_by?.name || file.uploaded_by?.username }}</small>
-                    <button class="iconbtn danger" type="button" @click="removeProjectAttachment(project.id, file.id)">
-                      ✕
-                    </button>
+                    <button class="iconbtn danger" type="button" @click="removeProjectAttachment(project.id, file.id)">X</button>
                   </li>
                 </ul>
                 <p v-else-if="attachmentsLoading[project.id]" class="muted">Lade Anhaenge...</p>
@@ -198,6 +130,104 @@
         <p v-if="loadingMore" class="muted loading-more">Lade weitere Projekte...</p>
       </div>
     </section>
+
+    <div v-if="showFilterModal" class="modal-backdrop" @click.self="closeFilterModal">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Filter</h3>
+          <button class="btn ghost tiny" type="button" @click="closeFilterModal">Schliessen</button>
+        </div>
+        <form class="form" @submit.prevent="applyFilters">
+          <label>
+            Suche
+            <input class="input" v-model.trim="search" placeholder="Titel durchsuchen" />
+          </label>
+          <label>
+            Status
+            <select class="input" v-model="filterStatus">
+              <option value="ALL">Alle</option>
+              <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
+            </select>
+          </label>
+          <label>
+            Teilnehmer
+            <select class="input" v-model="filterMember">
+              <option value="ALL">Alle</option>
+              <option v-for="profile in profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+            </select>
+          </label>
+          <div class="status-chips">
+            <button
+              v-for="opt in statusChipOptions"
+              :key="`chip-${opt}`"
+              type="button"
+              class="chip"
+              :class="{ active: filterStatus === opt }"
+              @click="setStatusFilter(opt)"
+            >
+              {{ opt === "ALL" ? "Alle" : statusLabels[opt] }}
+            </button>
+            <button v-if="hasActiveFilters" type="button" class="chip clear" @click="resetFilters">
+              Filter zuruecksetzen
+            </button>
+          </div>
+          <div class="visibility">
+            <label class="toggle">
+              <input type="checkbox" v-model="showCompleted" />
+              Abgeschlossene anzeigen
+            </label>
+            <label class="toggle">
+              <input type="checkbox" v-model="showArchived" />
+              Archivierte anzeigen
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="resetFilters">Reset</button>
+            <button class="btn" type="submit">Anwenden</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showCreateModal" class="modal-backdrop" @click.self="closeCreateModal">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Neues Projekt</h3>
+          <button class="btn ghost tiny" type="button" @click="closeCreateModal" :disabled="creating">Schliessen</button>
+        </div>
+        <form class="form" @submit.prevent="createProject">
+          <label>
+            Titel
+            <input class="input" v-model.trim="newProject.title" placeholder="z. B. Album Release" required />
+          </label>
+          <label>
+            Beschreibung
+            <textarea class="input textarea" v-model.trim="newProject.description" placeholder="Kurzbeschreibung"></textarea>
+          </label>
+          <label>
+            Status
+            <select class="input" v-model="newProject.status">
+              <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
+            </select>
+          </label>
+          <label>
+            Team / Artists
+            <select class="input" v-model="newProject.participant_ids" multiple size="8">
+              <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
+                {{ profile.name }}
+              </option>
+            </select>
+            <small class="hint muted">Mehrfachauswahl mit Strg/Command moeglich. (Mehrfachauswahl erwuenscht)</small>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="closeCreateModal" :disabled="creating">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="creating">
+              {{ creating ? "Speichere..." : "Projekt anlegen" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -215,7 +245,9 @@ const loading = ref(false);
 const loadingMore = ref(false);
 const creating = ref(false);
 const exportingCsv = ref(false);
-const showArchived = ref(false);
+const showCreateModal = ref(false);
+const showFilterModal = ref(false);
+const showArchived = ref(true);
 const showCompleted = ref(false);
 const search = ref("");
 const filterStatus = ref("ALL");
@@ -277,6 +309,20 @@ function buildProjectParams() {
   };
 }
 
+function computeProjectSummary(list) {
+  const summary = {
+    total: list.length,
+    archived: list.filter((p) => p.is_archived).length,
+    active: list.filter((p) => !p.is_archived).length,
+    done: list.filter((p) => p.status === "DONE").length,
+    by_status: {},
+  };
+  statusOptions.forEach((key) => {
+    summary.by_status[key] = list.filter((p) => p.status === key && !p.is_archived).length;
+  });
+  return summary;
+}
+
 async function loadProjects({ append = false, pageUrl = null } = {}) {
   if (!isTeam.value) return;
   if (append && !projectPagination.value.next && !pageUrl) return;
@@ -299,6 +345,7 @@ async function loadProjects({ append = false, pageUrl = null } = {}) {
         count: data.count ?? results.length,
       };
     }
+    projectSummary.value = computeProjectSummary(projects.value);
     if (!append) {
       await nextTick();
       setupObserver();
@@ -330,7 +377,7 @@ async function loadProfiles() {
 async function loadProjectSummary() {
   if (!isTeam.value) return;
   try {
-    const { data } = await api.get("projects/summary/");
+    const { data } = await api.get("projects/summary/", { params: { include_archived: 0 } });
     projectSummary.value = {
       total: data.total || 0,
       archived: data.archived || 0,
@@ -340,7 +387,7 @@ async function loadProjectSummary() {
     };
   } catch (err) {
     console.error("Projekt-Statistiken konnten nicht geladen werden", err);
-    projectSummary.value = { total: 0, archived: 0, active: 0, done: 0, by_status: {} };
+    projectSummary.value = computeProjectSummary(projects.value);
   }
 }
 
@@ -358,6 +405,24 @@ function resetFilters() {
   filterMember.value = "ALL";
 }
 
+function openCreateModal() {
+  showCreateModal.value = true;
+}
+function closeCreateModal() {
+  if (creating.value) return;
+  showCreateModal.value = false;
+}
+function openFilterModal() {
+  showFilterModal.value = true;
+}
+function closeFilterModal() {
+  showFilterModal.value = false;
+}
+function applyFilters() {
+  loadProjects();
+  closeFilterModal();
+}
+
 async function createProject() {
   if (!newProject.value.title) return;
   creating.value = true;
@@ -365,10 +430,20 @@ async function createProject() {
     await api.post("projects/", newProject.value);
     newProject.value = { title: "", description: "", status: "PLANNED", participant_ids: [] };
     await refreshProjects();
+    showCreateModal.value = false;
   } catch (err) {
     console.error("Projekt konnte nicht erstellt werden", err);
   } finally {
     creating.value = false;
+  }
+}
+
+async function updateProjectStatus(project) {
+  try {
+    await api.patch(`projects/${project.id}/`, { status: project.status });
+    await loadProjectSummary();
+  } catch (err) {
+    console.error("Projekt-Status konnte nicht aktualisiert werden", err);
   }
 }
 
@@ -451,6 +526,16 @@ async function archiveProject(project) {
     await refreshProjects();
   } catch (err) {
     console.error("Projekt konnte nicht archiviert werden", err);
+  }
+}
+
+async function deleteProject(project) {
+  if (!confirm(`Projekt "${project.title}" endgueltig loeschen?`)) return;
+  try {
+    await api.delete(`projects/${project.id}/`);
+    await refreshProjects();
+  } catch (err) {
+    console.error("Projekt konnte nicht geloescht werden", err);
   }
 }
 
@@ -545,25 +630,15 @@ onBeforeUnmount(() => {
 .info {
   max-width: 600px;
 }
-.grid {
-  display: grid;
-  grid-template-columns: minmax(260px, 320px) minmax(420px, 1fr);
+.stack {
+  display: flex;
+  flex-direction: column;
   gap: 18px;
 }
 .form {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-.filters-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.filters {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 .status-chips {
   display: flex;
@@ -626,6 +701,12 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   align-items: flex-start;
 }
+.list-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .list ul {
   list-style: none;
   margin: 0;
@@ -659,6 +740,14 @@ onBeforeUnmount(() => {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+.inline-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 170px;
 }
 .created {
   font-size: 13px;
@@ -787,6 +876,35 @@ onBeforeUnmount(() => {
 .iconbtn.danger {
   color: #dc2626;
 }
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 999;
+}
+.modal {
+  max-width: 620px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
 @keyframes shimmer {
   0% {
     background-position: 200% 0;
@@ -796,12 +914,9 @@ onBeforeUnmount(() => {
   }
 }
 @media (max-width: 960px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-  .stats,
-  .list {
-    grid-column: span 1;
+  .list-head {
+    flex-direction: column;
+    gap: 12px;
   }
 }
 

@@ -1,0 +1,96 @@
+# Dashboard Analysis Backup
+
+## Template Snippets (frueher im Dashboard)
+
+<section v-if="isTeam" class="kpi-grid">
+  <div class="card kpi" v-for="kpi in teamKpis" :key="kpi.label">
+    <div class="kpi-icon">{{ kpi.icon }}</div>
+    <div>
+      <p class="kpi-label">{{ kpi.label }}</p>
+      <strong class="kpi-value">{{ kpi.value }}</strong>
+    </div>
+  </div>
+</section>
+
+<section v-if="isTeam" class="card analysis">
+  <div class="analysis-head">
+    <div>
+      <h2>Analysis</h2>
+      <p class="muted">Team- und Netzwerkzahlen auf einen Blick.</p>
+    </div>
+    <button class="btn ghost tiny" type="button" @click="refresh" :disabled="loading">
+      {{ loading ? "Aktualisiere..." : "Neu laden" }}
+    </button>
+  </div>
+  <div class="analysis-grid">
+    <div class="analysis-item">
+      <p class="label">Artists</p>
+      <strong>{{ stats.roles.ARTIST || 0 }}</strong>
+    </div>
+    <div class="analysis-item">
+      <p class="label">Producer</p>
+      <strong>{{ stats.roles.PROD || 0 }}</strong>
+    </div>
+    <div class="analysis-item">
+      <p class="label">Video</p>
+      <strong>{{ stats.roles.VIDEO || 0 }}</strong>
+    </div>
+    <div class="analysis-item">
+      <p class="label">Marketing</p>
+      <strong>{{ stats.roles.MARKETING || 0 }}</strong>
+    </div>
+    <div class="analysis-item">
+      <p class="label">Offene Anfragen</p>
+      <strong>{{ stats.open_requests || 0 }}</strong>
+    </div>
+    <div class="analysis-item">
+      <p class="label">Faellige Zahlungen</p>
+      <strong>{{ stats.due_payments || 0 }}</strong>
+    </div>
+  </div>
+  <div class="analysis-requests" v-if="teamRequests.length">
+    <div class="analysis-list-head">
+      <h3>Letzte offene Anfragen</h3>
+      <button class="btn ghost tiny" type="button" @click="loadTeamRequests" :disabled="loadingRequests">
+        {{ loadingRequests ? "Lade..." : "Neu laden" }}
+      </button>
+    </div>
+    <ul class="inline-list">
+      <li v-for="request in teamRequests.slice(0, 4)" :key="request.id">
+        <div class="row">
+          <strong>{{ request.sender_name }}</strong>
+          <span class="pill">{{ requestTypeLabel(request.req_type) }}</span>
+        </div>
+        <p class="muted small">An {{ request.receiver_name }} · {{ statusLabelMap[request.status] }}</p>
+        <p class="message">{{ request.message || "Keine Nachricht hinterlegt." }}</p>
+      </li>
+    </ul>
+  </div>
+  <p v-else class="muted small">Keine offenen Anfragen.</p>
+</section>
+
+## Script Snippets
+
+const stats = ref({ roles: {}, open_requests: 0, active_contracts: 0, due_payments: 0 });
+
+const teamKpis = computed(() => [
+  { icon: "??", label: "Artists", value: stats.value.roles.ARTIST || 0 },
+  { icon: "??", label: "Producer", value: stats.value.roles.PROD || 0 },
+  { icon: "??", label: "Aktive Vertraege", value: stats.value.active_contracts || 0 },
+  { icon: "??", label: "Offene Zahlungen", value: stats.value.due_payments || 0 },
+  { icon: "??", label: "Offene Anfragen", value: stats.value.open_requests || 0 },
+  { icon: "?", label: "GrowPro <24h", value: growProDueSoon.value },
+  { icon: "?", label: "GrowPro ueberfaellig", value: growProOverdue.value },
+]);
+
+async function loadStats() {
+  try {
+    const { data } = await api.get("stats/");
+    stats.value = data;
+  } catch (err) {
+    console.error("Statistiken konnten nicht geladen werden", err);
+  }
+}
+
+// Frueher in refresh()/onMounted() mit aufgerufen:
+// const loaders = [loadStats(), loadExamples(), loadNewsPreview()];

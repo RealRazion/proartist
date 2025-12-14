@@ -1,10 +1,11 @@
 ﻿<template>
   <div class="dashboard">
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <section v-if="isTeam" class="card team-hero">
       <div>
         <p class="eyebrow">Team</p>
         <h1>Team Dashboard</h1>
-        <p class="muted">Schneller Überblick über Todos, Projekte und Anfragen.</p>
+        <p class="muted">Schneller Ãœberblick Ã¼ber Todos, Projekte und Anfragen.</p>
       </div>
       <div class="hero-actions">
         <button class="btn" type="button" @click="goTo('projects')">Projekt anlegen</button>
@@ -17,7 +18,7 @@
     <section v-else class="card welcome">
       <div>
         <p class="eyebrow">Hi {{ greetingName }}</p>
-        <h1>Willkommen zurück bei ProArtist</h1>
+        <h1>Willkommen zurÃ¼ck bei ProArtist</h1>
         <p class="muted">
           Mach dein Profil sichtbar und starte neue Kollaborationen.
         </p>
@@ -37,10 +38,10 @@
 
     <section v-else class="card checklist">
       <h2>Onboarding</h2>
-      <p class="muted">Vervollständige dein Profil, damit andere dich schneller finden.</p>
+      <p class="muted">VervollstÃ¤ndige dein Profil, damit andere dich schneller finden.</p>
       <ul>
         <li v-for="item in onboarding" :key="item.label">
-          <span class="check">{{ item.done ? "✅" : "⬜" }}</span>
+          <span class="check">{{ item.done ? "âœ…" : "â¬œ" }}</span>
           <div>
             <p>{{ item.label }}</p>
             <small class="muted">{{ item.hint }}</small>
@@ -70,7 +71,7 @@
       <h2>Schnellaktionen</h2>
       <div class="actions">
         <button class="btn" type="button" @click="goTo('profiles')">Profile entdecken</button>
-        <button class="btn ghost" type="button" @click="goTo('chats')">Chat öffnen</button>
+        <button class="btn ghost" type="button" @click="goTo('chats')">Chat Ã¶ffnen</button>
         <button class="btn ghost" type="button" @click="goTo('projects')">Neues Projekt</button>
       </div>
     </section>
@@ -79,21 +80,21 @@
       <div class="deadlines-head">
         <div>
           <h2>Fristen im Blick</h2>
-          <p class="muted">Überfällige und anstehende Tasks sortiert nach Fälligkeit.</p>
+          <p class="muted">ÃœberfÃ¤llige und anstehende Tasks sortiert nach FÃ¤lligkeit.</p>
         </div>
         <div class="head-actions">
           <button class="btn ghost tiny" type="button" @click="loadOverdueTasks" :disabled="loadingOverdue">
-            {{ loadingOverdue ? "Aktualisiere..." : "Überfällig laden" }}
+            {{ loadingOverdue ? "Aktualisiere..." : "ÃœberfÃ¤llig laden" }}
           </button>
           <button class="btn ghost tiny" type="button" @click="loadUpcomingTasks" :disabled="loadingUpcoming">
-            {{ loadingUpcoming ? "Aktualisiere..." : "Nächste Woche laden" }}
+            {{ loadingUpcoming ? "Aktualisiere..." : "NÃ¤chste Woche laden" }}
           </button>
         </div>
       </div>
       <div class="deadlines-grid">
         <div class="deadline-column">
           <header>
-            <h3>Überfällig</h3>
+            <h3>ÃœberfÃ¤llig</h3>
             <small>{{ overdueTasks.length }} Tasks</small>
           </header>
           <ul v-if="overdueTasks.length">
@@ -105,11 +106,11 @@
               <p class="muted">{{ taskProjectLabel(task) }}</p>
             </li>
           </ul>
-          <p v-else class="muted empty">Keine überfälligen Tasks 🎉</p>
+          <p v-else class="muted empty">Keine Ã¼berfÃ¤lligen Tasks ðŸŽ‰</p>
         </div>
         <div class="deadline-column">
           <header>
-            <h3>Nächste Woche</h3>
+            <h3>NÃ¤chste Woche</h3>
             <small>{{ upcomingTasks.length }} Tasks</small>
           </header>
           <ul v-if="upcomingTasks.length">
@@ -126,7 +127,7 @@
       </div>
     </section>
 
-    <section v-if="isTeam" class="card requests-card">
+        <section v-if="isTeam" class="card requests-card">
       <div class="requests-head">
         <div>
           <h2>Offene Anfragen</h2>
@@ -135,6 +136,15 @@
         <button class="btn ghost tiny" type="button" @click="loadTeamRequests" :disabled="loadingRequests">
           {{ loadingRequests ? "Aktualisiere..." : "Neu laden" }}
         </button>
+      </div>
+      <div class="request-filters">
+        <input class="input small" placeholder="Suche" v-model.trim="requestSearch" @keyup.enter="applyRequestFilters" />
+        <select class="input small" v-model="requestStatusFilter" @change="applyRequestFilters">
+          <option v-for="opt in requestStatusFilterOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
+        </select>
+        <select class="input small" v-model="requestTypeFilter" @change="applyRequestFilters">
+          <option v-for="opt in requestTypeFilterOptions" :key="opt.key" :value="opt.key">{{ opt.label }}</option>
+        </select>
       </div>
       <ul v-if="teamRequests.length">
         <li v-for="request in teamRequests" :key="request.id">
@@ -150,13 +160,19 @@
           </div>
         </li>
       </ul>
+      <div class="request-pagination" v-if="requestPageCount > 1">
+        <button class="btn ghost tiny" type="button" :disabled="requestsPage === 1 || loadingRequests" @click="changeRequestPage(-1)">Zurück</button>
+        <span>Seite {{ requestsPage }} / {{ requestPageCount }}</span>
+        <button class="btn ghost tiny" type="button" :disabled="requestsPage === requestPageCount || loadingRequests" @click="changeRequestPage(1)">Weiter</button>
+      </div>
+      <p v-else-if="loadingRequests" class="muted empty">Lade Anfragen...</p>
       <p v-else class="muted empty">Keine offenen Anfragen.</p>
     </section>
 
     <section v-if="isTeam" class="card activity">
       <div class="activity-head">
         <div>
-          <h2>Aktivitäten</h2>
+          <h2>AktivitÃ¤ten</h2>
           <p class="muted">Gefiltert nach Typ.</p>
         </div>
         <div class="activity-controls">
@@ -184,7 +200,7 @@
           </div>
         </li>
       </ul>
-      <p v-else class="muted small">Keine Aktivitäten vorhanden.</p>
+      <p v-else class="muted small">Keine AktivitÃ¤ten vorhanden.</p>
     </section>
 
     <section v-if="newsPosts.length" class="card news-preview">
@@ -214,7 +230,7 @@
           <label>
             Ziel
             <select class="input" v-model="quickGoalId">
-              <option value="">Wählen</option>
+              <option value="">WÃ¤hlen</option>
               <option v-for="goal in growProGoals" :key="goal.id" :value="goal.id">
                 {{ goal.title }} ({{ goal.profile?.name || goal.profile?.username || "?" }})
               </option>
@@ -233,7 +249,7 @@
           <label>
             Song
             <select class="input" v-model="quickSongId">
-              <option value="">Wählen</option>
+              <option value="">WÃ¤hlen</option>
               <option v-for="song in teamSongs" :key="song.id" :value="song.id">
                 {{ song.title }}
               </option>
@@ -241,7 +257,7 @@
           </label>
           <label class="file-picker">
             <input type="file" @change="onQuickFile($event)" />
-            {{ quickFile ? quickFile.name : "Datei wählen" }}
+            {{ quickFile ? quickFile.name : "Datei wÃ¤hlen" }}
           </label>
           <input class="input" v-model.trim="quickVersionNote" placeholder="Notiz" />
           <div class="flags">
@@ -250,7 +266,7 @@
             <label><input type="checkbox" v-model="quickFlags.final" /> Final</label>
           </div>
           <button class="btn tiny" type="button" @click="submitQuickVersion" :disabled="savingQuickVersion">
-            {{ savingQuickVersion ? "Lädt..." : "Version hochladen" }}
+            {{ savingQuickVersion ? "LÃ¤dt..." : "Version hochladen" }}
           </button>
         </div>
       </div>
@@ -263,9 +279,12 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import Toast from "../components/Toast.vue";
+import { useToast } from "../composables/useToast";
 
 const router = useRouter();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
+const { toast, showToast, hideToast } = useToast();
 
 const stats = ref({
   roles: {},
@@ -286,6 +305,12 @@ const loadingGrowPro = ref(false);
 const teamSongs = ref([]);
 const newsPosts = ref([]);
 const loading = ref(false);
+const requestsPage = ref(1);
+const requestsTotal = ref(0);
+const requestsPageSize = ref(8);
+const requestStatusFilter = ref("OPEN");
+const requestTypeFilter = ref("ALL");
+const requestSearch = ref("");
 const quickGoalId = ref("");
 const quickGoalValue = ref("");
 const quickGoalNote = ref("");
@@ -307,33 +332,33 @@ const hasExample = computed(() => examples.value.length > 0);
 
 const onboarding = computed(() => [
   {
-    label: "Profilinformationen vervollständigen",
+    label: "Profilinformationen vervollstÃ¤ndigen",
     hint: "Name, Genre, Stadt und Social Links helfen beim Matching.",
     done: Boolean(me.value?.name && me.value?.city),
     cta: { label: "Profil bearbeiten", action: () => goTo("me") },
   },
   {
-    label: "Rollen auswählen",
-    hint: "Wähle aus, welche Rolle du im Netzwerk einnehmen möchtest.",
+    label: "Rollen auswÃ¤hlen",
+    hint: "WÃ¤hle aus, welche Rolle du im Netzwerk einnehmen mÃ¶chtest.",
     done: hasRoles.value,
-    cta: hasRoles.value ? null : { label: "Rollen wählen", action: () => goTo("me") },
+    cta: hasRoles.value ? null : { label: "Rollen wÃ¤hlen", action: () => goTo("me") },
   },
   {
     label: "Mindestens ein Beispiel teilen",
-    hint: "Füge einen Track, ein Video oder ein Dokument hinzu.",
+    hint: "FÃ¼ge einen Track, ein Video oder ein Dokument hinzu.",
     done: hasExample.value,
     cta: hasExample.value ? null : { label: "Beispiel hochladen", action: () => goTo("me") },
   },
 ]);
 
 const teamKpis = computed(() => [
-  { icon: "🎤", label: "Artists", value: stats.value.roles.ARTIST || 0 },
-  { icon: "🎚️", label: "Producer", value: stats.value.roles.PROD || 0 },
-  { icon: "📝", label: "Aktive Verträge", value: stats.value.active_contracts || 0 },
-  { icon: "💸", label: "Offene Zahlungen", value: stats.value.due_payments || 0 },
-  { icon: "📨", label: "Offene Anfragen", value: stats.value.open_requests || 0 },
-  { icon: "⏳", label: "GrowPro <24h", value: growProDueSoon.value },
-  { icon: "⚠️", label: "GrowPro überfällig", value: growProOverdue.value },
+  { icon: "ðŸŽ¤", label: "Artists", value: stats.value.roles.ARTIST || 0 },
+  { icon: "ðŸŽšï¸", label: "Producer", value: stats.value.roles.PROD || 0 },
+  { icon: "ðŸ“", label: "Aktive VertrÃ¤ge", value: stats.value.active_contracts || 0 },
+  { icon: "ðŸ’¸", label: "Offene Zahlungen", value: stats.value.due_payments || 0 },
+  { icon: "ðŸ“¨", label: "Offene Anfragen", value: stats.value.open_requests || 0 },
+  { icon: "â³", label: "GrowPro <24h", value: growProDueSoon.value },
+  { icon: "âš ï¸", label: "GrowPro Ã¼berfÃ¤llig", value: growProOverdue.value },
 ]);
 
 const statusLabelMap = {
@@ -353,13 +378,29 @@ const requestTypeLabels = {
   OTHER: "Andere",
 };
 
+const requestStatusFilterOptions = [
+  { key: "ALL", label: "Alle" },
+  { key: "OPEN", label: "Offen" },
+  { key: "ACCEPTED", label: "Angenommen" },
+  { key: "DECLINED", label: "Abgelehnt" },
+];
+
+const requestTypeFilterOptions = [
+  { key: "ALL", label: "Alle" },
+  { key: "COLLAB", label: "Collab" },
+  { key: "BOOK", label: "Booking" },
+  { key: "OTHER", label: "Andere" },
+];
+
+const requestPageCount = computed(() => Math.max(1, Math.ceil((requestsTotal.value || 0) / requestsPageSize.value)));
+
 function activityIcon(type) {
-  if (!type) return "•";
-  if (type.startsWith("song")) return "♪";
-  if (type.startsWith("growpro")) return "↗";
-  if (type.startsWith("task")) return "⏰";
-  if (type.startsWith("request")) return "✉";
-  return "•";
+  if (!type) return "â€¢";
+  if (type.startsWith("song")) return "â™ª";
+  if (type.startsWith("growpro")) return "â†—";
+  if (type.startsWith("task")) return "â°";
+  if (type.startsWith("request")) return "âœ‰";
+  return "â€¢";
 }
 
 function setQuickMessage(text, type = "info") {
@@ -414,7 +455,7 @@ async function loadOverdueTasks() {
     const { data } = await api.get("tasks/overdue/");
     overdueTasks.value = data || [];
   } catch (err) {
-    console.error("Überfällige Tasks konnten nicht geladen werden", err);
+    console.error("ÃœberfÃ¤llige Tasks konnten nicht geladen werden", err);
     overdueTasks.value = [];
   } finally {
     loadingOverdue.value = false;
@@ -445,14 +486,36 @@ async function loadTeamRequests() {
   }
   loadingRequests.value = true;
   try {
-    const { data } = await api.get("requests/team-open/");
-    teamRequests.value = data || [];
+    const params = {
+      page: requestsPage.value,
+      page_size: requestsPageSize.value,
+      status: requestStatusFilter.value,
+      type: requestTypeFilter.value,
+    };
+    if (requestSearch.value.trim()) params.search = requestSearch.value.trim();
+    const { data } = await api.get("requests/team-open/", { params });
+    const payload = data || {};
+    teamRequests.value = Array.isArray(payload) ? payload : payload.results || [];
+    requestsTotal.value = payload.count || teamRequests.value.length;
   } catch (err) {
     console.error("Anfragen konnten nicht geladen werden", err);
     teamRequests.value = [];
+    requestsTotal.value = 0;
   } finally {
     loadingRequests.value = false;
   }
+}
+
+function applyRequestFilters() {
+  requestsPage.value = 1;
+  loadTeamRequests();
+}
+
+function changeRequestPage(delta) {
+  const next = requestsPage.value + delta;
+  if (next < 1 || next > requestPageCount.value) return;
+  requestsPage.value = next;
+  loadTeamRequests();
 }
 
 async function respondRequest(id, action) {
@@ -462,9 +525,11 @@ async function respondRequest(id, action) {
     await api.post(`requests/${id}/${endpoint}/`);
     await loadTeamRequests();
     setQuickMessage(`Request ${action === "accept" ? "angenommen" : "abgelehnt"}`, "success");
+    showToast(`Request ${action === "accept" ? "angenommen" : "abgelehnt"}`, "success");
   } catch (err) {
     console.error("Request-Aktion fehlgeschlagen", err);
     setQuickMessage("Aktion fehlgeschlagen", "error");
+    showToast("Aktion fehlgeschlagen", "error");
   }
 }
 
@@ -536,7 +601,7 @@ function onQuickFile(event) {
 
 async function submitQuickGoal() {
   if (!quickGoalId.value || quickGoalValue.value === "" || quickGoalValue.value === null) {
-    setQuickMessage("Ziel und Wert wÇ¤hlen", "error");
+    setQuickMessage("Ziel und Wert wÃ‡Â¤hlen", "error");
     return;
   }
   savingQuickGoal.value = true;
@@ -559,7 +624,7 @@ async function submitQuickGoal() {
 
 async function submitQuickVersion() {
   if (!quickSongId.value || !quickFile.value) {
-    setQuickMessage("Song und Datei wÇ¤hlen", "error");
+    setQuickMessage("Song und Datei wÃ‡Â¤hlen", "error");
     return;
   }
   savingQuickVersion.value = true;
@@ -854,9 +919,25 @@ const growProOverdue = computed(() => {
   font-size: 11px;
   font-weight: 600;
 }
+.request-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.request-filters .input.small {
+  width: 160px;
+  padding: 6px 8px;
+}
 .requests-card .message {
   margin: 4px 0 0;
   font-size: 13px;
+}
+.request-pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
 }
 .request-actions {
   display: flex;
@@ -972,5 +1053,8 @@ const growProOverdue = computed(() => {
   }
 }
 </style>
+
+
+
 
 

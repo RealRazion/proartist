@@ -1,5 +1,6 @@
 <template>
   <div class="songs">
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Songs & Versionen</h1>
@@ -168,8 +169,11 @@
 import { ref, computed, onMounted } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import Toast from "../components/Toast.vue";
+import { useToast } from "../composables/useToast";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
+const { toast, showToast, hideToast } = useToast();
 
 const songs = ref([]);
 const versions = ref({});
@@ -326,9 +330,11 @@ async function createSong() {
     form.value = { title: "", description: "", status: "ACTIVE", project: "" };
     await loadSongs(true);
     showFormMessage("Song angelegt", "success");
+    showToast("Song angelegt", "success");
   } catch (err) {
     console.error("Song konnte nicht erstellt werden", err);
     showFormMessage("Fehler beim Speichern", "error");
+    showToast("Fehler beim Speichern", "error");
   } finally {
     creating.value = false;
   }
@@ -363,9 +369,11 @@ async function uploadVersion(songId) {
     draft.is_final = false;
     await ensureVersions(songId, true);
     showFormMessage("Version hochgeladen", "success");
+    showToast("Version hochgeladen", "success");
   } catch (err) {
     console.error("Version konnte nicht hochgeladen werden", err);
     showFormMessage("Fehler beim Upload", "error");
+    showToast("Fehler beim Upload", "error");
   } finally {
     uploading.value = { ...uploading.value, [songId]: false };
   }

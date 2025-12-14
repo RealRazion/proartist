@@ -1,5 +1,6 @@
 <template>
   <div class="growpro">
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <p class="eyebrow">Team</p>
@@ -201,8 +202,11 @@
 import { ref, computed, onMounted } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import Toast from "../components/Toast.vue";
+import { useToast } from "../composables/useToast";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
+const { toast, showToast, hideToast } = useToast();
 
 const goals = ref([]);
 const profiles = ref([]);
@@ -364,9 +368,11 @@ async function createGoal() {
     };
     await loadGoals(true);
     showMessage("Ziel angelegt", "success");
+    showToast("Ziel angelegt", "success");
   } catch (err) {
     console.error("Ziel konnte nicht gespeichert werden", err);
     showMessage("Fehler beim Speichern", "error");
+    showToast("Fehler beim Speichern", "error");
   } finally {
     creating.value = false;
   }
@@ -387,9 +393,11 @@ async function logValue(goal) {
     draft.value = "";
     draft.note = "";
     await loadGoals();
+    showToast("Update gespeichert", "success");
   } catch (err) {
     console.error("Update konnte nicht gespeichert werden", err);
     showMessage("Fehler beim Update", "error");
+    showToast("Fehler beim Update", "error");
   } finally {
     logging.value = { ...logging.value, [goal.id]: false };
   }

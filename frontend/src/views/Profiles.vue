@@ -1,5 +1,6 @@
-﻿<template>
+<template>
   <div :class="['profiles', { compact: compactCards }]">
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Profiles entdecken</h1>
@@ -54,6 +55,26 @@
             </h2>
             <p class="muted">{{ profile.city || "Ort unbekannt" }}</p>
           </div>
+          <div v-if="canManageTeam(profile)" class="team-actions">
+            <button
+              class="btn tiny"
+              type="button"
+              v-if="!isTeamMember(profile)"
+              @click="toggleTeam(profile, true)"
+              :disabled="teamLoading === profile.id"
+            >
+              Zum Team
+            </button>
+            <button
+              class="btn ghost tiny"
+              type="button"
+              v-else
+              @click="toggleTeam(profile, false)"
+              :disabled="teamLoading === profile.id"
+            >
+              Entfernen
+            </button>
+          </div>
         </div>
         <div class="roles" v-if="profile.roles?.length">
           <span v-for="role in profile.roles" :key="role.id" class="role-pill">
@@ -99,10 +120,13 @@ import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import Toast from "../components/Toast.vue";
+import { useToast } from "../composables/useToast";
 
 const router = useRouter();
 const route = useRoute();
 const { profile: me, fetchProfile } = useCurrentProfile();
+const { toast, showToast, hideToast } = useToast();
 
 const COMPACT_KEY = "profiles:compactMode";
 const profiles = ref([]);
@@ -113,6 +137,9 @@ const roleFilter = ref("ALL");
 const filtering = ref(false);
 const compactCards = ref(false);
 let debounceTimer = null;
+const teamLoading = ref(null);
+
+const isTeam = computed(() => (me.value?.roles || []).some((r) => r.key === "TEAM"));
 
 if (typeof window !== "undefined") {
   const saved = window.localStorage.getItem(COMPACT_KEY);
@@ -200,6 +227,23 @@ function isTeamMember(profile) {
   return (profile.roles || []).some((role) => role.key === "TEAM");
 }
 
+const canManageTeam = (profile) => isTeam.value && profile.id !== me.value?.id;
+
+async function toggleTeam(profile, add) {
+  if (!canManageTeam(profile)) return;
+  teamLoading.value = profile.id;
+  try {
+    await api.post(`profiles/${profile.id}/team-role/`, { add });
+    await loadProfiles();
+    showToast(add ? "Zum Team hinzugefügt" : "Aus Team entfernt", "success");
+  } catch (err) {
+    console.error("Team-Update fehlgeschlagen", err);
+    showToast("Aktion fehlgeschlagen", "error");
+  } finally {
+    teamLoading.value = null;
+  }
+}
+
 function socialLinks(profile) {
   const socials = profile.socials || {};
   const links = [];
@@ -219,10 +263,14 @@ function setRoleFilter(key) {
   roleFilter.value = roleFilter.value === key ? "ALL" : key;
 }
 
-onMounted(async () => {
-  await fetchProfile();
+async function loadProfiles() {
   const { data } = await api.get("profiles/");
   profiles.value = data.map(decorateProfile);
+}
+
+onMounted(async () => {
+  await fetchProfile();
+  await loadProfiles();
   const initialSearch = route.query.q;
   if (initialSearch) {
     const value = String(initialSearch);

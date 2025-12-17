@@ -190,6 +190,14 @@ class ProjectSerializer(serializers.ModelSerializer):
         source="participants",
     )
     participants = serializers.SerializerMethodField()
+    owner_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        many=True,
+        write_only=True,
+        required=False,
+        source="owners",
+    )
+    owners = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -201,10 +209,12 @@ class ProjectSerializer(serializers.ModelSerializer):
             "created_at",
             "participants",
             "participant_ids",
+            "owners",
+            "owner_ids",
             "is_archived",
             "archived_at",
         ]
-        read_only_fields = ["id", "created_at", "participants", "is_archived", "archived_at"]
+        read_only_fields = ["id", "created_at", "participants", "owners", "is_archived", "archived_at"]
 
     def get_participants(self, obj):
         return [
@@ -212,23 +222,51 @@ class ProjectSerializer(serializers.ModelSerializer):
             for p in obj.participants.all()
         ]
 
+    def get_owners(self, obj):
+        return [
+            {"id": p.id, "name": getattr(p, "name", "") or p.user.username}
+            for p in obj.owners.all()
+        ]
+
     def create(self, validated_data):
         participants = validated_data.pop("participants", [])
+        owners = validated_data.pop("owners", [])
         project = super().create(validated_data)
         if participants:
             project.participants.set(participants)
+        if owners:
+            project.owners.set(owners)
         return project
 
     def update(self, instance, validated_data):
         participants = validated_data.pop("participants", None)
+        owners = validated_data.pop("owners", None)
         project = super().update(instance, validated_data)
         if participants is not None:
             project.participants.set(participants)
+        if owners is not None:
+            project.owners.set(owners)
         return project
 
 
 class TaskSerializer(serializers.ModelSerializer):
     project_title = serializers.CharField(source="project.title", read_only=True)
+    stakeholder_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        many=True,
+        write_only=True,
+        required=False,
+        source="stakeholders",
+    )
+    stakeholders = ProfileMiniSerializer(many=True, read_only=True)
+    assignee_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        many=True,
+        write_only=True,
+        required=False,
+        source="assignees",
+    )
+    assignees = ProfileMiniSerializer(many=True, read_only=True)
 
     class Meta:
         model = Task
@@ -239,13 +277,47 @@ class TaskSerializer(serializers.ModelSerializer):
             "title",
             "status",
             "priority",
-            "assignee",
+            "assignees",
+            "assignee_ids",
             "due_date",
+            "task_type",
+            "stakeholders",
+            "stakeholder_ids",
             "created_at",
             "is_archived",
             "archived_at",
         ]
-        read_only_fields = ["is_archived", "archived_at", "created_at", "project_title"]
+        read_only_fields = [
+            "is_archived",
+            "archived_at",
+            "created_at",
+            "project_title",
+            "stakeholders",
+            "assignees",
+        ]
+        extra_kwargs = {
+            "project": {"allow_null": True, "required": False},
+        }
+
+    def create(self, validated_data):
+        stakeholders = validated_data.pop("stakeholders", [])
+        assignees = validated_data.pop("assignees", [])
+        task = super().create(validated_data)
+        if stakeholders:
+            task.stakeholders.set(stakeholders)
+        if assignees:
+            task.assignees.set(assignees)
+        return task
+
+    def update(self, instance, validated_data):
+        stakeholders = validated_data.pop("stakeholders", None)
+        assignees = validated_data.pop("assignees", None)
+        task = super().update(instance, validated_data)
+        if stakeholders is not None:
+            task.stakeholders.set(stakeholders)
+        if assignees is not None:
+            task.assignees.set(assignees)
+        return task
 
 
 class ProjectAttachmentSerializer(serializers.ModelSerializer):

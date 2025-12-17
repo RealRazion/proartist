@@ -16,9 +16,9 @@
     </header>
 
     <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur fuer Team</h2>
+      <h2>Zugriff nur für Team</h2>
       <p class="muted">
-        Projekte koennen nur von Team-Mitgliedern verwaltet werden. Falls du Zugriff brauchst, kontaktiere dein Team.
+        Projekte können nur von Team-Mitgliedern verwaltet werden. Falls du Zugriff brauchst, kontaktiere dein Team.
       </p>
     </section>
 
@@ -56,8 +56,13 @@
           <div class="skeleton-card" v-for="n in 3" :key="`sk-${n}`"></div>
         </div>
         <div v-else-if="!filteredProjects.length" class="muted empty">Keine Projekte passend zum Filter.</div>
-        <ul v-else>
-          <li v-for="project in filteredProjects" :key="project.id">
+        <ul v-else class="project-grid">
+          <li
+            v-for="project in filteredProjects"
+            :key="project.id"
+            class="project-card"
+            :class="{ archived: project.is_archived }"
+          >
             <div class="meta">
               <div class="title-block">
                 <h3>{{ project.title }}</h3>
@@ -75,10 +80,9 @@
                 </label>
                 <span class="created">{{ formatDate(project.created_at) }}</span>
                 <button class="btn ghost sm" type="button" @click="toggleProjectDetails(project.id)">
-                  {{ openProjectId === project.id ? "Details schliessen" : "Details" }}
+                  {{ openProjectId === project.id ? "Details schließen" : "Details" }}
                 </button>
-                <button class="btn ghost danger sm" type="button" @click="archiveProject(project)">Archivieren</button>
-                <button class="btn ghost danger sm" type="button" @click="deleteProject(project)">Loeschen</button>
+                <button class="btn ghost sm" type="button" @click="startEditProject(project)">Bearbeiten</button>
               </div>
             </div>
             <p class="muted description">{{ project.description || "Keine Beschreibung hinterlegt." }}</p>
@@ -89,10 +93,17 @@
               </span>
               <span v-else class="names muted">Noch keine Personen zugeordnet</span>
             </div>
+            <div class="owners">
+              <span class="label">Team:</span>
+              <span v-if="project.owners?.length" class="names">
+                {{ project.owners.map((p) => p.name).join(", ") }}
+              </span>
+              <span v-else class="names muted">Noch kein Team zugeordnet</span>
+            </div>
             <div v-if="openProjectId === project.id" class="project-extra">
               <section class="attachments">
                 <header>
-                  <h4>Dateianhaenge</h4>
+                  <h4>Dateianhänge</h4>
                   <button class="btn ghost tiny" type="button" @click="ensureProjectAttachments(project.id, true)">
                     Neu laden
                   </button>
@@ -106,8 +117,8 @@
                     <button class="iconbtn danger" type="button" @click="removeProjectAttachment(project.id, file.id)">X</button>
                   </li>
                 </ul>
-                <p v-else-if="attachmentsLoading[project.id]" class="muted">Lade Anhaenge...</p>
-                <p v-else class="muted">Keine Anhaenge</p>
+                <p v-else-if="attachmentsLoading[project.id]" class="muted">Lade Anhänge...</p>
+                <p v-else class="muted">Keine Anhänge</p>
                 <form class="upload-row" @submit.prevent="uploadProjectAttachment(project.id)">
                   <input
                     class="input"
@@ -116,7 +127,7 @@
                   />
                   <label class="file-picker">
                     <input type="file" @change="onProjectFile(project.id, $event)" />
-                    {{ attachmentDraft(project.id).file ? attachmentDraft(project.id).file.name : "Datei waehlen" }}
+                    {{ attachmentDraft(project.id).file ? attachmentDraft(project.id).file.name : "Datei wählen" }}
                   </label>
                   <button class="btn tiny" type="submit" :disabled="attachmentsLoading[project.id]">
                     {{ attachmentsLoading[project.id] ? "Lade..." : "Hochladen" }}
@@ -135,7 +146,7 @@
       <div class="modal card">
         <div class="modal-head">
           <h3>Filter</h3>
-          <button class="btn ghost tiny" type="button" @click="closeFilterModal">Schliessen</button>
+          <button class="btn ghost tiny" type="button" @click="closeFilterModal">Schließen</button>
         </div>
         <form class="form" @submit.prevent="applyFilters">
           <label>
@@ -168,7 +179,7 @@
               {{ opt === "ALL" ? "Alle" : statusLabels[opt] }}
             </button>
             <button v-if="hasActiveFilters" type="button" class="chip clear" @click="resetFilters">
-              Filter zuruecksetzen
+              Filter zurücksetzen
             </button>
           </div>
           <div class="visibility">
@@ -189,40 +200,66 @@
       </div>
     </div>
 
-    <div v-if="showCreateModal" class="modal-backdrop" @click.self="closeCreateModal">
+    <div v-if="projectModalVisible" class="modal-backdrop" @click.self="closeProjectModal">
       <div class="modal card">
         <div class="modal-head">
-          <h3>Neues Projekt</h3>
-          <button class="btn ghost tiny" type="button" @click="closeCreateModal" :disabled="creating">Schliessen</button>
+          <h3>{{ projectModalMode === "create" ? "Neues Projekt" : "Projekt bearbeiten" }}</h3>
+          <button class="btn ghost tiny" type="button" @click="closeProjectModal" :disabled="projectSaving">Schließen</button>
         </div>
-        <form class="form" @submit.prevent="createProject">
+        <form class="form" @submit.prevent="submitProjectForm">
           <label>
             Titel
-            <input class="input" v-model.trim="newProject.title" placeholder="z. B. Album Release" required />
+            <input class="input" v-model.trim="projectForm.title" placeholder="z. B. Album Release" required />
           </label>
           <label>
             Beschreibung
-            <textarea class="input textarea" v-model.trim="newProject.description" placeholder="Kurzbeschreibung"></textarea>
+            <textarea class="input textarea" v-model.trim="projectForm.description" placeholder="Kurzbeschreibung"></textarea>
           </label>
           <label>
             Status
-            <select class="input" v-model="newProject.status">
+            <select class="input" v-model="projectForm.status">
               <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
             </select>
           </label>
           <label>
-            Team / Artists
-            <select class="input" v-model="newProject.participant_ids" multiple size="8">
+            Betroffene Nutzer
+            <select class="input" v-model="projectForm.participant_ids" multiple size="8">
               <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
                 {{ profile.name }}
               </option>
             </select>
-            <small class="hint muted">Mehrfachauswahl mit Strg/Command moeglich. (Mehrfachauswahl erwuenscht)</small>
+            <small class="hint muted">Mehrfachauswahl mit Strg/Command möglich.</small>
           </label>
+          <label>
+            Verantwortliche Teammitglieder
+            <select class="input" v-model="projectForm.owner_ids" multiple size="6">
+              <option v-for="profile in teamProfiles" :key="`team-${profile.id}`" :value="profile.id">
+                {{ profile.name }}
+              </option>
+            </select>
+            <small class="hint muted">Nur Team-Mitglieder werden angezeigt.</small>
+          </label>
+          <div v-if="projectModalMode === 'edit'" class="danger-zone">
+            <p class="muted">Projekt archivieren oder endgültig löschen.</p>
+            <div class="danger-buttons">
+              <button class="btn ghost danger" type="button" @click="archiveCurrentProject" :disabled="projectSaving">
+                Archivieren
+              </button>
+              <button class="btn danger" type="button" @click="deleteCurrentProject" :disabled="projectSaving">
+                Löschen
+              </button>
+            </div>
+          </div>
           <div class="modal-actions">
-            <button class="btn ghost" type="button" @click="closeCreateModal" :disabled="creating">Abbrechen</button>
-            <button class="btn" type="submit" :disabled="creating">
-              {{ creating ? "Speichere..." : "Projekt anlegen" }}
+            <button class="btn ghost" type="button" @click="closeProjectModal" :disabled="projectSaving">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="projectSaving">
+              {{
+                projectSaving
+                  ? "Speichere..."
+                  : projectModalMode === "create"
+                    ? "Projekt anlegen"
+                    : "Speichern"
+              }}
             </button>
           </div>
         </form>
@@ -243,9 +280,7 @@ const profiles = ref([]);
 const projectSummary = ref({ total: 0, archived: 0, active: 0, done: 0, by_status: {} });
 const loading = ref(false);
 const loadingMore = ref(false);
-const creating = ref(false);
 const exportingCsv = ref(false);
-const showCreateModal = ref(false);
 const showFilterModal = ref(false);
 const showArchived = ref(true);
 const showCompleted = ref(false);
@@ -258,6 +293,11 @@ const projectAttachmentsMap = ref({});
 const attachmentDrafts = ref({});
 const attachmentsLoading = ref({});
 const openProjectId = ref(null);
+const projectModalVisible = ref(false);
+const projectModalMode = ref("create");
+const projectSaving = ref(false);
+const projectForm = ref(getDefaultProjectForm());
+const editingProjectId = ref(null);
 let observer;
 let searchDebounce;
 
@@ -291,13 +331,21 @@ const summaryTotals = computed(() => ({
   done: projectSummary.value.done || 0,
 }));
 const hasMoreProjects = computed(() => Boolean(projectPagination.value.next));
+const teamProfiles = computed(() =>
+  profiles.value.filter((profile) =>
+    (profile.roles || []).some((role) => role.key === "TEAM")
+  )
+);
 
-const newProject = ref({
-  title: "",
-  description: "",
-  status: "PLANNED",
-  participant_ids: [],
-});
+function getDefaultProjectForm() {
+  return {
+    title: "",
+    description: "",
+    status: "PLANNED",
+    participant_ids: [],
+    owner_ids: [],
+  };
+}
 
 function buildProjectParams() {
   return {
@@ -367,6 +415,8 @@ async function loadProfiles() {
     profiles.value = data.map((profile) => ({
       id: profile.id,
       name: profile.name || profile.username,
+      username: profile.username,
+      roles: profile.roles || [],
     }));
   } catch (err) {
     console.error("Profile konnten nicht geladen werden", err);
@@ -406,11 +456,14 @@ function resetFilters() {
 }
 
 function openCreateModal() {
-  showCreateModal.value = true;
+  projectModalMode.value = "create";
+  editingProjectId.value = null;
+  projectForm.value = { ...getDefaultProjectForm() };
+  projectModalVisible.value = true;
 }
-function closeCreateModal() {
-  if (creating.value) return;
-  showCreateModal.value = false;
+function closeProjectModal() {
+  if (projectSaving.value) return;
+  projectModalVisible.value = false;
 }
 function openFilterModal() {
   showFilterModal.value = true;
@@ -423,18 +476,39 @@ function applyFilters() {
   closeFilterModal();
 }
 
-async function createProject() {
-  if (!newProject.value.title) return;
-  creating.value = true;
+function startEditProject(project) {
+  projectModalMode.value = "edit";
+  editingProjectId.value = project.id;
+  projectForm.value = {
+    title: project.title,
+    description: project.description || "",
+    status: project.status,
+    participant_ids: project.participants?.map((p) => p.id) || [],
+    owner_ids: project.owners?.map((p) => p.id) || [],
+  };
+  projectModalVisible.value = true;
+}
+
+async function submitProjectForm() {
+  if (!projectForm.value.title.trim()) return;
+  projectSaving.value = true;
+  const payload = {
+    ...projectForm.value,
+    title: projectForm.value.title.trim(),
+    description: projectForm.value.description?.trim() || "",
+  };
   try {
-    await api.post("projects/", newProject.value);
-    newProject.value = { title: "", description: "", status: "PLANNED", participant_ids: [] };
+    if (projectModalMode.value === "edit" && editingProjectId.value) {
+      await api.patch(`projects/${editingProjectId.value}/`, payload);
+    } else {
+      await api.post("projects/", payload);
+    }
     await refreshProjects();
-    showCreateModal.value = false;
+    projectModalVisible.value = false;
   } catch (err) {
-    console.error("Projekt konnte nicht erstellt werden", err);
+    console.error("Projekt konnte nicht gespeichert werden", err);
   } finally {
-    creating.value = false;
+    projectSaving.value = false;
   }
 }
 
@@ -464,7 +538,7 @@ async function ensureProjectAttachments(projectId, force = false) {
       [projectId]: data,
     };
   } catch (err) {
-    console.error("Anhaenge konnten nicht geladen werden", err);
+    console.error("Anhänge konnten nicht geladen werden", err);
   } finally {
     attachmentsLoading.value[projectId] = false;
   }
@@ -504,7 +578,7 @@ async function removeProjectAttachment(projectId, attachmentId) {
     await api.delete(`project-attachments/${attachmentId}/`);
     await ensureProjectAttachments(projectId, true);
   } catch (err) {
-    console.error("Anhang konnte nicht geloescht werden", err);
+    console.error("Anhang konnte nicht gelöscht werden", err);
   } finally {
     attachmentsLoading.value[projectId] = false;
   }
@@ -519,23 +593,38 @@ function toggleProjectDetails(projectId) {
   ensureProjectAttachments(projectId);
 }
 
-async function archiveProject(project) {
-  if (!confirm(`Projekt "${project.title}" archivieren?`)) return;
+async function archiveCurrentProject() {
+  if (!editingProjectId.value) return;
+  if (!confirm(`Projekt "${projectForm.value.title}" archivieren?`)) return;
+  projectSaving.value = true;
   try {
-    await api.delete(`projects/${project.id}/`);
+    await api.post(`projects/${editingProjectId.value}/archive/`);
     await refreshProjects();
+    projectModalVisible.value = false;
   } catch (err) {
     console.error("Projekt konnte nicht archiviert werden", err);
+  } finally {
+    projectSaving.value = false;
   }
 }
 
-async function deleteProject(project) {
-  if (!confirm(`Projekt "${project.title}" endgueltig loeschen?`)) return;
+async function deleteCurrentProject() {
+  if (!editingProjectId.value) return;
+  if (!confirm(`Projekt "${projectForm.value.title}" endgültig löschen?`)) return;
+  projectSaving.value = true;
   try {
-    await api.delete(`projects/${project.id}/`);
+    try {
+      await api.post(`projects/${editingProjectId.value}/delete/`);
+    } catch (err) {
+      // Fallback auf klassisches DELETE, falls das neue Endpoint nicht erreichbar ist
+      await api.delete(`projects/${editingProjectId.value}/`);
+    }
     await refreshProjects();
+    projectModalVisible.value = false;
   } catch (err) {
-    console.error("Projekt konnte nicht geloescht werden", err);
+    console.error("Projekt konnte nicht gelöscht werden", err);
+  } finally {
+    projectSaving.value = false;
   }
 }
 
@@ -615,131 +704,135 @@ onBeforeUnmount(() => {
 .projects {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+}
+.card {
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85));
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.08);
+  padding: 22px;
 }
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 .header-actions {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
-}
-.info {
-  max-width: 600px;
+  gap: 10px;
 }
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.status-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.status-chips .chip {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 4px 12px;
-  font-size: 12px;
-}
-.status-chips .chip.active {
-  border-color: var(--brand);
-  color: var(--brand);
-}
-.status-chips .chip.clear {
-  border-color: transparent;
-  background: rgba(0, 0, 0, 0.04);
-}
-.visibility {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
-}
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
+  gap: 24px;
 }
 .stats {
-  grid-column: span 2;
+  background: linear-gradient(120deg, rgba(59, 130, 246, 0.12), rgba(14, 165, 233, 0.08));
 }
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
 }
 .kpi {
-  border: 1px solid rgba(75, 91, 255, 0.12);
-  border-radius: 12px;
-  padding: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.25);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.kpi.total {
-  background: rgba(75, 91, 255, 0.06);
+.kpi strong {
+  font-size: 28px;
 }
 .list {
-  grid-column: span 2;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 .list-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .list-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  justify-content: flex-end;
 }
-.list ul {
+.project-grid {
   list-style: none;
-  margin: 0;
-  padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 14px;
+  gap: 18px;
+  padding: 0;
+  margin: 0;
 }
-.list li {
-  border: 1px solid rgba(75, 91, 255, 0.12);
-  border-radius: 14px;
-  padding: 14px;
+.project-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  border: 1px solid rgba(203, 213, 225, 0.6);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  height: 100%;
+  gap: 14px;
+  min-height: 240px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.project-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px rgba(15, 23, 42, 0.14);
+}
+.project-card.archived {
+  border-style: dashed;
+  opacity: 0.75;
 }
 .meta {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .title-block {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.status {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+}
+.status[data-status="IN_PROGRESS"] {
+  background: rgba(249, 115, 22, 0.16);
+  color: #ea580c;
+}
+.status[data-status="DONE"] {
+  background: rgba(16, 185, 129, 0.16);
+  color: #059669;
+}
+.status[data-status="ON_HOLD"] {
+  background: rgba(148, 163, 184, 0.18);
+  color: #475569;
 }
 .meta-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
-  flex-wrap: wrap;
 }
 .inline-select {
   display: flex;
@@ -747,51 +840,41 @@ onBeforeUnmount(() => {
   gap: 4px;
   font-size: 12px;
   color: var(--muted);
-  min-width: 170px;
 }
 .created {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
 }
-.status {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  background: rgba(75, 91, 255, 0.16);
-  color: var(--brand);
-}
-.status[data-status="IN_PROGRESS"] {
-  background: rgba(249, 115, 22, 0.16);
-  color: #ea580c;
-}
-.status[data-status="DONE"] {
-  background: rgba(52, 211, 153, 0.16);
-  color: #059669;
-}
-.status[data-status="ON_HOLD"] {
-  background: rgba(148, 163, 184, 0.18);
-  color: #475569;
+.description {
+  font-size: 14px;
+  color: var(--muted);
 }
 .badge.archived {
   background: rgba(15, 23, 42, 0.1);
-  color: #475569;
-  border-radius: 6px;
-  padding: 2px 8px;
-  font-size: 12px;
+  color: #1f2937;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.08em;
 }
-.participants {
+.participants,
+.owners {
   display: flex;
-  gap: 6px;
-  font-size: 14px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
 }
-.participants .label {
+.participants .label,
+.owners .label {
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: var(--muted);
 }
 .project-extra {
-  border-top: 1px dashed var(--border);
+  border-top: 1px dashed rgba(148, 163, 184, 0.4);
   padding-top: 12px;
 }
 .attachments header {
@@ -802,11 +885,11 @@ onBeforeUnmount(() => {
 }
 .attachment-list {
   list-style: none;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .attachment-list li {
   display: flex;
@@ -818,9 +901,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--brand);
 }
-.attachment-list .iconbtn {
-  margin-left: auto;
-}
 .upload-row {
   display: flex;
   flex-wrap: wrap;
@@ -828,9 +908,9 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 .file-picker {
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.7);
+  border-radius: 10px;
+  padding: 6px 14px;
   font-size: 13px;
   cursor: pointer;
 }
@@ -839,71 +919,132 @@ onBeforeUnmount(() => {
 }
 .skeleton-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 .skeleton-card {
-  height: 120px;
-  border-radius: 12px;
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.2), rgba(148, 163, 184, 0.08), rgba(148, 163, 184, 0.2));
+  height: 140px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.25), rgba(248, 250, 252, 0.6), rgba(148, 163, 184, 0.25));
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.4s linear infinite;
 }
-.sentinel {
-  width: 100%;
-  height: 4px;
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.loading-more {
-  text-align: center;
+.status-chips .chip {
+  border-radius: 999px;
+  padding: 4px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.status-chips .chip.active {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+.status-chips .chip.clear {
+  border-color: transparent;
+  background: rgba(15, 23, 42, 0.05);
+}
+.visibility {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   font-size: 13px;
 }
-.btn.sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-.btn.tiny {
-  padding: 4px 12px;
-  font-size: 12px;
-}
-.btn.ghost.tiny {
-  padding: 4px 10px;
-}
-.iconbtn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-}
-.iconbtn.danger {
-  color: #dc2626;
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(15, 23, 42, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
-  z-index: 999;
+  padding: 20px;
+  z-index: 50;
 }
 .modal {
-  max-width: 620px;
-  width: 100%;
+  width: min(640px, 100%);
   max-height: 90vh;
   overflow-y: auto;
+  border-radius: 24px;
+  padding: 24px;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  box-shadow: 0 35px 80px rgba(15, 23, 42, 0.35);
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.form .hint {
+  font-size: 12px;
+}
+.input,
+.textarea {
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 14px;
+  width: 100%;
+}
+.textarea {
+  min-height: 110px;
+  resize: vertical;
 }
 .modal-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
 .modal-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
+}
+.danger-zone {
+  border: 1px dashed rgba(220, 38, 38, 0.45);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(248, 113, 113, 0.08);
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  margin-top: 10px;
+}
+.danger-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.empty {
+  text-align: center;
+  padding: 40px 0;
+}
+.sentinel {
+  width: 100%;
+  height: 1px;
+}
+.loading-more {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
 }
 @keyframes shimmer {
   0% {
@@ -913,16 +1054,16 @@ onBeforeUnmount(() => {
     background-position: -200% 0;
   }
 }
-@media (max-width: 960px) {
-  .list-head {
-    flex-direction: column;
-    gap: 12px;
+@media (max-width: 640px) {
+  .project-card {
+    min-height: auto;
   }
-}
-
-@media (min-width: 1200px) {
-  .list ul {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .meta-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .modal {
+    padding: 18px;
   }
 }
 </style>

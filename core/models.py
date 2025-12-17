@@ -65,6 +65,7 @@ class Project(models.Model):
     is_archived = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)
     participants = models.ManyToManyField('Profile', blank=True, related_name="projects")
+    owners = models.ManyToManyField('Profile', blank=True, related_name="owned_projects")
     def __str__(self): return self.title
 
 class Task(models.Model):
@@ -74,13 +75,19 @@ class Task(models.Model):
         ("HIGH", "Hoch"),
         ("CRITICAL", "Kritisch"),
     ]
+    TASK_TYPE_CHOICES = [
+        ("INTERNAL", "Intern"),
+        ("EXTERNAL", "Extern"),
+    ]
 
-    project=models.ForeignKey(Project,on_delete=models.CASCADE,related_name="tasks")
+    project=models.ForeignKey(Project,on_delete=models.CASCADE,related_name="tasks", null=True, blank=True)
     title=models.CharField(max_length=200)
     status=models.CharField(max_length=50,default="OPEN")
-    assignee=models.ForeignKey(Profile,on_delete=models.SET_NULL,null=True,blank=True)
     due_date=models.DateField(null=True,blank=True)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="MEDIUM")
+    task_type = models.CharField(max_length=10, choices=TASK_TYPE_CHOICES, default="EXTERNAL")
+    stakeholders = models.ManyToManyField(Profile, blank=True, related_name="task_stakeholder")
+    assignees = models.ManyToManyField(Profile, blank=True, related_name="assigned_tasks")
     created_at=models.DateTimeField(auto_now_add=True)
     is_archived = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)

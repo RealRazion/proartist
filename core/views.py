@@ -9,7 +9,7 @@ from django.db.models import Count, Max, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -276,7 +276,7 @@ def _parse_date_param(value):
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = Project.objects.prefetch_related("participants").order_by("-created_at")
+    queryset = Project.objects.prefetch_related("participants", "owners").order_by("-created_at")
     serializer_class=ProjectSerializer
     pagination_class = ProjectPagination
 
@@ -286,11 +286,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated(), IsTeam()]
 
     def _base_queryset(self):
-        qs = Project.objects.prefetch_related("participants").order_by("-created_at")
+        qs = Project.objects.prefetch_related("participants", "owners").order_by("-created_at")
         me = self.request.user.profile
         if me.roles.filter(key="TEAM").exists():
             return qs
-        return qs.filter(participants=me)
+        return qs.filter(Q(participants=me) | Q(owners=me)).distinct()
 
     def _apply_visibility_filters(self, qs):
         include_archived = _bool_param(self.request.query_params.get("include_archived"))
@@ -311,6 +311,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         participant = self.request.query_params.get("participant")
         if participant:
             qs = qs.filter(participants__id=participant)
+        owner = self.request.query_params.get("owner")
+        if owner:
+            qs = qs.filter(owners__id=owner)
         status = self.request.query_params.get("status")
         if status:
             statuses = [s.strip().upper() for s in status.split(",") if s.strip()]
@@ -356,22 +359,45 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
 
     def perform_destroy(self, instance):
-        instance.is_archived = True
-        instance.archived_at = timezone.now()
-        instance.save(update_fields=["is_archived", "archived_at"])
         actor = getattr(self.request.user, "profile", None)
         log_activity(
-            "project_archived",
-            f"Projekt archiviert: {instance.title}",
+            "project_deleted",
+            f"Projekt geloescht: {instance.title}",
             actor=actor,
-            severity="WARNING",
+            severity="DANGER",
             project=instance,
         )
+        instance.delete()
+
+    @action(detail=True, methods=["POST"], url_path="archive")
+    def archive(self, request, pk=None):
+        project = self.get_object()
+        if not project.is_archived:
+            project.is_archived = True
+            project.archived_at = timezone.now()
+            project.save(update_fields=["is_archived", "archived_at"])
+            actor = getattr(self.request.user, "profile", None)
+            log_activity(
+                "project_archived",
+                f"Projekt archiviert: {project.title}",
+                actor=actor,
+                severity="WARNING",
+                project=project,
+            )
+        serializer = self.get_serializer(project)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["POST"], url_path="delete")
+    def delete_project(self, request, pk=None):
+        project = self.get_object()
+        self.perform_destroy(project)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["GET"], url_path="summary")
     def summary(self, request):
         qs = self._base_queryset()
         total = qs.count()
+        archived = qs.filter(is_archived=True).count()
         completed = qs.filter(status="DONE").count()
         active = qs.exclude(status="DONE").count()
         by_status = {
@@ -381,6 +407,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 "total": total,
+                "archived": archived,
                 "done": completed,
                 "active": active,
                 "by_status": by_status,
@@ -408,7 +435,11 @@ class TaskViewSet(viewsets.ModelViewSet):
     permission_classes=[permissions.IsAuthenticated, IsTeam]
 
     def _base_queryset(self):
-        return Task.objects.select_related("project", "assignee__user").order_by("-created_at")
+        return (
+            Task.objects.select_related("project")
+            .prefetch_related("stakeholders__user", "assignees__user")
+            .order_by("-created_at")
+        )
 
     def _apply_visibility_filters(self, qs):
         include_archived = _bool_param(self.request.query_params.get("include_archived"))
@@ -437,12 +468,22 @@ class TaskViewSet(viewsets.ModelViewSet):
             qs = qs.filter(Q(title__icontains=search) | Q(project__title__icontains=search))
         assignee = self.request.query_params.get("assignee")
         if assignee:
-            qs = qs.filter(assignee_id=assignee)
+            ids = [pk.strip() for pk in str(assignee).split(",") if pk.strip()]
+            if ids:
+                qs = qs.filter(assignees__id__in=ids)
+        stakeholder = self.request.query_params.get("stakeholder")
+        if stakeholder:
+            qs = qs.filter(stakeholders__id=stakeholder)
         priority = self.request.query_params.get("priority")
         if priority:
             priorities = [p.strip().upper() for p in priority.split(",") if p.strip()]
             if priorities and "ALL" not in priorities:
                 qs = qs.filter(priority__in=priorities)
+        task_type = self.request.query_params.get("task_type")
+        if task_type:
+            types = [t.strip().upper() for t in task_type.split(",") if t.strip()]
+            if types and "ALL" not in types:
+                qs = qs.filter(task_type__in=types)
         due_state = self.request.query_params.get("due_state")
         if due_state == "none":
             qs = qs.filter(due_date__isnull=True)
@@ -457,7 +498,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         allowed = {"due_date", "-due_date", "priority", "-priority", "created_at", "-created_at"}
         if ordering in allowed:
             qs = qs.order_by(ordering)
-        return self._apply_visibility_filters(qs)
+        return self._apply_visibility_filters(qs).distinct()
 
     def _log_overdue_if_needed(self, task):
         if not task.due_date or task.status == "DONE":
@@ -524,17 +565,65 @@ class TaskViewSet(viewsets.ModelViewSet):
         self._log_overdue_if_needed(task)
 
     def perform_destroy(self, instance):
-        instance.is_archived = True
-        instance.archived_at = timezone.now()
-        instance.save(update_fields=["is_archived", "archived_at"])
         actor = getattr(self.request.user, "profile", None)
         log_activity(
-            "task_archived",
-            f"Task archiviert: {instance.title}",
+            "task_deleted",
+            f"Task geloescht: {instance.title}",
             actor=actor,
-            severity="WARNING",
+            severity="DANGER",
             task=instance,
             project=instance.project,
+        )
+        instance.delete()
+
+    @action(detail=True, methods=["POST"], url_path="archive")
+    def archive(self, request, pk=None):
+        task = self.get_object()
+        if not task.is_archived:
+            task.is_archived = True
+            task.archived_at = timezone.now()
+            task.save(update_fields=["is_archived", "archived_at"])
+            actor = getattr(self.request.user, "profile", None)
+            log_activity(
+                "task_archived",
+                f"Task archiviert: {task.title}",
+                actor=actor,
+                severity="WARNING",
+                task=task,
+                project=task.project,
+            )
+        serializer = self.get_serializer(task)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["POST"], url_path="delete")
+    def delete_task(self, request, pk=None):
+        task = self.get_object()
+        self.perform_destroy(task)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    @action(detail=False, methods=["GET"], url_path="summary")
+    def summary(self, request):
+        qs = self._base_queryset()
+        total = qs.count()
+        archived = qs.filter(is_archived=True).count()
+        completed = qs.filter(status="DONE").count()
+        active = qs.filter(is_archived=False).exclude(status="DONE").count()
+        by_status = {
+            row["status"]: row["c"]
+            for row in qs.values("status").annotate(c=Count("id"))
+        }
+        by_type = {
+            row["task_type"]: row["c"]
+            for row in qs.values("task_type").annotate(c=Count("id"))
+        }
+        return Response(
+            {
+                "total": total,
+                "archived": archived,
+                "done": completed,
+                "active": active,
+                "by_status": by_status,
+                "by_type": by_type,
+            }
         )
 
     @action(detail=False, methods=["GET"], url_path="overdue")

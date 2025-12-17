@@ -10,6 +10,7 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "127.0.0.1").split(",")
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin","django.contrib.auth","django.contrib.contenttypes",
     "django.contrib.sessions","django.contrib.messages","rest_framework_simplejwt","django.contrib.staticfiles",
     "corsheaders","rest_framework","channels","core",
@@ -75,8 +76,8 @@ REST_FRAMEWORK = {
       "rest_framework.throttling.UserRateThrottle",
   ),
   "DEFAULT_THROTTLE_RATES": {
-      "anon": os.getenv("THROTTLE_ANON", "50/hour"),
-      "user": os.getenv("THROTTLE_USER", "200/hour"),
+      "anon": os.getenv("THROTTLE_ANON", "500/hour"),
+      "user": os.getenv("THROTTLE_USER", "2000/hour"),
   },
 }
 

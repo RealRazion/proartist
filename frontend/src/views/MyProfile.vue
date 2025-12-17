@@ -1,124 +1,182 @@
 <template>
-  <div class="profile">
-    <section class="card grid-two">
-      <div class="left">
-        <h1>Mein Profil</h1>
-        <p class="muted">Aktualisiere deine Angaben, damit dich andere leichter finden.</p>
+  <div class="profile-page">
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
 
-        <form class="form" @submit.prevent="saveProfile">
+    <header class="card hero">
+      <div>
+        <p class="eyebrow">Mein Profil</p>
+        <h1>{{ form.name || me?.name || me?.username || "Profil" }}</h1>
+        <p class="muted">
+          Sorge dafür, dass dein Team und Partner sofort wissen, wie sie dich erreichen und wofür man dich buchen kann.
+        </p>
+        <div class="hero-meta">
+          <div>
+            <span class="label">E-Mail</span>
+            <strong>{{ me?.email || "–" }}</strong>
+          </div>
+          <div>
+            <span class="label">Benutzername</span>
+            <strong>{{ me?.username || "–" }}</strong>
+          </div>
+          <div>
+            <span class="label">Rollen</span>
+            <strong>{{ roleSummary }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn ghost" type="button" @click="hydrateForm" :disabled="saving">Zurücksetzen</button>
+        <button class="btn" type="button" @click="saveProfile" :disabled="saving">
+          {{ saving ? "Speichere..." : "Profil speichern" }}
+        </button>
+      </div>
+    </header>
+
+    <form class="card profile-form" @submit.prevent="saveProfile">
+      <div class="form-section">
+        <div class="section-head">
+          <h2>Basisdaten</h2>
+          <p class="muted small">Kurze Angaben helfen beim Matching mit Projekten.</p>
+        </div>
+        <div class="field-grid two">
           <label>
-            Name / Künstlername
-            <input class="input" v-model.trim="form.name" placeholder="z. B. LUNA" />
+            <span>Name / Künstlername</span>
+            <input class="input" v-model.trim="form.name" placeholder="z. B. LUNA" />
           </label>
           <label>
-            Stadt
-            <input class="input" v-model.trim="form.city" placeholder="z. B. Berlin" />
+            <span>Stadt</span>
+            <input class="input" v-model.trim="form.city" placeholder="z. B. Berlin" />
           </label>
           <label>
-            Genre
-            <input class="input" v-model.trim="form.genre" placeholder="z. B. Hip-Hop, R&B" />
+            <span>Genre</span>
+            <input class="input" v-model.trim="form.genre" placeholder="z. B. Hip-Hop, R&B" />
           </label>
           <label>
-            IBAN (optional)
+            <span>IBAN (optional)</span>
             <input class="input" v-model.trim="form.iban" placeholder="DE00 0000 0000 0000 0000 00" />
           </label>
-
-          <div>
-            <p class="section-title">Rollen</p>
-            <div class="roles">
-              <label v-for="role in visibleRoles" :key="role.id">
-                <input type="checkbox" :value="role.id" v-model="form.role_ids" />
-                {{ roleLabels[role.key] || role.key }}
-              </label>
-            </div>
-            <small v-if="!isTeam" class="hint muted">Team-Rollen werden vom Admin vergeben.</small>
-          </div>
-
-          <div>
-            <p class="section-title">Social Links</p>
-            <div class="socials">
-              <label v-for="key in socialKeys" :key="key">
-                {{ socialLabels[key] }}
-                <input
-                  class="input"
-                  v-model.trim="form.socials[key]"
-                  :placeholder="socialPlaceholders[key]"
-                />
-              </label>
-            </div>
-          </div>
-
-          <button class="btn" type="submit" :disabled="saving">
-            {{ saving ? "Speichere…" : "Profil speichern" }}
-          </button>
-          <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
-        </form>
+        </div>
       </div>
 
-      <aside class="card examples">
-        <h2>Beispiele</h2>
-        <form class="upload" @submit.prevent="uploadExample">
-          <input class="input" v-model.trim="example.title" placeholder="Titel" />
-          <input class="input" v-model.trim="example.link" placeholder="Link (YouTube, SoundCloud…)" />
-          <label class="file">
-            <input type="file" @change="onFile" />
-            {{ example.file ? example.file.name : "Datei auswählen" }}
-          </label>
-          <button class="btn" type="submit" :disabled="uploading">
-            {{ uploading ? "Lädt…" : "Beispiel hinzufügen" }}
+      <div class="form-section">
+        <div class="section-head">
+          <h2>Rollen</h2>
+          <p class="muted small">Wähle mehrere Rollen aus – Team-Rollen werden nur von Admins vergeben.</p>
+        </div>
+        <div class="role-grid">
+          <button
+            type="button"
+            v-for="role in visibleRoles"
+            :key="role.id"
+            class="role-chip"
+            :class="{ active: form.role_ids.includes(role.id) }"
+            @click="toggleRole(role.id)"
+          >
+            {{ roleLabels[role.key] || role.key }}
           </button>
-        </form>
-        <ul>
-          <li v-for="item in examples" :key="item.id">
-            <div>
-              <strong>{{ item.title || "Ohne Titel" }}</strong>
-              <p class="muted">
-                <span v-if="item.link">{{ item.link }}</span>
-                <span v-else-if="item.file">Datei hochgeladen</span>
-                <span v-else>Keine zusätzlichen Infos</span>
-              </p>
-            </div>
-            <a v-if="item.link" class="link" :href="item.link" target="_blank" rel="noopener">Ansehen</a>
-            <a v-else-if="item.file" class="link" :href="item.file" target="_blank" rel="noopener">Download</a>
-          </li>
-        </ul>
-        <p v-if="!examples.length" class="muted empty">Noch keine Beispiele hochgeladen.</p>
-      </aside>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="section-head">
+          <h2>Social Links</h2>
+          <p class="muted small">Nur ausgefüllte Links werden angezeigt.</p>
+        </div>
+        <div class="field-grid two">
+          <label v-for="key in socialKeys" :key="key">
+            <span>{{ socialMeta[key].label }}</span>
+            <input
+              class="input"
+              v-model.trim="form.socials[key]"
+              :placeholder="socialMeta[key].placeholder"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn ghost" type="button" @click="hydrateForm" :disabled="saving">Abbrechen</button>
+        <button class="btn" type="submit" :disabled="saving">
+          {{ saving ? "Speichere..." : "Speichern" }}
+        </button>
+      </div>
+    </form>
+
+    <section class="card examples-card">
+      <div class="section-head">
+        <div>
+          <h2>Referenzen & Beispiele</h2>
+          <p class="muted small">Zeig dein Portfolio mit Links oder Dateien.</p>
+        </div>
+        <span class="count-pill">{{ examples.length }} Einträge</span>
+      </div>
+      <form class="example-form" @submit.prevent="uploadExample">
+        <input class="input" v-model.trim="example.title" placeholder="Titel (optional)" />
+        <input class="input" v-model.trim="example.link" placeholder="Link (YouTube, SoundCloud ...)" />
+        <label class="file-picker">
+          <input type="file" @change="onExampleFile" />
+          {{ example.file ? example.file.name : "Datei wählen" }}
+        </label>
+        <div class="example-actions">
+          <button class="btn ghost" type="button" @click="resetExample" :disabled="uploading">Zurücksetzen</button>
+          <button class="btn" type="submit" :disabled="uploading">
+            {{ uploading ? "Lädt..." : "Beispiel hinzufügen" }}
+          </button>
+        </div>
+      </form>
+      <ul class="example-list" v-if="examples.length">
+        <li v-for="item in examples" :key="item.id">
+          <div>
+            <strong>{{ item.title || "Ohne Titel" }}</strong>
+            <p class="muted">
+              <span v-if="item.link">{{ item.link }}</span>
+              <span v-else-if="item.file">Datei hochgeladen</span>
+              <span v-else>Keine zusätzlichen Infos</span>
+            </p>
+          </div>
+          <div class="example-links">
+            <a v-if="item.link" class="btn ghost tiny" :href="item.link" target="_blank" rel="noopener">Ansehen</a>
+            <a
+              v-else-if="item.file"
+              class="btn ghost tiny"
+              :href="item.file"
+              target="_blank"
+              rel="noopener"
+            >
+              Download
+            </a>
+          </div>
+        </li>
+      </ul>
+      <p v-else-if="!loadingExamples" class="muted empty">Noch keine Beispiele hinterlegt.</p>
+      <p v-if="loadingExamples" class="muted">Lade Beispiele...</p>
     </section>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, computed } from "vue";
+import { reactive, ref, onMounted, computed, watch } from "vue";
 import api from "../api";
+import Toast from "../components/Toast.vue";
+import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
+const { toast, showToast, hideToast } = useToast();
 const { profile: me, fetchProfile, isTeam } = useCurrentProfile();
 
 const roles = ref([]);
 const examples = ref([]);
+const loadingExamples = ref(false);
 const saving = ref(false);
 const uploading = ref(false);
-const message = ref("");
-const messageType = ref("info");
-const visibleRoles = computed(() =>
-  roles.value.filter((role) => isTeam.value || role.key !== "TEAM")
-);
 
 const socialKeys = ["instagram", "youtube", "soundcloud", "tiktok", "spotify"];
-const socialLabels = {
-  instagram: "Instagram",
-  youtube: "YouTube",
-  soundcloud: "SoundCloud",
-  tiktok: "TikTok",
-  spotify: "Spotify",
-};
-const socialPlaceholders = {
-  instagram: "@deinhandle",
-  youtube: "https://youtube.com/…",
-  soundcloud: "https://soundcloud.com/…",
-  tiktok: "@deinhandle",
-  spotify: "https://open.spotify.com/…",
+const socialMeta = {
+  instagram: { label: "Instagram", placeholder: "@deinhandle" },
+  youtube: { label: "YouTube", placeholder: "https://youtube.com/..." },
+  soundcloud: { label: "SoundCloud", placeholder: "https://soundcloud.com/..." },
+  tiktok: { label: "TikTok", placeholder: "@deinhandle" },
+  spotify: { label: "Spotify", placeholder: "https://open.spotify.com/..." },
 };
 
 const roleLabels = {
@@ -136,7 +194,7 @@ const form = reactive({
   city: "",
   genre: "",
   iban: "",
-  socials: {},
+  socials: createDefaultSocials(),
   role_ids: [],
 });
 
@@ -146,14 +204,24 @@ const example = reactive({
   file: null,
 });
 
-function showMessage(text, type = "info") {
-  message.value = text;
-  messageType.value = type;
-  if (text) {
-    setTimeout(() => {
-      message.value = "";
-    }, 2500);
-  }
+const visibleRoles = computed(() =>
+  roles.value.filter((role) => isTeam.value || role.key !== "TEAM")
+);
+
+const roleSummary = computed(() => {
+  if (!form.role_ids.length) return "Keine";
+  const selected = roles.value
+    .filter((role) => form.role_ids.includes(role.id))
+    .map((role) => roleLabels[role.key] || role.key);
+  if (!selected.length) return "Keine";
+  return selected.join(", ");
+});
+
+function createDefaultSocials() {
+  return socialKeys.reduce((acc, key) => {
+    acc[key] = "";
+    return acc;
+  }, {});
 }
 
 function hydrateForm() {
@@ -162,44 +230,65 @@ function hydrateForm() {
   form.city = me.value.city || "";
   form.genre = me.value.genre || "";
   form.iban = me.value.iban || "";
-  form.socials = { ...me.value.socials } || {};
+  form.socials = { ...createDefaultSocials(), ...(me.value.socials || {}) };
   form.role_ids = (me.value.roles || []).map((role) => role.id);
 }
 
-function onFile(event) {
-  const file = event.target.files?.[0] || null;
-  example.file = file;
+function toggleRole(id) {
+  if (!form.role_ids.includes(id)) {
+    form.role_ids = [...form.role_ids, id];
+  } else {
+    form.role_ids = form.role_ids.filter((roleId) => roleId !== id);
+  }
+}
+
+function sanitizeIban(value) {
+  return value.replace(/\s+/g, "").toUpperCase();
 }
 
 async function saveProfile() {
   if (!me.value?.id) return;
   saving.value = true;
-  showMessage("");
   try {
+    const socials = {};
+    socialKeys.forEach((key) => {
+      const value = (form.socials[key] || "").trim();
+      if (value) socials[key] = value;
+    });
     const payload = {
-      name: form.name,
-      city: form.city,
-      genre: form.genre,
-      iban: form.iban,
-      socials: form.socials,
+      name: form.name.trim(),
+      city: form.city.trim(),
+      genre: form.genre.trim(),
+      iban: sanitizeIban(form.iban || ""),
+      socials,
       role_ids: form.role_ids,
     };
     await api.put(`profiles/${me.value.id}/`, payload);
     await fetchProfile(true);
     hydrateForm();
-    showMessage("Profil gespeichert!", "success");
+    showToast("Profil gespeichert", "success");
   } catch (err) {
     console.error("Profil konnte nicht gespeichert werden", err);
-    showMessage("Fehler beim Speichern. Bitte erneut versuchen.", "error");
+    showToast("Profil konnte nicht gespeichert werden", "error");
   } finally {
     saving.value = false;
   }
 }
 
+function resetExample() {
+  example.title = "";
+  example.link = "";
+  example.file = null;
+}
+
+function onExampleFile(event) {
+  example.file = event.target.files?.[0] || null;
+}
+
 async function uploadExample() {
   if (!me.value?.id) return;
   if (!example.title && !example.link && !example.file) {
-    showMessage("Bitte gib mindestens einen Titel, Link oder eine Datei an.", "error");
+    showToast("Bitte gib mindestens einen Titel, Link oder eine Datei an.", "error");
     return;
   }
   const formData = new FormData();
@@ -209,17 +298,13 @@ async function uploadExample() {
   if (example.file) formData.append("file", example.file);
   uploading.value = true;
   try {
-    await api.post("examples/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    example.title = "";
-    example.link = "";
-    example.file = null;
+    await api.post("examples/", formData, { headers: { "Content-Type": "multipart/form-data" } });
+    resetExample();
     await loadExamples();
-    showMessage("Beispiel hochgeladen.", "success");
+    showToast("Beispiel gespeichert", "success");
   } catch (err) {
     console.error("Beispiel konnte nicht hochgeladen werden", err);
-    showMessage("Upload fehlgeschlagen.", "error");
+    showToast("Upload fehlgeschlagen", "error");
   } finally {
     uploading.value = false;
   }
@@ -231,139 +316,198 @@ async function loadRoles() {
     roles.value = data;
   } catch (err) {
     console.error("Rollen konnten nicht geladen werden", err);
+    showToast("Rollen konnten nicht geladen werden", "error");
   }
 }
 
 async function loadExamples() {
   if (!me.value?.id) return;
+  loadingExamples.value = true;
   try {
     const { data } = await api.get("examples/", { params: { profile: me.value.id } });
     examples.value = data.filter((item) => item.profile === me.value.id);
   } catch (err) {
     console.error("Beispiele konnten nicht geladen werden", err);
+    showToast("Beispiele konnten nicht geladen werden", "error");
     examples.value = [];
+  } finally {
+    loadingExamples.value = false;
   }
 }
 
+watch(
+  () => me.value,
+  () => hydrateForm()
+);
+
 onMounted(async () => {
-  await Promise.all([fetchProfile(), loadRoles()]);
+  await fetchProfile();
   hydrateForm();
-  await loadExamples();
+  await Promise.all([loadRoles(), loadExamples()]);
 });
 </script>
 
 <style scoped>
-.profile {
+.profile-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  width: 100%;
+  gap: 24px;
 }
-.grid-two {
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.hero-meta {
+  margin-top: 16px;
   display: grid;
-  grid-template-columns: 1fr minmax(260px, 340px);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
 }
-.left {
+.hero-meta .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.profile-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
-.form {
+.form-section {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 16px;
 }
-label {
+.section-head h2 {
+  margin: 0;
+}
+.section-head .small {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+.field-grid {
+  display: grid;
+  gap: 14px;
+}
+.field-grid.two {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.field-grid label {
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
 }
-.roles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px 12px;
+.role-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
-.roles label {
-  font-weight: 500;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
+.role-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 6px 16px;
+  font-size: 13px;
+  background: transparent;
+  cursor: pointer;
 }
-.socials {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+.role-chip.active {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
   gap: 12px;
 }
-.section-title {
-  margin: 0 0 6px;
-  font-weight: 600;
-}
-.feedback {
-  margin: 0;
-  font-size: 14px;
-}
-.feedback.success {
-  color: #34d399;
-}
-.feedback.error {
-  color: #f87171;
-}
-.examples {
+.examples-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.upload {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.count-pill {
+  align-self: flex-start;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
 }
-.file {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+.example-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.file-picker {
+  border: 1px dashed rgba(148, 163, 184, 0.7);
   border-radius: 10px;
-  border: 1px dashed rgba(75, 91, 255, 0.4);
+  padding: 10px 14px;
+  font-size: 14px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
 }
-.file input {
+.file-picker input {
   display: none;
 }
-.examples ul {
+.example-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.example-list {
   list-style: none;
-  margin: 0;
   padding: 0;
-  display: grid;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
 }
-.examples li {
+.example-list li {
   padding: 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(75, 91, 255, 0.08);
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
-.examples li .link {
-  color: var(--brand);
-  text-decoration: none;
-  font-weight: 600;
-}
-.examples li .link:hover {
-  text-decoration: underline;
+.example-links {
+  display: flex;
+  gap: 8px;
 }
 .empty {
   text-align: center;
   margin: 0;
 }
-
-@media (max-width: 960px) {
-  .grid-two {
+@media (max-width: 720px) {
+  .hero {
+    flex-direction: column;
+  }
+  .hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .example-form {
     grid-template-columns: 1fr;
+  }
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

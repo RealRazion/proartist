@@ -1,5 +1,6 @@
 ﻿<template>
   <div class="tasks">
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Tasks</h1>
@@ -28,6 +29,18 @@
           </div>
         </div>
         <p class="muted board-hint">Archivierte Tasks blendest du über die Filter wieder ein.</p>
+        <div class="board-type-chips">
+          <button
+            v-for="type in boardTypeOptions"
+            :key="type"
+            class="chip"
+            :class="{ active: boardTypeFilter === type }"
+            type="button"
+            @click="setBoardType(type)"
+          >
+            {{ boardTypeLabels[type] }}
+          </button>
+        </div>
         <div v-if="taskSummary.total" class="progress-strip">
           <div class="progress-bar">
             <div
@@ -106,6 +119,8 @@
             </template>
           </div>
         </div>
+        <div ref="taskSentinel" class="sentinel" v-if="hasMoreTasks"></div>
+        <p v-if="loadingMoreTasks" class="muted loading-more">Lade weitere Tasks...</p>
       </div>
       <section v-if="activeTask" class="card detail-panel">
         <header>
@@ -137,38 +152,12 @@
           <button class="btn ghost tiny" type="button" @click="activeTaskId = null">Schließen</button>
         </header>
         <div class="detail-grid">
-          <section>
-            <h3>Dateianhänge</h3>
-            <p class="muted">Teile Briefings, Referenzen oder Ergebnisse.</p>
-            <ul v-if="taskAttachments[activeTask.id]?.length" class="attachment-list">
-              <li v-for="file in taskAttachments[activeTask.id]" :key="file.id">
-                <a :href="file.file_url" target="_blank" rel="noopener">
-                  {{ file.label || file.file_name || "Datei" }}
-                </a>
-                <small class="muted">{{ file.uploaded_by?.name || file.uploaded_by?.username }}</small>
-                <button class="iconbtn danger" type="button" @click="removeTaskAttachment(activeTask.id, file.id)">X</button>
-              </li>
-            </ul>
-            <p v-else class="muted">Noch keine Anhänge.</p>
-            <form class="upload-row" @submit.prevent="uploadTaskAttachment(activeTask.id)">
-              <input
-                class="input"
-                v-model.trim="taskAttachmentDraft(activeTask.id).label"
-                placeholder="Kurzbeschreibung"
-              />
-              <label class="file-picker">
-                <input type="file" @change="onTaskFile(activeTask.id, $event)" />
-                {{
-                  taskAttachmentDraft(activeTask.id).file
-                    ? taskAttachmentDraft(activeTask.id).file.name
-                    : "Datei wählen"
-                }}
-              </label>
-              <button class="btn tiny" type="submit" :disabled="taskAttachmentLoading[activeTask.id]">
-                {{ taskAttachmentLoading[activeTask.id] ? "Lade..." : "Hochladen" }}
-              </button>
-            </form>
-          </section>
+          <AttachmentPanel
+            entity-type="task"
+            :entity-id="activeTask.id"
+            title="Dateianhänge"
+            description="Teile Briefings, Referenzen oder Ergebnisse."
+          />
 
           <section>
             <h3>Kommentare</h3>
@@ -376,11 +365,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import api from "../api";
+import Toast from "../components/Toast.vue";
+import AttachmentPanel from "../components/AttachmentPanel.vue";
+import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
+const { toast, showToast, hideToast } = useToast();
 
 const projects = ref([]);
 const tasks = ref([]);
@@ -392,6 +385,7 @@ const projectMap = computed(() =>
 );
 
 const loadingTasks = ref(false);
+const loadingMoreTasks = ref(false);
 const loadingProjects = ref(false);
 const showFilterModal = ref(false);
 const showArchived = ref(false);
@@ -404,6 +398,9 @@ const taskSummary = ref({
   by_status: {},
   by_type: {},
 });
+const taskPagination = ref({ next: null, previous: null, count: 0 });
+const taskSentinel = ref(null);
+const hasMoreTasks = computed(() => Boolean(taskPagination.value.next));
 
 const taskModalVisible = ref(false);
 const taskModalMode = ref("create");
@@ -457,6 +454,12 @@ const taskTypeLabels = {
   INTERNAL: "Intern",
   EXTERNAL: "Extern",
 };
+const boardTypeOptions = ["ALL", ...taskTypeOptions];
+const boardTypeLabels = {
+  ALL: "Alle Tasks",
+  INTERNAL: "Intern",
+  EXTERNAL: "Extern",
+};
 const priorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const priorityLabels = {
   LOW: "Niedrig",
@@ -464,6 +467,11 @@ const priorityLabels = {
   HIGH: "Hoch",
   CRITICAL: "Kritisch",
 };
+const boardTypeFilter = ref("ALL");
+function setBoardType(value) {
+  boardTypeFilter.value = value;
+  taskTypeFilter.value = value === "ALL" ? "ALL" : value;
+}
 
 function resetFilters() {
   searchTasks.value = "";
@@ -477,12 +485,17 @@ function resetFilters() {
   sortOrder.value = "-due_date";
 }
 
-const filteredTasks = computed(() => tasks.value);
+const visibleTasks = computed(() => {
+  if (boardTypeFilter.value === "ALL") {
+    return tasks.value;
+  }
+  return tasks.value.filter((task) => task.task_type === boardTypeFilter.value);
+});
 const boardColumns = computed(() =>
   statusOptions.map((status) => ({
     key: status,
     label: statusLabels[status],
-    items: filteredTasks.value
+    items: visibleTasks.value
       .filter((task) => task.status === status)
       .slice()
       .sort((a, b) => compareDueDates(a.due_date, b.due_date)),
@@ -504,19 +517,21 @@ const teamProfiles = computed(() =>
 );
 const activeTaskId = ref(null);
 const activeTask = computed(() => tasks.value.find((task) => task.id === activeTaskId.value) || null);
-const taskAttachments = ref({});
-const taskAttachmentLoading = ref({});
 const taskComments = ref({});
 const commentLoading = ref({});
-const attachmentDrafts = ref({});
 const commentDrafts = ref({});
+let taskObserver;
 let searchDebounce;
 
-function taskAttachmentDraft(taskId) {
-  if (!attachmentDrafts.value[taskId]) {
-    attachmentDrafts.value[taskId] = { label: "", file: null };
-  }
-  return attachmentDrafts.value[taskId];
+function setupTaskObserver() {
+  if (taskObserver) taskObserver.disconnect();
+  if (!taskSentinel.value) return;
+  taskObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && taskPagination.value.next && !loadingMoreTasks.value) {
+      loadTasks({ append: true, pageUrl: taskPagination.value.next });
+    }
+  });
+  taskObserver.observe(taskSentinel.value);
 }
 
 function taskCommentDraft(taskId) {
@@ -595,35 +610,64 @@ async function loadProjects() {
   } catch (err) {
     console.error("Projekte für Tasks konnten nicht geladen werden", err);
     projects.value = [];
+    showToast("Projekte konnten nicht geladen werden", "error");
   } finally {
     loadingProjects.value = false;
   }
 }
 
-async function loadTasks() {
+function buildTaskParams() {
+  return {
+    include_archived: showArchived.value ? 1 : 0,
+    include_done: showCompleted.value ? 1 : 0,
+    project: filterProject.value !== "ALL" ? filterProject.value : undefined,
+    status: filterStatus.value !== "ALL" ? filterStatus.value : undefined,
+    priority: priorityFilter.value !== "ALL" ? priorityFilter.value : undefined,
+    task_type: taskTypeFilter.value !== "ALL" ? taskTypeFilter.value : undefined,
+    search: searchTasks.value.trim() || undefined,
+    ordering: sortOrder.value,
+    ...buildDueParams(),
+  };
+}
+
+async function loadTasks({ append = false, pageUrl = null } = {}) {
   if (!isTeam.value) return;
-  loadingTasks.value = true;
+  if (append && !taskPagination.value.next && !pageUrl) return;
+  const target = append ? loadingMoreTasks : loadingTasks;
+  if (target.value) return;
+  target.value = true;
   try {
-    const params = {
-      include_archived: showArchived.value ? 1 : 0,
-      include_done: showCompleted.value ? 1 : 0,
-      project: filterProject.value !== "ALL" ? filterProject.value : undefined,
-      status: filterStatus.value !== "ALL" ? filterStatus.value : undefined,
-      priority: priorityFilter.value !== "ALL" ? priorityFilter.value : undefined,
-      task_type: taskTypeFilter.value !== "ALL" ? taskTypeFilter.value : undefined,
-      search: searchTasks.value.trim() || undefined,
-      ordering: sortOrder.value,
-      ...buildDueParams(),
-    };
-    const { data } = await api.get("tasks/", { params });
-    tasks.value = data;
+    const params = pageUrl ? undefined : buildTaskParams();
+    const url = pageUrl || "tasks/";
+    const { data } = await api.get(url, { params });
+    if (Array.isArray(data)) {
+      tasks.value = append ? tasks.value.concat(data) : data;
+      taskPagination.value = { next: null, previous: null, count: data.length };
+    } else {
+      const results = data.results || [];
+      tasks.value = append ? tasks.value.concat(results) : results;
+      taskPagination.value = {
+        next: data.next,
+        previous: data.previous,
+        count: data.count ?? results.length,
+      };
+    }
     if (activeTaskId.value && !tasks.value.find((task) => task.id === activeTaskId.value)) {
       activeTaskId.value = null;
     }
+    if (!append) {
+      await nextTick();
+      setupTaskObserver();
+    }
   } catch (err) {
     console.error("Tasks konnten nicht geladen werden", err);
+    showToast("Tasks konnten nicht geladen werden", "error");
+    if (!append) {
+      tasks.value = [];
+      taskPagination.value = { next: null, previous: null, count: 0 };
+    }
   } finally {
-    loadingTasks.value = false;
+    target.value = false;
   }
 }
 
@@ -642,6 +686,7 @@ async function loadTaskSummary() {
   } catch (err) {
     console.error("Task-Statistiken konnten nicht geladen werden", err);
     taskSummary.value = { total: 0, archived: 0, active: 0, done: 0, by_status: {}, by_type: {} };
+    showToast("Task-Statistiken konnten nicht geladen werden", "error");
   }
 }
 
@@ -671,13 +716,16 @@ async function submitTaskForm() {
   try {
     if (taskModalMode.value === "edit" && editingTaskId.value) {
       await api.patch(`tasks/${editingTaskId.value}/`, payload);
+      showToast("Task aktualisiert", "success");
     } else {
       await api.post("tasks/", payload);
+      showToast("Task angelegt", "success");
     }
     await refreshTasks();
     taskModalVisible.value = false;
   } catch (err) {
     console.error("Task konnte nicht gespeichert werden", err);
+    showToast("Task konnte nicht gespeichert werden", "error");
   } finally {
     taskSaving.value = false;
   }
@@ -718,8 +766,10 @@ async function archiveCurrentTask() {
     await api.post(`tasks/${editingTaskId.value}/archive/`);
     await refreshTasks();
     taskModalVisible.value = false;
+    showToast("Task archiviert", "success");
   } catch (err) {
     console.error("Task konnte nicht archiviert werden", err);
+    showToast("Task konnte nicht archiviert werden", "error");
   } finally {
     taskSaving.value = false;
   }
@@ -737,8 +787,10 @@ async function deleteCurrentTask() {
     }
     await refreshTasks();
     taskModalVisible.value = false;
+    showToast("Task gelöscht", "success");
   } catch (err) {
     console.error("Task konnte nicht gelöscht werden", err);
+    showToast("Task konnte nicht gelöscht werden", "error");
   } finally {
     taskSaving.value = false;
   }
@@ -759,8 +811,10 @@ async function updateStatus(task) {
   try {
     await api.patch(`tasks/${task.id}/`, { status: task.status });
     await loadTaskSummary();
+    showToast("Status aktualisiert", "success");
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
+    showToast("Status konnte nicht aktualisiert werden", "error");
   }
 }
 
@@ -769,8 +823,10 @@ async function archiveTask(task) {
   try {
     await api.post(`tasks/${task.id}/archive/`);
     await refreshTasks();
+    showToast("Task archiviert", "success");
   } catch (err) {
     console.error("Task konnte nicht archiviert werden", err);
+    showToast("Task konnte nicht archiviert werden", "error");
   }
 }
 
@@ -792,61 +848,7 @@ async function loadProfiles() {
 
 function openTask(task) {
   activeTaskId.value = task.id;
-  ensureTaskAttachments(task.id);
   ensureTaskComments(task.id);
-}
-
-async function ensureTaskAttachments(taskId, force = false) {
-  if (!force && taskAttachments.value[taskId]) return;
-  taskAttachmentLoading.value[taskId] = true;
-  try {
-    const { data } = await api.get("task-attachments/", { params: { task: taskId } });
-    taskAttachments.value = { ...taskAttachments.value, [taskId]: data };
-  } catch (err) {
-    console.error("Task-Anhänge konnten nicht geladen werden", err);
-  } finally {
-    taskAttachmentLoading.value[taskId] = false;
-  }
-}
-
-function onTaskFile(taskId, event) {
-  const draft = taskAttachmentDraft(taskId);
-  draft.file = event.target.files?.[0] || null;
-}
-
-async function uploadTaskAttachment(taskId) {
-  const draft = taskAttachmentDraft(taskId);
-  if (!draft.file) return;
-  taskAttachmentLoading.value[taskId] = true;
-  try {
-    const formData = new FormData();
-    formData.append("task", taskId);
-    formData.append("label", draft.label);
-    formData.append("file", draft.file);
-    await api.post("task-attachments/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    draft.label = "";
-    draft.file = null;
-    await ensureTaskAttachments(taskId, true);
-  } catch (err) {
-    console.error("Task-Anhang konnte nicht gespeichert werden", err);
-  } finally {
-    taskAttachmentLoading.value[taskId] = false;
-  }
-}
-
-async function removeTaskAttachment(taskId, attachmentId) {
-  if (!confirm("Anhang entfernen?")) return;
-  taskAttachmentLoading.value[taskId] = true;
-  try {
-    await api.delete(`task-attachments/${attachmentId}/`);
-    await ensureTaskAttachments(taskId, true);
-  } catch (err) {
-    console.error("Anhang konnte nicht gelöscht werden", err);
-  } finally {
-    taskAttachmentLoading.value[taskId] = false;
-  }
 }
 
 async function ensureTaskComments(taskId, force = false) {
@@ -875,12 +877,25 @@ async function addComment(taskId) {
     draft.body = "";
     draft.mentions = [];
     await ensureTaskComments(taskId, true);
+    showToast("Kommentar gespeichert", "success");
   } catch (err) {
     console.error("Kommentar konnte nicht gespeichert werden", err);
+    showToast("Kommentar konnte nicht gespeichert werden", "error");
   } finally {
     commentLoading.value[taskId] = false;
   }
 }
+
+watch(
+  () => taskTypeFilter.value,
+  (value) => {
+    const mapped = value === "ALL" ? "ALL" : value;
+    if (boardTypeFilter.value !== mapped) {
+      boardTypeFilter.value = mapped;
+    }
+  },
+  { immediate: true }
+);
 
 watch(
   () => [
@@ -916,6 +931,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (taskObserver) taskObserver.disconnect();
   if (searchDebounce) clearTimeout(searchDebounce);
 });
 </script>
@@ -973,6 +989,23 @@ onBeforeUnmount(() => {
 .board-hint {
   font-size: 13px;
   margin-top: -8px;
+}
+.board-type-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.board-type-chips .chip {
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.board-type-chips .chip.active {
+  border-color: #2563eb;
+  color: #2563eb;
 }
 .progress-strip {
   display: flex;
@@ -1196,7 +1229,6 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
 }
-.attachment-list,
 .comment-list {
   list-style: none;
   padding: 0;
@@ -1204,32 +1236,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-.attachment-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-.attachment-list a {
-  font-weight: 600;
-  color: var(--brand);
-}
-.upload-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.file-picker {
-  border: 1px dashed rgba(148, 163, 184, 0.7);
-  border-radius: 10px;
-  padding: 6px 12px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.file-picker input {
-  display: none;
 }
 select[multiple] {
   min-height: 150px;
@@ -1372,6 +1378,15 @@ select[multiple] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.sentinel {
+  width: 100%;
+  height: 1px;
+}
+.loading-more {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
 }
 @keyframes shimmer {
   0% {

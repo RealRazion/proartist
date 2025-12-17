@@ -53,6 +53,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         many=True,
         write_only=True,
         source="roles",
+        required=False,
     )
     username = serializers.CharField(source="user.username", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
@@ -73,6 +74,16 @@ class ProfileSerializer(serializers.ModelSerializer):
             "city",
             "roles",
             "role_ids",
+            "is_locked",
+            "is_team_member",
+            "onboarding_uploaded_example",
+            "created_at",
+        ]
+        read_only_fields = [
+            "user",
+            "username",
+            "email",
+            "roles",
             "is_locked",
             "is_team_member",
             "onboarding_uploaded_example",

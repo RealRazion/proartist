@@ -433,6 +433,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     queryset=Task.objects.all().order_by("-created_at")
     serializer_class=TaskSerializer
     permission_classes=[permissions.IsAuthenticated, IsTeam]
+    pagination_class = StandardPagination
 
     def _base_queryset(self):
         return (

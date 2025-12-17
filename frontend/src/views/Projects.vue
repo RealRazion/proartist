@@ -1,5 +1,6 @@
 ﻿<template>
   <div class="projects">
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Projekte</h1>
@@ -101,39 +102,12 @@
               <span v-else class="names muted">Noch kein Team zugeordnet</span>
             </div>
             <div v-if="openProjectId === project.id" class="project-extra">
-              <section class="attachments">
-                <header>
-                  <h4>Dateianhänge</h4>
-                  <button class="btn ghost tiny" type="button" @click="ensureProjectAttachments(project.id, true)">
-                    Neu laden
-                  </button>
-                </header>
-                <ul v-if="projectAttachmentsMap[project.id]?.length" class="attachment-list">
-                  <li v-for="file in projectAttachmentsMap[project.id]" :key="file.id">
-                    <a :href="file.file_url" target="_blank" rel="noopener">
-                      {{ file.label || file.file_name || "Datei" }}
-                    </a>
-                    <small class="muted">von {{ file.uploaded_by?.name || file.uploaded_by?.username }}</small>
-                    <button class="iconbtn danger" type="button" @click="removeProjectAttachment(project.id, file.id)">X</button>
-                  </li>
-                </ul>
-                <p v-else-if="attachmentsLoading[project.id]" class="muted">Lade Anhänge...</p>
-                <p v-else class="muted">Keine Anhänge</p>
-                <form class="upload-row" @submit.prevent="uploadProjectAttachment(project.id)">
-                  <input
-                    class="input"
-                    v-model.trim="attachmentDraft(project.id).label"
-                    placeholder="Kurzbeschreibung"
-                  />
-                  <label class="file-picker">
-                    <input type="file" @change="onProjectFile(project.id, $event)" />
-                    {{ attachmentDraft(project.id).file ? attachmentDraft(project.id).file.name : "Datei wählen" }}
-                  </label>
-                  <button class="btn tiny" type="submit" :disabled="attachmentsLoading[project.id]">
-                    {{ attachmentsLoading[project.id] ? "Lade..." : "Hochladen" }}
-                  </button>
-                </form>
-              </section>
+              <AttachmentPanel
+                entity-type="project"
+                :entity-id="project.id"
+                title="Dateianhänge"
+                description="Teile Briefings, Referenzen oder Ergebnisse."
+              />
             </div>
           </li>
         </ul>
@@ -271,9 +245,13 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import api from "../api";
+import Toast from "../components/Toast.vue";
+import AttachmentPanel from "../components/AttachmentPanel.vue";
+import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
+const { toast, showToast, hideToast } = useToast();
 
 const projects = ref([]);
 const profiles = ref([]);
@@ -289,9 +267,6 @@ const filterStatus = ref("ALL");
 const filterMember = ref("ALL");
 const projectPagination = ref({ next: null, previous: null, count: 0 });
 const projectSentinel = ref(null);
-const projectAttachmentsMap = ref({});
-const attachmentDrafts = ref({});
-const attachmentsLoading = ref({});
 const openProjectId = ref(null);
 const projectModalVisible = ref(false);
 const projectModalMode = ref("create");
@@ -400,6 +375,7 @@ async function loadProjects({ append = false, pageUrl = null } = {}) {
     }
   } catch (err) {
     console.error("Projekte konnten nicht geladen werden", err);
+    showToast("Projekte konnten nicht geladen werden", "error");
     if (!append) {
       projects.value = [];
       projectPagination.value = { next: null, previous: null, count: 0 };
@@ -420,6 +396,7 @@ async function loadProfiles() {
     }));
   } catch (err) {
     console.error("Profile konnten nicht geladen werden", err);
+    showToast("Profile konnten nicht geladen werden", "error");
     profiles.value = [];
   }
 }
@@ -437,6 +414,7 @@ async function loadProjectSummary() {
     };
   } catch (err) {
     console.error("Projekt-Statistiken konnten nicht geladen werden", err);
+    showToast("Projekt-Statistiken konnten nicht geladen werden", "error");
     projectSummary.value = computeProjectSummary(projects.value);
   }
 }
@@ -500,13 +478,16 @@ async function submitProjectForm() {
   try {
     if (projectModalMode.value === "edit" && editingProjectId.value) {
       await api.patch(`projects/${editingProjectId.value}/`, payload);
+      showToast("Projekt aktualisiert", "success");
     } else {
       await api.post("projects/", payload);
+      showToast("Projekt angelegt", "success");
     }
     await refreshProjects();
     projectModalVisible.value = false;
   } catch (err) {
     console.error("Projekt konnte nicht gespeichert werden", err);
+    showToast("Projekt konnte nicht gespeichert werden", "error");
   } finally {
     projectSaving.value = false;
   }
@@ -516,71 +497,10 @@ async function updateProjectStatus(project) {
   try {
     await api.patch(`projects/${project.id}/`, { status: project.status });
     await loadProjectSummary();
+    showToast("Status aktualisiert", "success");
   } catch (err) {
     console.error("Projekt-Status konnte nicht aktualisiert werden", err);
-  }
-}
-
-function attachmentDraft(projectId) {
-  if (!attachmentDrafts.value[projectId]) {
-    attachmentDrafts.value[projectId] = { label: "", file: null };
-  }
-  return attachmentDrafts.value[projectId];
-}
-
-async function ensureProjectAttachments(projectId, force = false) {
-  if (!force && projectAttachmentsMap.value[projectId]) return;
-  attachmentsLoading.value[projectId] = true;
-  try {
-    const { data } = await api.get("project-attachments/", { params: { project: projectId } });
-    projectAttachmentsMap.value = {
-      ...projectAttachmentsMap.value,
-      [projectId]: data,
-    };
-  } catch (err) {
-    console.error("Anhänge konnten nicht geladen werden", err);
-  } finally {
-    attachmentsLoading.value[projectId] = false;
-  }
-}
-
-function onProjectFile(projectId, event) {
-  const draft = attachmentDraft(projectId);
-  draft.file = event.target.files?.[0] || null;
-}
-
-async function uploadProjectAttachment(projectId) {
-  const draft = attachmentDraft(projectId);
-  if (!draft.file) return;
-  attachmentsLoading.value[projectId] = true;
-  try {
-    const formData = new FormData();
-    formData.append("project", projectId);
-    formData.append("label", draft.label);
-    formData.append("file", draft.file);
-    await api.post("project-attachments/", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    draft.label = "";
-    draft.file = null;
-    await ensureProjectAttachments(projectId, true);
-  } catch (err) {
-    console.error("Anhang konnte nicht gespeichert werden", err);
-  } finally {
-    attachmentsLoading.value[projectId] = false;
-  }
-}
-
-async function removeProjectAttachment(projectId, attachmentId) {
-  if (!confirm("Anhang wirklich entfernen?")) return;
-  attachmentsLoading.value[projectId] = true;
-  try {
-    await api.delete(`project-attachments/${attachmentId}/`);
-    await ensureProjectAttachments(projectId, true);
-  } catch (err) {
-    console.error("Anhang konnte nicht gelöscht werden", err);
-  } finally {
-    attachmentsLoading.value[projectId] = false;
+    showToast("Status konnte nicht aktualisiert werden", "error");
   }
 }
 
@@ -590,7 +510,6 @@ function toggleProjectDetails(projectId) {
     return;
   }
   openProjectId.value = projectId;
-  ensureProjectAttachments(projectId);
 }
 
 async function archiveCurrentProject() {
@@ -601,8 +520,10 @@ async function archiveCurrentProject() {
     await api.post(`projects/${editingProjectId.value}/archive/`);
     await refreshProjects();
     projectModalVisible.value = false;
+    showToast("Projekt archiviert", "success");
   } catch (err) {
     console.error("Projekt konnte nicht archiviert werden", err);
+    showToast("Projekt konnte nicht archiviert werden", "error");
   } finally {
     projectSaving.value = false;
   }
@@ -621,8 +542,10 @@ async function deleteCurrentProject() {
     }
     await refreshProjects();
     projectModalVisible.value = false;
+    showToast("Projekt gelöscht", "success");
   } catch (err) {
     console.error("Projekt konnte nicht gelöscht werden", err);
+    showToast("Projekt konnte nicht gelöscht werden", "error");
   } finally {
     projectSaving.value = false;
   }
@@ -652,6 +575,7 @@ async function exportProjects() {
     window.URL.revokeObjectURL(url);
   } catch (err) {
     console.error("CSV Export fehlgeschlagen", err);
+    showToast("CSV Export fehlgeschlagen", "error");
   } finally {
     exportingCsv.value = false;
   }
@@ -876,46 +800,6 @@ onBeforeUnmount(() => {
 .project-extra {
   border-top: 1px dashed rgba(148, 163, 184, 0.4);
   padding-top: 12px;
-}
-.attachments header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.attachment-list {
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.attachment-list li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-.attachment-list a {
-  font-weight: 600;
-  color: var(--brand);
-}
-.upload-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.file-picker {
-  border: 1px dashed rgba(148, 163, 184, 0.7);
-  border-radius: 10px;
-  padding: 6px 14px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.file-picker input {
-  display: none;
 }
 .skeleton-list {
   display: grid;

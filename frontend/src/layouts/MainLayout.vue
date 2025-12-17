@@ -86,15 +86,6 @@
           <span class="label">Aktivitaet</span>
         </router-link>
         <router-link
-          to="/songs"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Songs' : null"
-        >
-          <span class="icon">🎵</span>
-          <span class="label">Songs</span>
-        </router-link>
-        <router-link
           v-if="isTeam"
           to="/admin"
           class="nav-link"
@@ -380,4 +371,3 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 </style>
-

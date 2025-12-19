@@ -1,4 +1,4 @@
-﻿Ã¯Â»Â¿<template>
+<template>
   <div class="chat">
     <aside class="card">
       <div class="aside-header">
@@ -202,10 +202,10 @@ function threadPreview(thread) {
   const last = thread.messages?.[thread.messages.length - 1];
   if (!last) return "Noch keine Nachrichten";
   if (last.text) {
-    return last.text.length > 60 ? `${last.text.slice(0, 57)}Ãƒâ€Ãƒâ€¡Ã‚Âª` : last.text;
+    return last.text.length > 60 ? `${last.text.slice(0, 57)}...` : last.text;
   }
-  if (last.file_url) return "Ã‚Â­Ã†â€™ÃƒÂ´Ãƒâ€ž Anhang gesendet";
-  return "Neue AktivitÃ¢â€Å“ÃƒÂ±t";
+  if (last.file_url) return "Anhang gesendet";
+  return "Neue Aktivität";
 }
 
 function extractFilename(url) {
@@ -441,7 +441,7 @@ function openWS() {
   try {
     ws.value = new WebSocket(buildWsUrl());
   } catch (err) {
-    console.error("WebSocket konnte nicht ge?ffnet werden", err);
+    console.error("WebSocket konnte nicht geöffnet werden", err);
     return;
   }
   ws.value.onopen = () => {

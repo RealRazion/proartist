@@ -97,7 +97,7 @@
       <div class="form-section">
         <div class="section-head">
           <h2>Benachrichtigungen</h2>
-          <p class="muted small">Steuere, wann du E-Mail-Updates erh?ltst.</p>
+          <p class="muted small">Steuere, wann du E-Mail-Updates erhältst.</p>
         </div>
         <div class="notification-grid">
           <label v-for="option in notificationOptions" :key="option.key" class="notification-toggle">
@@ -212,8 +212,8 @@ const notificationOptions = [
   },
   {
     key: "digest",
-    label: "T?glicher Digest",
-    hint: "Eine t?gliche Zusammenfassung zu Tasks und Projekten.",
+    label: "Täglicher Digest",
+    hint: "Eine tägliche Zusammenfassung zu Tasks und Projekten.",
   },
 ];
 

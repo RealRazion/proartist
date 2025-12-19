@@ -90,10 +90,10 @@
           to="/activity"
           class="nav-link"
           @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Aktivitaet' : null"
+          :title="collapsed && !isMobile ? 'Aktivität' : null"
         >
           <span class="icon">🕒</span>
-          <span class="label">Aktivitaet</span>
+          <span class="label">Aktivität</span>
         </router-link>
         <router-link
           v-if="isTeam"

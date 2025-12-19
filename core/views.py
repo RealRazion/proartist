@@ -380,7 +380,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         notify_project_event(instance, "deleted")
         log_activity(
             "project_deleted",
-            f"Projekt geloescht: {instance.title}",
+            f"Projekt gelöscht: {instance.title}",
             actor=actor,
             severity="DANGER",
             project=instance,
@@ -612,7 +612,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         notify_task_event(instance, "deleted")
         log_activity(
             "task_deleted",
-            f"Task geloescht: {instance.title}",
+            f"Task gelöscht: {instance.title}",
             actor=actor,
             severity="DANGER",
             task=instance,

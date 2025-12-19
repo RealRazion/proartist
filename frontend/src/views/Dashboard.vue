@@ -6,7 +6,7 @@
       <div>
         <p class="eyebrow">Team</p>
         <h1>Team Dashboard</h1>
-        <p class="muted">Schneller ?berblick ?ber Todos, Projekte und Anfragen.</p>
+        <p class="muted">Schneller Überblick über Todos, Projekte und Anfragen.</p>
       </div>
       <div class="hero-actions">
         <button class="btn" type="button" @click="goTo('projects')">Projekt anlegen</button>
@@ -19,7 +19,7 @@
     <section v-else class="card welcome">
       <div>
         <p class="eyebrow">Hi {{ greetingName }}</p>
-        <h1>Willkommen zur?ck bei ProArtist</h1>
+        <h1>Willkommen zurück bei ProArtist</h1>
         <p class="muted">Mach dein Profil sichtbar und starte neue Kollaborationen.</p>
       </div>
       <button class="btn ghost" type="button" @click="refresh">Aktualisieren</button>
@@ -27,7 +27,7 @@
 
     <section v-if="!isTeam" class="card checklist">
       <h2>Onboarding</h2>
-      <p class="muted">Vervollst?ndige dein Profil, damit andere dich schneller finden.</p>
+      <p class="muted">Vervollständige dein Profil, damit andere dich schneller finden.</p>
       <ul>
         <li v-for="item in onboarding" :key="item.label">
           <span class="check">{{ item.done ? "*" : "o" }}</span>
@@ -60,7 +60,7 @@
       <h2>Schnellaktionen</h2>
       <div class="actions">
         <button class="btn" type="button" @click="goTo('profiles')">Profile entdecken</button>
-        <button class="btn ghost" type="button" @click="goTo('chats')">Chat ?ffnen</button>
+        <button class="btn ghost" type="button" @click="goTo('chats')">Chat öffnen</button>
         <button class="btn ghost" type="button" @click="goTo('projects')">Neues Projekt</button>
       </div>
     </section>
@@ -69,21 +69,21 @@
       <div class="deadlines-head">
         <div>
           <h2>Fristen im Blick</h2>
-          <p class="muted">?berf?llige und anstehende Tasks nach F?lligkeit.</p>
+          <p class="muted">Überfällige und anstehende Tasks nach Fälligkeit.</p>
         </div>
         <div class="head-actions">
           <button class="btn ghost tiny" type="button" @click="loadOverdueTasks" :disabled="loadingOverdue">
-            {{ loadingOverdue ? "Aktualisiere..." : "?berf?llig laden" }}
+            {{ loadingOverdue ? "Aktualisiere..." : "Überfällig laden" }}
           </button>
           <button class="btn ghost tiny" type="button" @click="loadUpcomingTasks" :disabled="loadingUpcoming">
-            {{ loadingUpcoming ? "Aktualisiere..." : "N?chste Woche laden" }}
+            {{ loadingUpcoming ? "Aktualisiere..." : "Nächste Woche laden" }}
           </button>
         </div>
       </div>
       <div class="deadlines-grid">
         <div class="deadline-column">
           <header>
-            <h3>?berf?llig</h3>
+            <h3>Überfällig</h3>
             <small>{{ overdueTasks.length }} Tasks</small>
           </header>
           <ul v-if="overdueTasks.length">
@@ -95,11 +95,11 @@
               <p class="muted">{{ taskProjectLabel(task) }}</p>
             </li>
           </ul>
-          <p v-else class="muted empty">Keine ?berf?lligen Tasks.</p>
+          <p v-else class="muted empty">Keine überfälligen Tasks.</p>
         </div>
         <div class="deadline-column">
           <header>
-            <h3>N?chste Woche</h3>
+            <h3>Nächste Woche</h3>
             <small>{{ upcomingTasks.length }} Tasks</small>
           </header>
           <ul v-if="upcomingTasks.length">
@@ -120,7 +120,7 @@
       <div class="requests-head">
         <div>
           <h2>GrowPro Snapshot</h2>
-          <p class="muted">F?llige Ziele im Blick.</p>
+          <p class="muted">Fällige Ziele im Blick.</p>
         </div>
         <button class="btn ghost tiny" type="button" @click="loadGrowProGoals" :disabled="loadingGrowPro">
           {{ loadingGrowPro ? "Lade..." : "Neu laden" }}
@@ -128,11 +128,11 @@
       </div>
       <div class="growpro-stats">
         <div class="stat">
-          <p class="label">F?llig < 24h</p>
+          <p class="label">Fällig < 24h</p>
           <strong>{{ growProDueSoon }}</strong>
         </div>
         <div class="stat">
-          <p class="label">?berf?llig</p>
+          <p class="label">Überfällig</p>
           <strong>{{ growProOverdue }}</strong>
         </div>
         <div class="stat">
@@ -145,7 +145,7 @@
     <section v-if="isTeam" class="card activity">
       <div class="activity-head">
         <div>
-          <h2>Aktivit?ten</h2>
+          <h2>Aktivitäten</h2>
           <p class="muted">Gefiltert nach Typ.</p>
         </div>
         <div class="activity-controls">
@@ -173,7 +173,7 @@
           </div>
         </li>
       </ul>
-      <p v-else class="muted small">Keine Aktivit?ten vorhanden.</p>
+      <p v-else class="muted small">Keine Aktivitäten vorhanden.</p>
     </section>
 
     <section v-if="newsPosts.length" class="card news-preview">
@@ -203,7 +203,7 @@
           <label>
             Ziel
             <select class="input" v-model="quickGoalId">
-              <option value="">W?hlen</option>
+              <option value="">Wählen</option>
               <option v-for="goal in growProGoals" :key="goal.id" :value="goal.id">
                 {{ goal.title }} ({{ goal.profile?.name || goal.profile?.username || "?" }})
               </option>
@@ -269,20 +269,20 @@ const hasExample = computed(() => examples.value.length > 0);
 
 const onboarding = computed(() => [
   {
-    label: "Profilinformationen vervollst?ndigen",
+    label: "Profilinformationen vervollständigen",
     hint: "Name, Genre, Stadt und Social Links helfen beim Matching.",
     done: Boolean(me.value?.name && me.value?.city),
     cta: { label: "Profil bearbeiten", action: () => goTo("me") },
   },
   {
-    label: "Rollen ausw?hlen",
-    hint: "W?hle aus, welche Rolle du im Netzwerk einnehmen m?chtest.",
+    label: "Rollen auswählen",
+    hint: "Wähle aus, welche Rolle du im Netzwerk einnehmen möchtest.",
     done: hasRoles.value,
-    cta: hasRoles.value ? null : { label: "Rollen w?hlen", action: () => goTo("me") },
+    cta: hasRoles.value ? null : { label: "Rollen wählen", action: () => goTo("me") },
   },
   {
     label: "Mindestens ein Beispiel teilen",
-    hint: "F?ge einen Track, ein Video oder ein Dokument hinzu.",
+    hint: "Füge einen Track, ein Video oder ein Dokument hinzu.",
     done: hasExample.value,
     cta: hasExample.value ? null : { label: "Beispiel hochladen", action: () => goTo("me") },
   },
@@ -374,7 +374,7 @@ async function loadOverdueTasks() {
     const { data } = await api.get("tasks/overdue/");
     overdueTasks.value = data || [];
   } catch (err) {
-    console.error("?berf?llige Tasks konnten nicht geladen werden", err);
+    console.error("Überfällige Tasks konnten nicht geladen werden", err);
     overdueTasks.value = [];
   } finally {
     loadingOverdue.value = false;
@@ -479,8 +479,8 @@ function setQuickMessage(text, type = "info") {
 
 async function submitQuickGoal() {
   if (!quickGoalId.value || quickGoalValue.value === "" || quickGoalValue.value === null) {
-    setQuickMessage("Ziel und Wert w?hlen", "error");
-    showToast("Ziel und Wert w?hlen", "error");
+    setQuickMessage("Ziel und Wert wählen", "error");
+    showToast("Ziel und Wert wählen", "error");
     return;
   }
   savingQuickGoal.value = true;

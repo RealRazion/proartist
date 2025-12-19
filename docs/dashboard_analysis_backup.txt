@@ -1,6 +1,6 @@
 # Dashboard Analysis Backup
 
-## Template Snippets (frueher im Dashboard)
+## Template Snippets (früher im Dashboard)
 
 <section v-if="isTeam" class="kpi-grid">
   <div class="card kpi" v-for="kpi in teamKpis" :key="kpi.label">
@@ -44,7 +44,7 @@
       <strong>{{ stats.open_requests || 0 }}</strong>
     </div>
     <div class="analysis-item">
-      <p class="label">Faellige Zahlungen</p>
+      <p class="label">Fällige Zahlungen</p>
       <strong>{{ stats.due_payments || 0 }}</strong>
     </div>
   </div>
@@ -76,11 +76,11 @@ const stats = ref({ roles: {}, open_requests: 0, active_contracts: 0, due_paymen
 const teamKpis = computed(() => [
   { icon: "??", label: "Artists", value: stats.value.roles.ARTIST || 0 },
   { icon: "??", label: "Producer", value: stats.value.roles.PROD || 0 },
-  { icon: "??", label: "Aktive Vertraege", value: stats.value.active_contracts || 0 },
+  { icon: "??", label: "Aktive Verträge", value: stats.value.active_contracts || 0 },
   { icon: "??", label: "Offene Zahlungen", value: stats.value.due_payments || 0 },
   { icon: "??", label: "Offene Anfragen", value: stats.value.open_requests || 0 },
   { icon: "?", label: "GrowPro <24h", value: growProDueSoon.value },
-  { icon: "?", label: "GrowPro ueberfaellig", value: growProOverdue.value },
+  { icon: "?", label: "GrowPro überfällig", value: growProOverdue.value },
 ]);
 
 async function loadStats() {
@@ -92,5 +92,5 @@ async function loadStats() {
   }
 }
 
-// Frueher in refresh()/onMounted() mit aufgerufen:
+// Früher in refresh()/onMounted() mit aufgerufen:
 // const loaders = [loadStats(), loadExamples(), loadNewsPreview()];

@@ -13,9 +13,9 @@ class ActivityFeedSmokeTest(TestCase):
         self.profile = Profile.objects.create(user=user, name="Team")
         self.profile.roles.add(team_role)
         ActivityEntry.objects.create(event_type="test", title="Hello")
-        self.client.force_login(user)
+        self.client.force_authenticate(user=user)
 
     def test_activity_feed_returns_entries(self):
-        res = self.client.get("/activity/")
+        res = self.client.get("/api/activity-feed/")
         self.assertEqual(res.status_code, 200)
         self.assertTrue(len(res.json()) >= 1)

@@ -77,6 +77,16 @@
         </router-link>
         <router-link
           v-if="isTeam"
+          to="/timeline"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Timeline' : null"
+        >
+          <span class="icon">🗓️</span>
+          <span class="label">Timeline</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
           to="/activity"
           class="nav-link"
           @click="handleNavClick"

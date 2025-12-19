@@ -123,35 +123,74 @@
         <p v-if="loadingMoreTasks" class="muted loading-more">Lade weitere Tasks...</p>
       </div>
       <section v-if="activeTask" class="card detail-panel">
-        <header>
+        <header class="detail-head">
           <div>
             <p class="eyebrow">Ausgewählter Task</p>
             <h2>{{ activeTask.title }}</h2>
+            <div class="detail-pills">
+              <span class="status-chip" :data-status="activeTask.status">{{ statusLabels[activeTask.status] }}</span>
+              <span class="priority-chip" :data-priority="activeTask.priority">{{ priorityLabels[activeTask.priority] }}</span>
+              <span class="type-chip" :data-type="activeTask.task_type">{{ taskTypeLabels[activeTask.task_type] }}</span>
+              <span v-if="activeTask.is_archived" class="archive-chip">Archiviert</span>
+            </div>
             <p class="muted">
               Projekt: {{ activeTask.project ? projectMap[activeTask.project]?.title || "-" : "Kein Projekt" }}
             </p>
-            <div class="detail-meta">
-              <div>
-                <span class="label">Typ</span>
-                <strong>{{ taskTypeLabels[activeTask.task_type] || activeTask.task_type }}</strong>
-              </div>
-              <div>
-                <span class="label">Verantwortlich</span>
-                <strong>{{ formatAssignees(activeTask) }}</strong>
-              </div>
-              <div>
-                <span class="label">Betroffene</span>
-                <span>{{ formatStakeholders(activeTask) }}</span>
-              </div>
-              <div>
-                <span class="label">Fällig</span>
-                <span>{{ activeTask.due_date ? formatDueDate(activeTask.due_date) : "Kein Termin" }}</span>
-              </div>
-            </div>
           </div>
-          <button class="btn ghost tiny" type="button" @click="activeTaskId = null">Schließen</button>
+          <div class="detail-actions">
+            <button class="btn ghost tiny" type="button" @click="startEditTask(activeTask)">Bearbeiten</button>
+            <button
+              class="btn ghost tiny"
+              type="button"
+              @click="archiveTask(activeTask)"
+              :disabled="activeTask.is_archived"
+            >
+              Archivieren
+            </button>
+            <button class="btn ghost tiny" type="button" @click="activeTaskId = null">Schließen</button>
+          </div>
         </header>
         <div class="detail-grid">
+          <section class="info-panel">
+            <h3>Übersicht</h3>
+            <dl class="info-grid">
+              <div>
+                <dt>Status</dt>
+                <dd>{{ statusLabels[activeTask.status] }}</dd>
+              </div>
+              <div>
+                <dt>Fällig</dt>
+                <dd>{{ activeTask.due_date ? formatDueDate(activeTask.due_date) : "Kein Termin" }}</dd>
+              </div>
+              <div>
+                <dt>Priorität</dt>
+                <dd>{{ priorityLabels[activeTask.priority] }}</dd>
+              </div>
+              <div>
+                <dt>Erstellt</dt>
+                <dd>{{ formatDate(activeTask.created_at) }}</dd>
+              </div>
+            </dl>
+            <div class="chip-section">
+              <span class="label">Verantwortlich</span>
+              <div class="chip-list" v-if="activeTask.assignees?.length">
+                <span class="chip" v-for="person in activeTask.assignees" :key="person.id">
+                  {{ person.name || person.username }}
+                </span>
+              </div>
+              <p v-else class="muted small">Noch niemand zugewiesen</p>
+            </div>
+            <div class="chip-section">
+              <span class="label">Betroffene</span>
+              <div class="chip-list" v-if="activeTask.stakeholders?.length">
+                <span class="chip" v-for="person in activeTask.stakeholders" :key="`stake-${person.id}`">
+                  {{ person.name || person.username }}
+                </span>
+              </div>
+              <p v-else class="muted small">Keine Stakeholder hinterlegt</p>
+            </div>
+          </section>
+
           <AttachmentPanel
             entity-type="task"
             :entity-id="activeTask.id"
@@ -159,7 +198,7 @@
             description="Teile Briefings, Referenzen oder Ergebnisse."
           />
 
-          <section>
+          <section class="comments-panel">
             <h3>Kommentare</h3>
             <p class="muted">Nutze @-Mentions, um Teammitglieder zu informieren.</p>
             <div class="comment-list" v-if="taskComments[activeTask.id]?.length">
@@ -371,9 +410,11 @@ import Toast from "../components/Toast.vue";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
 
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { toast, showToast, hideToast } = useToast();
+const { connect: connectRealtime } = useRealtimeUpdates(handleRealtimeEvent);
 
 const projects = ref([]);
 const tasks = ref([]);
@@ -508,6 +549,79 @@ const statusProgress = computed(() =>
     count: taskSummary.value.by_status?.[status] || 0,
   }))
 );
+
+function handleRealtimeEvent(event) {
+  if (event?.entity !== "task" || !event.data) return;
+  const action = event.action || "updated";
+  const data = event.data;
+  if (action === "deleted") {
+    removeTaskById(data.id);
+    scheduleTaskSummaryRefresh();
+    return;
+  }
+  if (!taskMatchesFilters(data)) {
+    removeTaskById(data.id);
+    scheduleTaskSummaryRefresh();
+    return;
+  }
+  upsertTask(data);
+  scheduleTaskSummaryRefresh();
+}
+
+function upsertTask(taskData) {
+  const idx = tasks.value.findIndex((task) => task.id === taskData.id);
+  if (idx === -1) {
+    tasks.value = [taskData, ...tasks.value];
+  } else {
+    const updated = [...tasks.value];
+    updated.splice(idx, 1, taskData);
+    tasks.value = updated;
+  }
+  if (activeTaskId.value === taskData.id) {
+    activeTaskId.value = taskData.id;
+  }
+}
+
+function removeTaskById(taskId) {
+  const idx = tasks.value.findIndex((task) => task.id === taskId);
+  if (idx === -1) return;
+  const updated = [...tasks.value];
+  updated.splice(idx, 1);
+  tasks.value = updated;
+  if (activeTaskId.value === taskId) {
+    activeTaskId.value = null;
+  }
+}
+
+function taskMatchesFilters(task) {
+  if (!showArchived.value && task.is_archived) return false;
+  if (!showCompleted.value && task.status === "DONE") return false;
+  if (filterProject.value !== "ALL" && String(task.project || "") !== String(filterProject.value)) return false;
+  if (filterStatus.value !== "ALL" && task.status !== filterStatus.value) return false;
+  if (priorityFilter.value !== "ALL" && task.priority !== priorityFilter.value) return false;
+  if (taskTypeFilter.value !== "ALL" && task.task_type !== taskTypeFilter.value) return false;
+  if (dueFilter.value !== "ALL") {
+    if (dueFilter.value === "none" && task.due_date) return false;
+    if (dueFilter.value !== "none" && dueState(task) !== dueFilter.value) return false;
+  }
+  const term = searchTasks.value.trim().toLowerCase();
+  if (term) {
+    const projectTitle = task.project_title || projectMap.value[task.project]?.title || "";
+    const haystack = `${task.title || ""} ${projectTitle}`.toLowerCase();
+    if (!haystack.includes(term)) return false;
+  }
+  return true;
+}
+
+let taskSummaryRefreshTimer = null;
+
+function scheduleTaskSummaryRefresh() {
+  if (taskSummaryRefreshTimer) return;
+  taskSummaryRefreshTimer = setTimeout(async () => {
+    taskSummaryRefreshTimer = null;
+    await loadTaskSummary();
+  }, 800);
+}
 
 const profiles = ref([]);
 const teamProfiles = computed(() =>
@@ -927,12 +1041,14 @@ onMounted(async () => {
   await fetchProfile();
   if (isTeam.value) {
     await Promise.all([loadProjects(), loadProfiles(), refreshTasks()]);
+    connectRealtime();
   }
 });
 
 onBeforeUnmount(() => {
   if (taskObserver) taskObserver.disconnect();
   if (searchDebounce) clearTimeout(searchDebounce);
+  if (taskSummaryRefreshTimer) clearTimeout(taskSummaryRefreshTimer);
 });
 </script>
 
@@ -1193,29 +1309,69 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 16px;
 }
-.detail-panel header {
+.detail-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
 }
-.detail-meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-top: 8px;
+.detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.detail-meta .label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  display: block;
+.detail-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
 }
-.detail-meta strong,
-.detail-meta span {
-  display: block;
-  font-size: 13px;
+.status-chip,
+.priority-chip,
+.type-chip,
+.archive-chip {
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.status-chip {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+}
+.status-chip[data-status="IN_PROGRESS"] {
+  background: rgba(249, 115, 22, 0.16);
+  color: #ea580c;
+}
+.status-chip[data-status="DONE"] {
+  background: rgba(16, 185, 129, 0.16);
+  color: #059669;
+}
+.priority-chip[data-priority="HIGH"],
+.priority-chip[data-priority="CRITICAL"] {
+  background: rgba(248, 113, 113, 0.2);
+  color: #b91c1c;
+}
+.priority-chip[data-priority="MEDIUM"] {
+  background: rgba(251, 191, 36, 0.2);
+  color: #92400e;
+}
+.priority-chip[data-priority="LOW"] {
+  background: rgba(52, 211, 153, 0.16);
+  color: #047857;
+}
+.type-chip {
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+}
+.type-chip[data-type="INTERNAL"] {
+  background: rgba(248, 113, 113, 0.22);
+  color: #b91c1c;
+}
+.archive-chip {
+  background: rgba(15, 23, 42, 0.12);
+  color: #111827;
 }
 .eyebrow {
   text-transform: uppercase;
@@ -1228,6 +1384,52 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 18px;
+}
+.info-panel {
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+.info-grid dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.info-grid dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.chip-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  padding: 2px 10px;
+  font-size: 12px;
+}
+.comments-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .comment-list {
   list-style: none;

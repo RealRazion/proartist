@@ -70,6 +70,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "name",
             "iban",
             "socials",
+            "notification_settings",
             "genre",
             "city",
             "roles",

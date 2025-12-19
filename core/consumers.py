@@ -1,5 +1,5 @@
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import AsyncWebsocketConsumer, AsyncJsonWebsocketConsumer
 from asgiref.sync import sync_to_async
 from .serializers import ChatMessageSerializer
 from .models import ChatMessage
@@ -87,3 +87,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_read(self, event):
         payload = {"event": "read", "profile": event["profile"], "message_ids": event["message_ids"]}
         await self.send(text_data=json.dumps(payload))
+
+
+class UpdatesConsumer(AsyncJsonWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope.get("user")
+        if not self.user or not self.user.is_authenticated:
+            await self.close()
+            return
+        profile = await _resolve_profile(self.user)
+        if not profile.roles.filter(key="TEAM").exists():
+            await self.close(code=4403)
+            return
+        self.profile = profile
+        self.groups = ["projects_all", "tasks_all"]
+        for group in self.groups:
+            await self.channel_layer.group_add(group, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, code):
+        for group in getattr(self, "groups", []):
+            await self.channel_layer.group_discard(group, self.channel_name)
+
+    async def updates_message(self, event):
+        await self.send_json(event.get("payload", {}))

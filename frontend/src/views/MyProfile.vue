@@ -91,6 +91,22 @@
               :placeholder="socialMeta[key].placeholder"
             />
           </label>
+      </div>
+    </div>
+
+      <div class="form-section">
+        <div class="section-head">
+          <h2>Benachrichtigungen</h2>
+          <p class="muted small">Steuere, wann du E-Mail-Updates erhaeltst.</p>
+        </div>
+        <div class="notification-grid">
+          <label v-for="option in notificationOptions" :key="option.key" class="notification-toggle">
+            <div>
+              <strong>{{ option.label }}</strong>
+              <p class="muted small">{{ option.hint }}</p>
+            </div>
+            <input type="checkbox" v-model="form.notifications[option.key]" />
+          </label>
         </div>
       </div>
 
@@ -178,6 +194,28 @@ const socialMeta = {
   tiktok: { label: "TikTok", placeholder: "@deinhandle" },
   spotify: { label: "Spotify", placeholder: "https://open.spotify.com/..." },
 };
+const notificationOptions = [
+  {
+    key: "task_assigned",
+    label: "Neue Task-Zuweisungen",
+    hint: "E-Mail, wenn du als Verantwortliche:r eingetragen wirst.",
+  },
+  {
+    key: "task_mentioned",
+    label: "@-Mentions in Kommentaren",
+    hint: "Hinweis, sobald dich jemand in einem Kommentar markiert.",
+  },
+  {
+    key: "project_updates",
+    label: "Projekt-Updates",
+    hint: "Status- oder Team-Aenderungen bei Projekten, an denen du beteiligt bist.",
+  },
+  {
+    key: "digest",
+    label: "Taeglicher Digest",
+    hint: "Eine taegliche Zusammenfassung zu Tasks und Projekten.",
+  },
+];
 
 const roleLabels = {
   ARTIST: "Artist",
@@ -196,6 +234,7 @@ const form = reactive({
   iban: "",
   socials: createDefaultSocials(),
   role_ids: [],
+  notifications: createDefaultNotifications(),
 });
 
 const example = reactive({
@@ -224,6 +263,15 @@ function createDefaultSocials() {
   }, {});
 }
 
+function createDefaultNotifications() {
+  return {
+    task_assigned: true,
+    task_mentioned: true,
+    project_updates: true,
+    digest: false,
+  };
+}
+
 function hydrateForm() {
   if (!me.value) return;
   form.name = me.value.name || "";
@@ -232,6 +280,10 @@ function hydrateForm() {
   form.iban = me.value.iban || "";
   form.socials = { ...createDefaultSocials(), ...(me.value.socials || {}) };
   form.role_ids = (me.value.roles || []).map((role) => role.id);
+  form.notifications = {
+    ...createDefaultNotifications(),
+    ...(me.value.notification_settings || {}),
+  };
 }
 
 function toggleRole(id) {
@@ -262,6 +314,7 @@ async function saveProfile() {
       iban: sanitizeIban(form.iban || ""),
       socials,
       role_ids: form.role_ids,
+      notification_settings: form.notifications,
     };
     await api.put(`profiles/${me.value.id}/`, payload);
     await fetchProfile(true);
@@ -411,6 +464,24 @@ onMounted(async () => {
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
+}
+.notification-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.notification-toggle {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: rgba(248, 250, 252, 0.6);
+}
+.notification-toggle input {
+  transform: scale(1.2);
 }
 .role-grid {
   display: flex;

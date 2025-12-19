@@ -24,6 +24,7 @@ class Profile(models.Model):
     genre = models.CharField(max_length=80, blank=True)
     city = models.CharField(max_length=80, blank=True)
     onboarding_uploaded_example = models.BooleanField(default=False)
+    notification_settings = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self): return self.name or self.user.username
 

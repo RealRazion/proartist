@@ -67,6 +67,8 @@ from .serializers import (
     TaskSerializer,
 )
 from .utils import log_activity
+from .notifications import send_notification_email
+from .realtime import notify_project_event, notify_task_event
 
 # --- Auth/Register ---
 @api_view(["POST"])
@@ -275,6 +277,19 @@ def _parse_date_param(value):
     return dt
 
 
+def _profile_emails(profiles, exclude_ids=None):
+    emails = []
+    exclude_ids = set(exclude_ids or [])
+    for profile in profiles:
+        if profile.id in exclude_ids:
+            continue
+        user = getattr(profile, "user", None)
+        email = getattr(user, "email", None)
+        if email:
+            emails.append(email)
+    return emails
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.prefetch_related("participants", "owners").order_by("-created_at")
     serializer_class=ProjectSerializer
@@ -341,6 +356,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             severity="INFO",
             project=project,
         )
+        notify_project_event(project, "created")
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -357,9 +373,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 severity=severity,
                 project=project,
             )
+        notify_project_event(project, "updated")
 
     def perform_destroy(self, instance):
         actor = getattr(self.request.user, "profile", None)
+        notify_project_event(instance, "deleted")
         log_activity(
             "project_deleted",
             f"Projekt geloescht: {instance.title}",
@@ -384,6 +402,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 severity="WARNING",
                 project=project,
             )
+            notify_project_event(project, "archived")
         serializer = self.get_serializer(project)
         return Response(serializer.data)
 
@@ -392,6 +411,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = self.get_object()
         self.perform_destroy(project)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["GET"], url_path="timeline")
+    def timeline(self, request):
+        start = _parse_date_param(request.query_params.get("start")) or timezone.now().date()
+        end = _parse_date_param(request.query_params.get("end")) or (start + timedelta(days=60))
+        qs = (
+            self._base_queryset()
+            .filter(created_at__date__lte=end)
+            .filter(Q(archived_at__isnull=True) | Q(archived_at__date__gte=start))
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response({"start": start, "end": end, "results": serializer.data})
 
     @action(detail=False, methods=["GET"], url_path="summary")
     def summary(self, request):
@@ -534,11 +565,20 @@ class TaskViewSet(viewsets.ModelViewSet):
             project=task.project,
         )
         self._log_overdue_if_needed(task)
+        notify_task_event(task, "created")
+        recipients = _profile_emails(task.assignees.all(), exclude_ids={getattr(actor, "id", None)})
+        if recipients:
+            send_notification_email(
+                f"Neuer Task: {task.title}",
+                f"Dir wurde ein neuer Task zugewiesen.\n\nTitel: {task.title}\nProjekt: {task.project.title if task.project else 'Kein Projekt'}\nStatus: {task.status}",
+                recipients,
+            )
 
     def perform_update(self, serializer):
         instance = self.get_object()
         prev_status = instance.status
         prev_priority = instance.priority
+        previous_assignees = set(instance.assignees.values_list("id", flat=True))
         task = serializer.save()
         actor = getattr(self.request.user, "profile", None)
         if prev_status != task.status:
@@ -563,10 +603,13 @@ class TaskViewSet(viewsets.ModelViewSet):
                 task=task,
                 project=task.project,
             )
+        self._notify_new_assignees(previous_assignees, task, actor)
         self._log_overdue_if_needed(task)
+        notify_task_event(task, "updated")
 
     def perform_destroy(self, instance):
         actor = getattr(self.request.user, "profile", None)
+        notify_task_event(instance, "deleted")
         log_activity(
             "task_deleted",
             f"Task geloescht: {instance.title}",
@@ -593,6 +636,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 task=task,
                 project=task.project,
             )
+        notify_task_event(task, "archived")
         serializer = self.get_serializer(task)
         return Response(serializer.data)
 
@@ -601,6 +645,32 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         self.perform_destroy(task)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _notify_new_assignees(self, previous_assignees, task, actor):
+        current_ids = set(task.assignees.values_list("id", flat=True))
+        new_ids = current_ids - set(previous_assignees or [])
+        if not new_ids:
+            return
+        new_profiles = task.assignees.filter(id__in=new_ids)
+        recipients = _profile_emails(new_profiles, exclude_ids={getattr(actor, "id", None)})
+        if not recipients:
+            return
+        send_notification_email(
+            f"Neuer Task: {task.title}",
+            f"Dir wurde ein Task zugewiesen.\n\nTitel: {task.title}\nStatus: {task.status}\nFällig: {task.due_date or 'Kein Termin'}",
+            recipients,
+        )
+
+    @action(detail=False, methods=["GET"], url_path="calendar")
+    def calendar(self, request):
+        start = _parse_date_param(request.query_params.get("start")) or timezone.now().date()
+        end_param = _parse_date_param(request.query_params.get("end")) or (start + timedelta(days=30))
+        qs = (
+            self._base_queryset()
+            .filter(due_date__isnull=False, due_date__gte=start, due_date__lte=end_param)
+        )
+        serializer = self.get_serializer(qs, many=True)
+        return Response({"start": start, "end": end_param, "results": serializer.data})
     @action(detail=False, methods=["GET"], url_path="summary")
     def summary(self, request):
         qs = self._base_queryset()
@@ -755,6 +825,14 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
             task=comment.task,
             project=comment.task.project,
         )
+        mentions = comment.mentions.exclude(id=comment.author_id).select_related("user")
+        recipients = _profile_emails(mentions)
+        if recipients:
+            send_notification_email(
+                f"Neue Erwähnung in {comment.task.title}",
+                f"{comment.author.name or comment.author.user.username} hat dich in einem Task-Kommentar erwähnt.\n\nKommentar:\n{comment.body}",
+                recipients,
+            )
 
     def perform_destroy(self, instance):
         log_activity(

@@ -193,7 +193,7 @@
       <div class="quick-head">
         <div>
           <h2>Quick Actions</h2>
-          <p class="muted">GrowPro-Update oder Song-Version direkt hier.</p>
+          <p class="muted">GrowPro-Updates direkt hier erledigen.</p>
         </div>
         <p v-if="quickMessage" :class="['feedback', quickMessageType]">{{ quickMessage }}</p>
       </div>
@@ -215,31 +215,6 @@
           </div>
           <button class="btn tiny" type="button" @click="submitQuickGoal" :disabled="savingQuickGoal">
             {{ savingQuickGoal ? "Speichere..." : "Update speichern" }}
-          </button>
-        </div>
-        <div class="quick-block">
-          <h3>Song-Version</h3>
-          <label>
-            Song
-            <select class="input" v-model="quickSongId">
-              <option value="">Waehlen</option>
-              <option v-for="song in teamSongs" :key="song.id" :value="song.id">
-                {{ song.title }}
-              </option>
-            </select>
-          </label>
-          <label class="file-picker">
-            <input type="file" @change="onQuickFile($event)" />
-            {{ quickFile ? quickFile.name : "Datei waehlen" }}
-          </label>
-          <input class="input" v-model.trim="quickVersionNote" placeholder="Notiz" />
-          <div class="flags">
-            <label><input type="checkbox" v-model="quickFlags.mix" /> Mix</label>
-            <label><input type="checkbox" v-model="quickFlags.master" /> Master</label>
-            <label><input type="checkbox" v-model="quickFlags.final" /> Final</label>
-          </div>
-          <button class="btn tiny" type="button" @click="submitQuickVersion" :disabled="savingQuickVersion">
-            {{ savingQuickVersion ? "Laedt..." : "Version hochladen" }}
           </button>
         </div>
       </div>
@@ -269,7 +244,6 @@ const teamRequests = ref([]);
 const loadingRequests = ref(false);
 const growProGoals = ref([]);
 const loadingGrowPro = ref(false);
-const teamSongs = ref([]);
 const newsPosts = ref([]);
 const loading = ref(false);
 const requestsPage = ref(1);
@@ -285,12 +259,7 @@ const activityFilter = ref("all");
 const quickGoalId = ref("");
 const quickGoalValue = ref("");
 const quickGoalNote = ref("");
-const quickSongId = ref("");
-const quickFile = ref(null);
-const quickVersionNote = ref("");
-const quickFlags = ref({ mix: false, master: false, final: false });
 const savingQuickGoal = ref(false);
-const savingQuickVersion = ref(false);
 const quickMessage = ref("");
 const quickMessageType = ref("info");
 
@@ -474,20 +443,6 @@ async function loadGrowProGoals() {
   }
 }
 
-async function loadTeamSongs() {
-  if (!isTeam.value) {
-    teamSongs.value = [];
-    return;
-  }
-  try {
-    const { data } = await api.get("songs/", { params: { page_size: 50, ordering: "-created_at" } });
-    const payload = data || {};
-    teamSongs.value = Array.isArray(payload) ? payload : payload.results || [];
-  } catch (err) {
-    teamSongs.value = [];
-  }
-}
-
 async function loadNewsPreview() {
   try {
     const { data } = await api.get("news/");
@@ -516,10 +471,6 @@ async function loadActivity() {
   }
 }
 
-function onQuickFile(event) {
-  quickFile.value = event.target.files?.[0] || null;
-}
-
 function setQuickMessage(text, type = "info") {
   quickMessage.value = text;
   quickMessageType.value = type;
@@ -546,37 +497,6 @@ async function submitQuickGoal() {
     showToast("Fehler beim Update", "error");
   } finally {
     savingQuickGoal.value = false;
-  }
-}
-
-async function submitQuickVersion() {
-  if (!quickSongId.value || !quickFile.value) {
-    setQuickMessage("Song und Datei waehlen", "error");
-    showToast("Song und Datei waehlen", "error");
-    return;
-  }
-  savingQuickVersion.value = true;
-  try {
-    const formData = new FormData();
-    formData.append("song", quickSongId.value);
-    formData.append("file", quickFile.value);
-    formData.append("notes", quickVersionNote.value || "");
-    formData.append("is_mix_ready", quickFlags.value.mix ? 1 : 0);
-    formData.append("is_master_ready", quickFlags.value.master ? 1 : 0);
-    formData.append("is_final", quickFlags.value.final ? 1 : 0);
-    await api.post("song-versions/", formData, { headers: { "Content-Type": "multipart/form-data" } });
-    quickFile.value = null;
-    quickSongId.value = "";
-    quickVersionNote.value = "";
-    quickFlags.value = { mix: false, master: false, final: false };
-    setQuickMessage("Version hochgeladen", "success");
-    showToast("Version hochgeladen", "success");
-  } catch (err) {
-    console.error("Quick-Version fehlgeschlagen", err);
-    setQuickMessage("Fehler beim Upload", "error");
-    showToast("Fehler beim Upload", "error");
-  } finally {
-    savingQuickVersion.value = false;
   }
 }
 
@@ -612,7 +532,7 @@ async function refresh() {
     await fetchProfile(true);
     const loaders = [loadExamples(), loadNewsPreview()];
     if (isTeam.value) {
-      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadTeamSongs(), loadActivity());
+      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadActivity());
     } else {
       loaders.push(loadProjects());
     }
@@ -626,7 +546,7 @@ onMounted(async () => {
   await fetchProfile();
   const loaders = [loadExamples(), loadNewsPreview()];
   if (isTeam.value) {
-    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadTeamSongs(), loadActivity());
+    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadActivity());
   } else {
     loaders.push(loadProjects());
   }
@@ -914,20 +834,6 @@ function activityIcon(type) {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
 }
-.file-picker {
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.file-picker input { display: none; }
-.flags {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 13px;
-}
 .activity {
   display: flex;
   flex-direction: column;
@@ -969,7 +875,3 @@ function activityIcon(type) {
   .checklist li .btn { grid-column: span 2; justify-self: flex-start; }
 }
 </style>
-
-
-
-

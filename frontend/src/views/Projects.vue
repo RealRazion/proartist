@@ -249,9 +249,11 @@ import Toast from "../components/Toast.vue";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
 const { toast, showToast, hideToast } = useToast();
+const { connect: connectRealtime } = useRealtimeUpdates(handleRealtimeEvent);
 
 const projects = ref([]);
 const profiles = ref([]);
@@ -275,6 +277,7 @@ const projectForm = ref(getDefaultProjectForm());
 const editingProjectId = ref(null);
 let observer;
 let searchDebounce;
+let summaryRefreshTimer = null;
 
 const statusOptions = ["PLANNED", "IN_PROGRESS", "ON_HOLD", "DONE"];
 const statusLabels = {
@@ -594,6 +597,83 @@ function setupObserver() {
   observer.observe(projectSentinel.value);
 }
 
+function handleRealtimeEvent(event) {
+  if (event?.entity !== "project" || !event.data) return;
+  const action = event.action || "updated";
+  const data = event.data;
+  if (action === "deleted") {
+    removeProjectById(data.id);
+    scheduleSummaryRefresh();
+    return;
+  }
+  if (!projectMatchesFilters(data)) {
+    removeProjectById(data.id);
+    scheduleSummaryRefresh();
+    return;
+  }
+  upsertProject(data);
+  scheduleSummaryRefresh();
+}
+
+function upsertProject(projectData) {
+  const idx = projects.value.findIndex((project) => project.id === projectData.id);
+  if (idx === -1) {
+    projects.value = [projectData, ...projects.value];
+  } else {
+    const updated = [...projects.value];
+    updated.splice(idx, 1, projectData);
+    projects.value = updated;
+  }
+  projectSummary.value = computeProjectSummary(projects.value);
+}
+
+function removeProjectById(projectId) {
+  const idx = projects.value.findIndex((project) => project.id === projectId);
+  if (idx === -1) return;
+  const updated = [...projects.value];
+  updated.splice(idx, 1);
+  projects.value = updated;
+  if (openProjectId.value === projectId) {
+    openProjectId.value = null;
+  }
+  projectSummary.value = computeProjectSummary(projects.value);
+}
+
+function projectMatchesFilters(project) {
+  if (!showArchived.value && project.is_archived) {
+    return false;
+  }
+  if (!showCompleted.value && project.status === "DONE") {
+    return false;
+  }
+  if (filterStatus.value !== "ALL" && project.status !== filterStatus.value) {
+    return false;
+  }
+  if (filterMember.value !== "ALL") {
+    const memberId = Number(filterMember.value);
+    const participantIds = (project.participants || []).map((p) => p.id);
+    if (!participantIds.includes(memberId)) {
+      return false;
+    }
+  }
+  const term = search.value.trim().toLowerCase();
+  if (term) {
+    const haystack = `${project.title || ""} ${project.description || ""}`.toLowerCase();
+    if (!haystack.includes(term)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function scheduleSummaryRefresh() {
+  if (summaryRefreshTimer) return;
+  summaryRefreshTimer = setTimeout(async () => {
+    summaryRefreshTimer = null;
+    await loadProjectSummary();
+  }, 800);
+}
+
 watch(
   () => [filterStatus.value, filterMember.value, showArchived.value, showCompleted.value],
   () => {
@@ -615,12 +695,14 @@ onMounted(async () => {
   await fetchProfile();
   if (isTeam.value) {
     await Promise.all([loadProfiles(), refreshProjects()]);
+    connectRealtime();
   }
 });
 
 onBeforeUnmount(() => {
   if (observer) observer.disconnect();
   if (searchDebounce) clearTimeout(searchDebounce);
+  if (summaryRefreshTimer) clearTimeout(summaryRefreshTimer);
 });
 </script>
 

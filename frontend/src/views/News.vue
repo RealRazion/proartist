@@ -19,11 +19,11 @@
         </label>
         <label>
           Inhalt
-          <textarea class="input textarea" v-model.trim="form.body" placeholder="Infos fuer alle Nutzer"></textarea>
+          <textarea class="input textarea" v-model.trim="form.body" placeholder="Infos f?r alle Nutzer"></textarea>
         </label>
         <label class="toggle">
           <input type="checkbox" v-model="form.is_published" />
-          Sofort veroeffentlichen
+          Sofort ver?ffentlichen
         </label>
         <button class="btn" type="submit" :disabled="saving">
           {{ saving ? "Speichere..." : "Post speichern" }}
@@ -48,10 +48,10 @@
           <p>{{ post.body }}</p>
           <div v-if="isTeam" class="actions">
             <button class="btn ghost tiny" type="button" @click="togglePublish(post)" :disabled="savingIds.has(post.id)">
-              {{ post.is_published ? "Auf Entwurf setzen" : "Veroeffentlichen" }}
+              {{ post.is_published ? "Auf Entwurf setzen" : "Ver?ffentlichen" }}
             </button>
             <button class="btn ghost danger tiny" type="button" @click="removePost(post)" :disabled="savingIds.has(post.id)">
-              Loeschen
+              L?schen
             </button>
           </div>
         </li>
@@ -125,13 +125,13 @@ async function togglePublish(post) {
 }
 
 async function removePost(post) {
-  if (!confirm(`Post "${post.title}" wirklich loeschen?`)) return;
+  if (!confirm(`Post "${post.title}" wirklich l?schen?`)) return;
   savingIds.value.add(post.id);
   try {
     await api.delete(`news/${post.id}/`);
     await loadNews();
   } catch (err) {
-    console.error("Post konnte nicht geloescht werden", err);
+    console.error("Post konnte nicht gel?scht werden", err);
   } finally {
     savingIds.value.delete(post.id);
   }

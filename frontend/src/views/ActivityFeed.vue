@@ -2,8 +2,8 @@
   <div class="activity">
     <header class="card header">
       <div>
-        <h1>Aktivitaeten</h1>
-        <p class="muted">Feed fuer Team und Admins mit Status-Updates.</p>
+        <h1>Aktivit?ten</h1>
+        <p class="muted">Feed f?r Team und Admins mit Status-Updates.</p>
       </div>
       <button class="btn ghost" type="button" @click="loadFeed" :disabled="loading">
         {{ loading ? "Aktualisiere..." : "Aktualisieren" }}
@@ -12,7 +12,7 @@
 
     <section v-if="!isTeam" class="card info">
       <h2>Kein Zugriff</h2>
-      <p class="muted">Der Aktivitaets-Feed steht nur Team-Mitgliedern zur Verfuegung.</p>
+      <p class="muted">Der Aktivit?ts-Feed steht nur Team-Mitgliedern zur Verf?gung.</p>
     </section>
 
     <section v-else class="card feed">
@@ -60,7 +60,7 @@
           </div>
         </li>
       </ul>
-      <p v-if="!loading && !filteredEntries.length" class="muted empty">Keine Eintraege vorhanden.</p>
+      <p v-if="!loading && !filteredEntries.length" class="muted empty">Keine Eintr?ge vorhanden.</p>
     </section>
   </div>
 </template>

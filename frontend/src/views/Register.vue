@@ -105,7 +105,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const usernameError = computed(() => {
   const value = form.value.username.trim();
-  if (!value) return "Benutzername wird benoetigt.";
+  if (!value) return "Benutzername wird ben?tigt.";
   if (value.length < 3) return "Mindestens 3 Zeichen.";
   if (!/^[a-zA-Z0-9._-]+$/.test(value)) return "Nur Buchstaben, Zahlen, Punkt, Unterstrich.";
   return "";
@@ -113,7 +113,7 @@ const usernameError = computed(() => {
 
 const emailError = computed(() => {
   const value = form.value.email.trim();
-  if (!value) return "E-Mail wird benoetigt.";
+  if (!value) return "E-Mail wird ben?tigt.";
   if (!emailPattern.test(value)) return "Bitte gueltige E-Mail eingeben.";
   return "";
 });
@@ -129,9 +129,9 @@ const passwordRules = computed(() => {
 });
 
 const passwordError = computed(() => {
-  if (!form.value.password) return "Passwort wird benoetigt.";
+  if (!form.value.password) return "Passwort wird ben?tigt.";
   const allRulesMet = passwordRules.value.every((rule) => rule.ok);
-  return allRulesMet ? "" : "Passwort erfuellt noch nicht alle Regeln.";
+  return allRulesMet ? "" : "Passwort erf?llt noch nicht alle Regeln.";
 });
 
 const passwordStrength = computed(() => {
@@ -154,7 +154,7 @@ const passwordStrength = computed(() => {
 });
 
 const rolesError = computed(() =>
-  form.value.roles.length ? "" : "Bitte mindestens eine Rolle auswaehlen."
+  form.value.roles.length ? "" : "Bitte mindestens eine Rolle ausw?hlen."
 );
 
 const canSubmit = computed(
@@ -168,7 +168,7 @@ const canSubmit = computed(
 
 function labelForRole(key) {
   const map = {
-    ARTIST: "Artist / Saenger*in",
+    ARTIST: "Artist / S?nger*in",
     PROD: "Producer",
     VIDEO: "Videograf*in",
     MERCH: "Merchandiser",

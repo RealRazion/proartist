@@ -22,7 +22,7 @@
           :aria-pressed="compactCards"
           @click="toggleCompact"
         >
-          {{ compactCards ? "Groessere Karten" : "Kompakte Karten" }}
+          {{ compactCards ? "Gr??ere Karten" : "Kompakte Karten" }}
         </button>
       </div>
     </header>

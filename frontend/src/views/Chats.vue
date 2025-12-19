@@ -441,7 +441,7 @@ function openWS() {
   try {
     ws.value = new WebSocket(buildWsUrl());
   } catch (err) {
-    console.error("WebSocket konnte nicht geoeffnet werden", err);
+    console.error("WebSocket konnte nicht ge?ffnet werden", err);
     return;
   }
   ws.value.onopen = () => {

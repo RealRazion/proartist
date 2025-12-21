@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="projects">
     <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
@@ -80,9 +80,7 @@
                   </select>
                 </label>
                 <span class="created">{{ formatDate(project.created_at) }}</span>
-                <button class="btn ghost sm" type="button" @click="toggleProjectDetails(project.id)">
-                  {{ openProjectId === project.id ? "Details schließen" : "Details" }}
-                </button>
+                <button class="btn ghost sm" type="button" @click="openProject(project.id)">Öffnen</button>
                 <button class="btn ghost sm" type="button" @click="startEditProject(project)">Bearbeiten</button>
               </div>
             </div>
@@ -90,24 +88,16 @@
             <div class="participants">
               <span class="label">Teilnehmer:</span>
               <span v-if="project.participants?.length" class="names">
-                {{ project.participants.map((p) => p.name).join(", ") }}
+                {{ project.participants.map((p) => p.name || p.username).join(", ") }}
               </span>
               <span v-else class="names muted">Noch keine Personen zugeordnet</span>
             </div>
             <div class="owners">
               <span class="label">Team:</span>
               <span v-if="project.owners?.length" class="names">
-                {{ project.owners.map((p) => p.name).join(", ") }}
+                {{ project.owners.map((p) => p.name || p.username).join(", ") }}
               </span>
               <span v-else class="names muted">Noch kein Team zugeordnet</span>
-            </div>
-            <div v-if="openProjectId === project.id" class="project-extra">
-              <AttachmentPanel
-                entity-type="project"
-                :entity-id="project.id"
-                title="Dateianhänge"
-                description="Teile Briefings, Referenzen oder Ergebnisse."
-              />
             </div>
           </li>
         </ul>
@@ -244,13 +234,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
+import { useRouter } from "vue-router";
 import api from "../api";
 import Toast from "../components/Toast.vue";
-import AttachmentPanel from "../components/AttachmentPanel.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
 
+const router = useRouter();
 const { isTeam, fetchProfile } = useCurrentProfile();
 const { toast, showToast, hideToast } = useToast();
 const { connect: connectRealtime } = useRealtimeUpdates(handleRealtimeEvent);
@@ -269,7 +260,6 @@ const filterStatus = ref("ALL");
 const filterMember = ref("ALL");
 const projectPagination = ref({ next: null, previous: null, count: 0 });
 const projectSentinel = ref(null);
-const openProjectId = ref(null);
 const projectModalVisible = ref(false);
 const projectModalMode = ref("create");
 const projectSaving = ref(false);
@@ -457,6 +447,10 @@ function applyFilters() {
   closeFilterModal();
 }
 
+function openProject(projectId) {
+  router.push({ name: "project-detail", params: { projectId } });
+}
+
 function startEditProject(project) {
   projectModalMode.value = "edit";
   editingProjectId.value = project.id;
@@ -505,14 +499,6 @@ async function updateProjectStatus(project) {
     console.error("Projekt-Status konnte nicht aktualisiert werden", err);
     showToast("Status konnte nicht aktualisiert werden", "error");
   }
-}
-
-function toggleProjectDetails(projectId) {
-  if (openProjectId.value === projectId) {
-    openProjectId.value = null;
-    return;
-  }
-  openProjectId.value = projectId;
 }
 
 async function archiveCurrentProject() {
@@ -633,9 +619,6 @@ function removeProjectById(projectId) {
   const updated = [...projects.value];
   updated.splice(idx, 1);
   projects.value = updated;
-  if (openProjectId.value === projectId) {
-    openProjectId.value = null;
-  }
   projectSummary.value = computeProjectSummary(projects.value);
 }
 
@@ -878,10 +861,6 @@ onBeforeUnmount(() => {
   letter-spacing: 0.08em;
   font-size: 11px;
   color: var(--muted);
-}
-.project-extra {
-  border-top: 1px dashed rgba(148, 163, 184, 0.4);
-  padding-top: 12px;
 }
 .skeleton-list {
   display: grid;

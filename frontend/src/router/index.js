@@ -5,6 +5,7 @@ import Register from "../views/Register.vue";
 import Dashboard from "../views/Dashboard.vue";
 import Profiles from "../views/Profiles.vue";
 import Projects from "../views/Projects.vue";
+import ProjectDetail from "../views/ProjectDetail.vue";
 import Tasks from "../views/Tasks.vue";
 import Chats from "../views/Chats.vue";
 import MyProfile from "../views/MyProfile.vue";
@@ -29,6 +30,13 @@ const routes = [
       { path: "dashboard", name: "dashboard", component: Dashboard, alias: "/dashboard", meta: { requiresAuth: true } },
       { path: "profiles", name: "profiles", component: Profiles, alias: "/profiles", meta: { requiresAuth: true } },
       { path: "projects", name: "projects", component: Projects, alias: "/projects", meta: { requiresAuth: true } },
+      {
+        path: "projects/:projectId",
+        name: "project-detail",
+        component: ProjectDetail,
+        alias: "/projects/:projectId",
+        meta: { requiresAuth: true },
+      },
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
       { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },

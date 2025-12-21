@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="dashboard">
     <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
 
@@ -47,7 +47,9 @@
       <ul>
         <li v-for="project in projects" :key="project.id">
           <div class="project-title">
-            <strong>{{ project.title }}</strong>
+            <router-link class="project-link" :to="{ name: 'project-detail', params: { projectId: project.id } }">
+              <strong>{{ project.title }}</strong>
+            </router-link>
             <span class="status-pill" :data-status="project.status">{{ statusLabel(project.status) }}</span>
           </div>
           <p class="muted">{{ project.description || "Keine Beschreibung vorhanden." }}</p>
@@ -116,7 +118,7 @@
       </div>
     </section>
 
-        <section v-if="isTeam" class="card growpro-summary">
+    <section v-if="isTeam" class="card growpro-summary">
       <div class="requests-head">
         <div>
           <h2>GrowPro Snapshot</h2>
@@ -128,7 +130,7 @@
       </div>
       <div class="growpro-stats">
         <div class="stat">
-          <p class="label">Fällig < 24h</p>
+          <p class="label">Fällig &lt; 24h</p>
           <strong>{{ growProDueSoon }}</strong>
         </div>
         <div class="stat">
@@ -777,6 +779,13 @@ function activityIcon(type) {
   align-items: center;
   gap: 10px;
   justify-content: space-between;
+}
+.project-link {
+  color: inherit;
+  text-decoration: none;
+}
+.project-link:hover {
+  text-decoration: underline;
 }
 .status-pill {
   padding: 4px 10px;

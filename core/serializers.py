@@ -56,7 +56,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         required=False,
     )
     username = serializers.CharField(source="user.username", read_only=True)
-    email = serializers.EmailField(source="user.email", read_only=True)
+    email = serializers.SerializerMethodField()
     is_locked = serializers.SerializerMethodField()
     is_team_member = serializers.SerializerMethodField()
 
@@ -109,6 +109,13 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def get_is_team_member(self, obj):
         return obj.roles.filter(key="TEAM").exists()
+
+    def get_email(self, obj):
+        request = self.context.get("request")
+        me = getattr(getattr(request, "user", None), "profile", None) if request else None
+        if not me or not me.roles.filter(key="TEAM").exists():
+            return None
+        return getattr(obj.user, "email", "")
 
 
 class RequestSerializer(serializers.ModelSerializer):

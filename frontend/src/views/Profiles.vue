@@ -96,7 +96,7 @@
           </a>
         </div>
         <footer class="footer">
-          <a v-if="profile.email" class="link" :href="`mailto:${profile.email}`">{{ profile.email }}</a>
+          <a v-if="isTeam && profile.email" class="link" :href="`mailto:${profile.email}`">{{ profile.email }}</a>
           <button
             v-if="profile.id !== me?.id"
             class="btn"

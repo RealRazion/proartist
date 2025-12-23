@@ -2,224 +2,178 @@
   <div class="dashboard">
     <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
 
-    <section v-if="isTeam" class="card team-hero">
+    <section class="card hero">
       <div>
-        <p class="eyebrow">Team</p>
-        <h1>Team Dashboard</h1>
-        <p class="muted">Schneller Überblick über Todos, Projekte und Anfragen.</p>
+        <p class="eyebrow">{{ isTeam ? "Team" : `Hi ${greetingName}` }}</p>
+        <h1>{{ isTeam ? "Team Dashboard" : "Willkommen zurück" }}</h1>
+        <p class="muted">
+          {{ isTeam ? "Der wichtigste Stand in wenigen Sekunden." : "Schneller Überblick über dein Profil und deine Projekte." }}
+        </p>
       </div>
       <div class="hero-actions">
-        <button class="btn" type="button" @click="goTo('projects')">Projekt anlegen</button>
-        <button class="btn ghost" type="button" @click="goTo('tasks')">Task Board</button>
-        <button class="btn ghost" type="button" @click="goTo('profiles')">Profile scannen</button>
+        <template v-if="isTeam">
+          <button class="btn" type="button" @click="goTo('projects')">Projekte</button>
+          <button class="btn ghost" type="button" @click="goTo('tasks')">Task Board</button>
+        </template>
+        <template v-else>
+          <button class="btn" type="button" @click="goTo('profiles')">Profile entdecken</button>
+          <button class="btn ghost" type="button" @click="goTo('projects')">Meine Projekte</button>
+        </template>
         <button class="btn ghost" type="button" @click="refresh">Aktualisieren</button>
       </div>
     </section>
 
-    <section v-else class="card welcome">
-      <div>
-        <p class="eyebrow">Hi {{ greetingName }}</p>
-        <h1>Willkommen zurück bei ProArtist</h1>
-        <p class="muted">Mach dein Profil sichtbar und starte neue Kollaborationen.</p>
+    <section v-if="isTeam" class="card overview">
+      <div class="section-head">
+        <h2>Überblick</h2>
+        <button class="btn ghost tiny" type="button" @click="refresh" :disabled="loading">Neu laden</button>
       </div>
-      <button class="btn ghost" type="button" @click="refresh">Aktualisieren</button>
+      <div class="overview-grid">
+        <div class="stat">
+          <span class="label">Projekte aktiv</span>
+          <strong>{{ projectSummary.active }}</strong>
+          <small class="muted">Archiviert {{ projectSummary.archived }}</small>
+        </div>
+        <div class="stat">
+          <span class="label">Überfällige Tasks</span>
+          <strong>{{ overdueTasks.length }}</strong>
+          <small class="muted">Nächste 7 Tage {{ upcomingTasks.length }}</small>
+        </div>
+        <div class="stat">
+          <span class="label">Requests offen</span>
+          <strong>{{ teamRequests.length }}</strong>
+          <small class="muted">Heute priorisieren</small>
+        </div>
+        <div class="stat">
+          <span class="label">GrowPro fällig</span>
+          <strong>{{ growProDueSoon }}</strong>
+          <small class="muted">Überfällig {{ growProOverdue }}</small>
+        </div>
+      </div>
     </section>
 
-    <section v-if="!isTeam" class="card checklist">
-      <h2>Onboarding</h2>
-      <p class="muted">Vervollständige dein Profil, damit andere dich schneller finden.</p>
-      <ul>
-        <li v-for="item in onboarding" :key="item.label">
-          <span class="check">{{ item.done ? "*" : "o" }}</span>
+    <section v-if="isTeam" class="grid">
+      <div class="card focus">
+        <div class="section-head">
+          <h2>Tasks Fokus</h2>
+          <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Zum Board</button>
+        </div>
+        <div class="task-columns">
           <div>
-            <p>{{ item.label }}</p>
-            <small class="muted">{{ item.hint }}</small>
+            <h3>Überfällig</h3>
+            <ul v-if="topOverdueTasks.length" class="list">
+              <li v-for="task in topOverdueTasks" :key="`overdue-${task.id}`">
+                <div class="row">
+                  <strong>{{ task.title }}</strong>
+                  <span class="badge danger">{{ formatTaskDate(task.due_date) }}</span>
+                </div>
+                <small class="muted">{{ taskProjectLabel(task) }}</small>
+              </li>
+            </ul>
+            <p v-else class="muted small">Keine überfälligen Tasks.</p>
           </div>
-          <button v-if="item.cta" class="btn ghost" type="button" @click="item.cta.action">
+          <div>
+            <h3>Nächste 7 Tage</h3>
+            <ul v-if="topUpcomingTasks.length" class="list">
+              <li v-for="task in topUpcomingTasks" :key="`upcoming-${task.id}`">
+                <div class="row">
+                  <strong>{{ task.title }}</strong>
+                  <span class="badge">{{ formatTaskDate(task.due_date) }}</span>
+                </div>
+                <small class="muted">{{ taskProjectLabel(task) }}</small>
+              </li>
+            </ul>
+            <p v-else class="muted small">Keine anstehenden Aufgaben.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card focus">
+        <div class="section-head">
+          <h2>Requests</h2>
+          <button class="btn ghost tiny" type="button" @click="loadTeamRequests" :disabled="loadingRequests">
+            {{ loadingRequests ? "Lade..." : "Neu laden" }}
+          </button>
+        </div>
+        <ul v-if="topRequests.length" class="list">
+          <li v-for="request in topRequests" :key="request.id">
+            <div class="row">
+              <div class="flex-1">
+                <strong>{{ requestTypeLabel(request.req_type) }}</strong>
+                <p class="muted small">{{ request.sender_name }} → {{ request.receiver_name }}</p>
+                <p v-if="request.message" class="muted small">{{ request.message }}</p>
+              </div>
+              <div class="request-actions">
+                <button class="btn ghost tiny" type="button" @click="respondRequest(request.id, 'accept')">
+                  Annehmen
+                </button>
+                <button class="btn ghost danger tiny" type="button" @click="respondRequest(request.id, 'decline')">
+                  Ablehnen
+                </button>
+              </div>
+            </div>
+          </li>
+        </ul>
+        <p v-else class="muted small">Keine offenen Requests.</p>
+      </div>
+
+      <div class="card focus">
+        <div class="section-head">
+          <h2>Aktivitäten</h2>
+          <button class="btn ghost tiny" type="button" @click="loadActivity" :disabled="loadingActivity">
+            {{ loadingActivity ? "Lade..." : "Neu laden" }}
+          </button>
+        </div>
+        <ul v-if="topActivities.length" class="list">
+          <li v-for="item in topActivities" :key="item.id">
+            <div class="row">
+              <span class="badge activity-type">{{ activityIcon(item.event_type) }}</span>
+              <div class="flex-1">
+                <strong>{{ item.title }}</strong>
+                <p class="muted small">{{ item.description || item.event_type }}</p>
+              </div>
+              <small class="muted">{{ formatDateTime(item.created_at) }}</small>
+            </div>
+          </li>
+        </ul>
+        <p v-else class="muted small">Keine Aktivitäten vorhanden.</p>
+      </div>
+    </section>
+
+    <section v-if="!isTeam" class="card onboarding">
+      <h2>Dein Start</h2>
+      <p class="muted">Die wichtigsten Schritte, damit du schnell gefunden wirst.</p>
+      <ul class="list">
+        <li v-for="item in onboarding" :key="item.label" class="row">
+          <span class="check">{{ item.done ? "✓" : "•" }}</span>
+          <div class="flex-1">
+            <strong>{{ item.label }}</strong>
+            <p class="muted small">{{ item.hint }}</p>
+          </div>
+          <button v-if="item.cta" class="btn ghost tiny" type="button" @click="item.cta.action">
             {{ item.cta.label }}
           </button>
         </li>
       </ul>
     </section>
 
-    <section v-if="!isTeam && projects.length" class="card project-overview">
-      <h2>Meine Projekte</h2>
-      <ul>
-        <li v-for="project in projects" :key="project.id">
-          <div class="project-title">
+    <section v-if="!isTeam" class="card project-overview">
+      <div class="section-head">
+        <h2>Meine Projekte</h2>
+        <button class="btn ghost tiny" type="button" @click="goTo('projects')">Alle Projekte</button>
+      </div>
+      <ul v-if="projects.length" class="list">
+        <li v-for="project in projects.slice(0, 6)" :key="project.id">
+          <div class="row">
             <router-link class="project-link" :to="{ name: 'project-detail', params: { projectId: project.id } }">
               <strong>{{ project.title }}</strong>
             </router-link>
-            <span class="status-pill" :data-status="project.status">{{ statusLabel(project.status) }}</span>
+            <span class="badge">{{ statusLabel(project.status) }}</span>
           </div>
-          <p class="muted">{{ project.description || "Keine Beschreibung vorhanden." }}</p>
+          <p class="muted small">{{ project.description || "Keine Beschreibung vorhanden." }}</p>
         </li>
       </ul>
-      <p v-if="!projects.length" class="muted empty">Noch keine Projekte.</p>
-    </section>
-
-    <section v-if="!isTeam" class="card quick-actions">
-      <h2>Schnellaktionen</h2>
-      <div class="actions">
-        <button class="btn" type="button" @click="goTo('profiles')">Profile entdecken</button>
-        <button class="btn ghost" type="button" @click="goTo('chats')">Chat öffnen</button>
-        <button class="btn ghost" type="button" @click="goTo('projects')">Neues Projekt</button>
-      </div>
-    </section>
-
-    <section v-if="isTeam" class="card deadlines">
-      <div class="deadlines-head">
-        <div>
-          <h2>Fristen im Blick</h2>
-          <p class="muted">Überfällige und anstehende Tasks nach Fälligkeit.</p>
-        </div>
-        <div class="head-actions">
-          <button class="btn ghost tiny" type="button" @click="loadOverdueTasks" :disabled="loadingOverdue">
-            {{ loadingOverdue ? "Aktualisiere..." : "Überfällig laden" }}
-          </button>
-          <button class="btn ghost tiny" type="button" @click="loadUpcomingTasks" :disabled="loadingUpcoming">
-            {{ loadingUpcoming ? "Aktualisiere..." : "Nächste Woche laden" }}
-          </button>
-        </div>
-      </div>
-      <div class="deadlines-grid">
-        <div class="deadline-column">
-          <header>
-            <h3>Überfällig</h3>
-            <small>{{ overdueTasks.length }} Tasks</small>
-          </header>
-          <ul v-if="overdueTasks.length">
-            <li v-for="task in overdueTasks" :key="`overdue-${task.id}`">
-              <div class="row">
-                <strong>{{ task.title }}</strong>
-                <span class="badge danger">{{ formatTaskDate(task.due_date) }}</span>
-              </div>
-              <p class="muted">{{ taskProjectLabel(task) }}</p>
-            </li>
-          </ul>
-          <p v-else class="muted empty">Keine überfälligen Tasks.</p>
-        </div>
-        <div class="deadline-column">
-          <header>
-            <h3>Nächste Woche</h3>
-            <small>{{ upcomingTasks.length }} Tasks</small>
-          </header>
-          <ul v-if="upcomingTasks.length">
-            <li v-for="task in upcomingTasks" :key="`upcoming-${task.id}`">
-              <div class="row">
-                <strong>{{ task.title }}</strong>
-                <span class="badge">{{ formatTaskDate(task.due_date) }}</span>
-              </div>
-              <p class="muted">{{ taskProjectLabel(task) }}</p>
-            </li>
-          </ul>
-          <p v-else class="muted empty">Keine anstehenden Aufgaben.</p>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="isTeam" class="card growpro-summary">
-      <div class="requests-head">
-        <div>
-          <h2>GrowPro Snapshot</h2>
-          <p class="muted">Fällige Ziele im Blick.</p>
-        </div>
-        <button class="btn ghost tiny" type="button" @click="loadGrowProGoals" :disabled="loadingGrowPro">
-          {{ loadingGrowPro ? "Lade..." : "Neu laden" }}
-        </button>
-      </div>
-      <div class="growpro-stats">
-        <div class="stat">
-          <p class="label">Fällig &lt; 24h</p>
-          <strong>{{ growProDueSoon }}</strong>
-        </div>
-        <div class="stat">
-          <p class="label">Überfällig</p>
-          <strong>{{ growProOverdue }}</strong>
-        </div>
-        <div class="stat">
-          <p class="label">Aktive Ziele</p>
-          <strong>{{ (growProGoals || []).length }}</strong>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="isTeam" class="card activity">
-      <div class="activity-head">
-        <div>
-          <h2>Aktivitäten</h2>
-          <p class="muted">Gefiltert nach Typ.</p>
-        </div>
-        <div class="activity-controls">
-          <select class="input" v-model="activityFilter" @change="loadActivity">
-            <option value="all">Alle</option>
-            <option value="song_created,song_updated,song_version_created">Songs</option>
-            <option value="growpro_created,growpro_updated,growpro_logged">GrowPro</option>
-            <option value="task_overdue,task_status_updated,task_created">Tasks</option>
-            <option value="request_accepted,request_declined">Requests</option>
-          </select>
-          <button class="btn ghost tiny" type="button" @click="loadActivity" :disabled="loadingActivity">
-            {{ loadingActivity ? "Lade..." : "Neu laden" }}
-          </button>
-        </div>
-      </div>
-      <ul v-if="activities.length">
-        <li v-for="item in activities" :key="item.id">
-          <div class="row">
-            <span class="badge activity-type">{{ activityIcon(item.event_type) }}</span>
-            <div class="flex-1">
-              <strong>{{ item.title }}</strong>
-              <p class="muted small">{{ item.description || item.event_type }}</p>
-            </div>
-            <small class="muted">{{ formatDateTime(item.created_at) }}</small>
-          </div>
-        </li>
-      </ul>
-      <p v-else class="muted small">Keine Aktivitäten vorhanden.</p>
-    </section>
-
-    <section v-if="newsPosts.length" class="card news-preview">
-      <div class="news-head">
-        <h2>Neuigkeiten</h2>
-        <router-link class="btn ghost tiny" to="/news">Alle News</router-link>
-      </div>
-      <ul>
-        <li v-for="post in newsPosts" :key="post.id">
-          <strong>{{ post.title }}</strong>
-          <p class="muted">{{ previewBody(post.body) }}</p>
-        </li>
-      </ul>
-    </section>
-
-    <section v-if="isTeam" class="card quick-team">
-      <div class="quick-head">
-        <div>
-          <h2>Quick Actions</h2>
-          <p class="muted">GrowPro-Updates direkt hier erledigen.</p>
-        </div>
-        <p v-if="quickMessage" :class="['feedback', quickMessageType]">{{ quickMessage }}</p>
-      </div>
-      <div class="quick-grid">
-        <div class="quick-block">
-          <h3>GrowPro Update</h3>
-          <label>
-            Ziel
-            <select class="input" v-model="quickGoalId">
-              <option value="">Wählen</option>
-              <option v-for="goal in growProGoals" :key="goal.id" :value="goal.id">
-                {{ goal.title }} ({{ goal.profile?.name || goal.profile?.username || "?" }})
-              </option>
-            </select>
-          </label>
-          <div class="inline-fields">
-            <input class="input" type="number" v-model.number="quickGoalValue" placeholder="Wert" />
-            <input class="input" v-model.trim="quickGoalNote" placeholder="Notiz" />
-          </div>
-          <button class="btn tiny" type="button" @click="submitQuickGoal" :disabled="savingQuickGoal">
-            {{ savingQuickGoal ? "Speichere..." : "Update speichern" }}
-          </button>
-        </div>
-      </div>
+      <p v-else class="muted small">Noch keine Projekte.</p>
     </section>
   </div>
 </template>
@@ -238,32 +192,16 @@ const { toast, showToast, hideToast } = useToast();
 
 const examples = ref([]);
 const projects = ref([]);
+const projectSummary = ref({ total: 0, archived: 0, active: 0, done: 0, by_status: {} });
+
 const overdueTasks = ref([]);
-const loadingOverdue = ref(false);
 const upcomingTasks = ref([]);
-const loadingUpcoming = ref(false);
 const teamRequests = ref([]);
 const loadingRequests = ref(false);
 const growProGoals = ref([]);
-const loadingGrowPro = ref(false);
-const newsPosts = ref([]);
-const loading = ref(false);
-const requestsPage = ref(1);
-const requestsTotal = ref(0);
-const requestsPageSize = ref(8);
-const requestStatusFilter = ref("OPEN");
-const requestTypeFilter = ref("ALL");
-const requestSearch = ref("");
 const activities = ref([]);
 const loadingActivity = ref(false);
-const activityFilter = ref("all");
-
-const quickGoalId = ref("");
-const quickGoalValue = ref("");
-const quickGoalNote = ref("");
-const savingQuickGoal = ref(false);
-const quickMessage = ref("");
-const quickMessageType = ref("info");
+const loading = ref(false);
 
 const greetingName = computed(() => me.value?.name || me.value?.username || "Artist");
 const hasRoles = computed(() => (me.value?.roles || []).length > 0);
@@ -303,20 +241,6 @@ const statusLabelMap = {
 
 const requestTypeLabels = { COLLAB: "Collab", BOOK: "Booking", OTHER: "Andere" };
 
-const requestStatusFilterOptions = [
-  { key: "ALL", label: "Alle" },
-  { key: "OPEN", label: "Offen" },
-  { key: "ACCEPTED", label: "Angenommen" },
-  { key: "DECLINED", label: "Abgelehnt" },
-];
-
-const requestTypeFilterOptions = [
-  { key: "ALL", label: "Alle" },
-  { key: "COLLAB", label: "Collab" },
-  { key: "BOOK", label: "Booking" },
-  { key: "OTHER", label: "Andere" },
-];
-
 const growProDueSoon = computed(() => {
   const now = Date.now();
   const oneDay = 24 * 60 * 60 * 1000;
@@ -339,7 +263,10 @@ const growProOverdue = computed(() => {
   }).length;
 });
 
-const requestPageCount = computed(() => Math.max(1, Math.ceil((requestsTotal.value || 0) / requestsPageSize.value)));
+const topOverdueTasks = computed(() => overdueTasks.value.slice(0, 4));
+const topUpcomingTasks = computed(() => upcomingTasks.value.slice(0, 4));
+const topRequests = computed(() => teamRequests.value.slice(0, 5));
+const topActivities = computed(() => activities.value.slice(0, 6));
 
 function goTo(name) {
   router.push({ name });
@@ -366,20 +293,33 @@ async function loadProjects() {
   }
 }
 
+async function loadProjectSummary() {
+  if (!isTeam.value) return;
+  try {
+    const { data } = await api.get("projects/summary/");
+    projectSummary.value = {
+      total: data.total || 0,
+      archived: data.archived || 0,
+      active: data.active || 0,
+      done: data.done || 0,
+      by_status: data.by_status || {},
+    };
+  } catch (err) {
+    projectSummary.value = { total: 0, archived: 0, active: 0, done: 0, by_status: {} };
+  }
+}
+
 async function loadOverdueTasks() {
   if (!isTeam.value) {
     overdueTasks.value = [];
     return;
   }
-  loadingOverdue.value = true;
   try {
     const { data } = await api.get("tasks/overdue/");
     overdueTasks.value = data || [];
   } catch (err) {
     console.error("Überfällige Tasks konnten nicht geladen werden", err);
     overdueTasks.value = [];
-  } finally {
-    loadingOverdue.value = false;
   }
 }
 
@@ -388,15 +328,12 @@ async function loadUpcomingTasks() {
     upcomingTasks.value = [];
     return;
   }
-  loadingUpcoming.value = true;
   try {
     const { data } = await api.get("tasks/upcoming/", { params: { days: 7, limit: 6 } });
     upcomingTasks.value = data || [];
   } catch (err) {
     console.error("Anstehende Tasks konnten nicht geladen werden", err);
     upcomingTasks.value = [];
-  } finally {
-    loadingUpcoming.value = false;
   }
 }
 
@@ -407,21 +344,11 @@ async function loadTeamRequests() {
   }
   loadingRequests.value = true;
   try {
-    const params = {
-      page: requestsPage.value,
-      page_size: requestsPageSize.value,
-      status: requestStatusFilter.value,
-      type: requestTypeFilter.value,
-    };
-    if (requestSearch.value.trim()) params.search = requestSearch.value.trim();
-    const { data } = await api.get("requests/team-open/", { params });
-    const payload = data || {};
-    teamRequests.value = Array.isArray(payload) ? payload : payload.results || [];
-    requestsTotal.value = payload.count || teamRequests.value.length;
+    const { data } = await api.get("requests/team-open/");
+    teamRequests.value = Array.isArray(data) ? data : data.results || [];
   } catch (err) {
     console.error("Anfragen konnten nicht geladen werden", err);
     teamRequests.value = [];
-    requestsTotal.value = 0;
   } finally {
     loadingRequests.value = false;
   }
@@ -432,7 +359,6 @@ async function loadGrowProGoals() {
     growProGoals.value = [];
     return;
   }
-  loadingGrowPro.value = true;
   try {
     const { data } = await api.get("growpro/", { params: { status: "ACTIVE,ON_HOLD", page_size: 50, ordering: "due_date" } });
     const payload = data || {};
@@ -440,18 +366,6 @@ async function loadGrowProGoals() {
   } catch (err) {
     console.error("GrowPro konnte nicht geladen werden", err);
     growProGoals.value = [];
-  } finally {
-    loadingGrowPro.value = false;
-  }
-}
-
-async function loadNewsPreview() {
-  try {
-    const { data } = await api.get("news/");
-    newsPosts.value = (data || []).slice(0, 3);
-  } catch (err) {
-    console.error("News konnten nicht geladen werden", err);
-    newsPosts.value = [];
   }
 }
 
@@ -462,43 +376,12 @@ async function loadActivity() {
   }
   loadingActivity.value = true;
   try {
-    const params = { limit: 40 };
-    if (activityFilter.value !== "all") params.types = activityFilter.value;
-    const { data } = await api.get("activity/", { params });
+    const { data } = await api.get("activity/", { params: { limit: 12 } });
     activities.value = data || [];
   } catch (err) {
     activities.value = [];
   } finally {
     loadingActivity.value = false;
-  }
-}
-
-function setQuickMessage(text, type = "info") {
-  quickMessage.value = text;
-  quickMessageType.value = type;
-  if (text) setTimeout(() => (quickMessage.value = ""), 2500);
-}
-
-async function submitQuickGoal() {
-  if (!quickGoalId.value || quickGoalValue.value === "" || quickGoalValue.value === null) {
-    setQuickMessage("Ziel und Wert wählen", "error");
-    showToast("Ziel und Wert wählen", "error");
-    return;
-  }
-  savingQuickGoal.value = true;
-  try {
-    await api.post(`growpro/${quickGoalId.value}/log/`, { value: quickGoalValue.value, note: quickGoalNote.value });
-    quickGoalValue.value = "";
-    quickGoalNote.value = "";
-    await loadGrowProGoals();
-    setQuickMessage("Update gespeichert", "success");
-    showToast("Update gespeichert", "success");
-  } catch (err) {
-    console.error("Quick-GrowPro fehlgeschlagen", err);
-    setQuickMessage("Fehler beim Update", "error");
-    showToast("Fehler beim Update", "error");
-  } finally {
-    savingQuickGoal.value = false;
   }
 }
 
@@ -515,30 +398,23 @@ async function respondRequest(id, action) {
   }
 }
 
-function applyRequestFilters() {
-  requestsPage.value = 1;
-  loadTeamRequests();
-}
-
-function changeRequestPage(delta) {
-  const next = requestsPage.value + delta;
-  if (next < 1 || next > requestPageCount.value) return;
-  requestsPage.value = next;
-  loadTeamRequests();
-}
-
 async function refresh() {
   if (loading.value) return;
   loading.value = true;
   try {
     await fetchProfile(true);
-    const loaders = [loadExamples(), loadNewsPreview()];
     if (isTeam.value) {
-      loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadActivity());
+      await Promise.all([
+        loadProjectSummary(),
+        loadOverdueTasks(),
+        loadUpcomingTasks(),
+        loadTeamRequests(),
+        loadGrowProGoals(),
+        loadActivity(),
+      ]);
     } else {
-      loaders.push(loadProjects());
+      await Promise.all([loadExamples(), loadProjects()]);
     }
-    await Promise.all(loaders);
   } finally {
     loading.value = false;
   }
@@ -546,13 +422,18 @@ async function refresh() {
 
 onMounted(async () => {
   await fetchProfile();
-  const loaders = [loadExamples(), loadNewsPreview()];
   if (isTeam.value) {
-    loaders.push(loadOverdueTasks(), loadUpcomingTasks(), loadTeamRequests(), loadGrowProGoals(), loadActivity());
+    await Promise.all([
+      loadProjectSummary(),
+      loadOverdueTasks(),
+      loadUpcomingTasks(),
+      loadTeamRequests(),
+      loadGrowProGoals(),
+      loadActivity(),
+    ]);
   } else {
-    loaders.push(loadProjects());
+    await Promise.all([loadExamples(), loadProjects()]);
   }
-  await Promise.all(loaders);
 });
 
 function statusLabel(status) {
@@ -561,11 +442,6 @@ function statusLabel(status) {
 
 function requestTypeLabel(type) {
   return requestTypeLabels[type] || type;
-}
-
-function previewBody(text = "") {
-  if (!text) return "";
-  return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 }
 
 function formatTaskDate(value) {
@@ -585,200 +461,121 @@ function activityIcon(type) {
   if (type.startsWith("request")) return "R";
   return "*";
 }
+
+function formatDateTime(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
 </script>
 
 <style scoped>
 .dashboard {
-  display: grid;
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   width: 100%;
 }
-.team-hero,
-.welcome {
+.hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 .hero-actions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 .eyebrow {
-  margin: 0;
+  margin: 0 0 4px;
   text-transform: uppercase;
   font-size: 12px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: var(--brand);
   font-weight: 600;
 }
-.kpi-grid {
+.overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
-}
-.kpi {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.kpi-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 22px;
-}
-.kpi-label { margin: 0; color: var(--muted); }
-.kpi-value { font-size: 1.6rem; }
-.growpro-summary .growpro-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
+  margin-top: 10px;
 }
-.growpro-summary .stat {
+.stat {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  background: rgba(255, 255, 255, 0.9);
 }
-.checklist ul {
-  list-style: none;
-  padding: 0;
-  margin: 16px 0 0;
+.stat .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.stat strong {
+  font-size: 22px;
+}
+.grid {
   display: grid;
-  gap: 12px;
-}
-.checklist li {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  align-items: center;
-}
-.check { font-size: 20px; }
-.quick-actions .actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-.deadlines-head,
-.requests-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.deadlines-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
 }
-.deadline-column {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 14px;
-  padding: 12px;
+.section-head {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.deadline-column header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.deadlines ul,
-.requests-card ul {
-  list-style: none;
-  margin: 12px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.deadlines .row,
-.requests-card .row {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
 }
-.deadlines .badge {
+.task-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.flex-1 {
+  flex: 1;
+}
+.badge {
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  background: rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.16);
   color: #1d4ed8;
 }
-.deadlines .badge.danger {
+.badge.danger {
   background: rgba(248, 113, 113, 0.18);
   color: #b91c1c;
 }
-.requests-card .pill {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(75, 91, 255, 0.16);
-  font-size: 11px;
-  font-weight: 600;
-}
-.requests-card .message {
-  margin: 4px 0 0;
-  font-size: 13px;
+.badge.activity-type {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
 }
 .request-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-.request-filters {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 8px 0;
-}
-.request-filters .input.small {
-  width: 160px;
-  padding: 6px 8px;
-}
-.request-pagination {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-}
-.project-overview ul {
-  list-style: none;
-  padding: 0;
-  margin: 12px 0 0;
-  display: grid;
-  gap: 12px;
-}
-.project-overview li {
-  border: 1px solid rgba(75, 91, 255, 0.12);
-  border-radius: 12px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
   gap: 6px;
-}
-.project-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .project-link {
   color: inherit;
@@ -787,100 +584,21 @@ function activityIcon(type) {
 .project-link:hover {
   text-decoration: underline;
 }
-.status-pill {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  background: rgba(75, 91, 255, 0.18);
-  color: var(--brand);
+.check {
+  font-size: 16px;
+  width: 18px;
+  text-align: center;
 }
-.status-pill[data-status="IN_PROGRESS"] { background: rgba(249, 115, 22, 0.16); color: #ea580c; }
-.status-pill[data-status="DONE"] { background: rgba(52, 211, 153, 0.16); color: #059669; }
-.status-pill[data-status="ON_HOLD"] { background: rgba(148, 163, 184, 0.18); color: #475569; }
-.news-preview .news-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-.news-preview ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.quick-team {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.quick-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-}
-.quick-block {
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.inline-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 8px;
-}
-.activity {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.activity-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.activity-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.activity ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 8px;
-}
-.activity-type {
-  background: rgba(15, 23, 42, 0.08);
-}
-.feedback { margin: 0; }
-.btn.tiny { padding: 4px 10px; font-size: 12px; }
-
 @media (max-width: 760px) {
-  .welcome,
-  .team-hero {
+  .hero-actions {
+    justify-content: flex-start;
+  }
+  .row {
     flex-direction: column;
     align-items: flex-start;
   }
-  .hero-actions { justify-content: flex-start; }
-  .checklist li { grid-template-columns: auto 1fr; }
-  .checklist li .btn { grid-column: span 2; justify-self: flex-start; }
+  .request-actions {
+    justify-content: flex-start;
+  }
 }
 </style>

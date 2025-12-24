@@ -498,6 +498,9 @@ class GrowProGoalSerializer(serializers.ModelSerializer):
         is_team = me.roles.filter(key="TEAM").exists()
         if not is_team:
             attrs["profile"] = me
+        if self.instance is None and not attrs.get("metric"):
+            title = (attrs.get("title") or "").strip()
+            attrs["metric"] = title or "Ziel"
         return attrs
 
 

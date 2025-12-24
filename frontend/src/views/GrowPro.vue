@@ -14,11 +14,63 @@
       </button>
     </header>
 
-    <section class="card filters">
+
+    <section v-if="isTeam" class="card form">
+      <h2>Neues Ziel anlegen</h2>
+      <div class="form-grid">
+        <label>
+          K&uuml;nstler
+          <select class="input" v-model="form.profile_id">
+            <option value="">Profil w&auml;hlen</option>
+            <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
+          </select>
+        </label>
+        <label>
+          Titel
+          <input class="input" v-model.trim="form.title" placeholder="z.B. Monatliche H&ouml;rer" />
+        </label>
+        <label>
+          Einheit
+          <input class="input" v-model.trim="form.unit" placeholder="H&ouml;rer / Streams / %" />
+        </label>
+        <label>
+          Zielwert
+          <input class="input" type="number" v-model.number="form.target_value" />
+        </label>
+        <label>
+          Startwert
+          <input class="input" type="number" v-model.number="form.current_value" />
+        </label>
+        <label>
+          F&auml;llig am
+          <input class="input" type="date" v-model="form.due_date" />
+        </label>
+        <label>
+          Status
+          <select class="input" v-model="form.status">
+            <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="btn" type="button" @click="createGoal" :disabled="creating">
+          {{ creating ? "Speichere..." : "Ziel speichern" }}
+        </button>
+        <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
+      </div>
+    </section>
+
+    <div class="filters-toggle">
+      <button class="btn ghost" type="button" @click="toggleFilters">
+        {{ showFilters ? "Filter ausblenden" : "Filter anzeigen" }}
+      </button>
+    </div>
+
+    <section v-if="showFilters" class="card filters">
       <div class="filter-row">
         <label>
           Suche
-          <input class="input" v-model.trim="search" placeholder="Titel oder Kennzahl..." @keyup.enter="applyFilters" />
+          <input class="input" v-model.trim="search" placeholder="Titel suchen..." @keyup.enter="applyFilters" />
         </label>
         <label>
           Status
@@ -54,54 +106,8 @@
           </select>
         </label>
       </div>
-    </section>
-
-    <section v-if="isTeam" class="card form">
-      <h2>Neues Ziel anlegen</h2>
-      <div class="form-grid">
-        <label>
-          K&uuml;nstler
-          <select class="input" v-model="form.profile_id">
-            <option value="">Profil w&auml;hlen</option>
-            <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
-          </select>
-        </label>
-        <label>
-          Titel
-          <input class="input" v-model.trim="form.title" placeholder="z.B. Monatliche H&ouml;rer" />
-        </label>
-        <label>
-          Kennzahl
-          <input class="input" v-model.trim="form.metric" placeholder="Monatliche H&ouml;rer, Streams..." />
-        </label>
-        <label>
-          Einheit
-          <input class="input" v-model.trim="form.unit" placeholder="H&ouml;rer / Streams / %" />
-        </label>
-        <label>
-          Zielwert
-          <input class="input" type="number" v-model.number="form.target_value" />
-        </label>
-        <label>
-          Startwert
-          <input class="input" type="number" v-model.number="form.current_value" />
-        </label>
-        <label>
-          F&auml;llig am
-          <input class="input" type="date" v-model="form.due_date" />
-        </label>
-        <label>
-          Status
-          <select class="input" v-model="form.status">
-            <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
-          </select>
-        </label>
-      </div>
-      <div class="form-actions">
-        <button class="btn" type="button" @click="createGoal" :disabled="creating">
-          {{ creating ? "Speichere..." : "Ziel speichern" }}
-        </button>
-        <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
+      <div class="filter-actions">
+        <button class="btn ghost tiny" type="button" @click="applyFilters">Filter anwenden</button>
       </div>
     </section>
 
@@ -118,18 +124,17 @@
             <div>
               <p class="muted small">{{ goal.profile?.name || goal.profile?.username || "Unbekannt" }}</p>
               <h3>{{ goal.title }}</h3>
-              <p class="muted">{{ goal.metric }} ({{ goal.unit || "-" }})</p>
             </div>
             <span class="pill" :data-status="goal.status">{{ statusLabels[goal.status] || goal.status }}</span>
           </div>
           <div class="stats">
             <div>
               <p class="label">Aktuell</p>
-              <strong>{{ goal.current_value }}</strong>
+              <strong>{{ formatNumber(goal.current_value) }}{{ goal.unit ? " " + goal.unit : "" }}</strong>
             </div>
             <div>
               <p class="label">Ziel</p>
-              <strong>{{ goal.target_value }}</strong>
+              <strong>{{ formatNumber(goal.target_value) }}{{ goal.unit ? " " + goal.unit : "" }}</strong>
             </div>
             <div>
               <p class="label">F&auml;llig</p>
@@ -146,7 +151,7 @@
             <input
               class="input"
               type="number"
-              :placeholder="goal.current_value"
+              :placeholder="formatNumber(goal.current_value)"
               v-model.number="logDraft(goal.id).value"
             />
             <input
@@ -162,7 +167,7 @@
             <p class="small muted">Letzte Eintr&auml;ge:</p>
             <ul>
               <li v-for="update in goal.updates.slice(0, 3)" :key="update.id">
-                <span>{{ update.value }}</span>
+                <span>{{ formatNumber(update.value) }}</span>
                 <small>{{ formatDateTime(update.created_at) }}</small>
               </li>
             </ul>
@@ -215,6 +220,7 @@ const loading = ref(false);
 const creating = ref(false);
 const logging = ref({});
 const loadingActivity = ref(false);
+const showFilters = ref(false);
 
 const message = ref("");
 const messageType = ref("info");
@@ -237,7 +243,6 @@ const form = ref({
   profile_id: "",
   title: "",
   description: "",
-  metric: "",
   unit: "",
   target_value: 0,
   current_value: 0,
@@ -258,7 +263,6 @@ const filteredGoals = computed(() =>
     const matchesText =
       !term ||
       goal.title.toLowerCase().includes(term) ||
-      (goal.metric || "").toLowerCase().includes(term) ||
       (goal.description || "").toLowerCase().includes(term);
     const matchesStatus = filterStatus.value === "ALL" || goal.status === filterStatus.value;
     const matchesProfile = filterProfile.value === "ALL" || String(goal.profile?.id) === String(filterProfile.value);
@@ -300,6 +304,14 @@ function formatDate(value) {
 function formatDateTime(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
+function formatNumber(value) {
+  if (value === null || value === undefined || value === "") return "";
+  const num = Number(value);
+  if (Number.isNaN(num)) return String(value);
+  if (Number.isInteger(num)) return String(num);
+  return String(num);
 }
 
 function showMessage(text, type = "info") {
@@ -347,19 +359,22 @@ async function loadGoals(resetPage = false) {
 }
 
 async function createGoal() {
-  if (!form.value.title || !form.value.metric || (!form.value.profile_id && isTeam.value)) {
-    showMessage("Titel, Kennzahl und K&uuml;nstler sind erforderlich.", "error");
+  if (!form.value.title || (!form.value.profile_id && isTeam.value)) {
+    showMessage("Titel und K&uuml;nstler sind erforderlich.", "error");
     return;
   }
   creating.value = true;
   showMessage("");
   try {
-    await api.post("growpro/", form.value);
+    const payload = {
+      ...form.value,
+      metric: form.value.title.trim() || "Ziel",
+    };
+    await api.post("growpro/", payload);
     form.value = {
       profile_id: "",
       title: "",
       description: "",
-      metric: "",
       unit: "",
       target_value: 0,
       current_value: 0,
@@ -428,6 +443,10 @@ function changePage(delta) {
   loadGoals();
 }
 
+function toggleFilters() {
+  showFilters.value = !showFilters.value;
+}
+
 function applyFilters() {
   loadGoals(true);
 }
@@ -456,6 +475,15 @@ onMounted(async () => {
   font-size: 12px;
   color: var(--brand);
   margin: 0 0 6px;
+}
+.filters-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
 }
 .filters .filter-row {
   display: flex;

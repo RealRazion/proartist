@@ -13,7 +13,7 @@
           placeholder="Filter nach Name, Rolle, Genre oder Stadt..."
         />
         <span class="result-info">
-          <span v-if="filtering">? Filtert...</span>
+          <span v-if="filtering">Filtert...</span>
           <span v-else>{{ filteredCount }} Treffer</span>
         </span>
         <button
@@ -22,7 +22,7 @@
           :aria-pressed="compactCards"
           @click="toggleCompact"
         >
-          {{ compactCards ? "Gr??ere Karten" : "Kompakte Karten" }}
+          {{ compactCards ? "Größere Karten" : "Kompakte Karten" }}
         </button>
       </div>
     </header>
@@ -55,26 +55,6 @@
             </h2>
             <p class="muted">{{ profile.city || "Ort unbekannt" }}</p>
           </div>
-          <div v-if="canManageTeam(profile)" class="team-actions">
-            <button
-              class="btn tiny"
-              type="button"
-              v-if="!isTeamMember(profile)"
-              @click="toggleTeam(profile, true)"
-              :disabled="teamLoading === profile.id"
-            >
-              Zum Team
-            </button>
-            <button
-              class="btn ghost tiny"
-              type="button"
-              v-else
-              @click="toggleTeam(profile, false)"
-              :disabled="teamLoading === profile.id"
-            >
-              Entfernen
-            </button>
-          </div>
         </div>
         <div class="roles" v-if="profile.roles?.length">
           <span v-for="role in profile.roles" :key="role.id" class="role-pill">
@@ -95,17 +75,37 @@
             {{ link.icon }}
           </a>
         </div>
-        <footer class="footer">
-          <a v-if="isTeam && profile.email" class="link" :href="`mailto:${profile.email}`">{{ profile.email }}</a>
-          <button
-            v-if="profile.id !== me?.id"
-            class="btn"
-            type="button"
-            @click="chatWith(profile.id)"
-            :disabled="startingChat === profile.id"
-          >
-            {{ startingChat === profile.id ? "Starte Chat…" : "Chat starten" }}
-          </button>
+        <footer class="footer" :class="{ 'has-actions': profile.id !== me?.id || canManageTeam(profile) }">
+          <a v-if="isTeam && profile.email" class="link email" :href="`mailto:${profile.email}`">{{ profile.email }}</a>
+          <div v-if="profile.id !== me?.id || canManageTeam(profile)" class="quick-actions">
+            <button
+              v-if="profile.id !== me?.id"
+              class="btn tiny"
+              type="button"
+              @click="chatWith(profile.id)"
+              :disabled="startingChat === profile.id"
+            >
+              {{ startingChat === profile.id ? "Starte Chat..." : "Chat starten" }}
+            </button>
+            <button
+              v-if="canManageTeam(profile) && !isTeamMember(profile)"
+              class="btn ghost tiny"
+              type="button"
+              @click="toggleTeam(profile, true)"
+              :disabled="teamLoading === profile.id"
+            >
+              Zum Team
+            </button>
+            <button
+              v-if="canManageTeam(profile) && isTeamMember(profile)"
+              class="btn ghost tiny"
+              type="button"
+              @click="toggleTeam(profile, false)"
+              :disabled="teamLoading === profile.id"
+            >
+              Entfernen
+            </button>
+          </div>
         </footer>
       </article>
       <p v-if="!filteredProfiles.length" class="empty muted">
@@ -247,11 +247,11 @@ async function toggleTeam(profile, add) {
 function socialLinks(profile) {
   const socials = profile.socials || {};
   const links = [];
-  if (socials.instagram) links.push({ icon: "??", label: "Instagram", url: socials.instagram });
-  if (socials.youtube) links.push({ icon: "??", label: "YouTube", url: socials.youtube });
-  if (socials.soundcloud) links.push({ icon: "??", label: "SoundCloud", url: socials.soundcloud });
-  if (socials.tiktok) links.push({ icon: "??", label: "TikTok", url: socials.tiktok });
-  if (socials.spotify) links.push({ icon: "??", label: "Spotify", url: socials.spotify });
+  if (socials.instagram) links.push({ icon: "IG", label: "Instagram", url: socials.instagram });
+  if (socials.youtube) links.push({ icon: "YT", label: "YouTube", url: socials.youtube });
+  if (socials.soundcloud) links.push({ icon: "SC", label: "SoundCloud", url: socials.soundcloud });
+  if (socials.tiktok) links.push({ icon: "TT", label: "TikTok", url: socials.tiktok });
+  if (socials.spotify) links.push({ icon: "SP", label: "Spotify", url: socials.spotify });
   return links;
 }
 
@@ -383,21 +383,41 @@ onBeforeUnmount(() => {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
 }
 .profiles.compact .grid {
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
-.profiles.compact .grid {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+@media (max-width: 1280px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .profiles.compact .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 980px) {
+  .profiles.compact .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .profiles.compact .grid {
+    grid-template-columns: 1fr;
+  }
 }
 .profile-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 14px;
+  position: relative;
 }
 .profile-card.compact {
   gap: 8px;
@@ -427,6 +447,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+}
+.profile-header > div:nth-child(2) {
+  flex: 1;
+}
+.team-actions {
+  margin-left: auto;
 }
 .avatar {
   width: 40px;
@@ -503,6 +530,52 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+  position: relative;
+}
+.footer.has-actions {
+  padding-right: 150px;
+}
+.footer .email {
+  max-width: calc(100% - 150px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.quick-actions {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.profile-card:hover .quick-actions,
+.profile-card:focus-within .quick-actions {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.btn.tiny {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+@media (hover: none) {
+  .quick-actions {
+    position: static;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .footer.has-actions {
+    padding-right: 0;
+  }
+  .footer .email {
+    max-width: 100%;
+  }
 }
 .link {
   color: var(--brand);

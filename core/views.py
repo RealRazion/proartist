@@ -1,14 +1,18 @@
 import csv
 import io
+import os
 from datetime import datetime, timedelta
 
 from django.contrib.auth.models import User
+from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.db.models import Count, Max, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
 from django.utils.dateparse import parse_date
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import permissions, viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
@@ -69,10 +73,11 @@ from .serializers import (
 from .utils import log_activity
 from .notifications import send_notification_email
 from .realtime import notify_project_event, notify_task_event
+from .automation import send_task_reminders
 
 # --- Auth/Register ---
 @api_view(["POST"])
-@permission_classes([permissions.AllowAny])
+@permission_classes([permissions.IsAuthenticated, IsTeam])
 def register(request):
     username = request.data.get("username"); email = request.data.get("email")
     password = request.data.get("password")
@@ -88,6 +93,61 @@ def register(request):
     if role_keys:
         roles = Role.objects.filter(key__in=role_keys); profile.roles.set(roles)
     return Response({"message":"registered","user_id":user.id,"profile_id":profile.id})
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsTeam])
+def invite_user(request):
+    email = (request.data.get("email") or "").strip().lower()
+    name = (request.data.get("name") or "").strip()
+    role_keys = request.data.get("roles") or []
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+    if User.objects.filter(email__iexact=email).exists():
+        return Response({"detail": "email already exists"}, status=400)
+    base_username = email.split("@")[0]
+    username = base_username
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        counter += 1
+        username = f"{base_username}{counter}"
+    user = User.objects.create_user(username=username, email=email)
+    user.set_unusable_password()
+    user.save(update_fields=["password"])
+    profile = Profile.objects.create(user=user, name=name or username)
+    if role_keys:
+        roles = Role.objects.filter(key__in=role_keys)
+        profile.roles.set(roles)
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    link = f"{frontend_url}/set-password?uid={uid}&token={token}"
+    send_notification_email(
+        "Dein ProArtist Zugang",
+        f"Hallo,\n\nbitte setze dein Passwort über diesen Link:\n{link}\n\nViele Grüße",
+        [email],
+    )
+    return Response({"id": profile.id, "email": email, "username": username, "invite_link": link})
+
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def set_password(request):
+    uid = request.data.get("uid")
+    token = request.data.get("token")
+    password = request.data.get("password")
+    if not uid or not token or not password:
+        return Response({"detail": "missing data"}, status=400)
+    if len(password) < 8:
+        return Response({"detail": "password too short"}, status=400)
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id)
+    except Exception:
+        return Response({"detail": "invalid link"}, status=400)
+    if not default_token_generator.check_token(user, token):
+        return Response({"detail": "invalid link"}, status=400)
+    user.set_password(password)
+    user.save(update_fields=["password"])
+    return Response({"detail": "password set"})
 
 # --- Profiles/Roles ---
 class RoleViewSet(viewsets.ModelViewSet):
@@ -555,6 +615,9 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         task = serializer.save()
+        if task.status == "DONE" and not task.completed_at:
+            task.completed_at = timezone.now()
+            task.save(update_fields=["completed_at"])
         actor = getattr(self.request.user, "profile", None)
         log_activity(
             "task_created",
@@ -580,6 +643,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         prev_priority = instance.priority
         previous_assignees = set(instance.assignees.values_list("id", flat=True))
         task = serializer.save()
+        if prev_status != task.status:
+            if task.status == "DONE" and not task.completed_at:
+                task.completed_at = timezone.now()
+                task.save(update_fields=["completed_at"])
+            elif prev_status == "DONE" and task.status != "DONE":
+                task.completed_at = None
+                task.save(update_fields=["completed_at"])
         actor = getattr(self.request.user, "profile", None)
         if prev_status != task.status:
             severity = "SUCCESS" if task.status == "DONE" else "INFO"
@@ -1216,3 +1286,47 @@ def admin_overview(request):
             "overdue_tasks": overdue_tasks,
         }
     )
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated, IsTeam])
+def analytics_summary(request):
+    today = timezone.now().date()
+    soon_days = int(request.query_params.get("soon_days", 7) or 7)
+    soon_days = max(1, min(30, soon_days))
+    base_tasks = Task.objects.filter(is_archived=False).exclude(status="DONE")
+    active_tasks = base_tasks.count()
+    overdue_tasks = base_tasks.filter(due_date__isnull=False, due_date__lt=today).count()
+    due_soon_tasks = base_tasks.filter(
+        due_date__isnull=False,
+        due_date__gte=today,
+        due_date__lte=today + timedelta(days=soon_days),
+    ).count()
+    completed_last_7_days = Task.objects.filter(
+        completed_at__isnull=False,
+        completed_at__gte=timezone.now() - timedelta(days=7),
+    ).count()
+    return Response(
+        {
+            "active_tasks": active_tasks,
+            "overdue_tasks": overdue_tasks,
+            "due_soon_tasks": due_soon_tasks,
+            "completed_last_7_days": completed_last_7_days,
+        }
+    )
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsTeam])
+def run_task_reminders(request):
+    days = int(request.data.get("days", 3) or 3)
+    days = max(1, min(30, days))
+    include_overdue = _bool_param(request.data.get("include_overdue"), True)
+    include_due_soon = _bool_param(request.data.get("include_due_soon"), True)
+    dry_run = _bool_param(request.data.get("dry_run"), False)
+    summary = send_task_reminders(
+        days=days,
+        include_overdue=include_overdue,
+        include_due_soon=include_due_soon,
+        dry_run=dry_run,
+    )
+    summary["days"] = days
+    return Response(summary)

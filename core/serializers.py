@@ -303,6 +303,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "stakeholders",
             "stakeholder_ids",
             "created_at",
+            "completed_at",
             "is_archived",
             "archived_at",
         ]
@@ -310,6 +311,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "is_archived",
             "archived_at",
             "created_at",
+            "completed_at",
             "project_title",
             "stakeholders",
             "assignees",

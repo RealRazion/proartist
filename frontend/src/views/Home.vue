@@ -5,26 +5,26 @@
         <p class="tag">Welcome to ProArtist</p>
         <h1>Die Schaltzentrale für Artists, Producer &amp; Teams</h1>
         <p class="lead">
-          Manage Projekte, Tasks, Chats und Releases in einem klaren Workflow. Alles an einem Ort – live, sicher
+          Manage Projekte, Tasks, Chats und Releases in einem klaren Workflow. Alles an einem Ort - live, sicher
           und kollaborativ.
         </p>
         <div class="hero-actions">
-          <router-link class="btn" to="/register">Jetzt starten</router-link>
-          <router-link class="btn ghost" to="/login">Login</router-link>
+          <router-link class="btn" to="/login">Login</router-link>
+          <span class="muted">Zugang nur per Einladung.</span>
         </div>
       </div>
       <div class="hero-visual">
         <div class="stats card">
           <div>
-            <span>🎤 Artists</span>
+            <span>Artists</span>
             <strong>150+</strong>
           </div>
           <div>
-            <span>📁 Projekte</span>
+            <span>Projekte</span>
             <strong>320</strong>
           </div>
           <div>
-            <span>⚡ Nachrichten</span>
+            <span>Nachrichten</span>
             <strong>Live</strong>
           </div>
         </div>
@@ -36,7 +36,7 @@
     <section class="features">
       <div class="feature card">
         <h3>Team Dashboard</h3>
-        <p>Alle Kennzahlen und Aktionen auf einen Blick – inklusive Requests, Verträge und Payments.</p>
+        <p>Alle Kennzahlen und Aktionen auf einen Blick - inklusive Requests, Verträge und Payments.</p>
       </div>
       <div class="feature card">
         <h3>Profilnetzwerk</h3>
@@ -93,6 +93,7 @@
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  align-items: center;
 }
 .hero-visual {
   position: relative;

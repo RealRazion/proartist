@@ -1,35 +1,32 @@
 <template>
   <div class="auth-page">
     <div class="card auth-card">
-      <h1>Login</h1>
-      <p class="subtitle">Melde dich an, um dein Dashboard zu öffnen.</p>
+      <h1>Passwort setzen</h1>
+      <p class="subtitle">Erstelle dein Passwort, um dich anmelden zu können.</p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label>
-          Benutzername
-          <input class="input" v-model.trim="username" placeholder="Dein Benutzername" autocomplete="username" />
-        </label>
-
-        <label>
-          Passwort
+          Neues Passwort
           <input
             class="input"
             v-model.trim="password"
-            :type="showPassword ? 'text' : 'password'"
-            placeholder="••••••••"
-            autocomplete="current-password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="Mindestens 8 Zeichen"
           />
         </label>
-
-        <div class="actions">
-          <label class="checkbox">
-            <input type="checkbox" v-model="showPassword" /> Passwort anzeigen
-          </label>
-          <span class="muted">Zugang nur per Einladung.</span>
-        </div>
-
+        <label>
+          Passwort bestätigen
+          <input
+            class="input"
+            v-model.trim="confirm"
+            type="password"
+            autocomplete="new-password"
+            placeholder="Wiederholen"
+          />
+        </label>
         <button class="btn" type="submit" :disabled="loading">
-          {{ loading ? "Anmelden..." : "Login" }}
+          {{ loading ? "Speichere..." : "Passwort speichern" }}
         </button>
       </form>
 
@@ -39,19 +36,21 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import api from "../api";
 
 const router = useRouter();
 const route = useRoute();
 
-const username = ref("");
 const password = ref("");
-const showPassword = ref(false);
+const confirm = ref("");
 const loading = ref(false);
 const message = ref("");
 const messageType = ref("info");
+
+const uid = computed(() => String(route.query.uid || ""));
+const token = computed(() => String(route.query.token || ""));
 
 function showMessage(text, type = "info") {
   message.value = text;
@@ -59,25 +58,30 @@ function showMessage(text, type = "info") {
 }
 
 async function submit() {
-  if (!username.value || !password.value) {
-    showMessage("Bitte Benutzername und Passwort eingeben.", "error");
+  if (!uid.value || !token.value) {
+    showMessage("Einladungslink ungültig oder abgelaufen.", "error");
+    return;
+  }
+  if (!password.value || password.value.length < 8) {
+    showMessage("Bitte ein Passwort mit mindestens 8 Zeichen wählen.", "error");
+    return;
+  }
+  if (password.value !== confirm.value) {
+    showMessage("Die Passwörter stimmen nicht überein.", "error");
     return;
   }
   loading.value = true;
   showMessage("");
   try {
-    const { data } = await api.post("token/", {
-      username: username.value,
+    await api.post("set-password/", {
+      uid: uid.value,
+      token: token.value,
       password: password.value,
     });
-    localStorage.setItem("access", data.access);
-    localStorage.setItem("refresh", data.refresh);
-    showMessage("Login erfolgreich, weiterleiten...", "success");
-    const redirect = route.query.redirect || "/dashboard";
-    setTimeout(() => router.replace(redirect), 350);
+    showMessage("Passwort gespeichert. Bitte jetzt einloggen.", "success");
+    setTimeout(() => router.push({ name: "login" }), 600);
   } catch (err) {
-    console.error(err);
-    showMessage("Login fehlgeschlagen. Bitte Daten prüfen.", "error");
+    showMessage("Passwort konnte nicht gesetzt werden.", "error");
   } finally {
     loading.value = false;
   }
@@ -114,19 +118,6 @@ label {
   gap: 6px;
   font-weight: 600;
   color: var(--text);
-}
-.actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 14px;
-}
-.checkbox {
-  display: flex;
-  align-items: center;
-  flex-direction: row;
-  gap: 6px;
-  font-weight: 400;
 }
 .feedback {
   margin: 0;

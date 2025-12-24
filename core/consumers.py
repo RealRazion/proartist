@@ -1,10 +1,10 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer, AsyncJsonWebsocketConsumer
-from asgiref.sync import sync_to_async
+from channels.db import database_sync_to_async
 from .serializers import ChatMessageSerializer
-from .models import ChatMessage
+from .models import ChatMessage, Profile
 
-@sync_to_async
+@database_sync_to_async
 def _save_msg(thread_id, sender_profile, text):
     m = ChatMessage.objects.create(
         thread_id=thread_id,
@@ -14,11 +14,11 @@ def _save_msg(thread_id, sender_profile, text):
     )
     return ChatMessageSerializer(m).data
 
-@sync_to_async
+@database_sync_to_async
 def _resolve_profile(user):
     return user.profile
 
-@sync_to_async
+@database_sync_to_async
 def _mark_thread_read(thread_id, reader):
     qs = (ChatMessage.objects
           .filter(thread_id=thread_id, read=False)
@@ -27,6 +27,10 @@ def _mark_thread_read(thread_id, reader):
     if ids:
         qs.update(read=True)
     return ids
+
+@database_sync_to_async
+def _profile_is_team(profile_id):
+    return Profile.objects.filter(id=profile_id, roles__key="TEAM").exists()
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -96,7 +100,8 @@ class UpdatesConsumer(AsyncJsonWebsocketConsumer):
             await self.close()
             return
         profile = await _resolve_profile(self.user)
-        if not profile.roles.filter(key="TEAM").exists():
+        is_team = await _profile_is_team(profile.id)
+        if not is_team:
             await self.close(code=4403)
             return
         self.profile = profile

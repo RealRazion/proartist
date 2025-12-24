@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import Home from "../views/Home.vue";
 import Login from "../views/Login.vue";
-import Register from "../views/Register.vue";
+import SetPassword from "../views/SetPassword.vue";
 import Dashboard from "../views/Dashboard.vue";
 import Profiles from "../views/Profiles.vue";
 import Projects from "../views/Projects.vue";
@@ -20,7 +20,7 @@ import MainLayout from "../layouts/MainLayout.vue";
 const routes = [
   { path: "/", name: "home", component: Home, meta: { guestOnly: true } },
   { path: "/login", name: "login", component: Login, meta: { guestOnly: true } },
-  { path: "/register", name: "register", component: Register, meta: { guestOnly: true } },
+  { path: "/set-password", name: "set-password", component: SetPassword, meta: { guestOnly: true } },
   {
     path: "/app",
     component: MainLayout,

@@ -90,6 +90,7 @@ class Task(models.Model):
     stakeholders = models.ManyToManyField(Profile, blank=True, related_name="task_stakeholder")
     assignees = models.ManyToManyField(Profile, blank=True, related_name="assigned_tasks")
     created_at=models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
     is_archived = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)
     def __str__(self): return self.title

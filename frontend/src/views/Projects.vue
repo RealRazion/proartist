@@ -697,8 +697,8 @@ onBeforeUnmount(() => {
 }
 .card {
   border-radius: 22px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.85));
+  border: 1px solid var(--border);
+  background: var(--card);
   box-shadow: 0 25px 60px rgba(15, 23, 42, 0.08);
   padding: 22px;
 }
@@ -720,7 +720,7 @@ onBeforeUnmount(() => {
   gap: 24px;
 }
 .stats {
-  background: linear-gradient(120deg, rgba(59, 130, 246, 0.12), rgba(14, 165, 233, 0.08));
+  background: rgba(99, 102, 241, 0.12);
 }
 .kpis {
   display: grid;
@@ -730,8 +730,8 @@ onBeforeUnmount(() => {
 .kpi {
   padding: 16px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: var(--card);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -765,9 +765,9 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 .project-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card);
   border-radius: 20px;
-  border: 1px solid rgba(203, 213, 225, 0.6);
+  border: 1px solid var(--border);
   padding: 20px;
   display: flex;
   flex-direction: column;
@@ -921,7 +921,7 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   border-radius: 24px;
   padding: 24px;
-  background: linear-gradient(130deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  background: var(--card);
   box-shadow: 0 35px 80px rgba(15, 23, 42, 0.35);
 }
 .form {
@@ -941,16 +941,40 @@ onBeforeUnmount(() => {
 }
 .input,
 .textarea {
-  border: 1px solid rgba(148, 163, 184, 0.5);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card);
   font-size: 14px;
   width: 100%;
 }
 .textarea {
   min-height: 110px;
   resize: vertical;
+}
+:global(.dark) .projects .card {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+}
+:global(.dark) .projects .card.stats {
+  background: linear-gradient(120deg, rgba(99, 102, 241, 0.2), rgba(56, 189, 248, 0.12));
+}
+:global(.dark) .projects .kpi,
+:global(.dark) .projects .project-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: var(--border);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+:global(.dark) .projects .modal {
+  background: var(--card);
+  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.55);
+}
+:global(.dark) .projects .input,
+:global(.dark) .projects .textarea {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: var(--border);
+  color: var(--text);
 }
 .modal-head {
   display: flex;

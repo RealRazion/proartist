@@ -1060,8 +1060,8 @@ onBeforeUnmount(() => {
 }
 .card {
   border-radius: 22px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.88));
+  border: 1px solid var(--border);
+  background: var(--card);
   box-shadow: 0 25px 60px rgba(15, 23, 42, 0.08);
   padding: 22px;
 }
@@ -1195,14 +1195,14 @@ onBeforeUnmount(() => {
   padding: 12px 0;
 }
 .task-card {
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   min-height: 170px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card);
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
   transition: transform 0.2s ease;
 }
@@ -1531,7 +1531,7 @@ select[multiple] {
   overflow-y: auto;
   border-radius: 26px;
   padding: 24px;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  background: var(--card);
   box-shadow: 0 40px 80px rgba(15, 23, 42, 0.35);
 }
 .form {
@@ -1560,6 +1560,20 @@ select[multiple] {
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+}
+:global(.dark) .tasks .card {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+}
+:global(.dark) .tasks .task-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: var(--border);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+:global(.dark) .tasks .modal {
+  background: var(--card);
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55);
 }
 .modal-actions {
   display: flex;

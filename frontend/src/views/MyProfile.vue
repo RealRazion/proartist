@@ -471,14 +471,14 @@ onMounted(async () => {
   gap: 12px;
 }
 .notification-toggle {
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  background: rgba(248, 250, 252, 0.6);
+  background: var(--card);
 }
 .notification-toggle input {
   transform: scale(1.2);
@@ -524,13 +524,14 @@ onMounted(async () => {
   gap: 12px;
 }
 .file-picker {
-  border: 1px dashed rgba(148, 163, 184, 0.7);
+  border: 1px dashed var(--border);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  background: var(--card);
 }
 .file-picker input {
   display: none;
@@ -551,7 +552,8 @@ onMounted(async () => {
 .example-list li {
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--border);
+  background: var(--card);
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -564,6 +566,30 @@ onMounted(async () => {
 .empty {
   text-align: center;
   margin: 0;
+}
+:global(.dark) .profile-page .notification-toggle {
+  background: rgba(15, 23, 42, 0.5);
+  border-color: var(--border);
+}
+:global(.dark) .profile-page .role-chip {
+  border-color: var(--border);
+  color: var(--text);
+}
+:global(.dark) .profile-page .role-chip.active {
+  border-color: var(--brand);
+  background: rgba(112, 130, 255, 0.2);
+  color: #fff;
+}
+:global(.dark) .profile-page .count-pill {
+  border-color: var(--border);
+}
+:global(.dark) .profile-page .example-list li {
+  border-color: var(--border);
+  background: rgba(15, 23, 42, 0.4);
+}
+:global(.dark) .profile-page .file-picker {
+  border-color: var(--border);
+  background: rgba(15, 23, 42, 0.35);
 }
 @media (max-width: 720px) {
   .hero {

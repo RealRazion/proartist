@@ -486,7 +486,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["GET"], url_path="summary")
     def summary(self, request):
-        qs = self._base_queryset()
+        qs = self.get_queryset()
         total = qs.count()
         archived = qs.filter(is_archived=True).count()
         completed = qs.filter(status="DONE").count()

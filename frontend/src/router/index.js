@@ -3,6 +3,7 @@ import Home from "../views/Home.vue";
 import Login from "../views/Login.vue";
 import SetPassword from "../views/SetPassword.vue";
 import Dashboard from "../views/Dashboard.vue";
+import Analytics from "../views/Analytics.vue";
 import Profiles from "../views/Profiles.vue";
 import Projects from "../views/Projects.vue";
 import ProjectDetail from "../views/ProjectDetail.vue";
@@ -28,6 +29,7 @@ const routes = [
     children: [
       { path: "", redirect: { name: "dashboard" } },
       { path: "dashboard", name: "dashboard", component: Dashboard, alias: "/dashboard", meta: { requiresAuth: true } },
+      { path: "analytics", name: "analytics", component: Analytics, alias: "/analytics", meta: { requiresAuth: true } },
       { path: "profiles", name: "profiles", component: Profiles, alias: "/profiles", meta: { requiresAuth: true } },
       { path: "projects", name: "projects", component: Projects, alias: "/projects", meta: { requiresAuth: true } },
       {

@@ -10,9 +10,15 @@
     </div>
 
     <section v-if="isTeam" class="card overview">
-      <div class="section-head">
-        <h2>Überblick</h2>
-        <button class="btn ghost tiny" type="button" @click="refresh" :disabled="loading">Neu laden</button>
+      <div class="overview-head">
+        <div>
+          <h2>Ueberblick</h2>
+          <p class="muted">Schneller Status fuer Projekte, Tasks und Requests.</p>
+        </div>
+        <div class="overview-actions">
+          <button class="btn ghost tiny" type="button" @click="refresh" :disabled="loading">Neu laden</button>
+          <button class="btn ghost tiny" type="button" @click="goTo('analytics')">Analytics oeffnen</button>
+        </div>
       </div>
       <div class="overview-grid">
         <div class="stat">
@@ -21,9 +27,9 @@
           <small class="muted">Archiviert {{ projectSummary.archived }}</small>
         </div>
         <div class="stat">
-          <span class="label">Aktive Tasks</span>
+          <span class="label">Offene Tasks</span>
           <strong>{{ activeTasksTotal }}</strong>
-          <small class="muted">Überfällig {{ overdueTasks.length }}</small>
+          <small class="muted">Ueberfaellig {{ overdueTasks.length }}</small>
         </div>
         <div class="stat">
           <span class="label">Requests offen</span>
@@ -31,36 +37,15 @@
           <small class="muted">Heute priorisieren</small>
         </div>
         <div class="stat">
-          <span class="label">GrowPro fällig</span>
+          <span class="label">GrowPro faellig</span>
           <strong>{{ growProDueSoon }}</strong>
-          <small class="muted">Überfällig {{ growProOverdue }}</small>
+          <small class="muted">Ueberfaellig {{ growProOverdue }}</small>
         </div>
       </div>
-    </section>
-
-    <section v-if="isTeam" class="card analytics">
-      <div class="section-head">
-        <h2>Analytics</h2>
-        <div class="section-actions">
-          <button class="btn ghost tiny" type="button" @click="loadAnalytics" :disabled="loadingAnalytics">
-            {{ loadingAnalytics ? "Lade..." : "Neu laden" }}
-          </button>
-          <button class="btn ghost tiny" type="button" @click="sendTaskReminders" :disabled="remindersSending">
-            {{ remindersSending ? "Sende..." : "Reminder senden" }}
-          </button>
-        </div>
-      </div>
-      <div class="overview-grid">
-        <div class="stat">
-          <span class="label">Tasks faellig (7 Tage)</span>
-          <strong>{{ analytics.due_soon_tasks }}</strong>
-          <small class="muted">Ueberfaellig {{ analytics.overdue_tasks }}</small>
-        </div>
-        <div class="stat">
-          <span class="label">Erledigt (7 Tage)</span>
-          <strong>{{ analytics.completed_last_7_days }}</strong>
-          <small class="muted">Aktiv {{ analytics.active_tasks }}</small>
-        </div>
+      <div class="overview-strip">
+        <span class="strip-item">Tasks aktiv <strong>{{ activeTasksTotal }}</strong></span>
+        <span class="strip-item">Projekte aktiv <strong>{{ projectSummary.active }}</strong></span>
+        <span class="strip-item">GrowPro offen <strong>{{ growProGoals.length }}</strong></span>
       </div>
     </section>
 
@@ -72,7 +57,7 @@
         </div>
         <div class="task-columns">
           <div>
-            <h3>Überfällig</h3>
+            <h3>Ueberfaellig</h3>
             <ul v-if="topOverdueTasks.length" class="list">
               <li v-for="task in topOverdueTasks" :key="`overdue-${task.id}`">
                 <div class="row">
@@ -82,7 +67,7 @@
                 <small class="muted">{{ taskProjectLabel(task) }}</small>
               </li>
             </ul>
-            <p v-else class="muted small">Keine überfälligen Tasks.</p>
+            <p v-else class="muted small">Keine ueberfaelligen Tasks.</p>
           </div>
           <div>
             <h3>Aktiv</h3>
@@ -171,7 +156,7 @@
         <div class="modal-head">
           <h3>Task erstellen</h3>
           <button class="btn ghost tiny" type="button" @click="closeTaskModal" :disabled="taskSaving">
-            Schließen
+            Schliessen
           </button>
         </div>
         <form class="form" @submit.prevent="submitTask">
@@ -189,11 +174,11 @@
             </select>
           </label>
           <label>
-            Fällig am
+            Faellig am
             <input class="input" type="date" v-model="taskForm.dueDate" />
           </label>
           <label>
-            Priorität
+            Prioritaet
             <select class="input" v-model="taskForm.priority">
               <option v-for="opt in taskPriorityOptions" :key="opt" :value="opt">
                 {{ taskPriorityLabels[opt] }}
@@ -215,7 +200,7 @@
         <div class="modal-head">
           <h3>Benutzer anlegen</h3>
           <button class="btn ghost tiny" type="button" @click="closeUserModal" :disabled="userSaving">
-            Schließen
+            Schliessen
           </button>
         </div>
         <form class="form" @submit.prevent="submitUserInvite">
@@ -269,9 +254,6 @@ const teamRequests = ref([]);
 const loadingRequests = ref(false);
 const growProGoals = ref([]);
 const loading = ref(false);
-const analytics = ref({ active_tasks: 0, overdue_tasks: 0, due_soon_tasks: 0, completed_last_7_days: 0 });
-const loadingAnalytics = ref(false);
-const remindersSending = ref(false);
 
 const taskModalOpen = ref(false);
 const taskSaving = ref(false);
@@ -289,20 +271,20 @@ const hasExample = computed(() => examples.value.length > 0);
 
 const onboarding = computed(() => [
   {
-    label: "Profilinformationen vervollständigen",
+    label: "Profilinformationen vervollstaendigen",
     hint: "Name, Genre, Stadt und Social Links helfen beim Matching.",
     done: Boolean(me.value?.name && me.value?.city),
     cta: { label: "Profil bearbeiten", action: () => goTo("me") },
   },
   {
-    label: "Rollen auswählen",
-    hint: "Wähle aus, welche Rolle du im Netzwerk einnehmen möchtest.",
+    label: "Rollen auswaehlen",
+    hint: "Waehle aus, welche Rolle du im Netzwerk einnehmen moechtest.",
     done: hasRoles.value,
-    cta: hasRoles.value ? null : { label: "Rollen wählen", action: () => goTo("me") },
+    cta: hasRoles.value ? null : { label: "Rollen waehlen", action: () => goTo("me") },
   },
   {
     label: "Mindestens ein Beispiel teilen",
-    hint: "Füge einen Track, ein Video oder ein Dokument hinzu.",
+    hint: "Fuege einen Track, ein Video oder ein Dokument hinzu.",
     done: hasExample.value,
     cta: hasExample.value ? null : { label: "Beispiel hochladen", action: () => goTo("me") },
   },
@@ -405,25 +387,6 @@ async function loadProjectSummary() {
   }
 }
 
-async function loadAnalytics() {
-  if (!isTeam.value || loadingAnalytics.value) return;
-  loadingAnalytics.value = true;
-  try {
-    const { data } = await api.get("analytics/summary/", { params: { soon_days: 7 } });
-    analytics.value = {
-      active_tasks: data.active_tasks || 0,
-      overdue_tasks: data.overdue_tasks || 0,
-      due_soon_tasks: data.due_soon_tasks || 0,
-      completed_last_7_days: data.completed_last_7_days || 0,
-    };
-  } catch (err) {
-    console.error("Analytics konnten nicht geladen werden", err);
-    analytics.value = { active_tasks: 0, overdue_tasks: 0, due_soon_tasks: 0, completed_last_7_days: 0 };
-  } finally {
-    loadingAnalytics.value = false;
-  }
-}
-
 async function loadOverdueTasks() {
   if (!isTeam.value) {
     overdueTasks.value = [];
@@ -433,7 +396,7 @@ async function loadOverdueTasks() {
     const { data } = await api.get("tasks/overdue/");
     overdueTasks.value = data || [];
   } catch (err) {
-    console.error("Überfällige Tasks konnten nicht geladen werden", err);
+    console.error("Ueberfaellige Tasks konnten nicht geladen werden", err);
     overdueTasks.value = [];
   }
 }
@@ -513,27 +476,6 @@ async function loadGrowProGoals() {
   } catch (err) {
     console.error("GrowPro konnte nicht geladen werden", err);
     growProGoals.value = [];
-  }
-}
-
-async function sendTaskReminders() {
-  if (!isTeam.value || remindersSending.value) return;
-  remindersSending.value = true;
-  try {
-    const { data } = await api.post("automation/task-reminders/", {
-      days: 3,
-      include_overdue: true,
-      include_due_soon: true,
-    });
-    const notified = data?.tasks_notified ?? 0;
-    const dueSoon = data?.tasks_due_soon ?? 0;
-    const overdue = data?.tasks_overdue ?? 0;
-    showToast(`Reminder gesendet: ${notified} Tasks (${dueSoon} faellig, ${overdue} ueberfaellig)`, "success");
-  } catch (err) {
-    console.error("Reminder konnten nicht gesendet werden", err);
-    showToast("Reminder konnten nicht gesendet werden", "error");
-  } finally {
-    remindersSending.value = false;
   }
 }
 
@@ -662,7 +604,7 @@ async function refresh() {
         loadActiveTasks(),
         loadTeamRequests(),
         loadGrowProGoals(),
-        loadAnalytics(),
+
       ]);
     } else {
       await Promise.all([loadExamples(), loadProjects()]);
@@ -681,7 +623,7 @@ onMounted(async () => {
       loadActiveTasks(),
       loadTeamRequests(),
       loadGrowProGoals(),
-      loadAnalytics(),
+
     ]);
   } else {
     await Promise.all([loadExamples(), loadProjects()]);
@@ -722,6 +664,18 @@ function taskProjectLabel(task) {
 .overview {
   width: 100%;
 }
+.overview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.overview-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .actions {
   display: flex;
   gap: 10px;
@@ -740,7 +694,7 @@ function taskProjectLabel(task) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card);
 }
 .stat .label {
   font-size: 11px;
@@ -750,6 +704,22 @@ function taskProjectLabel(task) {
 }
 .stat strong {
   font-size: 22px;
+}
+.overview-strip {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.strip-item {
+  border: 1px solid var(--border);
+  background: rgba(99, 102, 241, 0.12);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
 }
 .grid {
   display: grid;
@@ -840,7 +810,7 @@ function taskProjectLabel(task) {
   overflow-y: auto;
   border-radius: 24px;
   padding: 24px;
-  background: linear-gradient(130deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  background: var(--card);
   box-shadow: 0 35px 80px rgba(15, 23, 42, 0.35);
 }
 .modal-head {
@@ -866,7 +836,7 @@ function taskProjectLabel(task) {
   border: 1px solid rgba(148, 163, 184, 0.5);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card);
   font-size: 14px;
   width: 100%;
 }
@@ -888,6 +858,18 @@ function taskProjectLabel(task) {
 }
 .invite-row .input {
   flex: 1 1 280px;
+}
+:global(.dark) .dashboard .stat {
+  background: rgba(15, 23, 42, 0.6);
+}
+:global(.dark) .dashboard .modal {
+  background: var(--card);
+  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.55);
+}
+:global(.dark) .dashboard .input {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: var(--border);
+  color: var(--text);
 }
 @media (max-width: 760px) {
   .row {

@@ -147,6 +147,10 @@
             <span v-else-if="dueState(goal) === 'SOON'" class="badge warn">&lt;24h</span>
             <span v-else-if="dueState(goal) === 'STALE'" class="badge warn">>72h ohne Update</span>
           </div>
+          <div v-if="canManageGoal(goal)" class="goal-actions">
+            <button class="btn ghost tiny" type="button" @click="openEdit(goal)">Bearbeiten</button>
+            <button class="btn ghost tiny danger" type="button" @click="deleteGoal(goal)">L&ouml;schen</button>
+          </div>
           <div class="log-row">
             <input
               class="input"
@@ -175,6 +179,60 @@
         </article>
       </div>
     </section>
+
+    <div v-if="editModalOpen" class="modal-backdrop" @click.self="closeEdit">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Ziel bearbeiten</h3>
+          <button class="btn ghost tiny" type="button" @click="closeEdit" :disabled="savingEdit">
+            Schliessen
+          </button>
+        </div>
+        <form class="form" @submit.prevent="saveEdit">
+          <div class="form-grid">
+            <label v-if="isTeam">
+              K&uuml;nstler
+              <select class="input" v-model="editForm.profile_id">
+                <option value="">Profil w&auml;hlen</option>
+                <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+            </label>
+            <label>
+              Titel
+              <input class="input" v-model.trim="editForm.title" placeholder="z.B. Monatliche H&ouml;rer" />
+            </label>
+            <label>
+              Einheit
+              <input class="input" v-model.trim="editForm.unit" placeholder="H&ouml;rer / Streams / %" />
+            </label>
+            <label>
+              Zielwert
+              <input class="input" type="number" v-model.number="editForm.target_value" />
+            </label>
+            <label>
+              Startwert
+              <input class="input" type="number" v-model.number="editForm.current_value" />
+            </label>
+            <label>
+              F&auml;llig am
+              <input class="input" type="date" v-model="editForm.due_date" />
+            </label>
+            <label>
+              Status
+              <select class="input" v-model="editForm.status">
+                <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn ghost" type="button" @click="closeEdit" :disabled="savingEdit">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="savingEdit">
+              {{ savingEdit ? "Speichere..." : "Speichern" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <div class="pagination" v-if="pageCount > 1">
       <button class="btn ghost tiny" type="button" :disabled="page === 1 || loading" @click="changePage(-1)">Zur&uuml;ck</button>
@@ -210,7 +268,7 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 
-const { isTeam, fetchProfile } = useCurrentProfile();
+const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { toast, showToast, hideToast } = useToast();
 
 const goals = ref([]);
@@ -221,6 +279,18 @@ const creating = ref(false);
 const logging = ref({});
 const loadingActivity = ref(false);
 const showFilters = ref(false);
+const editModalOpen = ref(false);
+const savingEdit = ref(false);
+const editForm = ref({
+  id: null,
+  profile_id: "",
+  title: "",
+  unit: "",
+  target_value: 0,
+  current_value: 0,
+  due_date: "",
+  status: "ACTIVE",
+});
 
 const message = ref("");
 const messageType = ref("info");
@@ -314,6 +384,80 @@ function formatNumber(value) {
   return String(num);
 }
 
+function canManageGoal(goal) {
+  if (!goal) return false;
+  if (isTeam.value) return true;
+  return String(goal.profile?.id) === String(me.value?.id);
+}
+
+function openEdit(goal) {
+  if (!canManageGoal(goal)) return;
+  editForm.value = {
+    id: goal.id,
+    profile_id: goal.profile?.id || "",
+    title: goal.title || "",
+    unit: goal.unit || "",
+    target_value: Number(goal.target_value || 0),
+    current_value: Number(goal.current_value || 0),
+    due_date: goal.due_date || "",
+    status: goal.status || "ACTIVE",
+  };
+  editModalOpen.value = true;
+}
+
+function closeEdit() {
+  if (savingEdit.value) return;
+  editModalOpen.value = false;
+}
+
+async function saveEdit() {
+  if (!editForm.value.title) {
+    showMessage("Titel ist erforderlich.", "error");
+    return;
+  }
+  if (isTeam.value && !editForm.value.profile_id) {
+    showMessage("Kuenstler ist erforderlich.", "error");
+    return;
+  }
+  savingEdit.value = true;
+  try {
+    const payload = {
+      title: editForm.value.title.trim(),
+      unit: (editForm.value.unit || "").trim(),
+      target_value: Number(editForm.value.target_value || 0),
+      current_value: Number(editForm.value.current_value || 0),
+      due_date: editForm.value.due_date || null,
+      status: editForm.value.status,
+    };
+    if (isTeam.value) {
+      payload.profile_id = editForm.value.profile_id;
+    }
+    await api.patch(`growpro/${editForm.value.id}/`, payload);
+    editModalOpen.value = false;
+    await loadGoals();
+    showToast("Ziel gespeichert", "success");
+  } catch (err) {
+    console.error("Ziel konnte nicht gespeichert werden", err);
+    showMessage("Fehler beim Speichern", "error");
+    showToast("Fehler beim Speichern", "error");
+  } finally {
+    savingEdit.value = false;
+  }
+}
+
+async function deleteGoal(goal) {
+  if (!canManageGoal(goal)) return;
+  if (!window.confirm(`Ziel \"${goal.title}\" loeschen?`)) return;
+  try {
+    await api.delete(`growpro/${goal.id}/`);
+    await loadGoals();
+    showToast("Ziel geloescht", "success");
+  } catch (err) {
+    console.error("Ziel konnte nicht geloescht werden", err);
+    showToast("Loeschen fehlgeschlagen", "error");
+  }
+}
+
 function showMessage(text, type = "info") {
   message.value = text;
   messageType.value = type;
@@ -360,7 +504,7 @@ async function loadGoals(resetPage = false) {
 
 async function createGoal() {
   if (!form.value.title || (!form.value.profile_id && isTeam.value)) {
-    showMessage("Titel und K&uuml;nstler sind erforderlich.", "error");
+    showMessage("Titel und Kuenstler sind erforderlich.", "error");
     return;
   }
   creating.value = true;
@@ -621,6 +765,49 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+.goal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.btn.ghost.danger {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: #dc2626;
+}
+.btn.ghost.danger:hover {
+  border-color: rgba(185, 28, 28, 0.7);
+  color: #b91c1c;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+.modal {
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 24px;
+  padding: 24px;
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  box-shadow: 0 35px 80px rgba(15, 23, 42, 0.35);
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+:global(.dark) .growpro .modal {
+  background: var(--card);
+  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.55);
 }
 .pagination {
   display: flex;

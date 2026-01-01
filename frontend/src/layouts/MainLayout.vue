@@ -28,6 +28,16 @@
           <span class="label">Dashboard</span>
         </router-link>
         <router-link
+          v-if="isTeam"
+          to="/analytics"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Analytics' : null"
+        >
+          <span class="icon">A</span>
+          <span class="label">Analytics</span>
+        </router-link>
+        <router-link
           to="/profiles"
           class="nav-link"
           @click="handleNavClick"

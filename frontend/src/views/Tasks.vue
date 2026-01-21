@@ -234,7 +234,7 @@
     </section>
 
     <div v-if="showFilterModal" class="modal-backdrop" @click.self="closeFilterModal">
-      <div class="modal card">
+      <div class="modal card wide">
         <div class="modal-head">
           <h3>Filter</h3>
           <button class="btn ghost tiny" type="button" @click="closeFilterModal">Schließen</button>
@@ -318,7 +318,7 @@
           <h3>{{ taskModalMode === "create" ? "Neue Aufgabe" : "Task bearbeiten" }}</h3>
           <button class="btn ghost tiny" type="button" @click="closeTaskModal" :disabled="taskSaving">Schließen</button>
         </div>
-        <form class="form" @submit.prevent="submitTaskForm">
+        <form class="form form-grid" @submit.prevent="submitTaskForm">
           <label>
             Titel
             <input class="input" v-model.trim="taskForm.title" placeholder="z. B. Mix finalisieren" required />
@@ -352,7 +352,7 @@
               <option v-for="opt in priorityOptions" :key="opt" :value="opt">{{ priorityLabels[opt] }}</option>
             </select>
           </label>
-          <label>
+          <label class="full">
             Verantwortliche (Team)
             <select class="input" v-model="taskForm.assignee_ids" multiple size="6">
               <option v-for="profile in teamProfiles" :key="`assignee-${profile.id}`" :value="profile.id">
@@ -361,7 +361,7 @@
             </select>
             <small class="hint muted">Mehrfachauswahl mit Strg/Command möglich.</small>
           </label>
-          <label>
+          <label class="full">
             Betroffene Nutzer
             <select class="input" v-model="taskForm.stakeholder_ids" multiple size="6">
               <option v-for="profile in profiles" :key="`stake-${profile.id}`" :value="profile.id">
@@ -374,7 +374,7 @@
             Fällig am
             <input class="input" type="date" v-model="taskForm.due_date" />
           </label>
-          <div v-if="taskModalMode === 'edit'" class="danger-zone">
+          <div v-if="taskModalMode === 'edit'" class="danger-zone full">
             <p class="muted">Task archivieren oder komplett löschen.</p>
             <div class="danger-buttons">
               <button class="btn ghost danger" type="button" @click="archiveCurrentTask" :disabled="taskSaving">
@@ -385,7 +385,7 @@
               </button>
             </div>
           </div>
-          <div class="modal-actions">
+          <div class="modal-actions full">
             <button class="btn ghost" type="button" @click="closeTaskModal" :disabled="taskSaving">Abbrechen</button>
             <button class="btn" type="submit" :disabled="taskSaving">
               {{
@@ -1534,10 +1534,21 @@ select[multiple] {
   background: var(--card);
   box-shadow: 0 40px 80px rgba(15, 23, 42, 0.35);
 }
+.modal.wide {
+  max-width: 920px;
+}
 .form {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.form-grid .full {
+  grid-column: 1 / -1;
 }
 .form label {
   display: flex;
@@ -1574,6 +1585,10 @@ select[multiple] {
 :global(.dark) .tasks .modal {
   background: var(--card);
   box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55);
+}
+:global(.dark) .tasks .info-panel {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: var(--border);
 }
 .modal-actions {
   display: flex;
@@ -1623,6 +1638,9 @@ select[multiple] {
   }
   .modal {
     padding: 18px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

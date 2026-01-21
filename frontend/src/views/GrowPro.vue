@@ -9,56 +9,15 @@
           Ziele f&uuml;r die n&auml;chsten 3 Monate, mit schnellen Updates. F&auml;lligkeiten im Blick.
         </p>
       </div>
-      <button class="btn ghost" type="button" @click="loadGoals()" :disabled="loading">
-        {{ loading ? "Lade..." : "Aktualisieren" }}
-      </button>
-    </header>
-
-
-    <section v-if="isTeam" class="card form">
-      <h2>Neues Ziel anlegen</h2>
-      <div class="form-grid">
-        <label>
-          K&uuml;nstler
-          <select class="input" v-model="form.profile_id">
-            <option value="">Profil w&auml;hlen</option>
-            <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
-          </select>
-        </label>
-        <label>
-          Titel
-          <input class="input" v-model.trim="form.title" placeholder="z.B. Monatliche H&ouml;rer" />
-        </label>
-        <label>
-          Einheit
-          <input class="input" v-model.trim="form.unit" placeholder="H&ouml;rer / Streams / %" />
-        </label>
-        <label>
-          Zielwert
-          <input class="input" type="number" v-model.number="form.target_value" />
-        </label>
-        <label>
-          Startwert
-          <input class="input" type="number" v-model.number="form.current_value" />
-        </label>
-        <label>
-          F&auml;llig am
-          <input class="input" type="date" v-model="form.due_date" />
-        </label>
-        <label>
-          Status
-          <select class="input" v-model="form.status">
-            <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
-          </select>
-        </label>
-      </div>
-      <div class="form-actions">
-        <button class="btn" type="button" @click="createGoal" :disabled="creating">
-          {{ creating ? "Speichere..." : "Ziel speichern" }}
+      <div class="header-actions">
+        <button class="btn ghost" type="button" @click="loadGoals()" :disabled="loading">
+          {{ loading ? "Lade..." : "Aktualisieren" }}
         </button>
-        <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
+        <button v-if="isTeam" class="btn" type="button" @click="openCreateModal">
+          Neues Ziel
+        </button>
       </div>
-    </section>
+    </header>
 
     <div class="filters-toggle">
       <button class="btn ghost" type="button" @click="toggleFilters">
@@ -145,7 +104,7 @@
             <p class="muted">Letztes Update: {{ formatDateTime(goal.last_logged_at) || "Noch keines" }}</p>
             <span v-if="dueState(goal) === 'OVERDUE'" class="badge danger">&Uuml;berf&auml;llig</span>
             <span v-else-if="dueState(goal) === 'SOON'" class="badge warn">&lt;24h</span>
-            <span v-else-if="dueState(goal) === 'STALE'" class="badge warn">>72h ohne Update</span>
+            <span v-else-if="dueState(goal) === 'STALE'" class="badge danger">&gt;72h ohne Update</span>
           </div>
           <div v-if="canManageGoal(goal)" class="goal-actions">
             <button class="btn ghost tiny" type="button" @click="openEdit(goal)">Bearbeiten</button>
@@ -181,7 +140,7 @@
     </section>
 
     <div v-if="editModalOpen" class="modal-backdrop" @click.self="closeEdit">
-      <div class="modal card">
+      <div class="modal card wide">
         <div class="modal-head">
           <h3>Ziel bearbeiten</h3>
           <button class="btn ghost tiny" type="button" @click="closeEdit" :disabled="savingEdit">
@@ -234,6 +193,63 @@
       </div>
     </div>
 
+    <div v-if="createModalOpen" class="modal-backdrop" @click.self="closeCreateModal">
+      <div class="modal card wide">
+        <div class="modal-head">
+          <h3>Neues Ziel anlegen</h3>
+          <button class="btn ghost tiny" type="button" @click="closeCreateModal" :disabled="creating">
+            Schliessen
+          </button>
+        </div>
+        <form class="form" @submit.prevent="createGoal">
+          <div class="form-grid">
+            <label>
+              K&uuml;nstler
+              <select class="input" v-model="form.profile_id">
+                <option value="">Profil w&auml;hlen</option>
+                <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+            </label>
+            <label>
+              Titel
+              <input class="input" v-model.trim="form.title" placeholder="z.B. Monatliche H&ouml;rer" />
+            </label>
+            <label>
+              Einheit
+              <input class="input" v-model.trim="form.unit" placeholder="H&ouml;rer / Streams / %" />
+            </label>
+            <label>
+              Zielwert
+              <input class="input" type="number" v-model.number="form.target_value" />
+            </label>
+            <label>
+              Startwert
+              <input class="input" type="number" v-model.number="form.current_value" />
+            </label>
+            <label>
+              F&auml;llig am
+              <input class="input" type="date" v-model="form.due_date" />
+            </label>
+            <label>
+              Status
+              <select class="input" v-model="form.status">
+                <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button class="btn ghost" type="button" @click="closeCreateModal" :disabled="creating">
+              Abbrechen
+            </button>
+            <button class="btn" type="submit" :disabled="creating">
+              {{ creating ? "Speichere..." : "Ziel speichern" }}
+            </button>
+            <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div class="pagination" v-if="pageCount > 1">
       <button class="btn ghost tiny" type="button" :disabled="page === 1 || loading" @click="changePage(-1)">Zur&uuml;ck</button>
       <span>Seite {{ page }} / {{ pageCount }}</span>
@@ -280,6 +296,7 @@ const logging = ref({});
 const loadingActivity = ref(false);
 const showFilters = ref(false);
 const editModalOpen = ref(false);
+const createModalOpen = ref(false);
 const savingEdit = ref(false);
 const editForm = ref({
   id: null,
@@ -347,6 +364,30 @@ const filteredGoals = computed(() =>
 );
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+
+function resetCreateForm() {
+  form.value = {
+    profile_id: "",
+    title: "",
+    description: "",
+    unit: "",
+    target_value: 0,
+    current_value: 0,
+    due_date: "",
+    status: "ACTIVE",
+  };
+}
+
+function openCreateModal() {
+  resetCreateForm();
+  showMessage("");
+  createModalOpen.value = true;
+}
+
+function closeCreateModal() {
+  if (creating.value) return;
+  createModalOpen.value = false;
+}
 
 function logDraft(id) {
   if (!logDrafts.value[id]) {
@@ -515,16 +556,8 @@ async function createGoal() {
       metric: form.value.title.trim() || "Ziel",
     };
     await api.post("growpro/", payload);
-    form.value = {
-      profile_id: "",
-      title: "",
-      description: "",
-      unit: "",
-      target_value: 0,
-      current_value: 0,
-      due_date: "",
-      status: "ACTIVE",
-    };
+    resetCreateForm();
+    createModalOpen.value = false;
     await loadGoals(true);
     showMessage("Ziel angelegt", "success");
     showToast("Ziel angelegt", "success");
@@ -613,6 +646,12 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
 }
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -648,6 +687,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .feedback {
   margin: 0;
@@ -682,7 +723,7 @@ onMounted(async () => {
   border-top-color: rgba(59, 130, 246, 0.6);
 }
 .goal[data-due="STALE"] {
-  border-top-color: rgba(234, 179, 8, 0.7);
+  border-top-color: rgba(239, 68, 68, 0.7);
 }
 .goal-head {
   display: flex;
@@ -795,8 +836,12 @@ onMounted(async () => {
   overflow-y: auto;
   border-radius: 24px;
   padding: 24px;
-  background: linear-gradient(130deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  background: var(--card);
   box-shadow: 0 35px 80px rgba(15, 23, 42, 0.35);
+  border: 1px solid var(--border);
+}
+.modal.wide {
+  width: min(860px, 100%);
 }
 .modal-head {
   display: flex;
@@ -808,6 +853,7 @@ onMounted(async () => {
 :global(.dark) .growpro .modal {
   background: var(--card);
   box-shadow: 0 35px 80px rgba(0, 0, 0, 0.55);
+  border-color: var(--border);
 }
 .pagination {
   display: flex;

@@ -107,7 +107,7 @@
     </section>
 
     <div v-if="showFilterModal" class="modal-backdrop" @click.self="closeFilterModal">
-      <div class="modal card">
+      <div class="modal card wide">
         <div class="modal-head">
           <h3>Filter</h3>
           <button class="btn ghost tiny" type="button" @click="closeFilterModal">Schließen</button>
@@ -170,12 +170,12 @@
           <h3>{{ projectModalMode === "create" ? "Neues Projekt" : "Projekt bearbeiten" }}</h3>
           <button class="btn ghost tiny" type="button" @click="closeProjectModal" :disabled="projectSaving">Schließen</button>
         </div>
-        <form class="form" @submit.prevent="submitProjectForm">
+        <form class="form form-grid" @submit.prevent="submitProjectForm">
           <label>
             Titel
             <input class="input" v-model.trim="projectForm.title" placeholder="z. B. Album Release" required />
           </label>
-          <label>
+          <label class="full">
             Beschreibung
             <textarea class="input textarea" v-model.trim="projectForm.description" placeholder="Kurzbeschreibung"></textarea>
           </label>
@@ -185,7 +185,7 @@
               <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
             </select>
           </label>
-          <label>
+          <label class="full">
             Betroffene Nutzer
             <select class="input" v-model="projectForm.participant_ids" multiple size="8">
               <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
@@ -194,7 +194,7 @@
             </select>
             <small class="hint muted">Mehrfachauswahl mit Strg/Command möglich.</small>
           </label>
-          <label>
+          <label class="full">
             Verantwortliche Teammitglieder
             <select class="input" v-model="projectForm.owner_ids" multiple size="6">
               <option v-for="profile in teamProfiles" :key="`team-${profile.id}`" :value="profile.id">
@@ -203,7 +203,7 @@
             </select>
             <small class="hint muted">Nur Team-Mitglieder werden angezeigt.</small>
           </label>
-          <div v-if="projectModalMode === 'edit'" class="danger-zone">
+          <div v-if="projectModalMode === 'edit'" class="danger-zone full">
             <p class="muted">Projekt archivieren oder endgültig löschen.</p>
             <div class="danger-buttons">
               <button class="btn ghost danger" type="button" @click="archiveCurrentProject" :disabled="projectSaving">
@@ -214,7 +214,7 @@
               </button>
             </div>
           </div>
-          <div class="modal-actions">
+          <div class="modal-actions full">
             <button class="btn ghost" type="button" @click="closeProjectModal" :disabled="projectSaving">Abbrechen</button>
             <button class="btn" type="submit" :disabled="projectSaving">
               {{
@@ -924,10 +924,21 @@ onBeforeUnmount(() => {
   background: var(--card);
   box-shadow: 0 35px 80px rgba(15, 23, 42, 0.35);
 }
+.modal.wide {
+  width: min(920px, 100%);
+}
 .form {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.form-grid .full {
+  grid-column: 1 / -1;
 }
 .form label {
   display: flex;
@@ -1033,6 +1044,9 @@ onBeforeUnmount(() => {
   }
   .modal {
     padding: 18px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

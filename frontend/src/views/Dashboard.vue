@@ -2,6 +2,56 @@
   <div class="dashboard">
     <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
 
+    <section class="card spotlight" v-if="dashboardSlides.length">
+      <div class="spotlight-head">
+        <div>
+          <p class="eyebrow">Dringend</p>
+          <h2>Fristen & Updates</h2>
+          <p class="muted small">Deine naechsten Aufgaben und GrowPro Updates im Blick.</p>
+        </div>
+      </div>
+      <div class="slide" :class="activeSlide?.tone" :data-status="activeSlide?.status">
+        <div class="slide-top">
+          <div v-if="activeSlide?.tone === 'warning'" class="warn-icon">!</div>
+          <div>
+            <h3>{{ activeSlide?.title }}</h3>
+            <p class="muted">{{ activeSlide?.message }}</p>
+          </div>
+        </div>
+        <ul v-if="activeSlide?.items?.length" class="slide-list">
+          <li v-for="item in activeSlide.items" :key="item.key">
+            <span>{{ item.title }}</span>
+            <span class="badge">{{ item.date }}</span>
+          </li>
+        </ul>
+        <div v-if="activeSlide?.cta" class="slide-actions">
+          <button class="btn ghost" type="button" @click="handleSlideCta(activeSlide)">
+            {{ activeSlide.cta.label }}
+          </button>
+        </div>
+      </div>
+      <div class="spotlight-footer">
+        <div class="slide-dots">
+          <button
+            v-for="(slide, index) in dashboardSlides"
+            :key="slide.key"
+            class="dot"
+            :class="{ active: index === slideIndex }"
+            type="button"
+            @click="goToSlide(index)"
+          ></button>
+        </div>
+        <div class="spotlight-nav">
+          <button class="nav-btn" type="button" @click="prevSlide" :disabled="!hasPrevSlide">
+            &lt;
+          </button>
+          <button class="nav-btn" type="button" @click="nextSlide" :disabled="!hasNextSlide">
+            &gt;
+          </button>
+        </div>
+      </div>
+    </section>
+
     <div v-if="isTeam" class="actions-bar">
       <div class="actions">
         <button class="btn" type="button" @click="openTaskModal">Task erstellen</button>
@@ -232,7 +282,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
@@ -254,6 +304,10 @@ const teamRequests = ref([]);
 const loadingRequests = ref(false);
 const growProGoals = ref([]);
 const loading = ref(false);
+const userTasks = ref([]);
+const loadingUserTasks = ref(false);
+
+const slideIndex = ref(0);
 
 const taskModalOpen = ref(false);
 const taskSaving = ref(false);
@@ -336,6 +390,124 @@ const growProOverdue = computed(() => {
 const topOverdueTasks = computed(() => overdueTasks.value.slice(0, 4));
 const topActiveTasks = computed(() => activeTasks.value.slice(0, 4));
 const topRequests = computed(() => teamRequests.value.slice(0, 5));
+
+const taskCandidates = computed(() => {
+  const base = isTeam.value ? [...overdueTasks.value, ...activeTasks.value] : userTasks.value;
+  return base.filter((task) => task?.due_date && !["DONE", "ARCHIVED"].includes(task.status));
+});
+
+const userTaskCandidates = computed(() => {
+  if (!me.value?.id) return taskCandidates.value;
+  const assigned = taskCandidates.value.filter(isTaskAssignedToMe);
+  if (assigned.length) return assigned;
+  const stakeholder = taskCandidates.value.filter(isTaskStakeholderForMe);
+  if (stakeholder.length) return stakeholder;
+  return taskCandidates.value;
+});
+
+const userOverdueTasks = computed(() =>
+  userTaskCandidates.value
+    .filter((task) => isTaskOverdue(task))
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+);
+
+const userUpcomingTasks = computed(() =>
+  userTaskCandidates.value
+    .filter((task) => !isTaskOverdue(task))
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+);
+
+const nextUserTask = computed(() => userUpcomingTasks.value[0] || null);
+
+const relevantGrowProGoals = computed(() => {
+  if (!me.value?.id) return growProGoals.value || [];
+  if (isTeam.value) return growProGoals.value || [];
+  return (growProGoals.value || []).filter((goal) => String(goal.profile?.id) === String(me.value.id));
+});
+
+const growProStaleGoals = computed(() =>
+  relevantGrowProGoals.value.filter((goal) => isGrowProStale(goal))
+);
+
+const growProUpcomingGoals = computed(() => {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return relevantGrowProGoals.value
+    .filter((goal) => goal?.due_date && !["DONE", "ARCHIVED"].includes(goal.status))
+    .filter((goal) => new Date(goal.due_date) >= now)
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+    .slice(0, 3);
+});
+
+const dashboardSlides = computed(() => {
+  const slides = [];
+
+  if (userOverdueTasks.value.length) {
+    const oldest = userOverdueTasks.value[0];
+    slides.push({
+      key: "task-overdue",
+      tone: "warning",
+      status: "overdue",
+      title: "Ueberfaellige Tasks",
+      message: `Du hast ${userOverdueTasks.value.length} ueberfaellige Tasks. Aelteste Frist: ${formatFullDate(oldest.due_date)} (${oldest.title}).`,
+      cta: { label: "Zur Task", route: "tasks" },
+    });
+  }
+
+  if (nextUserTask.value) {
+    const nextStatus = taskUrgency(nextUserTask.value);
+    slides.push({
+      key: `task-next-${nextUserTask.value.id}`,
+      tone: "info",
+      status: nextStatus,
+      title: "Naechste Task-Frist",
+      message: `Dein naechster faelliger Task ist am ${formatFullDate(nextUserTask.value.due_date)}: ${nextUserTask.value.title}.`,
+      cta: { label: "Zur Task", route: "tasks" },
+    });
+  } else {
+    slides.push({
+      key: "task-empty",
+      tone: "info",
+      status: "ok",
+      title: "Keine offenen Task-Fristen",
+      message: "Aktuell sind keine faelligen Tasks fuer dich hinterlegt.",
+      cta: { label: "Zu den Tasks", route: "tasks" },
+    });
+  }
+
+  if (growProStaleGoals.value.length) {
+    slides.push({
+      key: "growpro-stale",
+      tone: "warning",
+      status: "overdue",
+      title: "GrowPro Update ueberfaellig",
+      message: `${growProStaleGoals.value.length} Ziele sind seit mehr als 72h ohne Update.`,
+      cta: { label: "Zu GrowPro", route: "growpro" },
+    });
+  }
+
+  if (growProUpcomingGoals.value.length) {
+    slides.push({
+      key: "growpro-upcoming",
+      tone: "info",
+      status: "ok",
+      title: "Naechste GrowPro Updates",
+      message: "Die naechsten Update-Fristen fuer deine Ziele.",
+      items: growProUpcomingGoals.value.map((goal) => ({
+        key: goal.id,
+        title: goal.title,
+        date: formatFullDate(goal.due_date),
+      })),
+      cta: { label: "Zu GrowPro", route: "growpro" },
+    });
+  }
+
+  return slides;
+});
+
+const activeSlide = computed(() => dashboardSlides.value[slideIndex.value] || null);
+const hasPrevSlide = computed(() => slideIndex.value > 0);
+const hasNextSlide = computed(() => slideIndex.value < dashboardSlides.value.length - 1);
 
 function getDefaultTaskForm() {
   return {
@@ -447,6 +619,33 @@ async function loadActiveTasks() {
   }
 }
 
+async function loadUserTasks() {
+  if (isTeam.value) {
+    userTasks.value = [];
+    return;
+  }
+  if (loadingUserTasks.value) return;
+  loadingUserTasks.value = true;
+  try {
+    const { data } = await api.get("tasks/", {
+      params: {
+        status: "OPEN,IN_PROGRESS,REVIEW",
+        include_done: 0,
+        include_archived: 0,
+        ordering: "due_date",
+        page_size: 50,
+      },
+    });
+    const results = Array.isArray(data) ? data : data.results || [];
+    userTasks.value = results;
+  } catch (err) {
+    console.error("User-Tasks konnten nicht geladen werden", err);
+    userTasks.value = [];
+  } finally {
+    loadingUserTasks.value = false;
+  }
+}
+
 async function loadTeamRequests() {
   if (!isTeam.value) {
     teamRequests.value = [];
@@ -465,10 +664,6 @@ async function loadTeamRequests() {
 }
 
 async function loadGrowProGoals() {
-  if (!isTeam.value) {
-    growProGoals.value = [];
-    return;
-  }
   try {
     const { data } = await api.get("growpro/", { params: { status: "ACTIVE,ON_HOLD", page_size: 50, ordering: "due_date" } });
     const payload = data || {};
@@ -607,7 +802,7 @@ async function refresh() {
 
       ]);
     } else {
-      await Promise.all([loadExamples(), loadProjects()]);
+      await Promise.all([loadExamples(), loadProjects(), loadUserTasks(), loadGrowProGoals()]);
     }
   } finally {
     loading.value = false;
@@ -626,9 +821,72 @@ onMounted(async () => {
 
     ]);
   } else {
-    await Promise.all([loadExamples(), loadProjects()]);
+    await Promise.all([loadExamples(), loadProjects(), loadUserTasks(), loadGrowProGoals()]);
   }
 });
+
+watch(
+  () => dashboardSlides.value.length,
+  (length) => {
+    if (!length) {
+      slideIndex.value = 0;
+      return;
+    }
+    if (slideIndex.value > length - 1) {
+      slideIndex.value = length - 1;
+    }
+  },
+  { immediate: true }
+);
+
+function normalizeId(value) {
+  return String(value ?? "");
+}
+
+function isTaskAssignedToMe(task) {
+  if (!me.value?.id) return false;
+  return (task.assignees || []).some((assignee) => normalizeId(assignee.id) === normalizeId(me.value.id));
+}
+
+function isTaskStakeholderForMe(task) {
+  if (!me.value?.id) return false;
+  return (task.stakeholders || []).some((person) => normalizeId(person.id) === normalizeId(me.value.id));
+}
+
+function isGrowProStale(goal) {
+  if (!goal || ["DONE", "ARCHIVED"].includes(goal.status)) return false;
+  const lastLogged = goal.last_logged_at ? new Date(goal.last_logged_at).getTime() : null;
+  if (!lastLogged) return true;
+  return (Date.now() - lastLogged) / (1000 * 60 * 60) > 72;
+}
+
+function taskUrgency(task) {
+  if (!task?.due_date) return "ok";
+  const now = Date.now();
+  const due = new Date(task.due_date).getTime();
+  if (due < now) return "overdue";
+  const threeDays = 3 * 24 * 60 * 60 * 1000;
+  if (due - now <= threeDays) return "soon";
+  return "ok";
+}
+
+function prevSlide() {
+  if (hasPrevSlide.value) slideIndex.value -= 1;
+}
+
+function nextSlide() {
+  if (hasNextSlide.value) slideIndex.value += 1;
+}
+
+function goToSlide(index) {
+  if (index < 0 || index > dashboardSlides.value.length - 1) return;
+  slideIndex.value = index;
+}
+
+function handleSlideCta(slide) {
+  if (!slide?.cta?.route) return;
+  goTo(slide.cta.route);
+}
 
 function statusLabel(status) {
   return statusLabelMap[status] || status;
@@ -641,6 +899,11 @@ function requestTypeLabel(type) {
 function formatTaskDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" }).format(new Date(value));
+}
+
+function formatFullDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
 }
 
 function taskProjectLabel(task) {
@@ -660,6 +923,136 @@ function taskProjectLabel(task) {
   display: flex;
   justify-content: flex-end;
   width: 100%;
+}
+.spotlight {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.spotlight-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.spotlight .eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  color: var(--brand);
+}
+.spotlight .small {
+  margin: 0;
+  font-size: 13px;
+}
+.spotlight-nav {
+  display: flex;
+  gap: 8px;
+}
+.spotlight-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.slide-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.dot.active {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+.nav-btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.slide {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(99, 102, 241, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+.slide::before {
+  content: "";
+  display: block;
+  height: 4px;
+  width: 100%;
+  border-radius: 999px;
+  background: #22c55e;
+}
+.slide[data-status="soon"]::before {
+  background: #f59e0b;
+}
+.slide[data-status="overdue"]::before {
+  background: #ef4444;
+}
+.slide.warning {
+  border-color: rgba(220, 38, 38, 0.6);
+  background: rgba(248, 113, 113, 0.1);
+}
+.slide-top {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.warn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(220, 38, 38, 0.6);
+  color: #b91c1c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.slide-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.slide-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: rgba(15, 23, 42, 0.04);
+}
+.slide-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 .overview {
   width: 100%;
@@ -861,6 +1254,17 @@ function taskProjectLabel(task) {
 }
 :global(.dark) .dashboard .stat {
   background: rgba(15, 23, 42, 0.6);
+}
+:global(.dark) .dashboard .slide {
+  background: rgba(15, 23, 42, 0.45);
+  border-color: var(--border);
+}
+:global(.dark) .dashboard .slide.warning {
+  background: rgba(127, 29, 29, 0.22);
+  border-color: rgba(248, 113, 113, 0.5);
+}
+:global(.dark) .dashboard .slide-list li {
+  background: rgba(15, 23, 42, 0.55);
 }
 :global(.dark) .dashboard .modal {
   background: var(--card);

@@ -483,3 +483,6 @@ textarea {
     justify-content: flex-end;
   }
 }
+@media (max-width: 420px) {
+  .content { padding: 16px; }
+}

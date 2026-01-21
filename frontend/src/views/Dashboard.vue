@@ -1276,6 +1276,9 @@ function taskProjectLabel(task) {
   color: var(--text);
 }
 @media (max-width: 760px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
   .row {
     flex-direction: column;
     align-items: flex-start;

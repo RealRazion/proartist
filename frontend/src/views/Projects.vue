@@ -1042,6 +1042,9 @@ onBeforeUnmount(() => {
     flex-direction: column;
     align-items: flex-start;
   }
+  .project-grid {
+    grid-template-columns: 1fr;
+  }
   .modal {
     padding: 18px;
   }

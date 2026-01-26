@@ -1,6 +1,5 @@
 <template>
   <div class="songs">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Songs & Versionen</h1>
@@ -169,11 +168,10 @@
 import { ref, computed, onMounted } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 
 const songs = ref([]);
 const versions = ref({});
@@ -419,6 +417,7 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 .filters .filter-row {
   display: flex;
@@ -484,6 +483,8 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 .pill {
   padding: 4px 10px;
@@ -596,6 +597,9 @@ onMounted(async () => {
   }
 }
 @media (max-width: 720px) {
+  .song-grid {
+    grid-template-columns: 1fr;
+  }
   .upload {
     grid-template-columns: 1fr;
   }

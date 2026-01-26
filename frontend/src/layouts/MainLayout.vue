@@ -184,12 +184,6 @@
       </main>
     </div>
 
-    <div class="toast-wrap">
-      <div v-for="toast in toasts" :key="toast.id" class="toast">
-        {{ toast.msg }}
-      </div>
-    </div>
-
     <div class="sidebar-overlay" v-if="mobileOpen && isMobile" @click="toggleSidebar"></div>
   </div>
 </template>
@@ -199,6 +193,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useToast } from "../composables/useToast";
 
 const router = useRouter();
 const route = useRoute();
@@ -208,13 +203,13 @@ const { profile: me, isTeam, fetchProfile, clearProfile } = useCurrentProfile();
 const open = ref(false);
 const search = ref("");
 const unreadCount = ref(0);
-const toasts = ref([]);
 const theme = ref("light");
 const loadingUnread = ref(false);
 const collapsed = ref(false);
 const mobileOpen = ref(false);
 const isMobile = ref(false);
 const openRequests = ref(0);
+const { showToast } = useToast();
 
 let unreadInterval = null;
 
@@ -227,11 +222,7 @@ const themeIcon = computed(() => (theme.value === "dark" ? "🌙" : "☀️"));
 const themeLabel = computed(() => (theme.value === "dark" ? "Dark" : "Light"));
 
 function notify(msg) {
-  const id = Date.now();
-  toasts.value.push({ id, msg });
-  setTimeout(() => {
-    toasts.value = toasts.value.filter((t) => t.id !== id);
-  }, 2500);
+  showToast(msg);
 }
 
 function applyTheme() {

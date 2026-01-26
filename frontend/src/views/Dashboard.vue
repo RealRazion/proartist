@@ -1,7 +1,5 @@
 <template>
   <div class="dashboard">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
-
     <section class="card spotlight" v-if="dashboardSlides.length">
       <div class="spotlight-head">
         <div>
@@ -286,12 +284,11 @@ import { ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 
 const router = useRouter();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 
 const examples = ref([]);
 const projects = ref([]);

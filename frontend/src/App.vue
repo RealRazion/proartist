@@ -1,22 +1,13 @@
-<template>
-  <router-view />
+﻿<template>
+  <div>
+    <router-view />
+    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
+  </div>
 </template>
 
 <script setup>
-// keine Logik nötig
+import Toast from "./components/Toast.vue";
+import { useToast } from "./composables/useToast";
+
+const { toast, hideToast } = useToast();
 </script>
-
-<style>
-html,
-body,
-#app {
-  min-height: 100%;
-}
-
-body {
-  margin: 0;
-  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
-</style>

@@ -1,6 +1,5 @@
 ﻿<template>
   <div class="tasks">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Tasks</h1>
@@ -406,14 +405,13 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import api from "../api";
-import Toast from "../components/Toast.vue";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
 
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 const { connect: connectRealtime } = useRealtimeUpdates(handleRealtimeEvent);
 
 const projects = ref([]);

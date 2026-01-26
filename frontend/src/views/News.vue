@@ -404,7 +404,7 @@ onBeforeUnmount(() => {
   color: var(--muted);
 }
 .crop-controls input[type="range"] {
-  width: 200px;
+  width: min(200px, 100%);
 }
 .toggle {
   display: flex;

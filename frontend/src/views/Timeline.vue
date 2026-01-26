@@ -95,7 +95,15 @@ const loading = ref(false);
 const items = ref([]);
 
 const currentTitle = computed(() => (viewType.value === "TASKS" ? "Task-Kalender" : "Projekt-Zeitachse"));
-const formattedRange = computed(() => `${startDate.value} bis ${endDate.value}`);
+const dateFormatter = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" });
+const formattedRange = computed(() => `${formatDate(startDate.value)} bis ${formatDate(endDate.value)}`);
+
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return dateFormatter.format(date);
+}
 
 const calendarDays = computed(() => {
   const start = new Date(startDate.value);

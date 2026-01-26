@@ -1,6 +1,5 @@
 <template>
   <div class="growpro">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <p class="eyebrow">Team</p>
@@ -281,11 +280,10 @@
 import { ref, computed, onMounted } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 
 const goals = ref([]);
 const profiles = ref([]);

@@ -1,6 +1,5 @@
 <template>
   <div class="projects">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Projekte</h1>
@@ -236,14 +235,13 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
 
 const router = useRouter();
 const { isTeam, fetchProfile } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 const { connect: connectRealtime } = useRealtimeUpdates(handleRealtimeEvent);
 
 const projects = ref([]);

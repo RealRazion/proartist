@@ -1,7 +1,5 @@
 <template>
   <div class="team-roles">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
-
     <header class="card hero">
       <div>
         <p class="eyebrow">Teamverwaltung</p>
@@ -80,12 +78,11 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import api from "../api";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const { isTeam } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 
 const profiles = ref([]);
 const loading = ref(false);

@@ -1,7 +1,5 @@
 <template>
   <div class="project-detail">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
-
     <header class="card hero">
       <button class="btn ghost tiny" type="button" @click="goBack">Zurück zu Projekten</button>
       <div class="hero-main">
@@ -346,7 +344,6 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
-import Toast from "../components/Toast.vue";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
@@ -354,7 +351,7 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 const route = useRoute();
 const router = useRouter();
 const { isTeam, fetchProfile } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 
 const project = ref(null);
 const projectDraft = ref(getDefaultProjectDraft());
@@ -862,8 +859,8 @@ onMounted(async () => {
 }
 .card {
   border-radius: 22px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.88));
+  border: 1px solid var(--border);
+  background: var(--card);
   box-shadow: 0 25px 60px rgba(15, 23, 42, 0.08);
   padding: 22px;
 }
@@ -920,8 +917,8 @@ onMounted(async () => {
   color: #475569;
 }
 .badge.archived {
-  background: rgba(15, 23, 42, 0.12);
-  color: #1f2937;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text);
   padding: 4px 10px;
   border-radius: 10px;
   font-size: 11px;
@@ -1005,10 +1002,11 @@ onMounted(async () => {
 }
 .input,
 .textarea {
-  border: 1px solid rgba(148, 163, 184, 0.5);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card);
+  color: var(--text);
   font-size: 14px;
   width: 100%;
 }
@@ -1059,10 +1057,10 @@ onMounted(async () => {
   gap: 12px;
 }
 .task-card {
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card);
   display: flex;
   flex-direction: column;
 }
@@ -1165,7 +1163,8 @@ onMounted(async () => {
   overflow-y: auto;
   border-radius: 26px;
   padding: 24px;
-  background: linear-gradient(140deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
+  background: var(--card);
+  border: 1px solid var(--border);
   box-shadow: 0 40px 80px rgba(15, 23, 42, 0.35);
 }
 .modal-head {
@@ -1191,6 +1190,9 @@ onMounted(async () => {
 @media (max-width: 720px) {
   .hero {
     align-items: flex-start;
+  }
+  .content-grid {
+    grid-template-columns: 1fr;
   }
   .stats {
     width: 100%;

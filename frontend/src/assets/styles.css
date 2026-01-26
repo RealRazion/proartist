@@ -410,24 +410,6 @@ textarea {
   width: 100%;
 }
 
-.toast-wrap {
-  position: fixed;
-  right: 20px;
-  top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 100;
-}
-
-.toast {
-  background: var(--card);
-  border-left: 4px solid var(--brand);
-  padding: 10px 14px;
-  border-radius: 10px;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
-}
-
 @media (max-width: 1024px) {
   .sidebar {
     flex-basis: 210px;

@@ -1,15 +1,17 @@
-<template>
+ï»¿<template>
   <transition name="fade">
     <div v-if="visible" class="toast" :data-type="type">
       <span class="label">{{ label }}</span>
       <span class="message">{{ message }}</span>
-      <button class="close" type="button" @click="('close')">×</button>
+      <button class="close" type="button" @click="emit('close')" aria-label="Toast schliessen">x</button>
     </div>
   </transition>
 </template>
 
 <script setup>
 import { computed } from "vue";
+
+const emit = defineEmits(["close"]);
 
 const props = defineProps({
   message: { type: String, default: "" },
@@ -34,18 +36,20 @@ const label = computed(() => {
   max-width: 380px;
   padding: 12px 14px;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
   display: grid;
   grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: center;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--card);
+  color: var(--text);
   z-index: 999;
 }
-.toast[data-type="success"] { background: #0f2a1a; color: #c7f7df; }
-.toast[data-type="error"] { background: #2a0f14; color: #fdd8d8; }
-.toast[data-type="warning"] { background: #2a210f; color: #f5e7c7; }
+.toast[data-type="success"] { border-left-color: #22c55e; }
+.toast[data-type="error"] { border-left-color: #ef4444; }
+.toast[data-type="warning"] { border-left-color: #f59e0b; }
 .label { font-weight: 700; }
 .message { font-size: 14px; }
 .close { background: transparent; border: none; color: inherit; font-size: 18px; cursor: pointer; }

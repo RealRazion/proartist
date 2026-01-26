@@ -1,7 +1,5 @@
 <template>
   <div class="profile-page">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
-
     <header class="card hero">
       <div>
         <p class="eyebrow">Mein Profil</p>
@@ -173,11 +171,10 @@
 <script setup>
 import { reactive, ref, onMounted, computed, watch } from "vue";
 import api from "../api";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 const { profile: me, fetchProfile, isTeam } = useCurrentProfile();
 
 const roles = ref([]);

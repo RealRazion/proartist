@@ -1,7 +1,5 @@
 <template>
   <div class="analytics">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
-
     <header class="card header">
       <div>
         <p class="eyebrow">Team</p>
@@ -219,11 +217,10 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import api from "../api";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 const { isTeam, fetchProfile } = useCurrentProfile();
 
 const loading = ref(false);
@@ -644,6 +641,10 @@ onMounted(async () => {
   .header {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .grid,
+  .kpi-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

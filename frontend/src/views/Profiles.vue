@@ -1,6 +1,5 @@
 <template>
   <div :class="['profiles', { compact: compactCards }]">
-    <Toast :visible="toast.visible" :message="toast.message" :type="toast.type" @close="hideToast" />
     <header class="card header">
       <div>
         <h1>Profiles entdecken</h1>
@@ -120,13 +119,12 @@ import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
-import Toast from "../components/Toast.vue";
 import { useToast } from "../composables/useToast";
 
 const router = useRouter();
 const route = useRoute();
 const { profile: me, fetchProfile } = useCurrentProfile();
-const { toast, showToast, hideToast } = useToast();
+const { showToast } = useToast();
 
 const COMPACT_KEY = "profiles:compactMode";
 const profiles = ref([]);
@@ -402,6 +400,18 @@ onBeforeUnmount(() => {
 @media (max-width: 980px) {
   .profiles.compact .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .quick-actions {
+    position: static;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+  .footer.has-actions {
+    padding-right: 0;
+  }
+  .footer .email {
+    max-width: 100%;
   }
 }
 @media (max-width: 760px) {

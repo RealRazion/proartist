@@ -18,6 +18,7 @@ from core.views import (
     ProfileViewSet,
     ProjectAttachmentViewSet,
     ProjectViewSet,
+    RegistrationRequestViewSet,
     ReleaseViewSet,
     RequestViewSet,
     RoleViewSet,
@@ -43,6 +44,7 @@ router.register(r"requests", RequestViewSet)
 router.register(r"threads", ChatThreadViewSet)
 router.register(r"messages", ChatMessageViewSet)
 router.register(r"projects", ProjectViewSet)
+router.register(r"registration-requests", RegistrationRequestViewSet)
 router.register(r"tasks", TaskViewSet)
 router.register(r"project-attachments", ProjectAttachmentViewSet, basename="project-attachments")
 router.register(r"task-attachments", TaskAttachmentViewSet, basename="task-attachments")

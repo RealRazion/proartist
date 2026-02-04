@@ -86,6 +86,43 @@
       </div>
     </section>
 
+    <section v-if="isTeam" class="card requests">
+      <div class="section-head">
+        <div>
+          <h2>Registrierungsanfragen</h2>
+          <p class="muted">E-Mails und Kurzbeschreibungen aus dem self-service Formular.</p>
+        </div>
+        <button class="btn ghost tiny" type="button" @click="loadRegistrationRequests" :disabled="requestsLoading">
+          {{ requestsLoading ? "Lade..." : "Aktualisieren" }}
+        </button>
+      </div>
+      <div v-if="requestsLoading" class="muted">Lade Anfragen...</div>
+      <p v-else-if="!registrationRequests.length" class="muted">Keine offenen Anfragen.</p>
+      <div v-else class="request-list">
+        <article v-for="req in registrationRequests" :key="req.id" class="request-card">
+          <div class="request-head">
+            <div>
+              <strong>{{ req.email }}</strong>
+              <span class="badge" :data-status="req.status">{{ statusLabel(req.status) }}</span>
+            </div>
+            <span class="muted small">{{ formatDateDisplay(req.created_at) }}</span>
+          </div>
+          <p class="muted small">{{ req.description }}</p>
+          <div class="request-actions">
+            <button class="btn ghost tiny" type="button" @click="createInvite(req)" :disabled="inviteLoading === req.id">
+              {{ req.status === "INVITED" ? "Link neu erstellen" : "Einladung erstellen" }}
+            </button>
+            <button v-if="req.invite_link" class="btn ghost tiny" type="button" @click="copyInvite(req.invite_link)">
+              Link kopieren
+            </button>
+          </div>
+          <div v-if="req.invite_link" class="invite-link">
+            <input class="input" readonly :value="req.invite_link" />
+          </div>
+        </article>
+      </div>
+    </section>
+
     <div v-if="manage.open" class="modal-backdrop">
       <div class="modal card">
         <header>
@@ -159,6 +196,9 @@ const manage = ref({
   saving: false,
   error: "",
 });
+const registrationRequests = ref([]);
+const requestsLoading = ref(false);
+const inviteLoading = ref(null);
 
 const filteredProfiles = computed(() => {
   const term = userSearch.value.trim().toLowerCase();
@@ -194,11 +234,25 @@ async function loadRoles() {
   roles.value = data;
 }
 
+async function loadRegistrationRequests() {
+  if (!isTeam.value) return;
+  requestsLoading.value = true;
+  try {
+    const { data } = await api.get("registration-requests/");
+    registrationRequests.value = Array.isArray(data) ? data : data.results || [];
+  } catch (err) {
+    console.error("Registrierungsanfragen konnten nicht geladen werden", err);
+    registrationRequests.value = [];
+  } finally {
+    requestsLoading.value = false;
+  }
+}
+
 async function refresh() {
   if (!isTeam.value) return;
   loading.value = true;
   try {
-    await Promise.all([loadMetrics(), loadProfiles(), loadRoles()]);
+    await Promise.all([loadMetrics(), loadProfiles(), loadRoles(), loadRegistrationRequests()]);
   } catch (err) {
     console.error("Admin Daten konnten nicht geladen werden", err);
   } finally {
@@ -257,6 +311,39 @@ function closeManage() {
   manage.value.error = "";
 }
 
+function statusLabel(status) {
+  return { OPEN: "Offen", INVITED: "Eingeladen", REJECTED: "Abgelehnt" }[status] || status;
+}
+
+async function createInvite(req) {
+  if (!req?.id) return;
+  inviteLoading.value = req.id;
+  try {
+    const { data } = await api.post(`registration-requests/${req.id}/invite/`, { send_email: false });
+    const idx = registrationRequests.value.findIndex((item) => item.id === req.id);
+    if (idx >= 0) {
+      registrationRequests.value[idx] = data;
+    }
+  } catch (err) {
+    console.error("Einladung konnte nicht erstellt werden", err);
+  } finally {
+    inviteLoading.value = null;
+  }
+}
+
+async function copyInvite(link) {
+  if (!link) return;
+  if (navigator?.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(link);
+      return;
+    } catch (err) {
+      console.error("Kopieren fehlgeschlagen", err);
+    }
+  }
+  window.prompt("Link kopieren:", link);
+}
+
 async function saveManage() {
   if (!manage.value.profile) return;
   manage.value.saving = true;
@@ -309,6 +396,61 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.request-list {
+  display: grid;
+  gap: 12px;
+}
+.request-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--card);
+}
+.request-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.request-head strong {
+  margin-right: 8px;
+}
+.request-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.invite-link {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.badge[data-status="OPEN"] {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1d4ed8;
+}
+.badge[data-status="INVITED"] {
+  background: rgba(34, 197, 94, 0.15);
+  color: #15803d;
+}
+.badge[data-status="REJECTED"] {
+  background: rgba(248, 113, 113, 0.2);
+  color: #b91c1c;
+}
+.small {
+  font-size: 12px;
 }
 .tile {
   border: 1px solid rgba(15, 23, 42, 0.08);

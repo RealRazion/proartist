@@ -19,6 +19,7 @@ from .models import (
     ProjectAttachment,
     Release,
     Request,
+    RegistrationRequest,
     Role,
     Task,
     TaskAttachment,
@@ -131,6 +132,13 @@ class RequestSerializer(serializers.ModelSerializer):
 
     def get_receiver_name(self, obj):
         return getattr(obj.receiver, "name", "") or obj.receiver.user.username
+
+
+class RegistrationRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegistrationRequest
+        fields = ["id", "email", "description", "status", "invite_link", "created_at", "invited_at", "updated_at"]
+        read_only_fields = ["invite_link", "created_at", "invited_at", "updated_at"]
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):

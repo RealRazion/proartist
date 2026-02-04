@@ -5,6 +5,7 @@ from .models import (
     Profile,
     Project,
     ProjectAttachment,
+    RegistrationRequest,
     Task,
     TaskAttachment,
     TaskComment,
@@ -22,6 +23,7 @@ admin.site.register(TaskAttachment)
 admin.site.register(TaskComment)
 admin.site.register(ActivityEntry)
 admin.site.register(NewsPost)
+admin.site.register(RegistrationRequest)
 admin.site.register(Song)
 admin.site.register(SongVersion)
 admin.site.register(GrowProGoal)

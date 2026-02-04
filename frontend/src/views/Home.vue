@@ -10,7 +10,8 @@
         </p>
         <div class="hero-actions">
           <router-link class="btn" to="/login">Login</router-link>
-          <span class="muted">Zugang nur per Einladung.</span>
+          <router-link class="btn ghost" to="/register">Zugang anfragen</router-link>
+          <span class="muted">Einladung nach Anfrage durch das Team.</span>
         </div>
       </div>
       <div class="hero-visual">

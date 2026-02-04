@@ -34,6 +34,7 @@ from .models import (
     Profile,
     Project,
     ProjectAttachment,
+    RegistrationRequest,
     Release,
     Request,
     Role,
@@ -60,6 +61,7 @@ from .serializers import (
     ProjectAttachmentSerializer,
     ProjectSerializer,
     ReleaseSerializer,
+    RegistrationRequestSerializer,
     RequestSerializer,
     RoleSerializer,
     GrowProGoalSerializer,
@@ -77,43 +79,48 @@ from .automation import send_task_reminders
 
 # --- Auth/Register ---
 @api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated, IsTeam])
+@permission_classes([permissions.AllowAny])
 def register(request):
-    username = request.data.get("username"); email = request.data.get("email")
-    password = request.data.get("password")
-    # Nur Nicht-Team-Rollen erlauben, TEAM wird ignoriert
-    allowed_roles = {"ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC"}
-    role_keys = [key for key in request.data.get("roles", []) if key in allowed_roles]
-    if not username or not password:
-        return Response({"error":"username & password required"}, status=400)
-    if User.objects.filter(username=username).exists():
-        return Response({"error":"Username vergeben"}, status=400)
-    user = User.objects.create_user(username=username, email=email, password=password)
-    profile = Profile.objects.create(user=user, name=username)
-    if role_keys:
-        roles = Role.objects.filter(key__in=role_keys); profile.roles.set(roles)
-    return Response({"message":"registered","user_id":user.id,"profile_id":profile.id})
-
-@api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated, IsTeam])
-def invite_user(request):
     email = (request.data.get("email") or "").strip().lower()
-    name = (request.data.get("name") or "").strip()
-    role_keys = request.data.get("roles") or []
+    description = (request.data.get("description") or "").strip()
     if not email:
         return Response({"detail": "email required"}, status=400)
+    if not description:
+        return Response({"detail": "description required"}, status=400)
     if User.objects.filter(email__iexact=email).exists():
         return Response({"detail": "email already exists"}, status=400)
-    base_username = email.split("@")[0]
-    username = base_username
-    counter = 1
-    while User.objects.filter(username=username).exists():
-        counter += 1
-        username = f"{base_username}{counter}"
-    user = User.objects.create_user(username=username, email=email)
-    user.set_unusable_password()
-    user.save(update_fields=["password"])
-    profile = Profile.objects.create(user=user, name=name or username)
+    existing = RegistrationRequest.objects.filter(email__iexact=email).first()
+    if existing:
+        if existing.status == "INVITED":
+            return Response({"detail": "invite already sent"}, status=400)
+        existing.description = description
+        existing.status = "OPEN"
+        existing.save(update_fields=["description", "status", "updated_at"])
+        return Response({"message": "request updated"})
+    RegistrationRequest.objects.create(email=email, description=description)
+    return Response({"message":"request submitted"})
+
+def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
+    role_keys = role_keys or []
+    user = User.objects.filter(email__iexact=email).first()
+    if user and user.has_usable_password():
+        raise ValueError("email already exists")
+    if not user:
+        base_username = email.split("@")[0]
+        username = base_username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            counter += 1
+            username = f"{base_username}{counter}"
+        user = User.objects.create_user(username=username, email=email)
+        user.set_unusable_password()
+        user.save(update_fields=["password"])
+    else:
+        username = user.username
+    profile, _ = Profile.objects.get_or_create(user=user, defaults={"name": name or username})
+    if name and not profile.name:
+        profile.name = name
+        profile.save(update_fields=["name"])
     if role_keys:
         roles = Role.objects.filter(key__in=role_keys)
         profile.roles.set(roles)
@@ -121,12 +128,34 @@ def invite_user(request):
     token = default_token_generator.make_token(user)
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
     link = f"{frontend_url}/set-password?uid={uid}&token={token}"
-    send_notification_email(
-        "Dein ProArtist Zugang",
-        f"Hallo,\n\nbitte setze dein Passwort über diesen Link:\n{link}\n\nViele Grüße",
-        [email],
-    )
-    return Response({"id": profile.id, "email": email, "username": username, "invite_link": link})
+    if send_email:
+        send_notification_email(
+            "Dein ProArtist Zugang",
+            f"Hallo,\n\nbitte setze dein Passwort ueber diesen Link:\n{link}\n\nViele Gruesse",
+            [email],
+        )
+    return {"user": user, "profile": profile, "username": username, "invite_link": link}
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsTeam])
+def invite_user(request):
+    email = (request.data.get("email") or "").strip().lower()
+    name = (request.data.get("name") or "").strip()
+    role_keys = request.data.get("roles") or []
+    send_email = _bool_param(request.data.get("send_email"), True)
+    if not email:
+        return Response({"detail": "email required"}, status=400)
+    try:
+        result = _create_invite_for_email(email, name=name, role_keys=role_keys, send_email=send_email)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=400)
+    profile = result["profile"]
+    return Response({
+        "id": profile.id,
+        "email": email,
+        "username": result["username"],
+        "invite_link": result["invite_link"],
+    })
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
@@ -148,6 +177,27 @@ def set_password(request):
     user.set_password(password)
     user.save(update_fields=["password"])
     return Response({"detail": "password set"})
+
+# --- Registration Requests ---
+class RegistrationRequestViewSet(viewsets.ModelViewSet):
+    queryset = RegistrationRequest.objects.all().order_by("-created_at")
+    serializer_class = RegistrationRequestSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeam]
+
+    @action(detail=True, methods=["POST"])
+    def invite(self, request, pk=None):
+        reg = self.get_object()
+        send_email = _bool_param(request.data.get("send_email"), False)
+        try:
+            result = _create_invite_for_email(reg.email, role_keys=[], send_email=send_email)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        reg.invite_link = result["invite_link"]
+        reg.status = "INVITED"
+        reg.invited_at = timezone.now()
+        reg.save(update_fields=["invite_link", "status", "invited_at", "updated_at"])
+        serializer = self.get_serializer(reg)
+        return Response(serializer.data)
 
 # --- Profiles/Roles ---
 class RoleViewSet(viewsets.ModelViewSet):

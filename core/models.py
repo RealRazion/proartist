@@ -28,6 +28,22 @@ class Profile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self): return self.name or self.user.username
 
+class RegistrationRequest(models.Model):
+    STATUS_CHOICES = [
+        ("OPEN", "Offen"),
+        ("INVITED", "Eingeladen"),
+        ("REJECTED", "Abgelehnt"),
+    ]
+    email = models.EmailField(unique=True)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="OPEN")
+    invite_link = models.URLField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    invited_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self): return self.email
+
 class Example(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="examples")
     title = models.CharField(max_length=200, blank=True)

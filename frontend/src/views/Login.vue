@@ -34,6 +34,10 @@
       </form>
 
       <p v-if="message" :class="['feedback', messageType]">{{ message }}</p>
+      <p class="switch">
+        Noch kein Zugang?
+        <router-link to="/register">Zugang anfragen</router-link>
+      </p>
     </div>
   </div>
 </template>
@@ -138,5 +142,10 @@ label {
 }
 .feedback.success {
   color: #34d399;
+}
+.switch {
+  text-align: center;
+  margin-top: -6px;
+  color: var(--muted);
 }
 </style>

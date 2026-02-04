@@ -1,22 +1,10 @@
-<template>
+﻿<template>
   <div class="auth-page">
     <div class="card auth-card">
-      <h1>Konto erstellen</h1>
-      <p class="subtitle">Registriere dich und werde Teil der ProArtist Community.</p>
+      <h1>Registrierung anfragen</h1>
+      <p class="subtitle">Trage deine E-Mail ein und beschreibe kurz, wer du bist. Das Team prueft deine Anfrage.</p>
 
       <form class="auth-form" @submit.prevent="submit">
-        <label>
-          Benutzername
-          <input
-            :class="['input', { invalid: touched.username && usernameError }]"
-            v-model.trim="form.username"
-            placeholder="z. B. beatmaster"
-            autocomplete="username"
-            @blur="markTouched('username')"
-          />
-          <small v-if="touched.username && usernameError" class="hint error">{{ usernameError }}</small>
-        </label>
-
         <label>
           E-Mail
           <input
@@ -30,41 +18,20 @@
         </label>
 
         <label>
-          Passwort
-          <input
-            :class="['input', { invalid: touched.password && passwordError }]"
-            v-model.trim="form.password"
-            type="password"
-            placeholder="Mindestens 8 Zeichen"
-            autocomplete="new-password"
-            @blur="markTouched('password')"
-          />
-          <div class="password-strength">
-            <div class="bar">
-              <div class="fill" :style="{ width: `${passwordStrength.percent}%` }" :data-strength="passwordStrength.level"></div>
-            </div>
-            <span class="strength-label">{{ passwordStrength.label }}</span>
-          </div>
-          <ul class="password-rules">
-            <li v-for="rule in passwordRules" :key="rule.key" :class="{ ok: rule.ok }">{{ rule.label }}</li>
-          </ul>
-          <small v-if="touched.password && passwordError" class="hint error">{{ passwordError }}</small>
+          Kurzbeschreibung
+          <textarea
+            :class="['input', 'textarea', { invalid: touched.description && descriptionError }]"
+            v-model.trim="form.description"
+            placeholder="Erzaehl kurz, welche Rolle du hast und was du suchst."
+            rows="4"
+            @blur="markTouched('description')"
+          ></textarea>
+          <small class="hint muted">Die Beschreibung ist nur fuer Team/Admin sichtbar.</small>
+          <small v-if="touched.description && descriptionError" class="hint error">{{ descriptionError }}</small>
         </label>
 
-        <div>
-          <p class="roles-title">Ich bin ...</p>
-          <div class="roles">
-            <label v-for="role in roles" :key="role.id" class="role-option">
-              <input type="checkbox" :value="role.key" v-model="form.roles" @change="markTouched('roles')" />
-              {{ labelForRole(role.key) }}
-            </label>
-          </div>
-          <small class="hint muted">Team-Mitgliedschaften werden intern vergeben.</small>
-          <small v-if="touched.roles && rolesError" class="hint error">{{ rolesError }}</small>
-        </div>
-
         <button class="btn" type="submit" :disabled="!canSubmit">
-          {{ loading ? "Registriere..." : "Konto erstellen" }}
+          {{ loading ? "Sende..." : "Anfrage senden" }}
         </button>
       </form>
 
@@ -78,105 +45,43 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { ref, computed } from "vue";
 import api from "../api";
 
-const router = useRouter();
-
-const roles = ref([]);
 const form = ref({
-  username: "",
   email: "",
-  password: "",
-  roles: [],
+  description: "",
 });
+
 const touched = ref({
-  username: false,
   email: false,
-  password: false,
-  roles: false,
+  description: false,
 });
+
 const loading = ref(false);
 const message = ref("");
 const messageType = ref("info");
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const usernameError = computed(() => {
-  const value = form.value.username.trim();
-  if (!value) return "Benutzername wird benötigt.";
-  if (value.length < 3) return "Mindestens 3 Zeichen.";
-  if (!/^[a-zA-Z0-9._-]+$/.test(value)) return "Nur Buchstaben, Zahlen, Punkt, Unterstrich.";
-  return "";
-});
-
 const emailError = computed(() => {
   const value = form.value.email.trim();
-  if (!value) return "E-Mail wird benötigt.";
-  if (!emailPattern.test(value)) return "Bitte gültige E-Mail eingeben.";
+  if (!value) return "E-Mail wird benoetigt.";
+  if (!emailPattern.test(value)) return "Bitte gueltige E-Mail eingeben.";
   return "";
 });
 
-const passwordRules = computed(() => {
-  const value = form.value.password || "";
-  return [
-    { key: "length", label: "Mindestens 8 Zeichen", ok: value.length >= 8 },
-    { key: "number", label: "Mindestens eine Zahl", ok: /\d/.test(value) },
-    { key: "upper", label: "Mindestens ein Großbuchstabe", ok: /[A-Z]/.test(value) },
-    { key: "special", label: "Mindestens ein Sonderzeichen", ok: /[^A-Za-z0-9]/.test(value) },
-  ];
+const descriptionError = computed(() => {
+  const value = form.value.description.trim();
+  if (!value) return "Beschreibung wird benoetigt.";
+  if (value.length < 10) return "Bitte etwas ausfuehrlicher beschreiben.";
+  return "";
 });
 
-const passwordError = computed(() => {
-  if (!form.value.password) return "Passwort wird benötigt.";
-  const allRulesMet = passwordRules.value.every((rule) => rule.ok);
-  return allRulesMet ? "" : "Passwort erfüllt noch nicht alle Regeln.";
-});
+const canSubmit = computed(() => !loading.value && !emailError.value && !descriptionError.value);
 
-const passwordStrength = computed(() => {
-  const rules = passwordRules.value;
-  const passed = rules.filter((rule) => rule.ok).length;
-  const percent = form.value.password ? Math.round((passed / rules.length) * 100) : 0;
-  let level = "weak";
-  let label = "Sehr schwach";
-  if (percent >= 75) {
-    level = "strong";
-    label = "Sehr stark";
-  } else if (percent >= 50) {
-    level = "ok";
-    label = "Stark";
-  } else if (percent >= 25) {
-    level = "mid";
-    label = "Mittel";
-  }
-  return { percent, level, label };
-});
-
-const rolesError = computed(() =>
-  form.value.roles.length ? "" : "Bitte mindestens eine Rolle auswählen."
-);
-
-const canSubmit = computed(
-  () =>
-    !loading.value &&
-    !usernameError.value &&
-    !emailError.value &&
-    !passwordError.value &&
-    !rolesError.value
-);
-
-function labelForRole(key) {
-  const map = {
-    ARTIST: "Artist / Sänger*in",
-    PROD: "Producer",
-    VIDEO: "Videograf*in",
-    MERCH: "Merchandiser",
-    MKT: "Marketing / Management",
-    LOC: "Location",
-    TEAM: "Team / Admin",
-  };
-  return map[key] || key;
+function markTouched(field) {
+  touched.value[field] = true;
 }
 
 function showMessage(text, type = "info") {
@@ -184,29 +89,8 @@ function showMessage(text, type = "info") {
   messageType.value = type;
 }
 
-async function loadRoles() {
-  try {
-    const { data } = await api.get("roles/");
-    roles.value = data.filter((role) => role.key !== "TEAM");
-  } catch (err) {
-    console.error("Rollen konnten nicht geladen werden", err);
-    roles.value = [
-      { id: "ARTIST", key: "ARTIST" },
-      { id: "PROD", key: "PROD" },
-      { id: "VIDEO", key: "VIDEO" },
-      { id: "MERCH", key: "MERCH" },
-      { id: "MKT", key: "MKT" },
-      { id: "LOC", key: "LOC" },
-    ];
-  }
-}
-
-function markTouched(field) {
-  touched.value[field] = true;
-}
-
 async function submit() {
-  ["username", "email", "password", "roles"].forEach((field) => markTouched(field));
+  ["email", "description"].forEach((field) => markTouched(field));
   if (!canSubmit.value) {
     showMessage("Bitte korrigiere die markierten Felder.", "error");
     return;
@@ -214,24 +98,20 @@ async function submit() {
   loading.value = true;
   showMessage("");
   try {
-    const payload = {
-      ...form.value,
-      username: form.value.username.trim(),
+    await api.post("register/", {
       email: form.value.email.trim(),
-    };
-    await api.post("register/", payload);
-    showMessage("Registrierung erfolgreich - bitte einloggen.", "success");
-    setTimeout(() => router.replace({ name: "login" }), 600);
+      description: form.value.description.trim(),
+    });
+    showMessage("Danke! Wir pruefen deine Anfrage und melden uns per E-Mail.", "success");
+    form.value = { email: "", description: "" };
+    touched.value = { email: false, description: false };
   } catch (err) {
-    console.error(err);
-    const detail = err?.response?.data?.error || "Registrierung fehlgeschlagen.";
+    const detail = err?.response?.data?.detail || "Anfrage konnte nicht gesendet werden.";
     showMessage(detail, "error");
   } finally {
     loading.value = false;
   }
 }
-
-onMounted(loadRoles);
 </script>
 
 <style scoped>
@@ -258,20 +138,9 @@ onMounted(loadRoles);
   flex-direction: column;
   gap: 16px;
 }
-.roles-title {
-  margin: 0 0 10px;
-  font-weight: 600;
-}
-.roles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px 12px;
-}
-.role-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 500;
+.textarea {
+  min-height: 110px;
+  resize: vertical;
 }
 .input.invalid {
   border-color: #f97316;
@@ -283,55 +152,6 @@ onMounted(loadRoles);
 }
 .hint.error {
   color: #f97316;
-}
-.password-strength {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 6px 0 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-.password-strength .bar {
-  flex: 1;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--border);
-  overflow: hidden;
-}
-.password-strength .fill {
-  height: 100%;
-  border-radius: inherit;
-  width: 0;
-  background: #ef4444;
-  transition: width 0.2s ease, background 0.2s ease;
-}
-.password-strength .fill[data-strength="mid"] {
-  background: #f97316;
-}
-.password-strength .fill[data-strength="ok"] {
-  background: #fbbf24;
-}
-.password-strength .fill[data-strength="strong"] {
-  background: #22c55e;
-}
-.strength-label {
-  min-width: 80px;
-  text-align: right;
-}
-.password-rules {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 8px;
-  display: grid;
-  gap: 4px;
-}
-.password-rules li {
-  font-size: 12px;
-  color: var(--muted);
-}
-.password-rules li.ok {
-  color: #22c55e;
 }
 .feedback {
   margin: 0;

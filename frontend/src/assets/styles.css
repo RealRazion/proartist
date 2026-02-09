@@ -29,6 +29,10 @@ body,
   height: 100%;
 }
 
+html {
+  background: var(--bg);
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -136,6 +140,16 @@ textarea {
   overflow-x: hidden;
   transition: width 0.25s ease, transform 0.25s ease;
   z-index: 30;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  color: rgba(241, 245, 249, 0.7);
+  display: flex;
+  justify-content: center;
 }
 
 .sidebar.collapsed {
@@ -471,4 +485,9 @@ textarea {
 }
 @media (max-width: 420px) {
   .content { padding: 16px; }
+}
+.app-shell,
+#app {
+  min-height: 100vh;
+  background: var(--bg);
 }

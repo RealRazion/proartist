@@ -145,6 +145,9 @@
           <span class="label">Mein Profil</span>
         </router-link>
       </nav>
+      <div class="sidebar-footer">
+        <span class="version">v{{ APP_VERSION }}</span>
+      </div>
     </aside>
 
     <div class="main">
@@ -204,6 +207,7 @@ import { useRouter, useRoute } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
+import { APP_VERSION } from "../config/version";
 
 const router = useRouter();
 const route = useRoute();

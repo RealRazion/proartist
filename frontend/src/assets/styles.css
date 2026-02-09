@@ -194,6 +194,10 @@ textarea {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.badge.artist {
+  background: rgba(249, 115, 22, 0.28);
+  color: #fff;
+}
 
 .sidebar nav {
   display: flex;

@@ -17,6 +17,7 @@ import Admin from "../views/Admin.vue";
 import GrowPro from "../views/GrowPro.vue";
 import Songs from "../views/Songs.vue";
 import Timeline from "../views/Timeline.vue";
+import PluginGuides from "../views/PluginGuides.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
 const routes = [
@@ -44,6 +45,7 @@ const routes = [
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
       { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },
+      { path: "guides", name: "guides", component: PluginGuides, alias: "/guides", meta: { requiresAuth: true } },
       { path: "activity", name: "activity", component: ActivityFeed, alias: "/activity", meta: { requiresAuth: true } },
       { path: "admin", name: "admin", component: Admin, alias: "/admin", meta: { requiresAuth: true } },
       { path: "growpro", name: "growpro", component: GrowPro, alias: "/growpro", meta: { requiresAuth: true } },

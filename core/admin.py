@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import (
     ActivityEntry,
     NewsPost,
+    PluginGuide,
     Profile,
     Project,
     ProjectAttachment,
@@ -23,6 +24,7 @@ admin.site.register(TaskAttachment)
 admin.site.register(TaskComment)
 admin.site.register(ActivityEntry)
 admin.site.register(NewsPost)
+admin.site.register(PluginGuide)
 admin.site.register(RegistrationRequest)
 admin.site.register(Song)
 admin.site.register(SongVersion)

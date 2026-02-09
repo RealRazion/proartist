@@ -15,6 +15,7 @@ from core.views import (
     GrowProGoalViewSet,
     NewsPostViewSet,
     PaymentViewSet,
+    PluginGuideViewSet,
     ProfileViewSet,
     ProjectAttachmentViewSet,
     ProjectViewSet,
@@ -52,6 +53,7 @@ router.register(r"task-comments", TaskCommentViewSet, basename="task-comments")
 router.register(r"songs", SongViewSet, basename="songs")
 router.register(r"song-versions", SongVersionViewSet, basename="song-versions")
 router.register(r"growpro", GrowProGoalViewSet, basename="growpro-goals")
+router.register(r"plugin-guides", PluginGuideViewSet, basename="plugin-guides")
 router.register(r"contracts", ContractViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"releases", ReleaseViewSet)

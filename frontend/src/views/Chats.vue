@@ -23,6 +23,16 @@
             <div class="name">{{ threadTitle(t) }}</div>
             <div class="muted">{{ threadPreview(t) }}</div>
           </div>
+          <div class="thread-actions">
+            <button
+              class="btn ghost tiny"
+              type="button"
+              @click.stop="deleteThread(t)"
+              :disabled="deletingId === t.id"
+            >
+              {{ deletingId === t.id ? "Lösche..." : "Löschen" }}
+            </button>
+          </div>
         </div>
         <div v-if="!threads.length && !loadingThreads" class="empty muted">Noch keine Konversationen.</div>
       </div>
@@ -36,6 +46,14 @@
             <div class="name">{{ threadTitle(activeThread) }}</div>
             <div class="muted">{{ threadPreview(activeThread) }}</div>
           </div>
+          <button
+            class="btn ghost tiny"
+            type="button"
+            @click="deleteThread(activeThread)"
+            :disabled="deletingId === activeThread.id"
+          >
+            {{ deletingId === activeThread.id ? "Lösche..." : "Chat löschen" }}
+          </button>
         </header>
 
         <div class="messages" ref="msgBox">
@@ -118,6 +136,7 @@ const isWsReady = ref(false);
 const loadingThreads = ref(false);
 const uploading = ref(false);
 const typingInfo = ref({});
+const deletingId = ref(null);
 
 let pollHandle = null;
 let reconnectHandle = null;
@@ -355,6 +374,21 @@ async function loadMe() {
   }
 }
 
+function clearActiveThread() {
+  activeId.value = null;
+  messages.value = [];
+  typingInfo.value = {};
+  typingTimers.forEach((timeout) => clearTimeout(timeout));
+  typingTimers.clear();
+  if (ws.value) {
+    ws.value.close();
+    ws.value = null;
+  }
+  isWsReady.value = false;
+  const { thread, ...rest } = route.query;
+  router.replace({ query: rest });
+}
+
 async function loadThreads() {
   if (loadingThreads.value) return;
   loadingThreads.value = true;
@@ -412,6 +446,24 @@ function select(thread) {
   typingTimers.forEach((timeout) => clearTimeout(timeout));
   typingTimers.clear();
   openThread(thread.id);
+}
+
+async function deleteThread(thread) {
+  if (!thread?.id) return;
+  const name = threadTitle(thread);
+  if (!window.confirm(`Chat mit ${name} wirklich löschen?`)) return;
+  deletingId.value = thread.id;
+  try {
+    await api.delete(`threads/${thread.id}/`);
+    threads.value = threads.value.filter((t) => t.id !== thread.id);
+    if (activeId.value === thread.id) {
+      clearActiveThread();
+    }
+  } catch (err) {
+    console.error("Chat konnte nicht gelöscht werden", err);
+  } finally {
+    deletingId.value = null;
+  }
 }
 
 function buildWsUrl() {
@@ -610,7 +662,9 @@ onBeforeUnmount(() => {
 .conversation-body{display:flex;flex-direction:column;gap:16px;height:100%;padding:18px 20px;}
 .aside-header{display:flex;align-items:center;justify-content:space-between;}
 .list{display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow:auto;padding-right:4px;}
-.thread{display:flex;gap:12px;padding:10px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .2s,border-color .2s;}
+.thread{display:flex;gap:12px;padding:10px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:background .2s,border-color .2s;align-items:center;}
+.thread-actions{margin-left:auto;display:flex;gap:6px;opacity:0;pointer-events:none;transition:opacity .2s;}
+.thread:hover .thread-actions,.thread:focus-within .thread-actions{opacity:1;pointer-events:auto;}
 .thread:hover{background:rgba(112,130,255,.12);border-color:rgba(112,130,255,.35);}
 .thread.active{background:rgba(112,130,255,.18);border-color:rgba(112,130,255,.45);}
 .avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;font-weight:700;flex-shrink:0;text-transform:uppercase;}
@@ -619,6 +673,7 @@ onBeforeUnmount(() => {
 .muted{font-size:12px;color:var(--muted);}
 .empty{padding:16px 8px;text-align:center;}
 .thread-header{display:flex;gap:12px;align-items:center;margin-bottom:-8px;}
+.thread-header .btn{margin-left:auto;}
 .chat section.card{width:100%;}
 .messages{flex:1;min-height:65vh;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);width:100%;}
 .msg{max-width:85%;width:fit-content;padding:12px 14px;border-radius:12px;line-height:1.5;background:rgba(15,23,42,.06);border:1px solid var(--border);display:flex;flex-direction:column;gap:6px;}
@@ -648,6 +703,9 @@ onBeforeUnmount(() => {
 @media(max-width:1024px){
   .chat{grid-template-columns:1fr;}
   .aside-header{flex-direction:column;align-items:flex-start;gap:8px;}
+}
+@media(hover:none){
+  .thread-actions{opacity:1;pointer-events:auto;}
 }
 </style>
 

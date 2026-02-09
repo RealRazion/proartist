@@ -5,6 +5,7 @@
         <div class="brand">
           <span class="brand-mark">ProArtist</span>
           <span v-if="isTeam" class="badge">Team</span>
+          <span v-else-if="me" class="badge artist">Artist</span>
         </div>
         <button
           class="collapse-toggle"
@@ -34,7 +35,7 @@
           @click="handleNavClick"
           :title="collapsed && !isMobile ? 'Analytics' : null"
         >
-          <span class="icon">A</span>
+          <span class="icon">📊</span>
           <span class="label">Analytics</span>
         </router-link>
         <router-link
@@ -62,8 +63,17 @@
           @click="handleNavClick"
           :title="collapsed && !isMobile ? 'News' : null"
         >
-          <span class="icon">N</span>
+          <span class="icon">📰</span>
           <span class="label">News</span>
+        </router-link>
+        <router-link
+          to="/guides"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Guides' : null"
+        >
+          <span class="icon">🔌</span>
+          <span class="label">Plugin Guides</span>
         </router-link>
         <router-link
           v-if="isTeam"

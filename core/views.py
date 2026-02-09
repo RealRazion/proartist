@@ -31,6 +31,7 @@ from .models import (
     Example,
     NewsPost,
     Payment,
+    PluginGuide,
     Profile,
     Project,
     ProjectAttachment,
@@ -57,6 +58,7 @@ from .serializers import (
     ExampleSerializer,
     NewsPostSerializer,
     PaymentSerializer,
+    PluginGuideSerializer,
     ProfileSerializer,
     ProjectAttachmentSerializer,
     ProjectSerializer,
@@ -1217,6 +1219,36 @@ class EventViewSet(viewsets.ModelViewSet):
 
 class BookingViewSet(viewsets.ModelViewSet):
     queryset=Booking.objects.all(); serializer_class=BookingSerializer; permission_classes=[permissions.IsAuthenticated]
+
+
+class PluginGuideViewSet(viewsets.ModelViewSet):
+    queryset = PluginGuide.objects.select_related("author__user").order_by("-created_at")
+    serializer_class = PluginGuideSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        me = getattr(self.request.user, "profile", None)
+        if not me or not me.roles.filter(key="TEAM").exists():
+            qs = qs.filter(is_published=True)
+        return qs
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsTeam()]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user.profile)
+
+    @action(detail=True, methods=["POST"], permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def publish(self, request, pk=None):
+        guide = self.get_object()
+        publish = _bool_param(request.data.get("publish"), True)
+        guide.is_published = publish
+        guide.save(update_fields=["is_published"])
+        return Response({"is_published": publish})
 
 
 class NewsPostViewSet(viewsets.ModelViewSet):

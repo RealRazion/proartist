@@ -17,6 +17,7 @@ from .models import (
     Profile,
     Project,
     ProjectAttachment,
+    PluginGuide,
     Release,
     Request,
     RegistrationRequest,
@@ -580,3 +581,28 @@ class NewsPostSerializer(serializers.ModelSerializer):
         model = NewsPost
         fields = ["id", "title", "body", "author", "is_published", "created_at", "updated_at"]
         read_only_fields = ["author", "created_at", "updated_at"]
+
+
+class PluginGuideSerializer(serializers.ModelSerializer):
+    author = ProfileMiniSerializer(read_only=True)
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PluginGuide
+        fields = [
+            "id",
+            "title",
+            "body",
+            "author",
+            "image",
+            "image_url",
+            "is_published",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["author", "created_at", "updated_at", "image_url"]
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        return obj.image.url

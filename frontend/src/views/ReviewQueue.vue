@@ -16,7 +16,7 @@
       <p class="muted">Review-Queues sind nur fuer Team-Mitglieder sichtbar.</p>
     </section>
 
-    <section v-else class="filters card">
+    <section v-if="isTeam" class="filters card">
       <div class="filter-row">
         <label>
           Suche
@@ -38,7 +38,7 @@
       </div>
     </section>
 
-    <section v-else class="grid">
+    <section v-if="isTeam" class="grid">
       <article class="card panel">
         <div class="panel-head">
           <div>

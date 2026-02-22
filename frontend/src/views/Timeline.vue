@@ -38,9 +38,23 @@
             Zeitraum {{ formattedRange }}
           </p>
         </div>
-        <button class="btn ghost" type="button" @click="loadItems" :disabled="loading">
-          {{ loading ? "Lade..." : "Aktualisieren" }}
-        </button>
+        <div class="board-actions">
+          <div class="view-switch">
+            <button
+              v-for="option in layoutOptions"
+              :key="option.key"
+              type="button"
+              class="chip"
+              :class="{ active: layoutMode === option.key }"
+              @click="layoutMode = option.key"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <button class="btn ghost" type="button" @click="loadItems" :disabled="loading">
+            {{ loading ? "Lade..." : "Aktualisieren" }}
+          </button>
+        </div>
       </div>
       <div class="filters">
         <div class="filter-group" v-if="showTasks">
@@ -60,30 +74,65 @@
       </div>
 
       <div v-if="loading" class="muted">Lade Termine...</div>
-      <div v-else class="calendar-grid">
-        <div v-for="day in calendarDays" :key="day.iso" class="calendar-day">
-          <div class="day-head">
-            <strong>{{ day.label }}</strong>
-            <span class="muted small">{{ day.weekday }}</span>
+      <div v-else>
+        <div v-if="layoutMode === 'calendar'" class="calendar-grid">
+          <div v-for="day in calendarDays" :key="day.iso" class="calendar-day">
+            <div class="day-head">
+              <strong>{{ day.label }}</strong>
+              <span class="muted small">{{ day.weekday }}</span>
+            </div>
+            <div class="day-items">
+              <article
+                v-for="item in day.items"
+                :key="item.id"
+                class="timeline-card"
+                :class="item.className"
+              >
+                <header>
+                  <div class="title-wrap">
+                    <p class="meta">{{ item.kind }}</p>
+                    <h4>{{ item.title }}</h4>
+                  </div>
+                  <span class="badge">{{ item.badge }}</span>
+                </header>
+                <p class="muted">{{ item.subtitle }}</p>
+                <div class="card-actions">
+                  <button class="btn ghost tiny" type="button" @click="handleItemAction(item)">
+                    {{ actionLabel(item) }}
+                  </button>
+                </div>
+              </article>
+            </div>
           </div>
-          <div class="day-items">
-            <article
-              v-for="item in day.items"
-              :key="item.id"
-              class="timeline-card"
-              :class="item.className"
-            >
-              <header>
-                <h4>{{ item.title }}</h4>
-                <span class="badge">{{ item.badge }}</span>
-              </header>
-              <p class="muted">{{ item.subtitle }}</p>
-              <div class="card-actions">
-                <button class="btn ghost tiny" type="button" @click="handleItemAction(item)">
-                  {{ actionLabel(item) }}
-                </button>
-              </div>
-            </article>
+        </div>
+        <div v-else class="list-view">
+          <div v-for="group in groupedItems" :key="group.date" class="list-group">
+            <div class="group-head">
+              <strong>{{ group.label }}</strong>
+              <span class="muted small">{{ group.items.length }} EintrÃ¤ge</span>
+            </div>
+            <div class="list-grid">
+              <article
+                v-for="item in group.items"
+                :key="item.id"
+                class="timeline-card"
+                :class="item.className"
+              >
+                <header>
+                  <div class="title-wrap">
+                    <p class="meta">{{ item.kind }}</p>
+                    <h4>{{ item.title }}</h4>
+                  </div>
+                  <span class="badge">{{ item.badge }}</span>
+                </header>
+                <p class="muted">{{ item.subtitle }}</p>
+                <div class="card-actions">
+                  <button class="btn ghost tiny" type="button" @click="handleItemAction(item)">
+                    {{ actionLabel(item) }}
+                  </button>
+                </div>
+              </article>
+            </div>
           </div>
         </div>
       </div>
@@ -114,6 +163,11 @@ const viewOptions = [
   { key: "TASKS", label: "Tasks" },
   { key: "PROJECTS", label: "Projekte" },
   { key: "GROWPRO", label: "GrowPro" },
+];
+const layoutMode = ref("calendar");
+const layoutOptions = [
+  { key: "calendar", label: "Kalender" },
+  { key: "list", label: "Liste" },
 ];
 
 const loading = ref(false);
@@ -192,7 +246,7 @@ const calendarDays = computed(() => {
 
 function enrichItemsForDay(iso) {
   const list = filteredItems.value.filter((item) => item.date === iso);
-  return list.map((item) => buildItemView(item));
+  return sortItems(list);
 }
 
 function buildItemView(item) {
@@ -203,6 +257,7 @@ function buildItemView(item) {
       subtitle: item.raw.project_title || item.raw.description || "Kein Projekt",
       badge: item.raw.priority,
       className: `priority-${item.raw.priority?.toLowerCase()}`,
+      kind: "Task",
       type: item.type,
       raw: item.raw,
     };
@@ -214,6 +269,7 @@ function buildItemView(item) {
       subtitle: item.raw.description || "Kein Status gesetzt",
       badge: item.raw.status,
       className: `status-${item.raw.status?.toLowerCase()}`,
+      kind: "Projekt",
       type: item.type,
       raw: item.raw,
     };
@@ -225,6 +281,7 @@ function buildItemView(item) {
       subtitle: `Update-Frist (72h) für ${item.raw.metric || "Ziel"}`,
       badge: "Update",
       className: "growpro-update",
+      kind: "GrowPro Update",
       type: item.type,
       raw: item.raw,
     };
@@ -235,10 +292,38 @@ function buildItemView(item) {
     subtitle: item.raw.metric || item.raw.description || "GrowPro Ziel",
     badge: item.raw.status || "Ziel",
     className: `growpro-${item.raw.status?.toLowerCase() || "active"}`,
+    kind: "GrowPro Ziel",
     type: item.type,
     raw: item.raw,
   };
 }
+
+function sortItems(list) {
+  const order = { task: 1, project: 2, growpro: 3, "growpro-update": 4 };
+  return list
+    .map((item) => buildItemView(item))
+    .sort((a, b) => {
+      const typeDiff = (order[a.type] || 99) - (order[b.type] || 99);
+      if (typeDiff !== 0) return typeDiff;
+      return (a.title || "").localeCompare(b.title || "", "de");
+    });
+}
+
+const groupedItems = computed(() => {
+  const groups = {};
+  filteredItems.value.forEach((item) => {
+    if (!item.date) return;
+    if (!groups[item.date]) groups[item.date] = [];
+    groups[item.date].push(item);
+  });
+  return Object.keys(groups)
+    .sort()
+    .map((date) => ({
+      date,
+      label: formatDate(date),
+      items: sortItems(groups[date]),
+    }));
+});
 
 async function loadItems() {
   if (!isTeam.value) return;
@@ -383,6 +468,13 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 12px;
 }
+.board-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -410,19 +502,41 @@ onMounted(() => {
   border: 1px solid var(--border);
   font-size: 12px;
 }
+.view-switch {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.03);
+}
+.view-switch .chip {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+}
+.view-switch .chip.active {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+}
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
 }
 .calendar-day {
   border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 160px;
+  min-height: 200px;
+  background: rgba(15, 23, 42, 0.03);
 }
 .day-head {
   display: flex;
@@ -433,21 +547,53 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 1;
 }
 .timeline-card {
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 14px;
+  padding: 12px;
   background: var(--card);
   border: 1px solid rgba(148, 163, 184, 0.4);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  min-height: 130px;
+  overflow: hidden;
 }
 .timeline-card header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
+}
+.timeline-card .title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.timeline-card h4 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.timeline-card p.muted {
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.timeline-card .meta {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 .timeline-card .badge {
   font-size: 11px;
@@ -456,6 +602,7 @@ onMounted(() => {
   border-radius: 999px;
   padding: 3px 10px;
   border: 1px solid rgba(148, 163, 184, 0.4);
+  white-space: nowrap;
 }
 .timeline-card.priority-critical {
   border-color: #dc2626;
@@ -482,6 +629,36 @@ onMounted(() => {
 .card-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.card-actions .btn {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.list-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
 }
 .empty {
   text-align: center;

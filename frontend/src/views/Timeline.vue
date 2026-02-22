@@ -231,6 +231,7 @@ const filteredItems = computed(() => {
 const calendarDays = computed(() => {
   const start = new Date(startDate.value);
   const end = new Date(endDate.value);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
   const days = [];
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const iso = d.toISOString().slice(0, 10);
@@ -403,6 +404,12 @@ async function handleItemAction(item) {
   await router.push({ name: "growpro" });
   await nextTick();
 }
+
+watch([startDate, endDate], () => {
+  if (startDate.value && endDate.value && startDate.value > endDate.value) {
+    endDate.value = startDate.value;
+  }
+});
 
 watch([startDate, endDate, viewType], () => {
   loadItems();

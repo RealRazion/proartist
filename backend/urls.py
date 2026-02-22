@@ -37,6 +37,7 @@ from core.views import (
     run_task_reminders,
     set_password,
     stats,
+    TeamPointsView,
 )
 
 router = routers.DefaultRouter()
@@ -75,6 +76,7 @@ urlpatterns = [
     path("api/analytics/summary/", analytics_summary),
     path("api/automation/task-reminders/", run_task_reminders),
     path("api/activity-feed/", ActivityFeedView.as_view(), name="activity-feed"),
+    path("api/team-points/", TeamPointsView.as_view(), name="team-points"),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/", include(router.urls)),

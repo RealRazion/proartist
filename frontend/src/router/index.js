@@ -18,6 +18,9 @@ import GrowPro from "../views/GrowPro.vue";
 import Songs from "../views/Songs.vue";
 import Timeline from "../views/Timeline.vue";
 import PluginGuides from "../views/PluginGuides.vue";
+import ReviewQueue from "../views/ReviewQueue.vue";
+import Points from "../views/Points.vue";
+import ApiCenter from "../views/ApiCenter.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
 const routes = [
@@ -43,11 +46,14 @@ const routes = [
         meta: { requiresAuth: true },
       },
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
+      { path: "reviews", name: "reviews", component: ReviewQueue, alias: "/reviews", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
       { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },
       { path: "guides", name: "guides", component: PluginGuides, alias: "/guides", meta: { requiresAuth: true } },
       { path: "activity", name: "activity", component: ActivityFeed, alias: "/activity", meta: { requiresAuth: true } },
       { path: "admin", name: "admin", component: Admin, alias: "/admin", meta: { requiresAuth: true } },
+      { path: "points", name: "points", component: Points, alias: "/points", meta: { requiresAuth: true } },
+      { path: "api-center", name: "api-center", component: ApiCenter, alias: "/api-center", meta: { requiresAuth: true } },
       { path: "growpro", name: "growpro", component: GrowPro, alias: "/growpro", meta: { requiresAuth: true } },
       { path: "songs", name: "songs", component: Songs, alias: "/songs", meta: { requiresAuth: true } },
       { path: "team/roles", redirect: { name: "admin" } },

@@ -110,3 +110,70 @@ def rebalance_growpro_assignments():
                 rebalanced += 1
 
     return {"assigned": assigned_count, "rebalanced": rebalanced}
+
+
+def build_team_points_breakdown(team_profiles=None):
+    team_profiles = list(team_profiles) if team_profiles is not None else list(_team_profiles())
+    members = {
+        profile.id: {
+            "profile": {
+                "id": profile.id,
+                "name": profile.name or profile.user.username,
+                "username": profile.user.username,
+            },
+            "total": 0,
+            "tasks": [],
+            "projects": [],
+            "growpro": [],
+        }
+        for profile in team_profiles
+    }
+    if not members:
+        return []
+
+    tasks = (
+        Task.objects.filter(is_archived=False)
+        .exclude(status="DONE")
+        .prefetch_related("assignees")
+    )
+    for task in tasks:
+        points = TASK_PRIORITY_SCORE.get(task.priority, 1)
+        for assignee in task.assignees.all():
+            if assignee.id not in members:
+                continue
+            entry = {
+                "id": task.id,
+                "title": task.title,
+                "priority": task.priority,
+                "points": points,
+                "project_id": task.project_id,
+            }
+            members[assignee.id]["tasks"].append(entry)
+            members[assignee.id]["total"] += points
+
+    projects = Project.objects.filter(is_archived=False).prefetch_related("participants", "owners")
+    for project in projects:
+        participants = {p.id: p for p in project.participants.all()}
+        owners = {p.id: p for p in project.owners.all()}
+        for member_id in {**participants, **owners}:
+            if member_id not in members:
+                continue
+            entry = {"id": project.id, "title": project.title, "points": 2}
+            members[member_id]["projects"].append(entry)
+            members[member_id]["total"] += 2
+
+    goals = GrowProGoal.objects.filter(status__in=["ACTIVE", "ON_HOLD"]).select_related("assigned_team")
+    for goal in goals:
+        if goal.assigned_team_id not in members:
+            continue
+        entry = {
+            "id": goal.id,
+            "title": goal.title,
+            "status": goal.status,
+            "points": 1,
+            "due_date": goal.due_date,
+        }
+        members[goal.assigned_team_id]["growpro"].append(entry)
+        members[goal.assigned_team_id]["total"] += 1
+
+    return sorted(members.values(), key=lambda item: (-item["total"], item["profile"]["name"]))

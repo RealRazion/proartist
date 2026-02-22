@@ -97,6 +97,16 @@
         </router-link>
         <router-link
           v-if="isTeam"
+          to="/reviews"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Review' : null"
+        >
+          <span class="icon">✅</span>
+          <span class="label">Review</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
           to="/timeline"
           class="nav-link"
           @click="handleNavClick"
@@ -124,6 +134,26 @@
         >
           <span class="icon">⚙</span>
           <span class="label">Admin</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
+          to="/points"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Points' : null"
+        >
+          <span class="icon">🧮</span>
+          <span class="label">Points</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
+          to="/api-center"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'API' : null"
+        >
+          <span class="icon">🔑</span>
+          <span class="label">API</span>
         </router-link>
         <router-link
           v-if="isTeam"

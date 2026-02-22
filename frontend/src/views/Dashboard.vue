@@ -297,6 +297,8 @@ const projectSummary = ref({ total: 0, archived: 0, active: 0, done: 0, by_statu
 const overdueTasks = ref([]);
 const activeTasks = ref([]);
 const activeTasksTotal = ref(0);
+const reviewTasks = ref([]);
+const loadingReviewTasks = ref(false);
 const teamRequests = ref([]);
 const loadingRequests = ref(false);
 const growProGoals = ref([]);
@@ -416,6 +418,14 @@ const userUpcomingTasks = computed(() =>
 
 const nextUserTask = computed(() => userUpcomingTasks.value[0] || null);
 
+const reviewUrgentTasks = computed(() => reviewTasks.value.filter((task) => reviewUrgency(task) !== "ok"));
+const reviewNextTask = computed(() =>
+  reviewTasks.value
+    .filter((task) => task?.due_date)
+    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+    .find(Boolean)
+);
+
 const relevantGrowProGoals = computed(() => {
   if (!me.value?.id) return growProGoals.value || [];
   if (isTeam.value) return growProGoals.value || [];
@@ -438,6 +448,28 @@ const growProUpcomingGoals = computed(() => {
 
 const dashboardSlides = computed(() => {
   const slides = [];
+
+  if (isTeam.value && reviewTasks.value.length) {
+    const urgentCount = reviewUrgentTasks.value.length;
+    const tone = urgentCount ? "warning" : "info";
+    const status = urgentCount ? "overdue" : "ok";
+    const nextReview = reviewNextTask.value;
+    slides.push({
+      key: "review-queue",
+      tone,
+      status,
+      title: "Review Tasks",
+      message: urgentCount
+        ? `${urgentCount} Review-Tasks sind in 2 Tagen faellig. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
+        : `Es warten ${reviewTasks.value.length} Review-Tasks. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Offen"}.`,
+      items: reviewTasks.value.slice(0, 3).map((task) => ({
+        key: `review-${task.id}`,
+        title: task.title,
+        date: task.due_date ? formatFullDate(task.due_date) : "Kein Termin",
+      })),
+      cta: { label: "Zur Review-Seite", route: "reviews" },
+    });
+  }
 
   if (userOverdueTasks.value.length) {
     const oldest = userOverdueTasks.value[0];
@@ -616,6 +648,32 @@ async function loadActiveTasks() {
   }
 }
 
+async function loadReviewTasks() {
+  if (!isTeam.value) {
+    reviewTasks.value = [];
+    return;
+  }
+  if (loadingReviewTasks.value) return;
+  loadingReviewTasks.value = true;
+  try {
+    const { data } = await api.get("tasks/", {
+      params: {
+        status: "REVIEW",
+        include_done: 0,
+        include_archived: 0,
+        ordering: "due_date",
+        page_size: 100,
+      },
+    });
+    reviewTasks.value = Array.isArray(data) ? data : data.results || [];
+  } catch (err) {
+    console.error("Review-Tasks konnten nicht geladen werden", err);
+    reviewTasks.value = [];
+  } finally {
+    loadingReviewTasks.value = false;
+  }
+}
+
 async function loadUserTasks() {
   if (isTeam.value) {
     userTasks.value = [];
@@ -719,7 +777,7 @@ async function submitTask() {
     await api.post("tasks/", payload);
     showToast("Task erstellt", "success");
     taskModalOpen.value = false;
-    await Promise.all([loadOverdueTasks(), loadActiveTasks(), loadProjectSummary()]);
+    await Promise.all([loadOverdueTasks(), loadActiveTasks(), loadReviewTasks(), loadProjectSummary()]);
   } catch (err) {
     console.error("Task konnte nicht erstellt werden", err);
     showToast("Task konnte nicht erstellt werden", "error");
@@ -794,6 +852,7 @@ async function refresh() {
         loadProjectSummary(),
         loadOverdueTasks(),
         loadActiveTasks(),
+        loadReviewTasks(),
         loadTeamRequests(),
         loadGrowProGoals(),
 
@@ -813,6 +872,7 @@ onMounted(async () => {
       loadProjectSummary(),
       loadOverdueTasks(),
       loadActiveTasks(),
+      loadReviewTasks(),
       loadTeamRequests(),
       loadGrowProGoals(),
 
@@ -864,6 +924,16 @@ function taskUrgency(task) {
   if (due < now) return "overdue";
   const threeDays = 3 * 24 * 60 * 60 * 1000;
   if (due - now <= threeDays) return "soon";
+  return "ok";
+}
+
+function reviewUrgency(task) {
+  if (!task?.due_date) return "ok";
+  const now = Date.now();
+  const due = new Date(task.due_date).getTime();
+  if (due < now) return "overdue";
+  const twoDays = 2 * 24 * 60 * 60 * 1000;
+  if (due - now <= twoDays) return "soon";
   return "ok";
 }
 
@@ -1282,6 +1352,15 @@ function taskProjectLabel(task) {
   }
   .request-actions {
     justify-content: flex-start;
+  }
+  .slide-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .spotlight-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 }
 </style>

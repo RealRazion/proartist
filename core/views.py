@@ -78,7 +78,7 @@ from .serializers import (
     TaskCommentSerializer,
     TaskSerializer,
 )
-from .assignment import assign_task_for_review, rebalance_growpro_assignments
+from .assignment import assign_task_for_review, build_team_points_breakdown, rebalance_growpro_assignments
 from .utils import log_activity
 from .notifications import send_notification_email
 from .realtime import notify_project_event, notify_task_event
@@ -633,6 +633,11 @@ class TaskViewSet(viewsets.ModelViewSet):
             types = [t.strip().upper() for t in task_type.split(",") if t.strip()]
             if types and "ALL" not in types:
                 qs = qs.filter(task_type__in=types)
+        review_status = self.request.query_params.get("review_status")
+        if review_status:
+            statuses = [s.strip().upper() for s in review_status.split(",") if s.strip()]
+            if statuses and "ALL" not in statuses:
+                qs = qs.filter(review_status__in=statuses)
         due_state = self.request.query_params.get("due_state")
         if due_state == "none":
             qs = qs.filter(due_date__isnull=True)
@@ -1379,6 +1384,30 @@ class ActivityFeedView(APIView):
         qs = qs[:limit]
         serializer = ActivityEntrySerializer(qs, many=True)
         return Response(serializer.data)
+
+
+class TeamPointsView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeam]
+
+    def get(self, request):
+        members = build_team_points_breakdown()
+        rules = {
+            "tasks": {
+                "LOW": 1,
+                "MEDIUM": 1,
+                "HIGH": 2,
+                "CRITICAL": 3,
+            },
+            "project_participation": 2,
+            "growpro_assignment": 1,
+        }
+        return Response(
+            {
+                "rules": rules,
+                "members": members,
+                "updated_at": timezone.now().isoformat(),
+            }
+        )
 
     def _ensure_overdue_entries(self):
         today = timezone.now().date()

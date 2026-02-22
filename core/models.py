@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.conf import settings
 
@@ -10,6 +12,9 @@ ROLE_CHOICES = [
     ("MKT","Vermarktung/Managing"),
     ("LOC","Location"),
 ]
+
+def _generate_system_api_key():
+    return uuid.uuid4().hex
 
 class Role(models.Model):
     key = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True)
@@ -96,6 +101,10 @@ class Task(models.Model):
         ("INTERNAL", "Intern"),
         ("EXTERNAL", "Extern"),
     ]
+    REVIEW_STATUS_CHOICES = [
+        ("REVIEWED", "Reviewed"),
+        ("NOT_REVIEWED", "Nicht reviewed"),
+    ]
 
     project=models.ForeignKey(Project,on_delete=models.CASCADE,related_name="tasks", null=True, blank=True)
     title=models.CharField(max_length=200)
@@ -105,6 +114,8 @@ class Task(models.Model):
     task_type = models.CharField(max_length=10, choices=TASK_TYPE_CHOICES, default="EXTERNAL")
     stakeholders = models.ManyToManyField(Profile, blank=True, related_name="task_stakeholder")
     assignees = models.ManyToManyField(Profile, blank=True, related_name="assigned_tasks")
+    review_status = models.CharField(max_length=20, choices=REVIEW_STATUS_CHOICES, null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     created_at=models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     is_archived = models.BooleanField(default=False)
@@ -224,6 +235,7 @@ class GrowProGoal(models.Model):
     ]
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="growpro_goals")
     created_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="growpro_created")
+    assigned_team = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="growpro_assigned")
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     metric = models.CharField(max_length=100, help_text="z.B. Monatliche Hörer, Streams, Follower")
@@ -302,3 +314,41 @@ class PluginGuide(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self): return self.title
+
+class AutomationRule(models.Model):
+    TRIGGER_CHOICES = [
+        ("TASK_STATUS", "Task Status"),
+        ("TASK_DUE", "Task Frist"),
+        ("GROWPRO_DUE", "GrowPro Frist"),
+        ("PROJECT_STATUS", "Projekt Status"),
+    ]
+    ACTION_CHOICES = [
+        ("NOTIFY", "Benachrichtigen"),
+        ("ASSIGN", "Zuweisen"),
+        ("WEBHOOK", "Webhook"),
+    ]
+    name = models.CharField(max_length=120)
+    trigger = models.CharField(max_length=30, choices=TRIGGER_CHOICES)
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    config = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="automation_rules")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self): return self.name
+
+class SystemIntegration(models.Model):
+    name = models.CharField(max_length=120)
+    slug = models.SlugField(unique=True)
+    api_key = models.CharField(max_length=64, unique=True, default=_generate_system_api_key)
+    scopes = models.JSONField(default=list, blank=True)
+    is_active = models.BooleanField(default=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self): return self.name

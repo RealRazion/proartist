@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from .models import (
     ActivityEntry,
+    AutomationRule,
     Booking,
     ChatMessage,
     ChatThread,
@@ -22,6 +23,7 @@ from .models import (
     Request,
     RegistrationRequest,
     Role,
+    SystemIntegration,
     Task,
     TaskAttachment,
     TaskComment,
@@ -304,6 +306,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "project_title",
             "title",
             "status",
+            "review_status",
             "priority",
             "assignees",
             "assignee_ids",
@@ -313,6 +316,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "stakeholder_ids",
             "created_at",
             "completed_at",
+            "reviewed_at",
             "is_archived",
             "archived_at",
         ]
@@ -321,6 +325,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "archived_at",
             "created_at",
             "completed_at",
+            "reviewed_at",
             "project_title",
             "stakeholders",
             "assignees",
@@ -472,9 +477,17 @@ class GrowProUpdateSerializer(serializers.ModelSerializer):
 class GrowProGoalSerializer(serializers.ModelSerializer):
     profile = ProfileMiniSerializer(read_only=True)
     created_by = ProfileMiniSerializer(read_only=True)
+    assigned_team = ProfileMiniSerializer(read_only=True)
     updates = GrowProUpdateSerializer(many=True, read_only=True)
     profile_id = serializers.PrimaryKeyRelatedField(
         queryset=Profile.objects.all(), source="profile", write_only=True, required=False
+    )
+    assigned_team_id = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        source="assigned_team",
+        write_only=True,
+        required=False,
+        allow_null=True,
     )
 
     class Meta:
@@ -484,6 +497,8 @@ class GrowProGoalSerializer(serializers.ModelSerializer):
             "profile",
             "profile_id",
             "created_by",
+            "assigned_team",
+            "assigned_team_id",
             "title",
             "description",
             "metric",
@@ -507,6 +522,10 @@ class GrowProGoalSerializer(serializers.ModelSerializer):
         is_team = me.roles.filter(key="TEAM").exists()
         if not is_team:
             attrs["profile"] = me
+            attrs.pop("assigned_team", None)
+        assigned_team = attrs.get("assigned_team")
+        if assigned_team and not assigned_team.roles.filter(key="TEAM").exists():
+            raise serializers.ValidationError({"assigned_team_id": "Nur Team-Mitglieder können zugewiesen werden."})
         if self.instance is None and not attrs.get("metric"):
             title = (attrs.get("title") or "").strip()
             attrs["metric"] = title or "Ziel"
@@ -606,3 +625,39 @@ class PluginGuideSerializer(serializers.ModelSerializer):
         if not obj.image:
             return None
         return obj.image.url
+
+
+class AutomationRuleSerializer(serializers.ModelSerializer):
+    created_by = ProfileMiniSerializer(read_only=True)
+
+    class Meta:
+        model = AutomationRule
+        fields = [
+            "id",
+            "name",
+            "trigger",
+            "action",
+            "config",
+            "is_active",
+            "created_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+
+class SystemIntegrationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SystemIntegration
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "api_key",
+            "scopes",
+            "is_active",
+            "last_used_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "last_used_at", "created_at", "updated_at"]

@@ -23,6 +23,7 @@ from rest_framework.views import APIView
 from .models import (
     ROLE_CHOICES,
     ActivityEntry,
+    AutomationRule,
     Booking,
     ChatMessage,
     ChatThread,
@@ -39,6 +40,7 @@ from .models import (
     Release,
     Request,
     Role,
+    SystemIntegration,
     Task,
     TaskAttachment,
     TaskComment,
@@ -50,12 +52,15 @@ from .models import (
 from .permissions import IsTeam, IsTeamOrReadOnly
 from .serializers import (
     ActivityEntrySerializer,
+    AutomationRuleSerializer,
     BookingSerializer,
     ChatMessageSerializer,
     ChatThreadSerializer,
     ContractSerializer,
     EventSerializer,
     ExampleSerializer,
+    GrowProGoalSerializer,
+    GrowProUpdateSerializer,
     NewsPostSerializer,
     PaymentSerializer,
     PluginGuideSerializer,
@@ -66,14 +71,14 @@ from .serializers import (
     RegistrationRequestSerializer,
     RequestSerializer,
     RoleSerializer,
-    GrowProGoalSerializer,
-    GrowProUpdateSerializer,
     SongSerializer,
     SongVersionSerializer,
+    SystemIntegrationSerializer,
     TaskAttachmentSerializer,
     TaskCommentSerializer,
     TaskSerializer,
 )
+from .assignment import assign_task_for_review, rebalance_growpro_assignments
 from .utils import log_activity
 from .notifications import send_notification_email
 from .realtime import notify_project_event, notify_task_event
@@ -667,9 +672,24 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         task = serializer.save()
-        if task.status == "DONE" and not task.completed_at:
-            task.completed_at = timezone.now()
-            task.save(update_fields=["completed_at"])
+        if task.status == "DONE":
+            update_fields = []
+            if not task.completed_at:
+                task.completed_at = timezone.now()
+                update_fields.append("completed_at")
+            if not task.review_status:
+                task.review_status = "NOT_REVIEWED"
+                update_fields.append("review_status")
+            if task.review_status == "REVIEWED" and not task.reviewed_at:
+                task.reviewed_at = timezone.now()
+                update_fields.append("reviewed_at")
+            if task.review_status == "NOT_REVIEWED" and task.reviewed_at:
+                task.reviewed_at = None
+                update_fields.append("reviewed_at")
+            if task.review_status == "NOT_REVIEWED":
+                assign_task_for_review(task)
+            if update_fields:
+                task.save(update_fields=update_fields)
         actor = getattr(self.request.user, "profile", None)
         log_activity(
             "task_created",
@@ -692,16 +712,44 @@ class TaskViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         instance = self.get_object()
         prev_status = instance.status
+        prev_review_status = instance.review_status
         prev_priority = instance.priority
         previous_assignees = set(instance.assignees.values_list("id", flat=True))
         task = serializer.save()
+        review_fields = []
         if prev_status != task.status:
             if task.status == "DONE" and not task.completed_at:
                 task.completed_at = timezone.now()
-                task.save(update_fields=["completed_at"])
+                review_fields.append("completed_at")
             elif prev_status == "DONE" and task.status != "DONE":
                 task.completed_at = None
-                task.save(update_fields=["completed_at"])
+                review_fields.append("completed_at")
+                if task.review_status:
+                    task.review_status = None
+                    review_fields.append("review_status")
+                if task.reviewed_at:
+                    task.reviewed_at = None
+                    review_fields.append("reviewed_at")
+        if task.status == "DONE":
+            if not task.review_status:
+                task.review_status = "NOT_REVIEWED"
+                review_fields.append("review_status")
+            if task.review_status == "REVIEWED" and not task.reviewed_at:
+                task.reviewed_at = timezone.now()
+                review_fields.append("reviewed_at")
+            if task.review_status == "NOT_REVIEWED" and task.reviewed_at:
+                task.reviewed_at = None
+                review_fields.append("reviewed_at")
+            if task.review_status == "NOT_REVIEWED":
+                assign_task_for_review(task)
+        elif task.review_status:
+            task.review_status = None
+            review_fields.append("review_status")
+            if task.reviewed_at:
+                task.reviewed_at = None
+                review_fields.append("reviewed_at")
+        if review_fields:
+            task.save(update_fields=list(set(review_fields)))
         actor = getattr(self.request.user, "profile", None)
         if prev_status != task.status:
             severity = "SUCCESS" if task.status == "DONE" else "INFO"
@@ -712,6 +760,16 @@ class TaskViewSet(viewsets.ModelViewSet):
                 description=f"{prev_status} -> {task.status}",
                 actor=actor,
                 severity=severity,
+                task=task,
+                project=task.project,
+            )
+        if prev_review_status != task.review_status and task.status == "DONE":
+            log_activity(
+                "task_review_status",
+                f"Review-Status: {task.title}",
+                description=f"{prev_review_status or 'unset'} -> {task.review_status}",
+                actor=actor,
+                severity="INFO",
                 task=task,
                 project=task.project,
             )
@@ -1089,7 +1147,11 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
     pagination_class = StandardPagination
 
     def get_queryset(self):
-        qs = GrowProGoal.objects.select_related("profile__user", "created_by__user").prefetch_related("updates__created_by__user")
+        qs = GrowProGoal.objects.select_related(
+            "profile__user",
+            "created_by__user",
+            "assigned_team__user",
+        ).prefetch_related("updates__created_by__user")
         me = self.request.user.profile
         search = self.request.query_params.get("search")
         if search:
@@ -1135,6 +1197,7 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
             severity="INFO",
             project=goal.profile.projects.first() if goal.profile else None,
         )
+        rebalance_growpro_assignments()
 
     def perform_update(self, serializer):
         goal = serializer.save()
@@ -1144,6 +1207,7 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
             actor=getattr(self.request.user, "profile", None),
             severity="INFO",
         )
+        rebalance_growpro_assignments()
 
     @action(detail=True, methods=["POST"], url_path="log", permission_classes=[permissions.IsAuthenticated])
     def log_value(self, request, pk=None):
@@ -1249,6 +1313,21 @@ class PluginGuideViewSet(viewsets.ModelViewSet):
         guide.is_published = publish
         guide.save(update_fields=["is_published"])
         return Response({"is_published": publish})
+
+
+class AutomationRuleViewSet(viewsets.ModelViewSet):
+    queryset = AutomationRule.objects.select_related("created_by__user").order_by("-created_at")
+    serializer_class = AutomationRuleSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeam]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.profile)
+
+
+class SystemIntegrationViewSet(viewsets.ModelViewSet):
+    queryset = SystemIntegration.objects.all().order_by("name")
+    serializer_class = SystemIntegrationSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeam]
 
 
 class NewsPostViewSet(viewsets.ModelViewSet):

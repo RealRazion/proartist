@@ -81,6 +81,13 @@
                         <span class="task-type" :data-type="task.task_type">
                           {{ taskTypeLabels[task.task_type] || task.task_type }}
                         </span>
+                        <span
+                          v-if="task.review_status"
+                          class="review-chip"
+                          :data-review="task.review_status"
+                        >
+                          {{ reviewStatusLabels[task.review_status] || task.review_status }}
+                        </span>
                       </div>
                     </div>
                     <div class="card-buttons">
@@ -105,7 +112,7 @@
                     {{ task.due_date ? `Fällig ${formatDueDate(task.due_date)}` : "Kein Termin" }}
                   </p>
                   <div class="actions">
-                    <select class="input" v-model="task.status" @change="updateStatus(task)">
+                    <select class="input" v-model="task.status" @change="onStatusChange(task, $event)">
                       <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
                     </select>
                     <button class="btn ghost danger tiny" type="button" @click="archiveTask(task)">
@@ -130,6 +137,13 @@
               <span class="status-chip" :data-status="activeTask.status">{{ statusLabels[activeTask.status] }}</span>
               <span class="priority-chip" :data-priority="activeTask.priority">{{ priorityLabels[activeTask.priority] }}</span>
               <span class="type-chip" :data-type="activeTask.task_type">{{ taskTypeLabels[activeTask.task_type] }}</span>
+              <span
+                v-if="activeTask.review_status"
+                class="review-chip"
+                :data-review="activeTask.review_status"
+              >
+                {{ reviewStatusLabels[activeTask.review_status] || activeTask.review_status }}
+              </span>
               <span v-if="activeTask.is_archived" class="archive-chip">Archiviert</span>
             </div>
             <p class="muted">
@@ -156,6 +170,10 @@
               <div>
                 <dt>Status</dt>
                 <dd>{{ statusLabels[activeTask.status] }}</dd>
+              </div>
+              <div>
+                <dt>Review</dt>
+                <dd>{{ reviewStatusLabels[activeTask.review_status] || activeTask.review_status || "-" }}</dd>
               </div>
               <div>
                 <dt>Fällig</dt>
@@ -399,11 +417,32 @@
         </form>
       </div>
     </div>
+
+    <div v-if="reviewModalVisible" class="modal-backdrop" @click.self="cancelReviewDecision">
+      <div class="modal card review-modal">
+        <div class="modal-head">
+          <h3>Review abgeschlossen?</h3>
+          <button class="btn ghost tiny" type="button" @click="cancelReviewDecision">Schließen</button>
+        </div>
+        <div class="modal-body">
+          <p class="muted">
+            Wurde der Task bereits reviewed? Bei "Nein" wird er als nicht reviewed markiert und
+            dem Team-Mitglied mit der geringsten Auslastung zugewiesen.
+          </p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" @click="cancelReviewDecision">Abbrechen</button>
+          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, reviewed</button>
+          <button class="btn danger" type="button" @click="confirmReviewDecision(false)">Nein</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import api from "../api";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
 import { useToast } from "../composables/useToast";
@@ -413,6 +452,7 @@ import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 const { connect: connectRealtime } = useRealtimeUpdates(handleRealtimeEvent);
+const route = useRoute();
 
 const projects = ref([]);
 const tasks = ref([]);
@@ -446,6 +486,10 @@ const taskModalMode = ref("create");
 const taskSaving = ref(false);
 const editingTaskId = ref(null);
 const taskForm = ref(getDefaultTaskForm());
+const reviewModalVisible = ref(false);
+const reviewTarget = ref(null);
+const reviewPreviousStatus = ref(null);
+const statusSnapshot = ref({});
 
 function getDefaultTaskForm() {
   return {
@@ -487,6 +531,10 @@ const statusLabels = {
   IN_PROGRESS: "In Arbeit",
   REVIEW: "Review",
   DONE: "Fertig",
+};
+const reviewStatusLabels = {
+  REVIEWED: "Reviewed",
+  NOT_REVIEWED: "Nicht reviewed",
 };
 const taskTypeOptions = ["INTERNAL", "EXTERNAL"];
 const taskTypeLabels = {
@@ -580,6 +628,14 @@ function upsertTask(taskData) {
   }
 }
 
+function syncStatusSnapshot(list) {
+  const next = { ...statusSnapshot.value };
+  list.forEach((task) => {
+    next[task.id] = task.status;
+  });
+  statusSnapshot.value = next;
+}
+
 function removeTaskById(taskId) {
   const idx = tasks.value.findIndex((task) => task.id === taskId);
   if (idx === -1) return;
@@ -593,7 +649,7 @@ function removeTaskById(taskId) {
 
 function taskMatchesFilters(task) {
   if (!showArchived.value && task.is_archived) return false;
-  if (!showCompleted.value && task.status === "DONE") return false;
+  if (!showCompleted.value && task.status === "DONE" && filterStatus.value !== "DONE") return false;
   if (filterProject.value !== "ALL" && String(task.project || "") !== String(filterProject.value)) return false;
   if (filterStatus.value !== "ALL" && task.status !== filterStatus.value) return false;
   if (priorityFilter.value !== "ALL" && task.priority !== priorityFilter.value) return false;
@@ -731,7 +787,7 @@ async function loadProjects() {
 function buildTaskParams() {
   return {
     include_archived: showArchived.value ? 1 : 0,
-    include_done: showCompleted.value ? 1 : 0,
+    include_done: showCompleted.value || filterStatus.value === "DONE" ? 1 : 0,
     project: filterProject.value !== "ALL" ? filterProject.value : undefined,
     status: filterStatus.value !== "ALL" ? filterStatus.value : undefined,
     priority: priorityFilter.value !== "ALL" ? priorityFilter.value : undefined,
@@ -767,6 +823,7 @@ async function loadTasks({ append = false, pageUrl = null } = {}) {
     if (activeTaskId.value && !tasks.value.find((task) => task.id === activeTaskId.value)) {
       activeTaskId.value = null;
     }
+    maybeOpenTaskFromQuery();
     if (!append) {
       await nextTick();
       setupTaskObserver();
@@ -919,15 +976,67 @@ function applyFilters() {
   closeFilterModal();
 }
 
-async function updateStatus(task) {
+function openReviewModal(task, previousStatus) {
+  reviewTarget.value = task;
+  reviewPreviousStatus.value = previousStatus;
+  reviewModalVisible.value = true;
+}
+
+function closeReviewModal() {
+  reviewTarget.value = null;
+  reviewPreviousStatus.value = null;
+  reviewModalVisible.value = false;
+}
+
+async function applyStatusChange(task, newStatus, reviewStatus, previousStatus) {
+  const fallbackStatus = previousStatus ?? statusSnapshot.value[task.id] ?? task.status;
+  const payload = { status: newStatus };
+  if (reviewStatus) {
+    payload.review_status = reviewStatus;
+  }
   try {
-    await api.patch(`tasks/${task.id}/`, { status: task.status });
+    await api.patch(`tasks/${task.id}/`, payload);
+    statusSnapshot.value = { ...statusSnapshot.value, [task.id]: newStatus };
+    if (reviewStatus) {
+      task.review_status = reviewStatus;
+    } else if (newStatus !== "DONE") {
+      task.review_status = null;
+    }
+    if (newStatus === "DONE") {
+      showCompleted.value = true;
+    }
     await loadTaskSummary();
     showToast("Status aktualisiert", "success");
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
+    task.status = fallbackStatus;
     showToast("Status konnte nicht aktualisiert werden", "error");
   }
+}
+
+function onStatusChange(task, event) {
+  const nextStatus = event?.target?.value || task.status;
+  const previousStatus = statusSnapshot.value[task.id] || task.status;
+  if (nextStatus === "DONE" && previousStatus !== "DONE") {
+    openReviewModal(task, previousStatus);
+    return;
+  }
+  applyStatusChange(task, nextStatus, null, previousStatus);
+}
+
+function confirmReviewDecision(reviewed) {
+  if (!reviewTarget.value) return;
+  const task = reviewTarget.value;
+  const reviewStatus = reviewed ? "REVIEWED" : "NOT_REVIEWED";
+  applyStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
+  closeReviewModal();
+}
+
+function cancelReviewDecision() {
+  if (reviewTarget.value && reviewPreviousStatus.value) {
+    reviewTarget.value.status = reviewPreviousStatus.value;
+  }
+  closeReviewModal();
 }
 
 async function archiveTask(task) {
@@ -961,6 +1070,18 @@ async function loadProfiles() {
 function openTask(task) {
   activeTaskId.value = task.id;
   ensureTaskComments(task.id);
+}
+
+function maybeOpenTaskFromQuery() {
+  if (!isTeam.value) return;
+  const rawId = route.query.taskId;
+  const taskId = Number(rawId);
+  if (!taskId || Number.isNaN(taskId)) return;
+  if (activeTaskId.value === taskId) return;
+  const match = tasks.value.find((task) => task.id === taskId);
+  if (match) {
+    openTask(match);
+  }
 }
 
 async function ensureTaskComments(taskId, force = false) {
@@ -1032,6 +1153,22 @@ watch(
     if (!isTeam.value) return;
     if (searchDebounce) clearTimeout(searchDebounce);
     searchDebounce = setTimeout(() => loadTasks(), 300);
+  }
+);
+
+watch(
+  () => tasks.value,
+  (list) => {
+    syncStatusSnapshot(list);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => route.query.taskId,
+  () => {
+    if (!tasks.value.length) return;
+    maybeOpenTaskFromQuery();
   }
 );
 
@@ -1327,7 +1464,8 @@ onBeforeUnmount(() => {
 .status-chip,
 .priority-chip,
 .type-chip,
-.archive-chip {
+.archive-chip,
+.review-chip {
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 12px;
@@ -1370,6 +1508,18 @@ onBeforeUnmount(() => {
 .archive-chip {
   background: rgba(15, 23, 42, 0.12);
   color: #111827;
+}
+.review-chip {
+  background: rgba(15, 23, 42, 0.12);
+  color: #1f2937;
+}
+.review-chip[data-review="REVIEWED"] {
+  background: rgba(16, 185, 129, 0.16);
+  color: #059669;
+}
+.review-chip[data-review="NOT_REVIEWED"] {
+  background: rgba(248, 113, 113, 0.2);
+  color: #b91c1c;
 }
 .eyebrow {
   text-transform: uppercase;

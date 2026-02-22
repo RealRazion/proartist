@@ -186,18 +186,31 @@
           <div class="skeleton-card" v-for="n in 3" :key="`tsk-${n}`"></div>
         </div>
         <ul v-else-if="tasks.length" class="task-list">
-          <li v-for="task in tasks" :key="task.id" class="task-card">
+          <li
+            v-for="task in tasks"
+            :key="task.id"
+            class="task-card"
+            :data-task-id="task.id"
+            :class="{ highlight: task.id === highlightedTaskId }"
+          >
             <div class="task-main">
               <div>
                 <strong>{{ task.title }}</strong>
                 <p class="muted small">
                   {{ task.due_date ? `Fällig ${formatDate(task.due_date)}` : "Kein Termin" }}
                   - {{ taskPriorityLabels[task.priority] }}
+                  <span
+                    v-if="task.review_status"
+                    class="review-pill"
+                    :data-review="task.review_status"
+                  >
+                    {{ reviewStatusLabels[task.review_status] || task.review_status }}
+                  </span>
                 </p>
                 <p class="muted small">Verantwortlich: {{ formatAssignees(task) }}</p>
               </div>
               <div class="task-actions">
-                <select class="input tiny" v-model="task.status" @change="updateTaskStatus(task)">
+                <select class="input tiny" v-model="task.status" @change="onTaskStatusChange(task, $event)">
                   <option v-for="opt in taskStatusOptions" :key="opt" :value="opt">
                     {{ taskStatusLabels[opt] }}
                   </option>
@@ -337,11 +350,31 @@
         </form>
       </div>
     </div>
+
+    <div v-if="reviewModalVisible" class="modal-backdrop" @click.self="cancelReviewDecision">
+      <div class="modal card review-modal">
+        <div class="modal-head">
+          <h3>Review abgeschlossen?</h3>
+          <button class="btn ghost tiny" type="button" @click="cancelReviewDecision">Schließen</button>
+        </div>
+        <div class="modal-body">
+          <p class="muted">
+            Wurde der Task bereits reviewed? Bei "Nein" wird er als nicht reviewed markiert und
+            dem Team-Mitglied mit der geringsten Auslastung zugewiesen.
+          </p>
+        </div>
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" @click="cancelReviewDecision">Abbrechen</button>
+          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, reviewed</button>
+          <button class="btn danger" type="button" @click="confirmReviewDecision(false)">Nein</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
@@ -372,6 +405,8 @@ const taskSearch = ref("");
 const showArchivedTasks = ref(false);
 const showCompletedTasks = ref(true);
 let taskSearchDebounce = null;
+const highlightedTaskId = ref(null);
+let highlightTimer = null;
 
 const songs = ref([]);
 const songsPagination = ref({ next: null, previous: null, count: 0 });
@@ -386,6 +421,10 @@ const taskModalMode = ref("create");
 const taskSaving = ref(false);
 const editingTaskId = ref(null);
 const taskForm = ref(getDefaultTaskForm());
+const reviewModalVisible = ref(false);
+const reviewTarget = ref(null);
+const reviewPreviousStatus = ref(null);
+const statusSnapshot = ref({});
 
 const projectStatusOptions = ["PLANNED", "IN_PROGRESS", "ON_HOLD", "DONE"];
 const projectStatusLabels = {
@@ -401,6 +440,10 @@ const taskStatusLabels = {
   IN_PROGRESS: "In Arbeit",
   REVIEW: "Review",
   DONE: "Abgeschlossen",
+};
+const reviewStatusLabels = {
+  REVIEWED: "Reviewed",
+  NOT_REVIEWED: "Nicht reviewed",
 };
 
 const taskPriorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -604,7 +647,7 @@ function buildTaskParams() {
     status: taskStatusFilter.value !== "ALL" ? taskStatusFilter.value : undefined,
     search: taskSearch.value.trim() || undefined,
     include_archived: showArchivedTasks.value ? 1 : 0,
-    include_done: showCompletedTasks.value ? 1 : 0,
+    include_done: showCompletedTasks.value || taskStatusFilter.value === "DONE" ? 1 : 0,
     ordering: "-due_date",
     page_size: 20,
   };
@@ -631,6 +674,7 @@ async function loadTasks({ append = false, pageUrl = null } = {}) {
         count: data.count ?? results.length,
       };
     }
+    maybeHighlightFromQuery();
   } catch (err) {
     console.error("Tasks konnten nicht geladen werden", err);
     showToast("Tasks konnten nicht geladen werden", "error");
@@ -643,20 +687,104 @@ async function loadTasks({ append = false, pageUrl = null } = {}) {
   }
 }
 
+function syncStatusSnapshot(list) {
+  const next = { ...statusSnapshot.value };
+  list.forEach((task) => {
+    next[task.id] = task.status;
+  });
+  statusSnapshot.value = next;
+}
+
+function maybeHighlightFromQuery() {
+  const taskId = Number(route.query.taskId || 0);
+  if (!taskId) return;
+  if (!tasks.value.find((task) => task.id === taskId)) return;
+  highlightTask(taskId);
+}
+
+function highlightTask(taskId) {
+  highlightedTaskId.value = taskId;
+  nextTick(() => {
+    const el = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.remove("pulse");
+      void el.offsetWidth;
+      el.classList.add("pulse");
+    }
+  });
+  if (highlightTimer) clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(() => {
+    highlightedTaskId.value = null;
+  }, 3000);
+}
+
 function loadMoreTasks() {
   if (!taskPagination.value.next) return;
   loadTasks({ append: true, pageUrl: taskPagination.value.next });
 }
 
-async function updateTaskStatus(task) {
+function openReviewModal(task, previousStatus) {
+  reviewTarget.value = task;
+  reviewPreviousStatus.value = previousStatus;
+  reviewModalVisible.value = true;
+}
+
+function closeReviewModal() {
+  reviewTarget.value = null;
+  reviewPreviousStatus.value = null;
+  reviewModalVisible.value = false;
+}
+
+async function applyTaskStatusChange(task, newStatus, reviewStatus, previousStatus) {
+  const fallbackStatus = previousStatus ?? statusSnapshot.value[task.id] ?? task.status;
+  const payload = { status: newStatus };
+  if (reviewStatus) {
+    payload.review_status = reviewStatus;
+  }
   try {
-    await api.patch(`tasks/${task.id}/`, { status: task.status });
+    await api.patch(`tasks/${task.id}/`, payload);
+    statusSnapshot.value = { ...statusSnapshot.value, [task.id]: newStatus };
+    if (reviewStatus) {
+      task.review_status = reviewStatus;
+    } else if (newStatus !== "DONE") {
+      task.review_status = null;
+    }
+    if (newStatus === "DONE") {
+      showCompletedTasks.value = true;
+    }
     showToast("Task-Status aktualisiert", "success");
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
+    task.status = fallbackStatus;
     showToast("Task-Status konnte nicht aktualisiert werden", "error");
     loadTasks();
   }
+}
+
+function onTaskStatusChange(task, event) {
+  const nextStatus = event?.target?.value || task.status;
+  const previousStatus = statusSnapshot.value[task.id] || task.status;
+  if (nextStatus === "DONE" && previousStatus !== "DONE") {
+    openReviewModal(task, previousStatus);
+    return;
+  }
+  applyTaskStatusChange(task, nextStatus, null, previousStatus);
+}
+
+function confirmReviewDecision(reviewed) {
+  if (!reviewTarget.value) return;
+  const task = reviewTarget.value;
+  const reviewStatus = reviewed ? "REVIEWED" : "NOT_REVIEWED";
+  applyTaskStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
+  closeReviewModal();
+}
+
+function cancelReviewDecision() {
+  if (reviewTarget.value && reviewPreviousStatus.value) {
+    reviewTarget.value.status = reviewPreviousStatus.value;
+  }
+  closeReviewModal();
 }
 
 async function archiveTask(task) {
@@ -835,6 +963,14 @@ watch(
 );
 
 watch(
+  () => route.query.taskId,
+  () => {
+    if (!tasks.value.length) return;
+    maybeHighlightFromQuery();
+  }
+);
+
+watch(
   () => taskSearch.value,
   () => {
     if (!isTeam.value) return;
@@ -843,11 +979,23 @@ watch(
   }
 );
 
+watch(
+  () => tasks.value,
+  (list) => {
+    syncStatusSnapshot(list);
+  },
+  { immediate: true }
+);
+
 onMounted(async () => {
   await fetchProfile();
   if (isTeam.value) {
     await loadProfiles();
   }
+});
+
+onBeforeUnmount(() => {
+  if (highlightTimer) clearTimeout(highlightTimer);
 });
 </script>
 
@@ -1064,6 +1212,14 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
 }
+.task-card.highlight {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+  background: rgba(249, 115, 22, 0.08);
+}
+.task-card.pulse {
+  animation: taskPulse 1.2s ease-in-out 2;
+}
 .task-main {
   display: flex;
   justify-content: space-between;
@@ -1075,6 +1231,25 @@ onMounted(async () => {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+}
+.review-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.12);
+  color: #1f2937;
+}
+.review-pill[data-review="REVIEWED"] {
+  background: rgba(16, 185, 129, 0.16);
+  color: #059669;
+}
+.review-pill[data-review="NOT_REVIEWED"] {
+  background: rgba(248, 113, 113, 0.2);
+  color: #b91c1c;
 }
 .input.tiny {
   padding: 6px 8px;
@@ -1185,6 +1360,17 @@ onMounted(async () => {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+@keyframes taskPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 @media (max-width: 720px) {

@@ -6,6 +6,7 @@ from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from core.views import (
     ActivityFeedView,
+    AutomationRuleViewSet,
     BookingViewSet,
     ChatMessageViewSet,
     ChatThreadViewSet,
@@ -25,6 +26,7 @@ from core.views import (
     RoleViewSet,
     SongViewSet,
     SongVersionViewSet,
+    SystemIntegrationViewSet,
     TaskAttachmentViewSet,
     TaskCommentViewSet,
     TaskViewSet,
@@ -54,6 +56,8 @@ router.register(r"songs", SongViewSet, basename="songs")
 router.register(r"song-versions", SongVersionViewSet, basename="song-versions")
 router.register(r"growpro", GrowProGoalViewSet, basename="growpro-goals")
 router.register(r"plugin-guides", PluginGuideViewSet, basename="plugin-guides")
+router.register(r"automation-rules", AutomationRuleViewSet, basename="automation-rules")
+router.register(r"system-integrations", SystemIntegrationViewSet, basename="system-integrations")
 router.register(r"contracts", ContractViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"releases", ReleaseViewSet)

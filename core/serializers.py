@@ -281,6 +281,8 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 class TaskSerializer(serializers.ModelSerializer):
     project_title = serializers.CharField(source="project.title", read_only=True)
+    created_by = ProfileMiniSerializer(read_only=True)
+    updated_by = ProfileMiniSerializer(read_only=True)
     stakeholder_ids = serializers.PrimaryKeyRelatedField(
         queryset=Profile.objects.all(),
         many=True,
@@ -314,6 +316,8 @@ class TaskSerializer(serializers.ModelSerializer):
             "task_type",
             "stakeholders",
             "stakeholder_ids",
+            "created_by",
+            "updated_by",
             "created_at",
             "completed_at",
             "reviewed_at",
@@ -329,6 +333,8 @@ class TaskSerializer(serializers.ModelSerializer):
             "project_title",
             "stakeholders",
             "assignees",
+            "created_by",
+            "updated_by",
         ]
         extra_kwargs = {
             "project": {"allow_null": True, "required": False},
@@ -644,6 +650,13 @@ class AutomationRuleSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+    def validate_config(self, value):
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Config muss ein Objekt sein.")
+        return value
 
 
 class SystemIntegrationSerializer(serializers.ModelSerializer):

@@ -5,6 +5,7 @@
         <p class="eyebrow">API</p>
         <h1>Automation & Integrationen</h1>
         <p class="muted">Verwalte Regeln und interne API-Keys fuer neue Systeme.</p>
+        <span v-if="apiOffline" class="pill danger">Offline</span>
       </div>
       <div class="mode-toggle">
         <button
@@ -25,7 +26,12 @@
       <p class="muted">Diese Seite ist nur fuer Team-Mitglieder sichtbar.</p>
     </section>
 
-    <section v-else class="grid">
+    <section v-if="isTeam && apiOffline" class="card warning">
+      <h2>API Center ist offline</h2>
+      <p class="muted">Neue Integrationen und Regeln sind derzeit deaktiviert.</p>
+    </section>
+
+    <section v-if="isTeam" class="grid">
       <article class="card panel">
         <div class="panel-head">
           <div>
@@ -42,11 +48,11 @@
           <div class="form-grid">
             <label>
               Name
-              <input class="input" v-model.trim="integrationForm.name" placeholder="z. B. PA-Automation" />
+            <input class="input" v-model.trim="integrationForm.name" placeholder="z. B. PA-Automation" :disabled="apiOffline" />
             </label>
             <label>
               Slug
-              <input class="input" v-model.trim="integrationForm.slug" placeholder="pa-automation" />
+            <input class="input" v-model.trim="integrationForm.slug" placeholder="pa-automation" :disabled="apiOffline" />
             </label>
             <label class="full">
               Scopes
@@ -55,17 +61,19 @@
                 class="input"
                 v-model.trim="integrationForm.scopes"
                 placeholder="tasks.read, tasks.write"
+                :disabled="apiOffline"
               />
               <textarea
                 v-else
                 class="input textarea"
                 v-model.trim="integrationForm.scopes"
                 placeholder='["tasks.read", "tasks.write"]'
+                :disabled="apiOffline"
               ></textarea>
             </label>
           </div>
           <div class="actions">
-            <button class="btn" type="button" @click="createIntegration">Integration anlegen</button>
+            <button class="btn" type="button" @click="createIntegration" :disabled="apiOffline">Integration anlegen</button>
           </div>
         </div>
 
@@ -77,7 +85,7 @@
               <p class="muted tiny">Scopes: {{ formatScopes(integration.scopes) }}</p>
             </div>
             <div class="item-actions">
-              <button class="btn ghost tiny" type="button" @click="toggleIntegration(integration)">
+              <button class="btn ghost tiny" type="button" @click="toggleIntegration(integration)" :disabled="apiOffline">
                 {{ integration.is_active ? "Deaktivieren" : "Aktivieren" }}
               </button>
               <button class="btn ghost tiny" type="button" @click="toggleKey(integration.id)">
@@ -106,17 +114,17 @@
           <div class="form-grid">
             <label>
               Name
-              <input class="input" v-model.trim="ruleForm.name" placeholder="z. B. Review Reminder" />
+                <input class="input" v-model.trim="ruleForm.name" placeholder="z. B. Review Reminder" :disabled="apiOffline" />
             </label>
             <label>
               Trigger
-              <select class="input" v-model="ruleForm.trigger">
+              <select class="input" v-model="ruleForm.trigger" :disabled="apiOffline">
                 <option v-for="opt in triggerOptions" :key="opt" :value="opt">{{ opt }}</option>
               </select>
             </label>
             <label>
               Action
-              <select class="input" v-model="ruleForm.action">
+              <select class="input" v-model="ruleForm.action" :disabled="apiOffline">
                 <option v-for="opt in actionOptions" :key="opt" :value="opt">{{ opt }}</option>
               </select>
             </label>
@@ -126,11 +134,12 @@
                 class="input textarea"
                 v-model.trim="ruleForm.config"
                 placeholder='{"channel":"email"}'
+                :disabled="apiOffline"
               ></textarea>
             </label>
           </div>
           <div class="actions">
-            <button class="btn" type="button" @click="createRule">Regel anlegen</button>
+            <button class="btn" type="button" @click="createRule" :disabled="apiOffline">Regel anlegen</button>
           </div>
         </div>
 
@@ -142,7 +151,7 @@
               <p v-if="mode === 'complex'" class="muted tiny">Config: {{ formatConfig(rule.config) }}</p>
             </div>
             <div class="item-actions">
-              <button class="btn ghost tiny" type="button" @click="toggleRule(rule)">
+              <button class="btn ghost tiny" type="button" @click="toggleRule(rule)" :disabled="apiOffline">
                 {{ rule.is_active ? "Deaktivieren" : "Aktivieren" }}
               </button>
             </div>
@@ -174,12 +183,32 @@ const rules = ref([]);
 const loadingIntegrations = ref(false);
 const loadingRules = ref(false);
 const showKeys = ref({});
+const apiOffline = ref(false);
 
 const integrationForm = ref({ name: "", slug: "", scopes: "" });
 const ruleForm = ref({ name: "", trigger: "TASK_STATUS", action: "NOTIFY", config: "{}" });
 
 const triggerOptions = ["TASK_STATUS", "TASK_DUE", "GROWPRO_DUE", "PROJECT_STATUS"];
 const actionOptions = ["NOTIFY", "ASSIGN", "WEBHOOK"];
+
+function markOffline(err) {
+  if (err?.response?.status === 503) {
+    apiOffline.value = true;
+    showToast("API Center ist offline", "error");
+    return true;
+  }
+  return false;
+}
+
+async function loadStatus() {
+  if (!isTeam.value) return;
+  try {
+    const { data } = await api.get("api-center/status/");
+    apiOffline.value = Boolean(data?.offline);
+  } catch (err) {
+    if (markOffline(err)) return;
+  }
+}
 
 function toggleKey(id) {
   showKeys.value = { ...showKeys.value, [id]: !showKeys.value[id] };
@@ -232,6 +261,7 @@ async function loadIntegrations() {
     const { data } = await api.get("system-integrations/");
     integrations.value = Array.isArray(data) ? data : data.results || [];
   } catch (err) {
+    if (markOffline(err)) return;
     console.error("Integrationen konnten nicht geladen werden", err);
     showToast("Integrationen konnten nicht geladen werden", "error");
   } finally {
@@ -246,6 +276,7 @@ async function loadRules() {
     const { data } = await api.get("automation-rules/");
     rules.value = Array.isArray(data) ? data : data.results || [];
   } catch (err) {
+    if (markOffline(err)) return;
     console.error("Automation Rules konnten nicht geladen werden", err);
     showToast("Automation Rules konnten nicht geladen werden", "error");
   } finally {
@@ -254,6 +285,10 @@ async function loadRules() {
 }
 
 async function createIntegration() {
+  if (apiOffline.value) {
+    showToast("API Center ist offline", "error");
+    return;
+  }
   if (!integrationForm.value.name || !integrationForm.value.slug) {
     showToast("Name und Slug sind Pflicht", "error");
     return;
@@ -270,12 +305,17 @@ async function createIntegration() {
     integrationForm.value = { name: "", slug: "", scopes: "" };
     showToast("Integration angelegt", "success");
   } catch (err) {
+    if (markOffline(err)) return;
     console.error("Integration konnte nicht angelegt werden", err);
     showToast("Integration konnte nicht angelegt werden", "error");
   }
 }
 
 async function createRule() {
+  if (apiOffline.value) {
+    showToast("API Center ist offline", "error");
+    return;
+  }
   if (!ruleForm.value.name) {
     showToast("Name ist Pflicht", "error");
     return;
@@ -294,36 +334,48 @@ async function createRule() {
     ruleForm.value = { name: "", trigger: "TASK_STATUS", action: "NOTIFY", config: "{}" };
     showToast("Regel angelegt", "success");
   } catch (err) {
+    if (markOffline(err)) return;
     console.error("Regel konnte nicht angelegt werden", err);
     showToast("Regel konnte nicht angelegt werden", "error");
   }
 }
 
 async function toggleIntegration(integration) {
+  if (apiOffline.value) {
+    showToast("API Center ist offline", "error");
+    return;
+  }
   try {
     const { data } = await api.patch(`system-integrations/${integration.id}/`, {
       is_active: !integration.is_active,
     });
     integration.is_active = data.is_active;
   } catch (err) {
+    if (markOffline(err)) return;
     console.error("Integration konnte nicht aktualisiert werden", err);
     showToast("Integration konnte nicht aktualisiert werden", "error");
   }
 }
 
 async function toggleRule(rule) {
+  if (apiOffline.value) {
+    showToast("API Center ist offline", "error");
+    return;
+  }
   try {
     const { data } = await api.patch(`automation-rules/${rule.id}/`, {
       is_active: !rule.is_active,
     });
     rule.is_active = data.is_active;
   } catch (err) {
+    if (markOffline(err)) return;
     console.error("Regel konnte nicht aktualisiert werden", err);
     showToast("Regel konnte nicht aktualisiert werden", "error");
   }
 }
 
 onMounted(() => {
+  loadStatus();
   loadIntegrations();
   loadRules();
 });
@@ -334,6 +386,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+.warning {
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  background: rgba(248, 113, 113, 0.12);
 }
 .hero {
   display: flex;
@@ -362,6 +418,24 @@ onMounted(() => {
 .mode-toggle .chip.active {
   background: rgba(99, 102, 241, 0.12);
   color: #4338ca;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid var(--border);
+  width: fit-content;
+  margin-top: 8px;
+}
+.pill.danger {
+  background: rgba(248, 113, 113, 0.2);
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, 0.4);
 }
 .grid {
   display: grid;

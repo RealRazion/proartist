@@ -8,6 +8,7 @@ const baseURL =
 const api = axios.create({ baseURL });
 const { showToast } = useToast();
 let lastToastAt = 0;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access");
@@ -20,6 +21,12 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config || {};
     const status = error?.response?.status;
+
+    if (status >= 500 && status < 600 && !original._retryServer && original.method === "get") {
+      original._retryServer = true;
+      await sleep(600);
+      return api(original);
+    }
 
     if (status === 401 && !original._retry) {
       original._retry = true;

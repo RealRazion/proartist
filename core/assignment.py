@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.db import transaction
+from django.utils import timezone
 
 from .models import GrowProGoal, Profile, Project, Task
 
@@ -177,3 +178,101 @@ def build_team_points_breakdown(team_profiles=None):
         members[goal.assigned_team_id]["total"] += 1
 
     return sorted(members.values(), key=lambda item: (-item["total"], item["profile"]["name"]))
+
+
+def build_team_points_daily(team_profiles=None, days=7):
+    team_profiles = list(team_profiles) if team_profiles is not None else list(_team_profiles())
+    today = timezone.now().date()
+    start = today - timedelta(days=max(days, 1) - 1)
+    days_list = [start + timedelta(days=offset) for offset in range((today - start).days + 1)]
+
+    stats = {
+        profile.id: {
+            "daily": {day: {"plus": 0, "minus": 0} for day in days_list},
+            "today_plus_details": [],
+            "today_minus_details": [],
+        }
+        for profile in team_profiles
+    }
+    if not stats:
+        return {}
+
+    tasks_created = (
+        Task.objects.filter(created_at__date__range=(start, today), is_archived=False)
+        .prefetch_related("assignees")
+    )
+    for task in tasks_created:
+        points = TASK_PRIORITY_SCORE.get(task.priority, 1)
+        day = task.created_at.date()
+        for assignee in task.assignees.all():
+            if assignee.id not in stats:
+                continue
+            stats[assignee.id]["daily"][day]["plus"] += points
+            if day == today:
+                stats[assignee.id]["today_plus_details"].append(
+                    {"title": task.title, "points": points, "type": "task_created"}
+                )
+
+    tasks_completed = (
+        Task.objects.filter(completed_at__date__range=(start, today))
+        .prefetch_related("assignees")
+    )
+    for task in tasks_completed:
+        points = TASK_PRIORITY_SCORE.get(task.priority, 1)
+        day = task.completed_at.date()
+        for assignee in task.assignees.all():
+            if assignee.id not in stats:
+                continue
+            stats[assignee.id]["daily"][day]["minus"] += points
+            if day == today:
+                stats[assignee.id]["today_minus_details"].append(
+                    {"title": task.title, "points": points, "type": "task_completed"}
+                )
+
+    projects_created = Project.objects.filter(created_at__date__range=(start, today), is_archived=False).prefetch_related(
+        "participants", "owners"
+    )
+    for project in projects_created:
+        day = project.created_at.date()
+        members = {p.id for p in project.participants.all()} | {p.id for p in project.owners.all()}
+        for member_id in members:
+            if member_id not in stats:
+                continue
+            stats[member_id]["daily"][day]["plus"] += 2
+            if day == today:
+                stats[member_id]["today_plus_details"].append(
+                    {"title": project.title, "points": 2, "type": "project_created"}
+                )
+
+    goals_created = GrowProGoal.objects.filter(
+        created_at__date__range=(start, today),
+        assigned_team__isnull=False,
+    ).select_related("assigned_team")
+    for goal in goals_created:
+        member_id = goal.assigned_team_id
+        if member_id not in stats:
+            continue
+        day = goal.created_at.date()
+        stats[member_id]["daily"][day]["plus"] += 1
+        if day == today:
+            stats[member_id]["today_plus_details"].append(
+                {"title": goal.title, "points": 1, "type": "growpro_created"}
+            )
+
+    summary = {}
+    for member_id, data in stats.items():
+        total_plus = sum(entry["plus"] for entry in data["daily"].values())
+        total_minus = sum(entry["minus"] for entry in data["daily"].values())
+        days_count = len(data["daily"]) or 1
+        today_stats = data["daily"].get(today, {"plus": 0, "minus": 0})
+        summary[member_id] = {
+            "today_plus": today_stats["plus"],
+            "today_minus": today_stats["minus"],
+            "today_net": today_stats["plus"] - today_stats["minus"],
+            "avg_daily_plus": round(total_plus / days_count, 2),
+            "avg_daily_minus": round(total_minus / days_count, 2),
+            "avg_daily_net": round((total_plus - total_minus) / days_count, 2),
+            "today_plus_details": data["today_plus_details"],
+            "today_minus_details": data["today_minus_details"],
+        }
+    return summary

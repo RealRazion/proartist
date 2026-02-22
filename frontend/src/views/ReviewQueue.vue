@@ -16,6 +16,28 @@
       <p class="muted">Review-Queues sind nur fuer Team-Mitglieder sichtbar.</p>
     </section>
 
+    <section v-else class="filters card">
+      <div class="filter-row">
+        <label>
+          Suche
+          <input class="input" v-model.trim="filters.search" placeholder="Task oder Projekt" />
+        </label>
+        <label>
+          Frist
+          <select class="input" v-model="filters.due">
+            <option value="ALL">Alle</option>
+            <option value="overdue">Ueberfaellig</option>
+            <option value="soon">Faellig (2 Tage)</option>
+            <option value="ok">Im Plan</option>
+          </select>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" v-model="filters.onlyMine" />
+          Nur meine Tasks
+        </label>
+      </div>
+    </section>
+
     <section v-else class="grid">
       <article class="card panel">
         <div class="panel-head">
@@ -25,9 +47,26 @@
           </div>
           <span class="pill">{{ reviewTasks.length }}</span>
         </div>
-        <ul v-if="reviewTasks.length" class="task-list">
-          <li v-for="task in reviewTasks" :key="task.id" class="task-item">
+        <div class="bulk-actions" v-if="filteredReviewTasks.length">
+          <label class="toggle">
+            <input type="checkbox" :checked="allReviewSelected" @change="toggleAllReview($event)" />
+            Alle markieren
+          </label>
+          <div class="bulk-buttons">
+            <button class="btn tiny" type="button" @click="bulkReviewed" :disabled="!selectedReviewIds.length">
+              Markiert als reviewed
+            </button>
+            <button class="btn ghost tiny danger" type="button" @click="bulkNotReviewed" :disabled="!selectedReviewIds.length">
+              Markiert als nicht reviewed
+            </button>
+          </div>
+        </div>
+        <ul v-if="filteredReviewTasks.length" class="task-list">
+          <li v-for="task in filteredReviewTasks" :key="task.id" class="task-item">
             <div class="task-main">
+              <label class="check">
+                <input type="checkbox" :value="task.id" v-model="selectedReviewIds" />
+              </label>
               <div>
                 <strong>{{ task.title }}</strong>
                 <p class="muted small">
@@ -57,9 +96,23 @@
           </div>
           <span class="pill warning">{{ pendingReviewTasks.length }}</span>
         </div>
-        <ul v-if="pendingReviewTasks.length" class="task-list">
-          <li v-for="task in pendingReviewTasks" :key="task.id" class="task-item">
+        <div class="bulk-actions" v-if="filteredPendingTasks.length">
+          <label class="toggle">
+            <input type="checkbox" :checked="allPendingSelected" @change="toggleAllPending($event)" />
+            Alle markieren
+          </label>
+          <div class="bulk-buttons">
+            <button class="btn tiny" type="button" @click="bulkReviewed" :disabled="!selectedPendingIds.length">
+              Markiert als reviewed
+            </button>
+          </div>
+        </div>
+        <ul v-if="filteredPendingTasks.length" class="task-list">
+          <li v-for="task in filteredPendingTasks" :key="task.id" class="task-item">
             <div class="task-main">
+              <label class="check">
+                <input type="checkbox" :value="task.id" v-model="selectedPendingIds" />
+              </label>
               <div>
                 <strong>{{ task.title }}</strong>
                 <p class="muted small">
@@ -84,19 +137,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
-const { isTeam } = useCurrentProfile();
+const { isTeam, profile: me } = useCurrentProfile();
 const { showToast } = useToast();
 const router = useRouter();
 
 const reviewTasks = ref([]);
 const pendingReviewTasks = ref([]);
 const loading = ref(false);
+const filters = ref({ search: "", due: "ALL", onlyMine: false });
+const selectedReviewIds = ref([]);
+const selectedPendingIds = ref([]);
 
 function formatDate(value) {
   if (!value) return "-";
@@ -125,6 +181,36 @@ function dueStatusLabel(task) {
   if (status === "overdue") return "Ueberfaellig";
   if (status === "soon") return "Faellig";
   return "Im Plan";
+}
+
+const filteredReviewTasks = computed(() => applyFilters(reviewTasks.value));
+const filteredPendingTasks = computed(() => applyFilters(pendingReviewTasks.value));
+
+const allReviewSelected = computed(
+  () => filteredReviewTasks.value.length > 0 && selectedReviewIds.value.length === filteredReviewTasks.value.length
+);
+const allPendingSelected = computed(
+  () => filteredPendingTasks.value.length > 0 && selectedPendingIds.value.length === filteredPendingTasks.value.length
+);
+
+function applyFilters(list) {
+  const term = filters.value.search.trim().toLowerCase();
+  return list.filter((task) => {
+    if (filters.value.onlyMine && me.value?.id) {
+      const assignees = task.assignees || [];
+      const isMine = assignees.some((person) => String(person.id) === String(me.value.id));
+      if (!isMine) return false;
+    }
+    if (filters.value.due !== "ALL") {
+      const status = dueStatus(task);
+      if (status !== filters.value.due) return false;
+    }
+    if (term) {
+      const hay = `${task.title || ""} ${task.project_title || ""}`.toLowerCase();
+      if (!hay.includes(term)) return false;
+    }
+    return true;
+  });
 }
 
 async function loadReviewTasks() {
@@ -156,6 +242,8 @@ async function loadReviewTasks() {
     const pendingData = Array.isArray(pendingRes.data) ? pendingRes.data : pendingRes.data.results || [];
     reviewTasks.value = reviewData;
     pendingReviewTasks.value = pendingData;
+    selectedReviewIds.value = [];
+    selectedPendingIds.value = [];
   } catch (err) {
     console.error("Review-Tasks konnten nicht geladen werden", err);
     showToast("Review-Tasks konnten nicht geladen werden", "error");
@@ -184,6 +272,44 @@ async function markNotReviewed(task) {
     console.error("Task konnte nicht aktualisiert werden", err);
     showToast("Task konnte nicht aktualisiert werden", "error");
   }
+}
+
+async function bulkReviewed() {
+  const ids = [...new Set([...selectedReviewIds.value, ...selectedPendingIds.value])];
+  if (!ids.length) return;
+  await bulkUpdate(ids, { status: "DONE", review_status: "REVIEWED" }, "Auswahl reviewed");
+}
+
+async function bulkNotReviewed() {
+  if (!selectedReviewIds.value.length) return;
+  await bulkUpdate(selectedReviewIds.value, { status: "DONE", review_status: "NOT_REVIEWED" }, "Auswahl nicht reviewed");
+}
+
+async function bulkUpdate(ids, payload, successMessage) {
+  try {
+    await Promise.all(ids.map((id) => api.patch(`tasks/${id}/`, payload)));
+    showToast(successMessage, "success");
+    loadReviewTasks();
+  } catch (err) {
+    console.error("Bulk-Update fehlgeschlagen", err);
+    showToast("Bulk-Update fehlgeschlagen", "error");
+  }
+}
+
+function toggleAllReview(event) {
+  if (event.target.checked) {
+    selectedReviewIds.value = filteredReviewTasks.value.map((task) => task.id);
+    return;
+  }
+  selectedReviewIds.value = [];
+}
+
+function toggleAllPending(event) {
+  if (event.target.checked) {
+    selectedPendingIds.value = filteredPendingTasks.value.map((task) => task.id);
+    return;
+  }
+  selectedPendingIds.value = [];
 }
 
 function goToTask(task) {
@@ -221,6 +347,23 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
 }
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+.filter-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
 .panel {
   display: flex;
   flex-direction: column;
@@ -256,10 +399,31 @@ onMounted(() => {
   align-items: center;
   flex-wrap: wrap;
 }
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .task-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+.bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.03);
+}
+.bulk-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .btn.tiny {
   padding: 6px 12px;
@@ -305,6 +469,10 @@ onMounted(() => {
   .task-main {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

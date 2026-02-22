@@ -63,6 +63,15 @@
             <option v-for="p in profiles" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </label>
+        <label v-if="isTeam">
+          Zuteilung
+          <select class="input" v-model="assignedFilter" @change="applyFilters">
+            <option value="ALL">Alle</option>
+            <option value="ME">Mir zugeteilt</option>
+            <option value="NONE">Nicht zugeteilt</option>
+            <option v-for="p in teamMembers" :key="`assigned-${p.id}`" :value="p.id">{{ p.name }}</option>
+          </select>
+        </label>
       </div>
       <div class="filter-actions">
         <button class="btn ghost tiny" type="button" @click="applyFilters">Filter anwenden</button>
@@ -80,7 +89,10 @@
         >
           <div class="goal-head">
             <div>
-              <p class="muted small">{{ goal.profile?.name || goal.profile?.username || "Unbekannt" }}</p>
+              <p class="muted small">
+                {{ goal.profile?.name || goal.profile?.username || "Unbekannt" }}
+                <span v-if="isTeam"> · Team: {{ formatUser(goal.assigned_team) }}</span>
+              </p>
               <h3>{{ goal.title }}</h3>
             </div>
             <span class="pill" :data-status="goal.status">{{ statusLabels[goal.status] || goal.status }}</span>
@@ -312,6 +324,7 @@ const messageType = ref("info");
 
 const filterStatus = ref("ALL");
 const filterProfile = ref("ALL");
+const assignedFilter = ref("ALL");
 const dueFilter = ref("ALL");
 const search = ref("");
 const sort = ref("due_date");
@@ -341,6 +354,7 @@ const pageSize = ref(9);
 const total = ref(0);
 
 const sortedGoals = computed(() => goals.value);
+const teamMembers = computed(() => profiles.value.filter((p) => p.is_team_member));
 
 const filteredGoals = computed(() =>
   sortedGoals.value.filter((goal) => {
@@ -351,13 +365,23 @@ const filteredGoals = computed(() =>
       (goal.description || "").toLowerCase().includes(term);
     const matchesStatus = filterStatus.value === "ALL" || goal.status === filterStatus.value;
     const matchesProfile = filterProfile.value === "ALL" || String(goal.profile?.id) === String(filterProfile.value);
+    let matchesAssigned = true;
+    if (assignedFilter.value !== "ALL") {
+      if (assignedFilter.value === "ME") {
+        matchesAssigned = String(goal.assigned_team?.id) === String(me.value?.id);
+      } else if (assignedFilter.value === "NONE") {
+        matchesAssigned = !goal.assigned_team?.id;
+      } else {
+        matchesAssigned = String(goal.assigned_team?.id) === String(assignedFilter.value);
+      }
+    }
     const due = dueState(goal);
     const matchesDue =
       dueFilter.value === "ALL" ||
       (dueFilter.value === "SOON" && due === "SOON") ||
       (dueFilter.value === "OVERDUE" && due === "OVERDUE") ||
       (dueFilter.value === "STALE" && due === "STALE");
-    return matchesText && matchesStatus && matchesProfile && matchesDue;
+    return matchesText && matchesStatus && matchesProfile && matchesAssigned && matchesDue;
   })
 );
 
@@ -413,6 +437,11 @@ function formatDate(value) {
 function formatDateTime(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("de-DE", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
+function formatUser(user) {
+  if (!user) return "Nicht zugeteilt";
+  return user.name || user.username || "Nicht zugeteilt";
 }
 
 function formatNumber(value) {
@@ -509,7 +538,11 @@ async function loadProfiles() {
   if (!isTeam.value) return;
   try {
     const { data } = await api.get("profiles/", { params: { page_size: 200 } });
-    profiles.value = (data || []).map((p) => ({ id: p.id, name: p.name || p.username }));
+    profiles.value = (data || []).map((p) => ({
+      id: p.id,
+      name: p.name || p.username,
+      is_team_member: p.is_team_member,
+    }));
   } catch (err) {
     profiles.value = [];
   }
@@ -526,6 +559,15 @@ async function loadGoals(resetPage = false) {
     };
     if (filterStatus.value !== "ALL") params.status = filterStatus.value;
     if (filterProfile.value !== "ALL") params.profile = filterProfile.value;
+    if (assignedFilter.value !== "ALL") {
+      if (assignedFilter.value === "ME" && me.value?.id) {
+        params.assigned_team = me.value.id;
+      } else if (assignedFilter.value === "NONE") {
+        params.assigned_team = "NONE";
+      } else {
+        params.assigned_team = assignedFilter.value;
+      }
+    }
     if (search.value.trim()) params.search = search.value.trim();
     const { data } = await api.get("growpro/", { params });
     const payload = data || {};

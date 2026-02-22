@@ -438,38 +438,19 @@ const growProStaleGoals = computed(() =>
 
 const growProUpcomingGoals = computed(() => {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
   return relevantGrowProGoals.value
-    .filter((goal) => goal?.due_date && !["DONE", "ARCHIVED"].includes(goal.status))
-    .filter((goal) => new Date(goal.due_date) >= now)
-    .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+    .filter((goal) => !["DONE", "ARCHIVED"].includes(goal.status))
+    .map((goal) => ({
+      goal,
+      deadline: growProUpdateDeadline(goal),
+    }))
+    .filter((entry) => entry.deadline && entry.deadline >= now && !isGrowProStale(entry.goal))
+    .sort((a, b) => a.deadline.getTime() - b.deadline.getTime())
     .slice(0, 3);
 });
 
 const dashboardSlides = computed(() => {
   const slides = [];
-
-  if (isTeam.value && reviewTasks.value.length) {
-    const urgentCount = reviewUrgentTasks.value.length;
-    const tone = urgentCount ? "warning" : "info";
-    const status = urgentCount ? "overdue" : "ok";
-    const nextReview = reviewNextTask.value;
-    slides.push({
-      key: "review-queue",
-      tone,
-      status,
-      title: "Review Tasks",
-      message: urgentCount
-        ? `${urgentCount} Review-Tasks sind in 2 Tagen faellig. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
-        : `Es warten ${reviewTasks.value.length} Review-Tasks. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Offen"}.`,
-      items: reviewTasks.value.slice(0, 3).map((task) => ({
-        key: `review-${task.id}`,
-        title: task.title,
-        date: task.due_date ? formatFullDate(task.due_date) : "Kein Termin",
-      })),
-      cta: { label: "Zur Review-Seite", route: "reviews" },
-    });
-  }
 
   if (userOverdueTasks.value.length) {
     const oldest = userOverdueTasks.value[0];
@@ -480,6 +461,31 @@ const dashboardSlides = computed(() => {
       title: "Ueberfaellige Tasks",
       message: `Du hast ${userOverdueTasks.value.length} ueberfaellige Tasks. Aelteste Frist: ${formatFullDate(oldest.due_date)} (${oldest.title}).`,
       cta: { label: "Zur Task", route: "tasks" },
+    });
+  }
+
+  if (isTeam.value && reviewTasks.value.length) {
+    const hasOverdue = reviewTasks.value.some((task) => reviewUrgency(task) === "overdue");
+    const hasSoon = reviewTasks.value.some((task) => reviewUrgency(task) === "soon");
+    const status = hasOverdue ? "overdue" : hasSoon ? "soon" : "ok";
+    const tone = status === "ok" ? "info" : "warning";
+    const nextReview = reviewNextTask.value;
+    slides.push({
+      key: "review-queue",
+      tone,
+      status,
+      title: "Review Tasks",
+      message: hasOverdue
+        ? `Es gibt ueberfaellige Review-Tasks. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
+        : hasSoon
+          ? `Review-Tasks sind bald faellig. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
+          : `Es warten ${reviewTasks.value.length} Review-Tasks. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Offen"}.`,
+      items: reviewTasks.value.slice(0, 3).map((task) => ({
+        key: `review-${task.id}`,
+        title: task.title,
+        date: task.due_date ? formatFullDate(task.due_date) : "Kein Termin",
+      })),
+      cta: { label: "Zur Review-Seite", route: "reviews" },
     });
   }
 
@@ -522,10 +528,10 @@ const dashboardSlides = computed(() => {
       status: "ok",
       title: "Naechste GrowPro Updates",
       message: "Die naechsten Update-Fristen fuer deine Ziele.",
-      items: growProUpcomingGoals.value.map((goal) => ({
-        key: goal.id,
-        title: goal.title,
-        date: formatFullDate(goal.due_date),
+      items: growProUpcomingGoals.value.map((entry) => ({
+        key: entry.goal.id,
+        title: entry.goal.title,
+        date: formatFullDate(entry.deadline),
       })),
       cta: { label: "Zu GrowPro", route: "growpro" },
     });
@@ -910,11 +916,20 @@ function isTaskStakeholderForMe(task) {
   return (task.stakeholders || []).some((person) => normalizeId(person.id) === normalizeId(me.value.id));
 }
 
+function growProUpdateDeadline(goal) {
+  if (!goal) return null;
+  const base = goal.last_logged_at || goal.created_at;
+  if (!base) return null;
+  const baseDate = new Date(base);
+  if (Number.isNaN(baseDate.getTime())) return null;
+  return new Date(baseDate.getTime() + 72 * 60 * 60 * 1000);
+}
+
 function isGrowProStale(goal) {
   if (!goal || ["DONE", "ARCHIVED"].includes(goal.status)) return false;
-  const lastLogged = goal.last_logged_at ? new Date(goal.last_logged_at).getTime() : null;
-  if (!lastLogged) return true;
-  return (Date.now() - lastLogged) / (1000 * 60 * 60) > 72;
+  const deadline = growProUpdateDeadline(goal);
+  if (!deadline) return false;
+  return Date.now() > deadline.getTime();
 }
 
 function taskUrgency(task) {

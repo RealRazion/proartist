@@ -116,6 +116,8 @@ class Task(models.Model):
     assignees = models.ManyToManyField(Profile, blank=True, related_name="assigned_tasks")
     review_status = models.CharField(max_length=20, choices=REVIEW_STATUS_CHOICES, null=True, blank=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks_created")
+    updated_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks_updated")
     created_at=models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     is_archived = models.BooleanField(default=False)

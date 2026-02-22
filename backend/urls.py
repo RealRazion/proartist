@@ -38,6 +38,7 @@ from core.views import (
     set_password,
     stats,
     TeamPointsView,
+    api_center_status,
 )
 
 router = routers.DefaultRouter()
@@ -74,6 +75,7 @@ urlpatterns = [
     path("api/stats/", stats),
     path("api/admin/overview/", admin_overview),
     path("api/analytics/summary/", analytics_summary),
+    path("api/api-center/status/", api_center_status),
     path("api/automation/task-reminders/", run_task_reminders),
     path("api/activity-feed/", ActivityFeedView.as_view(), name="activity-feed"),
     path("api/team-points/", TeamPointsView.as_view(), name="team-points"),

@@ -208,6 +208,10 @@
                   </span>
                 </p>
                 <p class="muted small">Verantwortlich: {{ formatAssignees(task) }}</p>
+                <p v-if="task.created_by || task.updated_by" class="muted tiny">
+                  Erstellt: {{ formatUser(task.created_by) }}
+                  <span v-if="task.updated_by">· Update: {{ formatUser(task.updated_by) }}</span>
+                </p>
               </div>
               <div class="task-actions">
                 <select class="input tiny" v-model="task.status" @change="onTaskStatusChange(task, $event)">
@@ -919,6 +923,11 @@ function activityIcon(type) {
 function formatAssignees(task) {
   if (!task.assignees?.length) return "Niemand";
   return task.assignees.map((p) => p.name || p.username).join(", ");
+}
+
+function formatUser(user) {
+  if (!user) return "-";
+  return user.name || user.username || "-";
 }
 
 function formatDate(value) {

@@ -78,11 +78,18 @@ from .serializers import (
     TaskCommentSerializer,
     TaskSerializer,
 )
-from .assignment import assign_task_for_review, build_team_points_breakdown, rebalance_growpro_assignments
+from .assignment import assign_task_for_review, build_team_points_breakdown, build_team_points_daily, rebalance_growpro_assignments
 from .utils import log_activity
 from .notifications import send_notification_email
 from .realtime import notify_project_event, notify_task_event
 from .automation import send_task_reminders
+
+API_CENTER_OFFLINE = True
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated, IsTeam])
+def api_center_status(request):
+    return Response({"offline": API_CENTER_OFFLINE})
 
 # --- Auth/Register ---
 @api_view(["POST"])
@@ -585,7 +592,7 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def _base_queryset(self):
         return (
-            Task.objects.select_related("project")
+            Task.objects.select_related("project", "created_by__user", "updated_by__user")
             .prefetch_related("stakeholders__user", "assignees__user")
             .order_by("-created_at")
         )
@@ -676,7 +683,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             )
 
     def perform_create(self, serializer):
-        task = serializer.save()
+        actor = getattr(self.request.user, "profile", None)
+        task = serializer.save(created_by=actor)
         if task.status == "DONE":
             update_fields = []
             if not task.completed_at:
@@ -695,7 +703,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 assign_task_for_review(task)
             if update_fields:
                 task.save(update_fields=update_fields)
-        actor = getattr(self.request.user, "profile", None)
         log_activity(
             "task_created",
             f"Task erstellt: {task.title}",
@@ -720,7 +727,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         prev_review_status = instance.review_status
         prev_priority = instance.priority
         previous_assignees = set(instance.assignees.values_list("id", flat=True))
-        task = serializer.save()
+        actor = getattr(self.request.user, "profile", None)
+        task = serializer.save(updated_by=actor)
         review_fields = []
         if prev_status != task.status:
             if task.status == "DONE" and not task.completed_at:
@@ -755,7 +763,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 review_fields.append("reviewed_at")
         if review_fields:
             task.save(update_fields=list(set(review_fields)))
-        actor = getattr(self.request.user, "profile", None)
         if prev_status != task.status:
             severity = "SUCCESS" if task.status == "DONE" else "INFO"
             event = "task_completed" if task.status == "DONE" else "task_status_updated"
@@ -1166,6 +1173,12 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
         profile_id = self.request.query_params.get("profile")
         if profile_id:
             qs = qs.filter(profile_id=profile_id)
+        assigned_team = self.request.query_params.get("assigned_team")
+        if assigned_team:
+            if str(assigned_team).upper() == "NONE":
+                qs = qs.filter(assigned_team__isnull=True)
+            else:
+                qs = qs.filter(assigned_team_id=assigned_team)
         status_param = self.request.query_params.get("status")
         if status_param:
             statuses = [s.strip().upper() for s in status_param.split(",") if s.strip()]
@@ -1328,11 +1341,51 @@ class AutomationRuleViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user.profile)
 
+    def create(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().destroy(request, *args, **kwargs)
+
 
 class SystemIntegrationViewSet(viewsets.ModelViewSet):
     queryset = SystemIntegration.objects.all().order_by("name")
     serializer_class = SystemIntegrationSerializer
     permission_classes = [permissions.IsAuthenticated, IsTeam]
+
+    def create(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if API_CENTER_OFFLINE:
+            return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return super().destroy(request, *args, **kwargs)
 
 
 class NewsPostViewSet(viewsets.ModelViewSet):
@@ -1391,6 +1444,7 @@ class TeamPointsView(APIView):
 
     def get(self, request):
         members = build_team_points_breakdown()
+        daily = build_team_points_daily()
         rules = {
             "tasks": {
                 "LOW": 1,
@@ -1401,6 +1455,55 @@ class TeamPointsView(APIView):
             "project_participation": 2,
             "growpro_assignment": 1,
         }
+        for member in members:
+            stats = daily.get(member["profile"]["id"], {})
+            member["daily"] = stats
+
+        if request.query_params.get("format") == "csv":
+            buffer = io.StringIO()
+            writer = csv.writer(buffer, delimiter=";")
+            writer.writerow(
+                [
+                    "Name",
+                    "Username",
+                    "Total",
+                    "Heute +",
+                    "Heute -",
+                    "Heute Netto",
+                    "Avg + (7d)",
+                    "Avg - (7d)",
+                    "Avg Netto (7d)",
+                    "Heute + Details",
+                    "Heute - Details",
+                ]
+            )
+            for member in members:
+                daily_stats = member.get("daily") or {}
+                plus_details = ", ".join(
+                    f"{item['title']} (+{item['points']})" for item in daily_stats.get("today_plus_details", [])
+                )
+                minus_details = ", ".join(
+                    f"{item['title']} (-{item['points']})" for item in daily_stats.get("today_minus_details", [])
+                )
+                writer.writerow(
+                    [
+                        member["profile"]["name"],
+                        member["profile"]["username"],
+                        member["total"],
+                        daily_stats.get("today_plus", 0),
+                        daily_stats.get("today_minus", 0),
+                        daily_stats.get("today_net", 0),
+                        daily_stats.get("avg_daily_plus", 0),
+                        daily_stats.get("avg_daily_minus", 0),
+                        daily_stats.get("avg_daily_net", 0),
+                        plus_details,
+                        minus_details,
+                    ]
+                )
+            response = HttpResponse(buffer.getvalue(), content_type="text/csv")
+            response["Content-Disposition"] = 'attachment; filename="team_points.csv"'
+            return response
+
         return Response(
             {
                 "rules": rules,

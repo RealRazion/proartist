@@ -105,6 +105,35 @@
             </div>
           </div>
         </div>
+        <div v-else-if="layoutMode === 'today'" class="today-view">
+          <div class="today-head">
+            <strong>Heute</strong>
+            <span class="muted small">{{ formatDate(todayIso) }}</span>
+          </div>
+          <div v-if="todayItems.length" class="today-grid">
+            <article
+              v-for="item in todayItems"
+              :key="item.id"
+              class="timeline-card"
+              :class="item.className"
+            >
+              <header>
+                <div class="title-wrap">
+                  <p class="meta">{{ item.kind }}</p>
+                  <h4>{{ item.title }}</h4>
+                </div>
+                <span class="badge">{{ item.badge }}</span>
+              </header>
+              <p class="muted">{{ item.subtitle }}</p>
+              <div class="card-actions">
+                <button class="btn ghost tiny" type="button" @click="handleItemAction(item)">
+                  {{ actionLabel(item) }}
+                </button>
+              </div>
+            </article>
+          </div>
+          <p v-else class="muted empty">Heute keine EintrÃ¤ge.</p>
+        </div>
         <div v-else class="list-view">
           <div v-for="group in groupedItems" :key="group.date" class="list-group">
             <div class="group-head">
@@ -168,6 +197,7 @@ const layoutMode = ref("calendar");
 const layoutOptions = [
   { key: "calendar", label: "Kalender" },
   { key: "list", label: "Liste" },
+  { key: "today", label: "Heute" },
 ];
 
 const loading = ref(false);
@@ -243,6 +273,12 @@ const calendarDays = computed(() => {
     });
   }
   return days;
+});
+
+const todayIso = computed(() => new Date().toISOString().slice(0, 10));
+const todayItems = computed(() => {
+  const list = filteredItems.value.filter((item) => item.date === todayIso.value);
+  return sortItems(list);
 });
 
 function enrichItemsForDay(iso) {
@@ -651,6 +687,22 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+.today-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.today-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.today-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
 }
 .list-group {
   display: flex;

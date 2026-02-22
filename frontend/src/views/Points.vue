@@ -6,9 +6,14 @@
         <h1>Team Points</h1>
         <p class="muted">Uebersicht der Punkte und wie sie entstehen.</p>
       </div>
-      <button class="btn ghost" type="button" @click="loadPoints" :disabled="loading">
-        {{ loading ? "Lade..." : "Aktualisieren" }}
-      </button>
+      <div class="hero-actions">
+        <button class="btn ghost" type="button" @click="exportCsv" :disabled="loading">
+          Export CSV
+        </button>
+        <button class="btn ghost" type="button" @click="loadPoints" :disabled="loading">
+          {{ loading ? "Lade..." : "Aktualisieren" }}
+        </button>
+      </div>
     </header>
 
     <section v-if="!isTeam" class="card info">
@@ -48,6 +53,18 @@
           <div class="score">
             <span class="label">Punkte</span>
             <strong>{{ member.total }}</strong>
+          </div>
+        </div>
+        <div class="performance">
+          <div>
+            <span class="label">Heute</span>
+            <span class="value">+{{ member.daily?.today_plus ?? 0 }} / -{{ member.daily?.today_minus ?? 0 }}</span>
+            <span class="muted tiny">Netto {{ member.daily?.today_net ?? 0 }}</span>
+          </div>
+          <div>
+            <span class="label">Ø 7 Tage</span>
+            <span class="value">+{{ member.daily?.avg_daily_plus ?? 0 }} / -{{ member.daily?.avg_daily_minus ?? 0 }}</span>
+            <span class="muted tiny">Netto {{ member.daily?.avg_daily_net ?? 0 }}</span>
           </div>
         </div>
         <div class="member-grid">
@@ -115,6 +132,24 @@ async function loadPoints() {
   }
 }
 
+async function exportCsv() {
+  if (!isTeam.value) return;
+  try {
+    const { data } = await api.get("team-points/", { params: { format: "csv" }, responseType: "blob" });
+    const url = URL.createObjectURL(new Blob([data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "team_points.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Export konnte nicht erstellt werden", err);
+    showToast("Export konnte nicht erstellt werden", "error");
+  }
+}
+
 function totalTaskPoints(member) {
   return (member.tasks || []).reduce((sum, task) => sum + (task.points || 0), 0);
 }
@@ -143,6 +178,11 @@ onMounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+  flex-wrap: wrap;
+}
+.hero-actions {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .rules {
@@ -176,6 +216,26 @@ onMounted(() => {
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
+}
+.performance {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.03);
+}
+.performance .label {
+  display: block;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.performance .value {
+  font-weight: 600;
+  margin-right: 8px;
 }
 .score {
   display: flex;
@@ -229,6 +289,9 @@ onMounted(() => {
   }
   .score {
     align-items: flex-start;
+  }
+  .performance {
+    flex-direction: column;
   }
 }
 </style>

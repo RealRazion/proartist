@@ -187,6 +187,14 @@
                 <dt>Erstellt</dt>
                 <dd>{{ formatDate(activeTask.created_at) }}</dd>
               </div>
+              <div>
+                <dt>Erstellt von</dt>
+                <dd>{{ formatUser(activeTask.created_by) }}</dd>
+              </div>
+              <div>
+                <dt>Letzte Änderung</dt>
+                <dd>{{ formatUser(activeTask.updated_by) }}</dd>
+              </div>
             </dl>
             <div class="chip-section">
               <span class="label">Verantwortlich</span>
@@ -729,6 +737,11 @@ function formatStakeholders(task) {
 function formatAssignees(task) {
   if (!task?.assignees?.length) return "Nicht zugewiesen";
   return task.assignees.map((profile) => profile.name || profile.username).join(", ");
+}
+
+function formatUser(user) {
+  if (!user) return "-";
+  return user.name || user.username || "-";
 }
 
 function formatDate(value) {

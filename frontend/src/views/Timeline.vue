@@ -132,13 +132,13 @@
               </div>
             </article>
           </div>
-          <p v-else class="muted empty">Heute keine EintrÃ¤ge.</p>
+          <p v-else class="muted empty">Heute keine Einträge.</p>
         </div>
         <div v-else class="list-view">
           <div v-for="group in groupedItems" :key="group.date" class="list-group">
             <div class="group-head">
               <strong>{{ group.label }}</strong>
-              <span class="muted small">{{ group.items.length }} EintrÃ¤ge</span>
+              <span class="muted small">{{ group.items.length }} Einträge</span>
             </div>
             <div class="list-grid">
               <article

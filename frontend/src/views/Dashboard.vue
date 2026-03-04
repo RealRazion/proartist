@@ -22,8 +22,20 @@
             <span class="badge">{{ item.date }}</span>
           </li>
         </ul>
-        <div v-if="activeSlide?.cta" class="slide-actions">
-          <button class="btn ghost" type="button" @click="handleSlideCta(activeSlide)">
+        <div v-if="activeSlide?.cta || activeSlide?.quickActions?.length" class="slide-actions">
+          <div v-if="activeSlide?.quickActions?.length" class="quick-actions">
+            <button
+              v-for="action in activeSlide.quickActions"
+              :key="action.key"
+              class="btn tiny"
+              :class="action.tone"
+              type="button"
+              @click="handleSlideQuickAction(action)"
+            >
+              {{ action.label }}
+            </button>
+          </div>
+          <button v-if="activeSlide?.cta" class="btn ghost" type="button" @click="handleSlideCta(activeSlide)">
             {{ activeSlide.cta.label }}
           </button>
         </div>
@@ -485,6 +497,12 @@ const dashboardSlides = computed(() => {
         title: task.title,
         date: task.due_date ? formatFullDate(task.due_date) : "Kein Termin",
       })),
+      quickActions: nextReview
+        ? [
+            { key: "reviewed", label: "Reviewed", tone: "success", type: "review", taskId: nextReview.id, reviewStatus: "REVIEWED" },
+            { key: "not-reviewed", label: "Nicht reviewed", tone: "danger", type: "review", taskId: nextReview.id, reviewStatus: "NOT_REVIEWED" },
+          ]
+        : [],
       cta: { label: "Zur Review-Seite", route: "reviews" },
     });
   }
@@ -970,6 +988,20 @@ function handleSlideCta(slide) {
   goTo(slide.cta.route);
 }
 
+async function handleSlideQuickAction(action) {
+  if (!action || !isTeam.value) return;
+  if (action.type === "review" && action.taskId) {
+    try {
+      await api.patch(`tasks/${action.taskId}/`, { status: "DONE", review_status: action.reviewStatus });
+      showToast("Review-Status aktualisiert", "success");
+      await Promise.all([loadReviewTasks(), loadOverdueTasks(), loadActiveTasks(), loadProjectSummary()]);
+    } catch (err) {
+      console.error("Review-Aktion fehlgeschlagen", err);
+      showToast("Review-Aktion fehlgeschlagen", "error");
+    }
+  }
+}
+
 function statusLabel(status) {
   return statusLabelMap[status] || status;
 }
@@ -1134,7 +1166,30 @@ function taskProjectLabel(task) {
 }
 .slide-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.btn.tiny {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+.btn.success {
+  background: rgba(34, 197, 94, 0.16);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #15803d;
+}
+.btn.danger {
+  background: rgba(248, 113, 113, 0.16);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #b91c1c;
 }
 .overview {
   width: 100%;
@@ -1371,6 +1426,12 @@ function taskProjectLabel(task) {
   .slide-actions .btn {
     width: 100%;
     justify-content: center;
+  }
+  .quick-actions {
+    width: 100%;
+  }
+  .quick-actions .btn {
+    flex: 1 1 140px;
   }
   .spotlight-footer {
     flex-direction: column;

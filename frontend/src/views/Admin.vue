@@ -3,7 +3,7 @@
     <header class="card header">
       <div>
         <h1>Admin Dashboard</h1>
-        <p class="muted">?berblick ?ber Nutzer, Projekte und kritische Werte.</p>
+        <p class="muted">Ueberblick ueber Nutzer, Projekte und kritische Werte.</p>
       </div>
       <button class="btn ghost" type="button" @click="refresh" :disabled="loading">
         {{ loading ? "Aktualisiere..." : "Aktualisieren" }}
@@ -476,10 +476,14 @@ onMounted(async () => {
 }
 .table-wrap {
   overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
 }
 table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 720px;
 }
 th,
 td {

@@ -433,6 +433,15 @@
           <button class="btn ghost tiny" type="button" @click="cancelReviewDecision">Schließen</button>
         </div>
         <div class="modal-body">
+          <div v-if="reviewTarget" class="review-summary">
+            <strong>{{ reviewTarget.title }}</strong>
+            <p class="muted small">
+              {{ reviewTarget.project_title || "Kein Projekt" }}
+              <span class="dot">·</span>
+              {{ reviewTarget.due_date ? formatDueDate(reviewTarget.due_date) : "Kein Termin" }}
+            </p>
+            <p class="muted small">Verantwortlich: {{ formatAssignees(reviewTarget) }}</p>
+          </div>
           <p class="muted">
             Wurde der Task bereits reviewed? Bei "Nein" wird er als nicht reviewed markiert und
             dem Team-Mitglied mit der geringsten Auslastung zugewiesen.
@@ -1533,6 +1542,16 @@ onBeforeUnmount(() => {
 .review-chip[data-review="NOT_REVIEWED"] {
   background: rgba(248, 113, 113, 0.2);
   color: #b91c1c;
+}
+.review-summary {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: rgba(15, 23, 42, 0.04);
+}
+.review-summary .dot {
+  margin: 0 6px;
 }
 .eyebrow {
   text-transform: uppercase;

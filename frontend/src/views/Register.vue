@@ -138,6 +138,13 @@ async function submit() {
   flex-direction: column;
   gap: 16px;
 }
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--text);
+}
 .textarea {
   min-height: 110px;
   resize: vertical;

@@ -81,6 +81,9 @@ REST_FRAMEWORK = {
   },
 }
 
+# API Center (kann per ENV deaktiviert werden)
+API_CENTER_OFFLINE = os.getenv("API_CENTER_OFFLINE", "True").lower() in {"1", "true", "yes", "on"}
+
 # Security headers (konfigurierbar per ENV)
 SECURE_HSTS_SECONDS = int(os.getenv("HSTS_SECONDS", "0"))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("HSTS_INCLUDE_SUBDOMAINS", "False") == "True"

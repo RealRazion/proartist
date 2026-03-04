@@ -67,6 +67,28 @@
             <span class="muted tiny">Netto {{ member.daily?.avg_daily_net ?? 0 }}</span>
           </div>
         </div>
+        <div class="today-details">
+          <div>
+            <span class="label">Heute +</span>
+            <ul v-if="sliceDetails(member.daily?.today_plus_details).length" class="detail-list">
+              <li v-for="item in sliceDetails(member.daily?.today_plus_details)" :key="`plus-${item.type}-${item.title}`">
+                <span>{{ item.title }}</span>
+                <span class="badge">+{{ item.points }}</span>
+              </li>
+            </ul>
+            <p v-else class="muted small">Keine Plus-Punkte heute.</p>
+          </div>
+          <div>
+            <span class="label">Heute -</span>
+            <ul v-if="sliceDetails(member.daily?.today_minus_details).length" class="detail-list">
+              <li v-for="item in sliceDetails(member.daily?.today_minus_details)" :key="`minus-${item.type}-${item.title}`">
+                <span>{{ item.title }}</span>
+                <span class="badge danger">-{{ item.points }}</span>
+              </li>
+            </ul>
+            <p v-else class="muted small">Keine Minus-Punkte heute.</p>
+          </div>
+        </div>
         <div class="member-grid">
           <div class="bucket">
             <h3>Tasks ({{ totalTaskPoints(member) }})</h3>
@@ -162,6 +184,11 @@ function totalGrowProPoints(member) {
   return (member.growpro || []).reduce((sum, goal) => sum + (goal.points || 0), 0);
 }
 
+function sliceDetails(list) {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 3);
+}
+
 onMounted(() => {
   loadPoints();
 });
@@ -225,6 +252,33 @@ onMounted(() => {
   border-radius: 12px;
   padding: 10px 12px;
   background: rgba(15, 23, 42, 0.03);
+}
+.today-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.02);
+}
+.detail-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.detail-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+.badge.danger {
+  background: rgba(248, 113, 113, 0.18);
+  color: #b91c1c;
 }
 .performance .label {
   display: block;

@@ -148,4 +148,11 @@ label {
   margin-top: -6px;
   color: var(--muted);
 }
+@media (max-width: 520px) {
+  .actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
 </style>

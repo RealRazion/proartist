@@ -222,9 +222,23 @@ li {
   font-size: 13px;
   color: var(--muted);
 }
+.meta span {
+  word-break: break-word;
+}
 .empty {
   text-align: center;
   margin: 12px 0 0;
+}
+@media (max-width: 720px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
 }
 @keyframes shimmer {
   0% {

@@ -54,10 +54,10 @@
           </label>
           <div class="bulk-buttons">
             <button class="btn tiny" type="button" @click="bulkReviewed" :disabled="!selectedReviewIds.length">
-              Markiert als reviewed
+              Als geprueft markieren
             </button>
             <button class="btn ghost tiny danger" type="button" @click="bulkNotReviewed" :disabled="!selectedReviewIds.length">
-              Markiert als nicht reviewed
+              Als nicht geprueft markieren
             </button>
           </div>
         </div>
@@ -79,8 +79,8 @@
               <span class="badge" :data-status="dueStatus(task)">{{ dueStatusLabel(task) }}</span>
             </div>
             <div class="task-actions">
-              <button class="btn tiny" type="button" @click="markReviewed(task)">Reviewed</button>
-              <button class="btn ghost tiny danger" type="button" @click="markNotReviewed(task)">Nicht reviewed</button>
+              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprueft</button>
+              <button class="btn ghost tiny danger" type="button" @click="markNotReviewed(task)">Nicht geprueft</button>
               <button class="btn ghost tiny" type="button" @click="goToTask(task)">Zur Task</button>
             </div>
           </li>
@@ -91,7 +91,7 @@
       <article class="card panel">
         <div class="panel-head">
           <div>
-            <h2>Nicht reviewed</h2>
+            <h2>Nicht geprueft</h2>
             <p class="muted small">DONE + NOT_REVIEWED</p>
           </div>
           <span class="pill warning">{{ pendingReviewTasks.length }}</span>
@@ -103,7 +103,7 @@
           </label>
           <div class="bulk-buttons">
             <button class="btn tiny" type="button" @click="bulkReviewed" :disabled="!selectedPendingIds.length">
-              Markiert als reviewed
+              Als geprueft markieren
             </button>
           </div>
         </div>
@@ -122,10 +122,10 @@
                 </p>
                 <p class="muted tiny">Verantwortlich: {{ formatAssignees(task) }}</p>
               </div>
-              <span class="badge danger">Nicht reviewed</span>
+              <span class="badge danger">Nicht geprueft</span>
             </div>
             <div class="task-actions">
-              <button class="btn tiny" type="button" @click="markReviewed(task)">Reviewed</button>
+              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprueft</button>
               <button class="btn ghost tiny" type="button" @click="goToTask(task)">Zur Task</button>
             </div>
           </li>
@@ -255,7 +255,7 @@ async function loadReviewTasks() {
 async function markReviewed(task) {
   try {
     await api.patch(`tasks/${task.id}/`, { status: "DONE", review_status: "REVIEWED" });
-    showToast("Task als reviewed markiert", "success");
+    showToast("Task als geprueft markiert", "success");
     loadReviewTasks();
   } catch (err) {
     console.error("Review konnte nicht gespeichert werden", err);
@@ -266,7 +266,7 @@ async function markReviewed(task) {
 async function markNotReviewed(task) {
   try {
     await api.patch(`tasks/${task.id}/`, { status: "DONE", review_status: "NOT_REVIEWED" });
-    showToast("Task als nicht reviewed markiert", "info");
+    showToast("Task als nicht geprueft markiert", "info");
     loadReviewTasks();
   } catch (err) {
     console.error("Task konnte nicht aktualisiert werden", err);
@@ -277,12 +277,12 @@ async function markNotReviewed(task) {
 async function bulkReviewed() {
   const ids = [...new Set([...selectedReviewIds.value, ...selectedPendingIds.value])];
   if (!ids.length) return;
-  await bulkUpdate(ids, { status: "DONE", review_status: "REVIEWED" }, "Auswahl reviewed");
+  await bulkUpdate(ids, { status: "DONE", review_status: "REVIEWED" }, "Auswahl geprueft");
 }
 
 async function bulkNotReviewed() {
   if (!selectedReviewIds.value.length) return;
-  await bulkUpdate(selectedReviewIds.value, { status: "DONE", review_status: "NOT_REVIEWED" }, "Auswahl nicht reviewed");
+  await bulkUpdate(selectedReviewIds.value, { status: "DONE", review_status: "NOT_REVIEWED" }, "Auswahl nicht geprueft");
 }
 
 async function bulkUpdate(ids, payload, successMessage) {

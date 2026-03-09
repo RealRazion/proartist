@@ -866,7 +866,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response({"start": start, "end": end_param, "results": serializer.data})
     @action(detail=False, methods=["GET"], url_path="summary")
     def summary(self, request):
-        qs = self._base_queryset()
+        qs = self.get_queryset()
         total = qs.count()
         archived = qs.filter(is_archived=True).count()
         completed = qs.filter(status="DONE").count()

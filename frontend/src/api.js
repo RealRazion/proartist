@@ -1,9 +1,19 @@
 import axios from "axios";
 import { useToast } from "./composables/useToast";
 
-const baseURL =
-  (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) ||
-  "http://127.0.0.1:8000/api/";
+function normalizeBaseUrl(value) {
+  let url = (value || "").trim();
+  if (!url) return "http://127.0.0.1:8000/api/";
+  if (!/\/api(\/|$)/i.test(url)) {
+    url = url.replace(/\/+$/, "");
+    url = `${url}/api/`;
+    return url;
+  }
+  if (!url.endsWith("/")) url += "/";
+  return url;
+}
+
+const baseURL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 const api = axios.create({ baseURL });
 const { showToast } = useToast();

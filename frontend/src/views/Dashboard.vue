@@ -499,8 +499,8 @@ const dashboardSlides = computed(() => {
       })),
       quickActions: nextReview
         ? [
-            { key: "reviewed", label: "Reviewed", tone: "success", type: "review", taskId: nextReview.id, reviewStatus: "REVIEWED" },
-            { key: "not-reviewed", label: "Nicht reviewed", tone: "danger", type: "review", taskId: nextReview.id, reviewStatus: "NOT_REVIEWED" },
+            { key: "reviewed", label: "Geprueft", tone: "success", type: "review", taskId: nextReview.id, reviewStatus: "REVIEWED" },
+            { key: "not-reviewed", label: "Nicht geprueft", tone: "danger", type: "review", taskId: nextReview.id, reviewStatus: "NOT_REVIEWED" },
           ]
         : [],
       cta: { label: "Zur Review-Seite", route: "reviews" },

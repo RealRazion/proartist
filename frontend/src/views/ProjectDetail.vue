@@ -372,13 +372,13 @@
             <p class="muted small">Verantwortlich: {{ formatAssignees(reviewTarget) }}</p>
           </div>
           <p class="muted">
-            Wurde der Task bereits reviewed? Bei "Nein" wird er als nicht reviewed markiert und
+            Wurde der Task bereits geprueft? Bei "Nein" wird er als nicht geprueft markiert und
             dem Team-Mitglied mit der geringsten Auslastung zugewiesen.
           </p>
         </div>
         <div class="modal-actions">
           <button class="btn ghost" type="button" @click="cancelReviewDecision">Abbrechen</button>
-          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, reviewed</button>
+          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, geprueft</button>
           <button class="btn danger" type="button" @click="confirmReviewDecision(false)">Nein</button>
         </div>
       </div>
@@ -455,8 +455,8 @@ const taskStatusLabels = {
   DONE: "Abgeschlossen",
 };
 const reviewStatusLabels = {
-  REVIEWED: "Reviewed",
-  NOT_REVIEWED: "Nicht reviewed",
+  REVIEWED: "Geprueft",
+  NOT_REVIEWED: "Nicht geprueft",
 };
 
 const taskPriorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="tasks">
     <header class="card header">
       <div>
@@ -58,21 +58,18 @@
             <strong>{{ taskSummary.done }}</strong>
           </div>
         </div>
-        <div v-if="taskSummary.total" class="progress-strip">
-          <div class="progress-bar">
-            <div
-              v-for="segment in statusProgress"
-              :key="segment.key"
-              class="segment"
-              :data-status="segment.key"
-              :style="{ flex: Math.max(segment.count, 0.2) }"
-            ></div>
-          </div>
-          <div class="legend">
-            <span v-for="segment in statusProgress" :key="`legend-${segment.key}`">
-              <span class="dot" :data-status="segment.key"></span>
-              {{ segment.label }} ({{ segment.count }})
-            </span>
+        <div v-if="taskSummary.total" class="progress-list">
+          <div v-for="segment in statusProgress" :key="segment.key" class="progress-item">
+            <div class="progress-head">
+              <span>
+                <span class="dot" :data-status="segment.key"></span>
+                {{ segment.label }}
+              </span>
+              <strong>{{ segment.count }}</strong>
+            </div>
+            <div class="progress-track" :data-status="segment.key">
+              <span class="progress-fill" :style="{ width: `${segment.percent}%` }"></span>
+            </div>
           </div>
         </div>
         <div class="columns">
@@ -357,7 +354,7 @@
     </div>
 
     <div v-if="taskModalVisible" class="modal-backdrop" @click.self="closeTaskModal">
-      <div class="modal card">
+      <div class="modal card wide task-modal">
         <div class="modal-head">
           <h3>{{ taskModalMode === "create" ? "Neue Aufgabe" : "Task bearbeiten" }}</h3>
           <button class="btn ghost tiny" type="button" @click="closeTaskModal" :disabled="taskSaving">Schließen</button>
@@ -462,13 +459,13 @@
             <p class="muted small">Verantwortlich: {{ formatAssignees(reviewTarget) }}</p>
           </div>
           <p class="muted">
-            Wurde der Task bereits geprueft? Bei "Nein" wird er als nicht geprueft markiert und
+            Wurde der Task bereits geprüft? Bei "Nein" wird er als nicht geprüft markiert und
             dem Team-Mitglied mit der geringsten Auslastung zugewiesen.
           </p>
         </div>
         <div class="modal-actions">
           <button class="btn ghost" type="button" @click="cancelReviewDecision">Abbrechen</button>
-          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, geprueft</button>
+          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, geprüft</button>
           <button class="btn danger" type="button" @click="confirmReviewDecision(false)">Nein</button>
         </div>
       </div>
@@ -569,8 +566,8 @@ const statusLabels = {
   DONE: "Fertig",
 };
 const reviewStatusLabels = {
-  REVIEWED: "Geprueft",
-  NOT_REVIEWED: "Nicht geprueft",
+  REVIEWED: "Geprüft",
+  NOT_REVIEWED: "Nicht geprüft",
 };
 const taskTypeOptions = ["INTERNAL", "EXTERNAL"];
 const taskTypeLabels = {
@@ -627,11 +624,16 @@ const boardColumns = computed(() =>
   }))
 );
 const statusProgress = computed(() =>
-  statusOptions.map((status) => ({
-    key: status,
-    label: statusLabels[status],
-    count: taskSummary.value.by_status?.[status] || 0,
-  }))
+  statusOptions.map((status) => {
+    const count = taskSummary.value.by_status?.[status] || 0;
+    const total = Math.max(taskSummary.value.total || 0, 1);
+    return {
+      key: status,
+      label: statusLabels[status],
+      count,
+      percent: Math.max(0, Math.min(100, Math.round((count / total) * 100))),
+    };
+  })
 );
 
 function handleRealtimeEvent(event) {
@@ -1322,8 +1324,8 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 .board-type-chips .chip.active {
-  border-color: #2563eb;
-  color: #2563eb;
+  border-color: var(--brand);
+  color: var(--brand);
 }
 .kpi-row {
   display: grid;
@@ -1357,61 +1359,73 @@ onBeforeUnmount(() => {
   border-color: rgba(16, 185, 129, 0.4);
   background: rgba(16, 185, 129, 0.1);
 }
-.progress-strip {
+.progress-list {
+  display: grid;
+  gap: 8px;
+}
+.progress-item {
+  display: grid;
+  gap: 6px;
+}
+.progress-head {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.progress-bar {
-  display: flex;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-}
-.progress-bar .segment {
-  height: 12px;
-}
-.progress-bar .segment[data-status="OPEN"] {
-  background: #f59e0b;
-}
-.progress-bar .segment[data-status="IN_PROGRESS"] {
-  background: #3b82f6;
-}
-.progress-bar .segment[data-status="REVIEW"] {
-  background: #a855f7;
-}
-.progress-bar .segment[data-status="DONE"] {
-  background: #10b981;
-}
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
+  justify-content: space-between;
+  align-items: center;
   font-size: 13px;
+}
+.progress-head strong {
+  font-size: 12px;
   color: var(--muted);
 }
-.legend .dot {
+.progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(148, 163, 184, 0.18);
+  overflow: hidden;
+}
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  width: 0;
+  transition: width 0.25s ease;
+}
+.progress-track[data-status="OPEN"] .progress-fill {
+  background: #f59e0b;
+}
+.progress-track[data-status="IN_PROGRESS"] .progress-fill {
+  background: #3b82f6;
+}
+.progress-track[data-status="REVIEW"] .progress-fill {
+  background: #a855f7;
+}
+.progress-track[data-status="DONE"] .progress-fill {
+  background: #10b981;
+}
+.dot {
   display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 999px;
   margin-right: 4px;
 }
-.legend .dot[data-status="OPEN"] {
+.dot[data-status="OPEN"] {
   background: #f59e0b;
 }
-.legend .dot[data-status="IN_PROGRESS"] {
+.dot[data-status="IN_PROGRESS"] {
   background: #3b82f6;
 }
-.legend .dot[data-status="REVIEW"] {
+.dot[data-status="REVIEW"] {
   background: #a855f7;
 }
-.legend .dot[data-status="DONE"] {
+.dot[data-status="DONE"] {
   background: #10b981;
 }
 .columns {
   display: grid;
-  grid-template-columns: repeat(4, minmax(240px, 1fr));
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
   gap: 18px;
   width: 100%;
   align-items: flex-start;
@@ -1435,10 +1449,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 190px;
+  min-height: 0;
   background: var(--card);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-  transition: transform 0.2s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
 }
 .task-card::before {
@@ -1464,7 +1478,8 @@ onBeforeUnmount(() => {
   background: #10b981;
 }
 .task-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.09);
 }
 .task-card.overdue {
   border-color: #dc2626;
@@ -1479,7 +1494,7 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 .title-row .title {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 600;
 }
 .pill-row {
@@ -1542,13 +1557,14 @@ onBeforeUnmount(() => {
   color: #ea580c;
 }
 .actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
   margin-top: auto;
 }
 .actions .input {
-  flex: 1;
+  width: 100%;
 }
 .skeleton-column {
   display: flex;
@@ -1866,6 +1882,9 @@ select[multiple] {
 :global(.dark) .tasks .kpi {
   background: rgba(15, 23, 42, 0.45);
 }
+:global(.dark) .tasks .progress-track {
+  background: rgba(148, 163, 184, 0.12);
+}
 :global(.dark) .tasks .modal {
   background: var(--card);
   box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55);
@@ -1930,8 +1949,7 @@ select[multiple] {
     grid-template-columns: 1fr;
   }
   .actions {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
   .actions .btn,
   .actions .input {

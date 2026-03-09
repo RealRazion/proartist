@@ -146,7 +146,7 @@ def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
     if send_email:
         send_notification_email(
             "Dein ProArtist Zugang",
-            f"Hallo,\n\nbitte setze dein Passwort ueber diesen Link:\n{link}\n\nViele Gruesse",
+            f"Hallo,\n\nbitte setze dein Passwort über diesen Link:\n{link}\n\nViele Grüße",
             [email],
         )
     return {"user": user, "profile": profile, "username": username, "invite_link": link}
@@ -415,6 +415,31 @@ def _profile_emails(profiles, exclude_ids=None):
     return emails
 
 
+def _ensure_task_overdue_entries():
+    today = timezone.now().date()
+    overdue_tasks = (
+        Task.objects.select_related("project")
+        .filter(is_archived=False, due_date__lt=today)
+        .exclude(status="DONE")
+    )
+    for task in overdue_tasks:
+        exists = ActivityEntry.objects.filter(
+            event_type="task_overdue",
+            task=task,
+            metadata__due_date=str(task.due_date),
+        ).exists()
+        if not exists:
+            log_activity(
+                "task_overdue",
+                f"Deadline verpasst: {task.title}",
+                description=f"Fällig am {task.due_date}",
+                severity="DANGER",
+                task=task,
+                project=task.project,
+                metadata={"due_date": str(task.due_date)},
+            )
+
+
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.prefetch_related("participants", "owners").order_by("-created_at")
     serializer_class=ProjectSerializer
@@ -505,7 +530,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         notify_project_event(instance, "deleted")
         log_activity(
             "project_deleted",
-            f"Projekt gelöscht: {instance.title}",
+            f"Projekt gelÃ¶scht: {instance.title}",
             actor=actor,
             severity="DANGER",
             project=instance,
@@ -692,7 +717,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             log_activity(
                 "task_overdue",
                 f"Deadline verpasst: {task.title}",
-                description=f"Fällig am {task.due_date}",
+                description=f"FÃ¤llig am {task.due_date}",
                 severity="DANGER",
                 task=task,
                 project=task.project,
@@ -805,7 +830,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         if prev_priority != task.priority:
             log_activity(
                 "task_priority_updated",
-                f"Priorität geändert: {task.title}",
+                f"PrioritÃ¤t geÃ¤ndert: {task.title}",
                 description=f"{prev_priority} -> {task.priority}",
                 actor=actor,
                 severity="INFO",
@@ -821,7 +846,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         notify_task_event(instance, "deleted")
         log_activity(
             "task_deleted",
-            f"Task gelöscht: {instance.title}",
+            f"Task gelÃ¶scht: {instance.title}",
             actor=actor,
             severity="DANGER",
             task=instance,
@@ -866,7 +891,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             return
         send_notification_email(
             f"Neuer Task: {task.title}",
-            f"Dir wurde ein Task zugewiesen.\n\nTitel: {task.title}\nStatus: {task.status}\nFällig: {task.due_date or 'Kein Termin'}",
+            f"Dir wurde ein Task zugewiesen.\n\nTitel: {task.title}\nStatus: {task.status}\nFÃ¤llig: {task.due_date or 'Kein Termin'}",
             recipients,
         )
 
@@ -1038,8 +1063,8 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
         recipients = _profile_emails(mentions)
         if recipients:
             send_notification_email(
-                f"Neue Erwähnung in {comment.task.title}",
-                f"{comment.author.name or comment.author.user.username} hat dich in einem Task-Kommentar erwähnt.\n\nKommentar:\n{comment.body}",
+                f"Neue ErwÃ¤hnung in {comment.task.title}",
+                f"{comment.author.name or comment.author.user.username} hat dich in einem Task-Kommentar erwÃ¤hnt.\n\nKommentar:\n{comment.body}",
                 recipients,
             )
 
@@ -1115,7 +1140,7 @@ class SongViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         log_activity(
             "song_deleted",
-            f"Song gelöscht: {instance.title}",
+            f"Song gelÃ¶scht: {instance.title}",
             actor=getattr(self.request.user, "profile", None),
             severity="WARNING",
             project=instance.project,
@@ -1175,18 +1200,22 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
 
-    def get_queryset(self):
+    def _base_queryset(self):
         qs = GrowProGoal.objects.select_related(
             "profile__user",
             "created_by__user",
             "assigned_team__user",
         ).prefetch_related("updates__created_by__user")
         me = self.request.user.profile
+        if not me.roles.filter(key="TEAM").exists():
+            qs = qs.filter(profile=me)
+        return qs
+
+    def get_queryset(self):
+        qs = self._base_queryset()
         search = self.request.query_params.get("search")
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(metric__icontains=search) | Q(description__icontains=search))
-        if not me.roles.filter(key="TEAM").exists():
-            qs = qs.filter(profile=me)
         profile_id = self.request.query_params.get("profile")
         if profile_id:
             qs = qs.filter(profile_id=profile_id)
@@ -1253,7 +1282,7 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
         try:
             value = float(request.data.get("value"))
         except (TypeError, ValueError):
-            return Response({"detail": "Wert fehlt oder ist ungültig"}, status=400)
+            return Response({"detail": "Wert fehlt oder ist ungÃ¼ltig"}, status=400)
         note = request.data.get("note", "")
         update = GrowProUpdate.objects.create(goal=goal, value=value, note=note, created_by=me)
         goal.current_value = value
@@ -1275,9 +1304,9 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
     def summary(self, request):
         qs = self._base_queryset()
         total = qs.count()
-        archived = qs.filter(is_archived=True).count()
+        archived = qs.filter(status="ARCHIVED").count()
         completed = qs.filter(status="DONE").count()
-        active = qs.filter(is_archived=False).exclude(status="DONE").count()
+        active = qs.filter(status__in=["ACTIVE", "ON_HOLD"]).count()
         by_status = {
             row["status"]: row["c"]
             for row in qs.values("status").annotate(c=Count("id"))
@@ -1444,7 +1473,7 @@ class ActivityFeedView(APIView):
         types = None
         if types_param:
             types = [t.strip() for t in types_param.split(",") if t.strip()]
-        self._ensure_overdue_entries()
+        _ensure_task_overdue_entries()
         qs = (
             ActivityEntry.objects.select_related("actor__user", "project", "task")
             .order_by("-created_at")
@@ -1528,30 +1557,6 @@ class TeamPointsView(APIView):
                 "updated_at": timezone.now().isoformat(),
             }
         )
-
-    def _ensure_overdue_entries(self):
-        today = timezone.now().date()
-        overdue_tasks = (
-            Task.objects.select_related("project")
-            .filter(is_archived=False, due_date__lt=today)
-            .exclude(status="DONE")
-        )
-        for task in overdue_tasks:
-            exists = ActivityEntry.objects.filter(
-                event_type="task_overdue",
-                task=task,
-                metadata__due_date=str(task.due_date),
-            ).exists()
-            if not exists:
-                log_activity(
-                    "task_overdue",
-                    f"Deadline verpasst: {task.title}",
-                    description=f"Fällig am {task.due_date}",
-                    severity="DANGER",
-                    task=task,
-                    project=task.project,
-                    metadata={"due_date": str(task.due_date)},
-                )
 
 # --- Stats (rollenbasiert) ---
 @api_view(["GET"])

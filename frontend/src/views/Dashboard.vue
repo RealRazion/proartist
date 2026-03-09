@@ -5,7 +5,7 @@
         <div>
           <p class="eyebrow">Dringend</p>
           <h2>Fristen & Updates</h2>
-          <p class="muted small">Deine naechsten Aufgaben und GrowPro Updates im Blick.</p>
+          <p class="muted small">Deine nächsten Aufgaben und GrowPro Updates im Blick.</p>
         </div>
       </div>
       <div class="slide" :class="activeSlide?.tone" :data-status="activeSlide?.status">
@@ -72,8 +72,8 @@
     <section v-if="isTeam" class="card overview">
       <div class="overview-head">
         <div>
-          <h2>Ueberblick</h2>
-          <p class="muted">Schneller Status fuer Projekte, Tasks und Requests.</p>
+          <h2>Überblick</h2>
+          <p class="muted">Schneller Status für Projekte, Tasks und Requests.</p>
         </div>
         <div class="overview-actions">
           <button class="btn ghost tiny" type="button" @click="refresh" :disabled="loading">Neu laden</button>
@@ -89,7 +89,7 @@
         <div class="stat">
           <span class="label">Offene Tasks</span>
           <strong>{{ activeTasksTotal }}</strong>
-          <small class="muted">Ueberfaellig {{ overdueTasks.length }}</small>
+          <small class="muted">Überfällig {{ overdueTasks.length }}</small>
         </div>
         <div class="stat">
           <span class="label">Requests offen</span>
@@ -97,9 +97,9 @@
           <small class="muted">Heute priorisieren</small>
         </div>
         <div class="stat">
-          <span class="label">GrowPro faellig</span>
+          <span class="label">GrowPro fällig</span>
           <strong>{{ growProDueSoon }}</strong>
-          <small class="muted">Ueberfaellig {{ growProOverdue }}</small>
+          <small class="muted">Überfällig {{ growProOverdue }}</small>
         </div>
       </div>
       <div class="overview-strip">
@@ -117,7 +117,7 @@
         </div>
         <div class="task-columns">
           <div>
-            <h3>Ueberfaellig</h3>
+            <h3>Überfällig</h3>
             <ul v-if="topOverdueTasks.length" class="list">
               <li v-for="task in topOverdueTasks" :key="`overdue-${task.id}`">
                 <div class="row">
@@ -127,7 +127,7 @@
                 <small class="muted">{{ taskProjectLabel(task) }}</small>
               </li>
             </ul>
-            <p v-else class="muted small">Keine ueberfaelligen Tasks.</p>
+            <p v-else class="muted small">Keine überfälligen Tasks.</p>
           </div>
           <div>
             <h3>Aktiv</h3>
@@ -216,7 +216,7 @@
         <div class="modal-head">
           <h3>Task erstellen</h3>
           <button class="btn ghost tiny" type="button" @click="closeTaskModal" :disabled="taskSaving">
-            Schliessen
+            Schließen
           </button>
         </div>
         <form class="form" @submit.prevent="submitTask">
@@ -234,7 +234,7 @@
             </select>
           </label>
           <label>
-            Faellig am
+            Fällig am
             <input class="input" type="date" v-model="taskForm.dueDate" />
           </label>
           <label>
@@ -260,7 +260,7 @@
         <div class="modal-head">
           <h3>Benutzer anlegen</h3>
           <button class="btn ghost tiny" type="button" @click="closeUserModal" :disabled="userSaving">
-            Schliessen
+            Schließen
           </button>
         </div>
         <form class="form" @submit.prevent="submitUserInvite">
@@ -470,8 +470,8 @@ const dashboardSlides = computed(() => {
       key: "task-overdue",
       tone: "warning",
       status: "overdue",
-      title: "Ueberfaellige Tasks",
-      message: `Du hast ${userOverdueTasks.value.length} ueberfaellige Tasks. Aelteste Frist: ${formatFullDate(oldest.due_date)} (${oldest.title}).`,
+      title: "Überfällige Tasks",
+      message: `Du hast ${userOverdueTasks.value.length} überfällige Tasks. Aelteste Frist: ${formatFullDate(oldest.due_date)} (${oldest.title}).`,
       cta: { label: "Zur Task", route: "tasks" },
     });
   }
@@ -488,10 +488,10 @@ const dashboardSlides = computed(() => {
       status,
       title: "Review Tasks",
       message: hasOverdue
-        ? `Es gibt ueberfaellige Review-Tasks. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
+        ? `Es gibt überfällige Review-Tasks. Nächste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
         : hasSoon
-          ? `Review-Tasks sind bald faellig. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
-          : `Es warten ${reviewTasks.value.length} Review-Tasks. Naechste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Offen"}.`,
+          ? `Review-Tasks sind bald fällig. Nächste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Bald"}.`
+          : `Es warten ${reviewTasks.value.length} Review-Tasks. Nächste Frist: ${nextReview ? formatFullDate(nextReview.due_date) : "Offen"}.`,
       items: reviewTasks.value.slice(0, 3).map((task) => ({
         key: `review-${task.id}`,
         title: task.title,
@@ -499,8 +499,8 @@ const dashboardSlides = computed(() => {
       })),
       quickActions: nextReview
         ? [
-            { key: "reviewed", label: "Geprueft", tone: "success", type: "review", taskId: nextReview.id, reviewStatus: "REVIEWED" },
-            { key: "not-reviewed", label: "Nicht geprueft", tone: "danger", type: "review", taskId: nextReview.id, reviewStatus: "NOT_REVIEWED" },
+            { key: "reviewed", label: "Geprüft", tone: "success", type: "review", taskId: nextReview.id, reviewStatus: "REVIEWED" },
+            { key: "not-reviewed", label: "Nicht geprüft", tone: "danger", type: "review", taskId: nextReview.id, reviewStatus: "NOT_REVIEWED" },
           ]
         : [],
       cta: { label: "Zur Review-Seite", route: "reviews" },
@@ -513,8 +513,8 @@ const dashboardSlides = computed(() => {
       key: `task-next-${nextUserTask.value.id}`,
       tone: "info",
       status: nextStatus,
-      title: "Naechste Task-Frist",
-      message: `Dein naechster faelliger Task ist am ${formatFullDate(nextUserTask.value.due_date)}: ${nextUserTask.value.title}.`,
+      title: "Nächste Task-Frist",
+      message: `Dein nächster fälliger Task ist am ${formatFullDate(nextUserTask.value.due_date)}: ${nextUserTask.value.title}.`,
       cta: { label: "Zur Task", route: "tasks" },
     });
   } else {
@@ -523,7 +523,7 @@ const dashboardSlides = computed(() => {
       tone: "info",
       status: "ok",
       title: "Keine offenen Task-Fristen",
-      message: "Aktuell sind keine faelligen Tasks fuer dich hinterlegt.",
+      message: "Aktuell sind keine fälligen Tasks für dich hinterlegt.",
       cta: { label: "Zu den Tasks", route: "tasks" },
     });
   }
@@ -533,7 +533,7 @@ const dashboardSlides = computed(() => {
       key: "growpro-stale",
       tone: "warning",
       status: "overdue",
-      title: "GrowPro Update ueberfaellig",
+      title: "GrowPro Update überfällig",
       message: `${growProStaleGoals.value.length} Ziele sind seit mehr als 72h ohne Update.`,
       cta: { label: "Zu GrowPro", route: "growpro" },
     });
@@ -544,8 +544,8 @@ const dashboardSlides = computed(() => {
       key: "growpro-upcoming",
       tone: "info",
       status: "ok",
-      title: "Naechste GrowPro Updates",
-      message: "Die naechsten Update-Fristen fuer deine Ziele.",
+      title: "Nächste GrowPro Updates",
+      message: "Die nächsten Update-Fristen für deine Ziele.",
       items: growProUpcomingGoals.value.map((entry) => ({
         key: entry.goal.id,
         title: entry.goal.title,
@@ -621,7 +621,7 @@ async function loadOverdueTasks() {
     const { data } = await api.get("tasks/overdue/");
     overdueTasks.value = data || [];
   } catch (err) {
-    console.error("Ueberfaellige Tasks konnten nicht geladen werden", err);
+    console.error("Überfällige Tasks konnten nicht geladen werden", err);
     overdueTasks.value = [];
   }
 }

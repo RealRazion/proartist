@@ -3,7 +3,7 @@
     <header class="card header">
       <div>
         <h1>Admin Dashboard</h1>
-        <p class="muted">Ueberblick ueber Nutzer, Projekte und kritische Werte.</p>
+        <p class="muted">Überblick über Nutzer, Projekte und kritische Werte.</p>
       </div>
       <button class="btn ghost" type="button" @click="refresh" :disabled="loading">
         {{ loading ? "Aktualisiere..." : "Aktualisieren" }}
@@ -12,7 +12,7 @@
 
     <section v-if="!isTeam" class="card info">
       <h2>Kein Zugriff</h2>
-      <p class="muted">Nur Team-Mitglieder mit Admin-Rechten können dieses Modul verwenden.</p>
+      <p class="muted">Nur Team-Mitglieder mit Admin-Rechten kÃ¶nnen dieses Modul verwenden.</p>
     </section>
 
     <section v-else class="metrics card">
@@ -37,7 +37,7 @@
         <strong>{{ metrics.active_projects }}</strong>
       </div>
       <div class="tile alert">
-        <p class="label">Überfällige Tasks</p>
+        <p class="label">ÃœberfÃ¤llige Tasks</p>
         <strong>{{ metrics.overdue_tasks }}</strong>
       </div>
     </section>
@@ -131,7 +131,7 @@
             <h3>{{ manage.profile?.name || manage.profile?.username || "-" }}</h3>
             <p class="muted">{{ manage.profile?.email }}</p>
           </div>
-          <button class="btn ghost tiny" type="button" @click="closeManage">Schließen</button>
+          <button class="btn ghost tiny" type="button" @click="closeManage">SchlieÃŸen</button>
         </header>
         <section v-if="manage.loading" class="modal-body">
           <p class="muted">Lade Daten...</p>

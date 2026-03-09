@@ -1,7 +1,7 @@
 <template>
   <div class="project-detail">
     <header class="card hero">
-      <button class="btn ghost tiny" type="button" @click="goBack">Zurück zu Projekten</button>
+      <button class="btn ghost tiny" type="button" @click="goBack">ZurÃ¼ck zu Projekten</button>
       <div class="hero-main">
         <p class="eyebrow">Projekt</p>
         <h1>{{ project?.title || "Projekt" }}</h1>
@@ -16,7 +16,7 @@
           {{ loadingProject ? "Lade..." : "Aktualisieren" }}
         </button>
         <button v-if="isTeam" class="btn" type="button" @click="editMode = !editMode">
-          {{ editMode ? "Bearbeitung schließen" : "Bearbeiten" }}
+          {{ editMode ? "Bearbeitung schlieÃŸen" : "Bearbeiten" }}
         </button>
       </div>
     </header>
@@ -37,7 +37,7 @@
       <div class="card overview">
         <div class="section-head">
           <div>
-            <h2>Überblick</h2>
+            <h2>Ãœberblick</h2>
             <p class="muted small">Status, Team und Kontext auf einen Blick.</p>
           </div>
           <div class="stats">
@@ -90,7 +90,7 @@
         <div class="section-head">
           <h2>Projekt bearbeiten</h2>
           <button class="btn ghost tiny" type="button" @click="resetProjectDraft" :disabled="savingProject">
-            Zurücksetzen
+            ZurÃ¼cksetzen
           </button>
         </div>
         <label>
@@ -114,7 +114,7 @@
           <select class="input" v-model="projectDraft.participant_ids" multiple size="7">
             <option v-for="profile in profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
           </select>
-          <small class="hint muted">Mehrfachauswahl mit Strg/Command möglich.</small>
+          <small class="hint muted">Mehrfachauswahl mit Strg/Command mÃ¶glich.</small>
         </label>
         <label>
           Verantwortliche Teammitglieder
@@ -125,19 +125,19 @@
           </select>
         </label>
         <div class="danger-zone">
-          <p class="muted">Projekt archivieren oder endgültig löschen.</p>
+          <p class="muted">Projekt archivieren oder endgÃ¼ltig lÃ¶schen.</p>
           <div class="danger-actions">
             <button class="btn ghost danger" type="button" @click="archiveProject" :disabled="savingProject">
               Archivieren
             </button>
             <button class="btn danger" type="button" @click="deleteProject" :disabled="savingProject">
-              Löschen
+              LÃ¶schen
             </button>
           </div>
         </div>
         <div class="form-actions">
           <button class="btn ghost" type="button" @click="resetProjectDraft" :disabled="savingProject">
-            Änderungen verwerfen
+            Ã„nderungen verwerfen
           </button>
           <button class="btn" type="submit" :disabled="savingProject || !hasProjectChanges">
             {{ savingProject ? "Speichere..." : "Speichern" }}
@@ -158,12 +158,12 @@
           <button class="btn ghost" type="button" @click="loadTasks" :disabled="loadingTasks">
             {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
           </button>
-          <button v-if="isTeam" class="btn" type="button" @click="openTaskModal">Task hinzufügen</button>
+          <button v-if="isTeam" class="btn" type="button" @click="openTaskModal">Task hinzufÃ¼gen</button>
         </div>
       </div>
 
       <div v-if="!isTeam" class="muted">
-        Nur Team-Mitglieder können Projekt-Tasks verwalten.
+        Nur Team-Mitglieder kÃ¶nnen Projekt-Tasks verwalten.
       </div>
       <template v-else>
         <div class="task-filters">
@@ -197,7 +197,7 @@
               <div>
                 <strong>{{ task.title }}</strong>
                 <p class="muted small">
-                  {{ task.due_date ? `Fällig ${formatDate(task.due_date)}` : "Kein Termin" }}
+                  {{ task.due_date ? `FÃ¤llig ${formatDate(task.due_date)}` : "Kein Termin" }}
                   - {{ taskPriorityLabels[task.priority] }}
                   <span
                     v-if="task.review_status"
@@ -210,7 +210,7 @@
                 <p class="muted small">Verantwortlich: {{ formatAssignees(task) }}</p>
                 <p v-if="task.created_by || task.updated_by" class="muted tiny">
                   Erstellt: {{ formatUser(task.created_by) }}
-                  <span v-if="task.updated_by">· Update: {{ formatUser(task.updated_by) }}</span>
+                  <span v-if="task.updated_by">Â· Update: {{ formatUser(task.updated_by) }}</span>
                 </p>
               </div>
               <div class="task-actions">
@@ -225,7 +225,7 @@
             </div>
           </li>
         </ul>
-        <p v-else class="muted empty">Keine Tasks für dieses Projekt.</p>
+        <p v-else class="muted empty">Keine Tasks fÃ¼r dieses Projekt.</p>
         <button v-if="hasMoreTasks" class="btn ghost tiny" type="button" @click="loadMoreTasks" :disabled="loadingMoreTasks">
           {{ loadingMoreTasks ? "Lade..." : "Mehr laden" }}
         </button>
@@ -236,7 +236,7 @@
       <AttachmentPanel
         entity-type="project"
         :entity-id="projectId"
-        title="Dateianhänge"
+        title="DateianhÃ¤nge"
         description="Teile Briefings, Referenzen oder Ergebnisse."
       />
     </section>
@@ -244,7 +244,7 @@
     <section class="card songs">
       <div class="section-head">
         <div>
-          <h2>Verknüpfte Songs</h2>
+          <h2>VerknÃ¼pfte Songs</h2>
           <p class="muted small" v-if="songsPagination.count">
             {{ songs.length }} von {{ songsPagination.count }} geladen
           </p>
@@ -265,7 +265,7 @@
           <span class="muted small">{{ formatDate(song.created_at) }}</span>
         </li>
       </ul>
-      <p v-else class="muted empty">Noch keine Songs mit diesem Projekt verknüpft.</p>
+      <p v-else class="muted empty">Noch keine Songs mit diesem Projekt verknÃ¼pft.</p>
       <button v-if="hasMoreSongs" class="btn ghost tiny" type="button" @click="loadMoreSongs" :disabled="loadingMoreSongs">
         {{ loadingMoreSongs ? "Lade..." : "Mehr laden" }}
       </button>
@@ -274,7 +274,7 @@
     <section v-if="isTeam" class="card activity">
       <div class="section-head">
         <div>
-          <h2>Letzte Aktivitäten</h2>
+          <h2>Letzte AktivitÃ¤ten</h2>
           <p class="muted small">Projektbezogene Events und Updates.</p>
         </div>
         <button class="btn ghost" type="button" @click="loadActivity" :disabled="loadingActivity">
@@ -291,18 +291,18 @@
           <span class="muted small">{{ formatDateTime(item.created_at) }}</span>
         </li>
       </ul>
-      <p v-else class="muted empty">Keine Aktivitäten vorhanden.</p>
+      <p v-else class="muted empty">Keine AktivitÃ¤ten vorhanden.</p>
     </section>
 
     <div v-if="taskModalVisible" class="modal-backdrop" @click.self="closeTaskModal">
-      <div class="modal card">
+      <div class="modal card wide task-modal">
         <div class="modal-head">
-          <h3>{{ taskModalMode === "create" ? "Task hinzufügen" : "Task bearbeiten" }}</h3>
+          <h3>{{ taskModalMode === "create" ? "Task hinzufÃ¼gen" : "Task bearbeiten" }}</h3>
           <button class="btn ghost tiny" type="button" @click="closeTaskModal" :disabled="taskSaving">
-            Schließen
+            SchlieÃŸen
           </button>
         </div>
-        <form class="form" @submit.prevent="submitTaskForm">
+        <form class="form form-grid" @submit.prevent="submitTaskForm">
           <label>
             Titel
             <input class="input" v-model.trim="taskForm.title" placeholder="Tasktitel" required />
@@ -314,7 +314,7 @@
             </select>
           </label>
           <label>
-            Priorität
+            PrioritÃ¤t
             <select class="input" v-model="taskForm.priority">
               <option v-for="opt in taskPriorityOptions" :key="opt" :value="opt">{{ taskPriorityLabels[opt] }}</option>
             </select>
@@ -325,7 +325,7 @@
               <option v-for="opt in taskTypeOptions" :key="opt" :value="opt">{{ taskTypeLabels[opt] }}</option>
             </select>
           </label>
-          <label>
+          <label class="full">
             Verantwortliche (Team)
             <select class="input" v-model="taskForm.assignee_ids" multiple size="5">
               <option v-for="profile in teamProfiles" :key="`assignee-${profile.id}`" :value="profile.id">
@@ -333,7 +333,7 @@
               </option>
             </select>
           </label>
-          <label>
+          <label class="full">
             Betroffene Nutzer
             <select class="input" v-model="taskForm.stakeholder_ids" multiple size="5">
               <option v-for="profile in profiles" :key="`stake-${profile.id}`" :value="profile.id">
@@ -342,7 +342,7 @@
             </select>
           </label>
           <label>
-            Fällig am
+            FÃ¤llig am
             <input class="input" type="date" v-model="taskForm.due_date" />
           </label>
           <div class="form-actions">
@@ -359,26 +359,26 @@
       <div class="modal card review-modal">
         <div class="modal-head">
           <h3>Review abgeschlossen?</h3>
-          <button class="btn ghost tiny" type="button" @click="cancelReviewDecision">Schließen</button>
+          <button class="btn ghost tiny" type="button" @click="cancelReviewDecision">SchlieÃŸen</button>
         </div>
         <div class="modal-body">
           <div v-if="reviewTarget" class="review-summary">
             <strong>{{ reviewTarget.title }}</strong>
             <p class="muted small">
               {{ reviewTarget.project_title || project?.title || "Kein Projekt" }}
-              <span class="dot">·</span>
+              <span class="dot">Â·</span>
               {{ reviewTarget.due_date ? formatDate(reviewTarget.due_date) : "Kein Termin" }}
             </p>
             <p class="muted small">Verantwortlich: {{ formatAssignees(reviewTarget) }}</p>
           </div>
           <p class="muted">
-            Wurde der Task bereits geprueft? Bei "Nein" wird er als nicht geprueft markiert und
+            Wurde der Task bereits geprüft? Bei "Nein" wird er als nicht geprüft markiert und
             dem Team-Mitglied mit der geringsten Auslastung zugewiesen.
           </p>
         </div>
         <div class="modal-actions">
           <button class="btn ghost" type="button" @click="cancelReviewDecision">Abbrechen</button>
-          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, geprueft</button>
+          <button class="btn" type="button" @click="confirmReviewDecision(true)">Ja, geprüft</button>
           <button class="btn danger" type="button" @click="confirmReviewDecision(false)">Nein</button>
         </div>
       </div>
@@ -455,8 +455,8 @@ const taskStatusLabels = {
   DONE: "Abgeschlossen",
 };
 const reviewStatusLabels = {
-  REVIEWED: "Geprueft",
-  NOT_REVIEWED: "Nicht geprueft",
+  REVIEWED: "Geprüft",
+  NOT_REVIEWED: "Nicht geprüft",
 };
 
 const taskPriorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
@@ -557,7 +557,7 @@ function resetProjectDraft() {
 async function loadProject() {
   projectError.value = "";
   if (!projectId.value) {
-    projectError.value = "Ungültige Projekt-ID.";
+    projectError.value = "UngÃ¼ltige Projekt-ID.";
     project.value = null;
     return;
   }
@@ -616,7 +616,7 @@ async function archiveProject() {
 
 async function deleteProject() {
   if (!project.value) return;
-  if (!confirm(`Projekt "${project.value.title}" endgültig löschen?`)) return;
+  if (!confirm(`Projekt "${project.value.title}" endgÃ¼ltig lÃ¶schen?`)) return;
   savingProject.value = true;
   try {
     try {
@@ -624,11 +624,11 @@ async function deleteProject() {
     } catch (err) {
       await api.delete(`projects/${projectId.value}/`);
     }
-    showToast("Projekt gelöscht", "success");
+    showToast("Projekt gelÃ¶scht", "success");
     router.push({ name: "projects" });
   } catch (err) {
-    console.error("Projekt konnte nicht gelöscht werden", err);
-    showToast("Projekt konnte nicht gelöscht werden", "error");
+    console.error("Projekt konnte nicht gelÃ¶scht werden", err);
+    showToast("Projekt konnte nicht gelÃ¶scht werden", "error");
   } finally {
     savingProject.value = false;
   }
@@ -912,7 +912,7 @@ async function loadActivity() {
   if (!isTeam.value) return;
   loadingActivity.value = true;
   try {
-    const { data } = await api.get("activity/", { params: { limit: 50 } });
+    const { data } = await api.get("activity-feed/", { params: { limit: 50 } });
     activities.value = (data || []).filter((item) => item.project?.id === projectId.value);
   } catch (err) {
     activities.value = [];
@@ -1370,6 +1370,9 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   box-shadow: 0 40px 80px rgba(15, 23, 42, 0.35);
 }
+.modal.wide {
+  max-width: 920px;
+}
 .modal-head {
   display: flex;
   justify-content: space-between;
@@ -1381,6 +1384,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.form-grid .full {
+  grid-column: 1 / -1;
 }
 @keyframes shimmer {
   0% {
@@ -1418,6 +1429,9 @@ onBeforeUnmount(() => {
   }
   .modal {
     padding: 18px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

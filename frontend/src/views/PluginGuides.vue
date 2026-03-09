@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="guides wide">
     <header class="card header">
       <div>
@@ -45,7 +45,7 @@
                 @input="onCropZoom"
               />
             </label>
-            <button class="btn ghost tiny" type="button" @click="initializeCrop">Zuruecksetzen</button>
+            <button class="btn ghost tiny" type="button" @click="initializeCrop">Zurücksetzen</button>
             <button class="btn ghost tiny" type="button" @click="clearImage">Bild entfernen</button>
           </div>
           <p class="muted small">Ziehe das Bild, um den Ausschnitt anzupassen.</p>
@@ -77,7 +77,7 @@
               {{ guide.is_published ? "Auf Entwurf setzen" : "Veroeffentlichen" }}
             </button>
             <button class="btn ghost danger tiny" type="button" @click="removeGuide(guide)" :disabled="savingIds.has(guide.id)">
-              Loeschen
+              Löschen
             </button>
           </div>
         </li>
@@ -308,7 +308,7 @@ async function togglePublish(guide) {
 }
 
 async function removeGuide(guide) {
-  if (!confirm(`Guide "${guide.title}" wirklich loeschen?`)) return;
+  if (!confirm(`Guide "${guide.title}" wirklich löschen?`)) return;
   savingIds.value.add(guide.id);
   try {
     await api.delete(`plugin-guides/${guide.id}/`);

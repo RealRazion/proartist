@@ -305,7 +305,7 @@ async function loadActivity() {
   }
   loadingActivity.value = true;
   try {
-    const { data } = await api.get("activity/", {
+    const { data } = await api.get("activity-feed/", {
       params: { limit: 40, types: "song_created,song_updated,song_version_created" },
     });
     activities.value = data || [];

@@ -74,7 +74,7 @@ api.interceptors.response.use(
     if (!status) {
       const now = Date.now();
       if (now - lastToastAt > 1200) {
-        showToast("Netzwerkfehler. Bitte Verbindung pruefen.", "error");
+        showToast("Netzwerkfehler. Bitte Verbindung prüfen.", "error");
         lastToastAt = now;
       }
     }

@@ -1,10 +1,10 @@
-﻿<template>
+<template>
   <div class="api-center">
     <header class="card hero">
       <div>
         <p class="eyebrow">API</p>
         <h1>Automation & Integrationen</h1>
-        <p class="muted">Verwalte Regeln und interne API-Keys fuer neue Systeme.</p>
+        <p class="muted">Verwalte Regeln und interne API-Keys für neue Systeme.</p>
         <span v-if="apiOffline" class="pill danger">Offline</span>
       </div>
       <div class="mode-toggle">
@@ -22,8 +22,8 @@
     </header>
 
     <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur fuer Team</h2>
-      <p class="muted">Diese Seite ist nur fuer Team-Mitglieder sichtbar.</p>
+      <h2>Zugriff nur für Team</h2>
+      <p class="muted">Diese Seite ist nur für Team-Mitglieder sichtbar.</p>
     </section>
 
     <section v-if="isTeam && apiOffline" class="card warning">
@@ -102,7 +102,7 @@
         <div class="panel-head">
           <div>
             <h2>Automation Rules</h2>
-            <p class="muted small">Regeln fuer interne Automationen.</p>
+            <p class="muted small">Regeln für interne Automationen.</p>
           </div>
           <button class="btn ghost tiny" type="button" @click="loadRules" :disabled="loadingRules">
             {{ loadingRules ? "Lade..." : "Neu laden" }}
@@ -239,7 +239,7 @@ function parseScopes() {
     const parsed = JSON.parse(integrationForm.value.scopes || "[]");
     if (Array.isArray(parsed)) return parsed;
   } catch (err) {
-    showToast("Scopes JSON ist ungueltig", "error");
+    showToast("Scopes JSON ist ungültig", "error");
   }
   return [];
 }
@@ -249,7 +249,7 @@ function parseConfig() {
   try {
     return JSON.parse(ruleForm.value.config || "{}");
   } catch (err) {
-    showToast("Config JSON ist ungueltig", "error");
+    showToast("Config JSON ist ungültig", "error");
     return null;
   }
 }

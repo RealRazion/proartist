@@ -164,7 +164,7 @@
     </div>
 
     <div v-if="projectModalVisible" class="modal-backdrop" @click.self="closeProjectModal">
-      <div class="modal card">
+      <div class="modal card wide project-modal">
         <div class="modal-head">
           <h3>{{ projectModalMode === "create" ? "Neues Projekt" : "Projekt bearbeiten" }}</h3>
           <button class="btn ghost tiny" type="button" @click="closeProjectModal" :disabled="projectSaving">Schließen</button>

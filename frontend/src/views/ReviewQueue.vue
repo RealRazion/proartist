@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="reviews">
     <header class="card hero">
       <div>
@@ -12,8 +12,8 @@
     </header>
 
     <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur fuer Team</h2>
-      <p class="muted">Review-Queues sind nur fuer Team-Mitglieder sichtbar.</p>
+      <h2>Zugriff nur für Team</h2>
+      <p class="muted">Review-Queues sind nur für Team-Mitglieder sichtbar.</p>
     </section>
 
     <section v-if="isTeam" class="filters card">
@@ -26,8 +26,8 @@
           Frist
           <select class="input" v-model="filters.due">
             <option value="ALL">Alle</option>
-            <option value="overdue">Ueberfaellig</option>
-            <option value="soon">Faellig (2 Tage)</option>
+            <option value="overdue">Überfällig</option>
+            <option value="soon">Fällig (2 Tage)</option>
             <option value="ok">Im Plan</option>
           </select>
         </label>
@@ -44,24 +44,44 @@
         <strong>{{ reviewTasks.length }}</strong>
       </article>
       <article class="card stat warning">
-        <span class="label">Faellig in 2 Tagen</span>
+        <span class="label">Fällig in 2 Tagen</span>
         <strong>{{ reviewSoonCount }}</strong>
       </article>
       <article class="card stat danger">
-        <span class="label">Ueberfaellig</span>
+        <span class="label">Überfällig</span>
         <strong>{{ reviewOverdueCount }}</strong>
       </article>
       <article class="card stat">
-        <span class="label">Nicht geprueft</span>
+        <span class="label">Nicht geprüft</span>
         <strong>{{ pendingReviewTasks.length }}</strong>
       </article>
     </section>
 
-    <section v-if="isTeam" class="grid">
-      <article class="card panel">
+    <section v-if="isTeam && nextDueTask" class="card alert">
+      <div>
+        <strong>Nächste relevante Frist: {{ nextDueTask.title }}</strong>
+        <p class="muted small">
+          {{ nextDueTask.project_title || "Kein Projekt" }} ·
+          {{ nextDueTask.due_date ? formatDate(nextDueTask.due_date) : "Kein Termin" }}
+        </p>
+      </div>
+      <button class="btn ghost tiny" type="button" @click="goToTask(nextDueTask)">Zur Task</button>
+    </section>
+
+    <section v-if="isTeam" class="card queue-shell">
+      <div class="tab-row">
+        <button class="tab" :class="{ active: activeTab === 'review' }" type="button" @click="activeTab = 'review'">
+          Review fällig ({{ filteredReviewTasks.length }})
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'pending' }" type="button" @click="activeTab = 'pending'">
+          Nicht geprüft ({{ filteredPendingTasks.length }})
+        </button>
+      </div>
+
+      <article v-if="activeTab === 'review'" class="panel">
         <div class="panel-head">
           <div>
-            <h2>Review faellig</h2>
+            <h2>Review fällig</h2>
             <p class="muted small">Status REVIEW</p>
           </div>
           <span class="pill">{{ reviewTasks.length }}</span>
@@ -73,10 +93,10 @@
           </label>
           <div class="bulk-buttons">
             <button class="btn tiny" type="button" @click="bulkReviewed" :disabled="!selectedReviewIds.length">
-              Als geprueft markieren
+              Als geprüft markieren
             </button>
             <button class="btn ghost tiny danger" type="button" @click="bulkNotReviewed" :disabled="!selectedReviewIds.length">
-              Als nicht geprueft markieren
+              Als nicht geprüft markieren
             </button>
           </div>
         </div>
@@ -98,8 +118,8 @@
               <span class="badge" :data-status="dueStatus(task)">{{ dueStatusLabel(task) }}</span>
             </div>
             <div class="task-actions">
-              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprueft</button>
-              <button class="btn ghost tiny danger" type="button" @click="markNotReviewed(task)">Nicht geprueft</button>
+              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprüft</button>
+              <button class="btn ghost tiny danger" type="button" @click="markNotReviewed(task)">Nicht geprüft</button>
               <button class="btn ghost tiny" type="button" @click="goToTask(task)">Zur Task</button>
             </div>
           </li>
@@ -107,10 +127,10 @@
         <p v-else class="muted small">Aktuell keine Review-Tasks.</p>
       </article>
 
-      <article class="card panel">
+      <article v-else class="panel">
         <div class="panel-head">
           <div>
-            <h2>Nicht geprueft</h2>
+            <h2>Nicht geprüft</h2>
             <p class="muted small">DONE + NOT_REVIEWED</p>
           </div>
           <span class="pill warning">{{ pendingReviewTasks.length }}</span>
@@ -122,7 +142,7 @@
           </label>
           <div class="bulk-buttons">
             <button class="btn tiny" type="button" @click="bulkReviewed" :disabled="!selectedPendingIds.length">
-              Als geprueft markieren
+              Als geprüft markieren
             </button>
           </div>
         </div>
@@ -141,10 +161,10 @@
                 </p>
                 <p class="muted tiny">Verantwortlich: {{ formatAssignees(task) }}</p>
               </div>
-              <span class="badge danger">Nicht geprueft</span>
+              <span class="badge danger">Nicht geprüft</span>
             </div>
             <div class="task-actions">
-              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprueft</button>
+              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprüft</button>
               <button class="btn ghost tiny" type="button" @click="goToTask(task)">Zur Task</button>
             </div>
           </li>
@@ -170,6 +190,7 @@ const reviewTasks = ref([]);
 const pendingReviewTasks = ref([]);
 const loading = ref(false);
 const filters = ref({ search: "", due: "ALL", onlyMine: false });
+const activeTab = ref("review");
 const selectedReviewIds = ref([]);
 const selectedPendingIds = ref([]);
 
@@ -197,13 +218,18 @@ function dueStatus(task) {
 
 function dueStatusLabel(task) {
   const status = dueStatus(task);
-  if (status === "overdue") return "Ueberfaellig";
-  if (status === "soon") return "Faellig";
+  if (status === "overdue") return "Überfällig";
+  if (status === "soon") return "Fällig";
   return "Im Plan";
 }
 
 const filteredReviewTasks = computed(() => applyFilters(reviewTasks.value));
 const filteredPendingTasks = computed(() => applyFilters(pendingReviewTasks.value));
+const nextDueTask = computed(() => {
+  const all = [...reviewTasks.value, ...pendingReviewTasks.value].filter((task) => task?.due_date);
+  all.sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+  return all[0] || null;
+});
 const reviewOverdueCount = computed(() => reviewTasks.value.filter((task) => dueStatus(task) === "overdue").length);
 const reviewSoonCount = computed(() => reviewTasks.value.filter((task) => dueStatus(task) === "soon").length);
 
@@ -276,7 +302,7 @@ async function loadReviewTasks() {
 async function markReviewed(task) {
   try {
     await api.patch(`tasks/${task.id}/`, { status: "DONE", review_status: "REVIEWED" });
-    showToast("Task als geprueft markiert", "success");
+    showToast("Task als geprüft markiert", "success");
     loadReviewTasks();
   } catch (err) {
     console.error("Review konnte nicht gespeichert werden", err);
@@ -287,7 +313,7 @@ async function markReviewed(task) {
 async function markNotReviewed(task) {
   try {
     await api.patch(`tasks/${task.id}/`, { status: "DONE", review_status: "NOT_REVIEWED" });
-    showToast("Task als nicht geprueft markiert", "info");
+    showToast("Task als nicht geprüft markiert", "info");
     loadReviewTasks();
   } catch (err) {
     console.error("Task konnte nicht aktualisiert werden", err);
@@ -298,12 +324,12 @@ async function markNotReviewed(task) {
 async function bulkReviewed() {
   const ids = [...new Set([...selectedReviewIds.value, ...selectedPendingIds.value])];
   if (!ids.length) return;
-  await bulkUpdate(ids, { status: "DONE", review_status: "REVIEWED" }, "Auswahl geprueft");
+  await bulkUpdate(ids, { status: "DONE", review_status: "REVIEWED" }, "Auswahl geprüft");
 }
 
 async function bulkNotReviewed() {
   if (!selectedReviewIds.value.length) return;
-  await bulkUpdate(selectedReviewIds.value, { status: "DONE", review_status: "NOT_REVIEWED" }, "Auswahl nicht geprueft");
+  await bulkUpdate(selectedReviewIds.value, { status: "DONE", review_status: "NOT_REVIEWED" }, "Auswahl nicht geprüft");
 }
 
 async function bulkUpdate(ids, payload, successMessage) {
@@ -352,9 +378,8 @@ onMounted(() => {
 
 <style scoped>
 .reviews {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: grid;
+  gap: 16px;
 }
 .hero {
   display: flex;
@@ -363,20 +388,17 @@ onMounted(() => {
   gap: 12px;
   flex-wrap: wrap;
 }
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 18px;
-}
 .stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 .stat {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  border-radius: 14px;
+  padding: 12px;
 }
 .stat .label {
   font-size: 11px;
@@ -396,6 +418,14 @@ onMounted(() => {
   border-color: rgba(248, 113, 113, 0.45);
   background: rgba(248, 113, 113, 0.1);
 }
+.alert {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-color: rgba(59, 130, 246, 0.34);
+  background: rgba(59, 130, 246, 0.08);
+}
 .filters {
   display: flex;
   flex-direction: column;
@@ -413,10 +443,37 @@ onMounted(() => {
   gap: 6px;
   font-size: 13px;
 }
+.queue-shell {
+  display: grid;
+  gap: 12px;
+}
+.tab-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tab {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab.active {
+  border-color: var(--brand);
+  color: var(--brand);
+}
 .panel {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  background: var(--surface);
 }
 .panel-head {
   display: flex;
@@ -428,8 +485,7 @@ onMounted(() => {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 12px;
 }
 .task-item {
@@ -437,8 +493,7 @@ onMounted(() => {
   border-radius: 14px;
   padding: 12px;
   background: var(--card);
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 10px;
 }
 .task-main {
@@ -514,6 +569,10 @@ onMounted(() => {
   .hero {
     flex-direction: column;
     align-items: stretch;
+  }
+  .alert {
+    flex-direction: column;
+    align-items: flex-start;
   }
   .task-main {
     flex-direction: column;

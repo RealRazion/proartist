@@ -1,8 +1,8 @@
-﻿<template>
+<template>
   <div class="auth-page">
     <div class="card auth-card">
       <h1>Registrierung anfragen</h1>
-      <p class="subtitle">Trage deine E-Mail ein und beschreibe kurz, wer du bist. Das Team prueft deine Anfrage.</p>
+      <p class="subtitle">Trage deine E-Mail ein und beschreibe kurz, wer du bist. Das Team prüft deine Anfrage.</p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label>
@@ -26,7 +26,7 @@
             rows="4"
             @blur="markTouched('description')"
           ></textarea>
-          <small class="hint muted">Die Beschreibung ist nur fuer Team/Admin sichtbar.</small>
+          <small class="hint muted">Die Beschreibung ist nur für Team/Admin sichtbar.</small>
           <small v-if="touched.description && descriptionError" class="hint error">{{ descriptionError }}</small>
         </label>
 
@@ -67,7 +67,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const emailError = computed(() => {
   const value = form.value.email.trim();
   if (!value) return "E-Mail wird benoetigt.";
-  if (!emailPattern.test(value)) return "Bitte gueltige E-Mail eingeben.";
+  if (!emailPattern.test(value)) return "Bitte gültige E-Mail eingeben.";
   return "";
 });
 
@@ -102,7 +102,7 @@ async function submit() {
       email: form.value.email.trim(),
       description: form.value.description.trim(),
     });
-    showMessage("Danke! Wir pruefen deine Anfrage und melden uns per E-Mail.", "success");
+    showMessage("Danke! Wir prüfen deine Anfrage und melden uns per E-Mail.", "success");
     form.value = { email: "", description: "" };
     touched.value = { email: false, description: false };
   } catch (err) {

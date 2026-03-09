@@ -1,10 +1,10 @@
-﻿<template>
+<template>
   <div class="points">
     <header class="card hero">
       <div>
         <p class="eyebrow">Score</p>
         <h1>Team Points</h1>
-        <p class="muted">Uebersicht der Punkte und wie sie entstehen.</p>
+        <p class="muted">Übersicht der Punkte und wie sie entstehen.</p>
       </div>
       <div class="hero-actions">
         <button class="btn ghost" type="button" @click="exportCsv" :disabled="loading">
@@ -17,8 +17,8 @@
     </header>
 
     <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur fuer Team</h2>
-      <p class="muted">Die Punkte-Uebersicht ist nur fuer Team-Mitglieder sichtbar.</p>
+      <h2>Zugriff nur für Team</h2>
+      <p class="muted">Die Punkte-Übersicht ist nur für Team-Mitglieder sichtbar.</p>
     </section>
 
     <section v-else class="card rules">

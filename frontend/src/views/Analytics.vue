@@ -18,7 +18,7 @@
 
     <section v-if="!isTeam" class="card info">
       <h2>Kein Zugriff</h2>
-      <p class="muted">Analytics sind nur fuer Team-Mitglieder sichtbar.</p>
+      <p class="muted">Analytics sind nur für Team-Mitglieder sichtbar.</p>
     </section>
 
     <template v-else>
@@ -26,10 +26,10 @@
         <div class="card kpi">
           <span class="label">Tasks aktiv</span>
           <strong>{{ formatNumber(analytics.active_tasks) }}</strong>
-          <small class="muted">Ueberfaellig {{ formatNumber(analytics.overdue_tasks) }}</small>
+          <small class="muted">Überfällig {{ formatNumber(analytics.overdue_tasks) }}</small>
         </div>
         <div class="card kpi">
-          <span class="label">Tasks faellig (7 Tage)</span>
+          <span class="label">Tasks fällig (7 Tage)</span>
           <strong>{{ formatNumber(analytics.due_soon_tasks) }}</strong>
           <small class="muted">Erledigt 7 Tage {{ formatNumber(analytics.completed_last_7_days) }}</small>
         </div>
@@ -79,7 +79,7 @@
               <strong>{{ formatNumber(item.count) }}</strong>
             </div>
           </div>
-          <div class="subhead">Ueberfaellig</div>
+          <div class="subhead">Überfällig</div>
           <ul v-if="overdueTasks.length" class="list">
             <li v-for="task in overdueTasks.slice(0, 6)" :key="`overdue-${task.id}`">
               <div class="row">
@@ -89,7 +89,7 @@
               <p class="muted small">{{ task.project_title || `Projekt #${task.project}` }}</p>
             </li>
           </ul>
-          <p v-else class="muted small">Keine ueberfaelligen Tasks.</p>
+          <p v-else class="muted small">Keine überfälligen Tasks.</p>
         </div>
 
         <div class="card panel">
@@ -108,7 +108,7 @@
               </div>
             </div>
           </div>
-          <div class="subhead">Naechste Deadlines</div>
+          <div class="subhead">Nächste Deadlines</div>
           <ul v-if="upcomingTasks.length" class="list">
             <li v-for="task in upcomingTasks.slice(0, 6)" :key="`upcoming-${task.id}`">
               <div class="row">
@@ -118,7 +118,7 @@
               <p class="muted small">{{ task.project_title || `Projekt #${task.project}` }}</p>
             </li>
           </ul>
-          <p v-else class="muted small">Keine faelligen Tasks in den naechsten Tagen.</p>
+          <p v-else class="muted small">Keine fälligen Tasks in den nächsten Tagen.</p>
         </div>
 
         <div class="card panel">
@@ -139,11 +139,11 @@
           </div>
           <div class="mini-grid">
             <div class="mini">
-              <span class="label">Faellig (24h)</span>
+              <span class="label">Fällig (24h)</span>
               <strong>{{ formatNumber(growproDueSoon) }}</strong>
             </div>
             <div class="mini">
-              <span class="label">Ueberfaellig</span>
+              <span class="label">Überfällig</span>
               <strong>{{ formatNumber(growproOverdue) }}</strong>
             </div>
           </div>

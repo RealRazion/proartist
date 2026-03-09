@@ -399,21 +399,20 @@ onMounted(async () => {
 
 <style scoped>
 .profile-page {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: grid;
+  gap: 18px;
 }
 .hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) auto;
+  gap: 18px;
+  align-items: start;
 }
 .hero-meta {
-  margin-top: 16px;
+  margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
 }
 .hero-meta .label {
   font-size: 11px;
@@ -421,20 +420,29 @@ onMounted(async () => {
   letter-spacing: 0.08em;
   color: var(--muted);
 }
+.hero-meta > div {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
 .hero-actions {
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 .profile-form {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  display: grid;
+  gap: 14px;
 }
 .form-section {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 14px;
 }
 .section-head {
   display: flex;
@@ -451,91 +459,99 @@ onMounted(async () => {
 }
 .field-grid {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 .field-grid.two {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 .field-grid label {
   display: flex;
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
+  font-size: 13px;
 }
 .notification-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 10px;
 }
 .notification-toggle {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px 12px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   background: var(--card);
 }
 .notification-toggle input {
-  transform: scale(1.2);
+  margin-top: 2px;
+  transform: scale(1.1);
 }
 .role-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 .role-chip {
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  padding: 6px 16px;
-  font-size: 13px;
-  background: transparent;
+  border: 1px solid var(--border);
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--card);
+  color: var(--text);
   cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 .role-chip.active {
-  border-color: #2563eb;
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.role-chip:hover {
+  transform: translateY(-1px);
 }
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
 }
 .examples-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 .count-pill {
   align-self: flex-start;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 12px;
   font-size: 12px;
+  background: var(--surface);
 }
 .example-form {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
 .file-picker {
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 14px;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  background: var(--card);
+  background: var(--surface);
 }
 .file-picker input {
   display: none;
 }
 .example-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
 }
 .example-list {
@@ -547,10 +563,10 @@ onMounted(async () => {
   gap: 12px;
 }
 .example-list li {
-  padding: 12px;
+  padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: var(--card);
+  background: var(--surface);
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -564,37 +580,15 @@ onMounted(async () => {
   text-align: center;
   margin: 0;
 }
-:global(.dark) .profile-page .notification-toggle {
-  background: rgba(15, 23, 42, 0.5);
-  border-color: var(--border);
-}
-:global(.dark) .profile-page .role-chip {
-  border-color: var(--border);
-  color: var(--text);
-}
-:global(.dark) .profile-page .role-chip.active {
-  border-color: var(--brand);
-  background: rgba(112, 130, 255, 0.2);
-  color: #fff;
-}
-:global(.dark) .profile-page .count-pill {
-  border-color: var(--border);
-}
-:global(.dark) .profile-page .example-list li {
-  border-color: var(--border);
-  background: rgba(15, 23, 42, 0.4);
-}
-:global(.dark) .profile-page .file-picker {
-  border-color: var(--border);
-  background: rgba(15, 23, 42, 0.35);
-}
 @media (max-width: 720px) {
   .hero {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
   .hero-actions {
     width: 100%;
-    justify-content: flex-start;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
   .example-form {
     grid-template-columns: 1fr;

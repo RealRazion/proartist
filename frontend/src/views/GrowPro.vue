@@ -1,6 +1,6 @@
 <template>
   <div class="growpro">
-    <header class="card header">
+    <header class="card hero">
       <div>
         <p class="eyebrow">Team</p>
         <h1>GrowPro Ziele</h1>
@@ -11,6 +11,9 @@
       <div class="header-actions">
         <button class="btn ghost" type="button" @click="loadGoals()" :disabled="loading">
           {{ loading ? "Lade..." : "Aktualisieren" }}
+        </button>
+        <button v-if="isTeam" class="btn ghost" type="button" @click="toggleActivityPanel" :disabled="loadingActivity">
+          {{ showActivityPanel ? "Aktivit&auml;ten ausblenden" : "Aktivit&auml;ten anzeigen" }}
         </button>
         <button v-if="isTeam" class="btn" type="button" @click="openCreateModal">
           Neues Ziel
@@ -78,6 +81,25 @@
       </div>
     </section>
 
+    <section class="stats-grid">
+      <article class="card stat">
+        <span class="muted small">Sichtbare Ziele</span>
+        <strong>{{ goalStats.total }}</strong>
+      </article>
+      <article class="card stat warn">
+        <span class="muted small">&lt;24h f&auml;llig</span>
+        <strong>{{ goalStats.soon }}</strong>
+      </article>
+      <article class="card stat danger">
+        <span class="muted small">&Uuml;berf&auml;llig</span>
+        <strong>{{ goalStats.overdue }}</strong>
+      </article>
+      <article class="card stat danger">
+        <span class="muted small">&gt;72h ohne Update</span>
+        <strong>{{ goalStats.stale }}</strong>
+      </article>
+    </section>
+
     <section class="goals">
       <div v-if="!filteredGoals.length && !loading" class="card muted empty">Keine Ziele vorhanden.</div>
       <div v-else class="goal-grid">
@@ -91,7 +113,7 @@
             <div>
               <p class="muted small">
                 {{ goal.profile?.name || goal.profile?.username || "Unbekannt" }}
-                <span v-if="isTeam"> · Team: {{ formatUser(goal.assigned_team) }}</span>
+                <span v-if="isTeam"> Â· Team: {{ formatUser(goal.assigned_team) }}</span>
               </p>
               <h3>{{ goal.title }}</h3>
             </div>
@@ -110,6 +132,12 @@
               <p class="label">F&auml;llig</p>
               <strong>{{ formatDate(goal.due_date) || "-" }}</strong>
             </div>
+          </div>
+          <div class="progress-row">
+            <div class="progress-track">
+              <span class="progress-fill" :style="{ width: `${goalProgress(goal)}%` }"></span>
+            </div>
+            <small class="muted">{{ goalProgress(goal) }}%</small>
           </div>
           <div class="meta-row">
             <p class="muted">Letztes Update: {{ formatDateTime(goal.last_logged_at) || "Noch keines" }}</p>
@@ -155,7 +183,7 @@
         <div class="modal-head">
           <h3>Ziel bearbeiten</h3>
           <button class="btn ghost tiny" type="button" @click="closeEdit" :disabled="savingEdit">
-            Schliessen
+            Schließen
           </button>
         </div>
         <form class="form" @submit.prevent="saveEdit">
@@ -209,7 +237,7 @@
         <div class="modal-head">
           <h3>Neues Ziel anlegen</h3>
           <button class="btn ghost tiny" type="button" @click="closeCreateModal" :disabled="creating">
-            Schliessen
+            Schließen
           </button>
         </div>
         <form class="form" @submit.prevent="createGoal">
@@ -267,7 +295,7 @@
       <button class="btn ghost tiny" type="button" :disabled="page === pageCount || loading" @click="changePage(1)">Weiter</button>
     </div>
 
-    <section v-if="isTeam" class="card activity">
+    <section v-if="isTeam && showActivityPanel" class="card activity">
       <div class="activity-head">
         <h2>Aktivit&auml;t</h2>
         <button class="btn ghost tiny" type="button" @click="loadActivity" :disabled="loadingActivity">
@@ -283,7 +311,8 @@
           <p class="muted small">{{ item.description || item.event_type }}</p>
         </li>
       </ul>
-      <p v-else class="muted small">Keine Aktivit&auml;ten vorhanden.</p>
+      <p v-else-if="activityLoaded" class="muted small">Keine Aktivit&auml;ten vorhanden.</p>
+      <p v-else class="muted small">Aktivit&auml;ten werden nach Klick geladen.</p>
     </section>
   </div>
 </template>
@@ -304,6 +333,8 @@ const loading = ref(false);
 const creating = ref(false);
 const logging = ref({});
 const loadingActivity = ref(false);
+const showActivityPanel = ref(false);
+const activityLoaded = ref(false);
 const showFilters = ref(false);
 const editModalOpen = ref(false);
 const createModalOpen = ref(false);
@@ -386,6 +417,15 @@ const filteredGoals = computed(() =>
 );
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)));
+const goalStats = computed(() => {
+  const list = filteredGoals.value;
+  return {
+    total: list.length,
+    overdue: list.filter((goal) => dueState(goal) === "OVERDUE").length,
+    soon: list.filter((goal) => dueState(goal) === "SOON").length,
+    stale: list.filter((goal) => dueState(goal) === "STALE").length,
+  };
+});
 
 function resetCreateForm() {
   form.value = {
@@ -458,6 +498,13 @@ function canManageGoal(goal) {
   return String(goal.profile?.id) === String(me.value?.id);
 }
 
+function goalProgress(goal) {
+  const target = Number(goal?.target_value || 0);
+  const current = Number(goal?.current_value || 0);
+  if (!target || target <= 0) return current > 0 ? 100 : 0;
+  return Math.max(0, Math.min(100, Math.round((current / target) * 100)));
+}
+
 function openEdit(goal) {
   if (!canManageGoal(goal)) return;
   editForm.value = {
@@ -515,14 +562,14 @@ async function saveEdit() {
 
 async function deleteGoal(goal) {
   if (!canManageGoal(goal)) return;
-  if (!window.confirm(`Ziel \"${goal.title}\" loeschen?`)) return;
+  if (!window.confirm(`Ziel \"${goal.title}\" löschen?`)) return;
   try {
     await api.delete(`growpro/${goal.id}/`);
     await loadGoals();
     showToast("Ziel geloescht", "success");
   } catch (err) {
     console.error("Ziel konnte nicht geloescht werden", err);
-    showToast("Loeschen fehlgeschlagen", "error");
+    showToast("Löschen fehlgeschlagen", "error");
   }
 }
 
@@ -641,8 +688,9 @@ async function loadActivity() {
     return;
   }
   loadingActivity.value = true;
+  activityLoaded.value = true;
   try {
-    const { data } = await api.get("activity/", {
+    const { data } = await api.get("activity-feed/", {
       params: { limit: 40, types: "growpro_created,growpro_updated,growpro_logged" },
     });
     activities.value = data || [];
@@ -650,6 +698,13 @@ async function loadActivity() {
     activities.value = [];
   } finally {
     loadingActivity.value = false;
+  }
+}
+
+function toggleActivityPanel() {
+  showActivityPanel.value = !showActivityPanel.value;
+  if (showActivityPanel.value && !activityLoaded.value) {
+    loadActivity();
   }
 }
 
@@ -670,32 +725,32 @@ function applyFilters() {
 
 onMounted(async () => {
   await fetchProfile();
-  await Promise.all([loadProfiles(), loadGoals(), loadActivity()]);
+  await Promise.all([loadProfiles(), loadGoals()]);
 });
 </script>
 
 <style scoped>
 .growpro {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  display: grid;
+  gap: 16px;
 }
-.header {
+.hero {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
+  flex-wrap: wrap;
 }
 .header-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
 }
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--brand);
   margin: 0 0 6px;
 }
@@ -703,15 +758,43 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
 }
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.stat {
+  display: grid;
+  gap: 4px;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.stat strong {
+  font-size: 28px;
+  line-height: 1;
+}
+.stat.warn {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.1);
+}
+.stat.danger {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.1);
+}
 .filter-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 .filters .filter-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
-  flex-wrap: wrap;
+}
+.filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
 }
 .form {
   display: flex;
@@ -735,32 +818,33 @@ onMounted(async () => {
   font-size: 14px;
 }
 .feedback.error {
-  color: #dc2626;
+  color: #ef4444;
 }
 .feedback.success {
-  color: #16a34a;
+  color: #22c55e;
 }
 .goals {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  gap: 10px;
 }
 .goal-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
 }
 .goal {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 10px;
-  border-top: 4px solid transparent;
+  border-radius: 16px;
+  border-top: 3px solid transparent;
+  background: var(--card);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
 }
 .goal[data-due="OVERDUE"] {
   border-top-color: rgba(239, 68, 68, 0.7);
 }
 .goal[data-due="SOON"] {
-  border-top-color: rgba(59, 130, 246, 0.6);
+  border-top-color: rgba(245, 158, 11, 0.68);
 }
 .goal[data-due="STALE"] {
   border-top-color: rgba(239, 68, 68, 0.7);
@@ -776,18 +860,20 @@ onMounted(async () => {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  background: rgba(75, 91, 255, 0.18);
+  background: rgba(59, 130, 246, 0.14);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.26);
 }
 .pill[data-status="ON_HOLD"] {
-  background: rgba(249, 115, 22, 0.16);
+  background: rgba(249, 115, 22, 0.12);
   color: #c2410c;
 }
 .pill[data-status="DONE"] {
-  background: rgba(52, 211, 153, 0.16);
+  background: rgba(34, 197, 94, 0.12);
   color: #0f766e;
 }
 .pill[data-status="ARCHIVED"] {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(100, 116, 139, 0.16);
   color: #475569;
 }
 .stats {
@@ -800,9 +886,28 @@ onMounted(async () => {
   color: var(--muted);
   margin: 0 0 2px;
 }
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.progress-track {
+  flex: 1;
+  height: 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+}
+.progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
+}
 .badge {
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: 999px;
   font-size: 12px;
   width: fit-content;
 }
@@ -846,6 +951,7 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: space-between;
 }
 .goal-actions {
   display: flex;
@@ -874,10 +980,10 @@ onMounted(async () => {
   width: min(640px, 100%);
   max-height: 90vh;
   overflow-y: auto;
-  border-radius: 24px;
-  padding: 24px;
+  border-radius: 18px;
+  padding: 20px;
   background: var(--card);
-  box-shadow: 0 35px 80px rgba(15, 23, 42, 0.35);
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.25);
   border: 1px solid var(--border);
 }
 .modal.wide {
@@ -892,7 +998,7 @@ onMounted(async () => {
 }
 :global(.dark) .growpro .modal {
   background: var(--card);
-  box-shadow: 0 35px 80px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.52);
   border-color: var(--border);
 }
 .pagination {
@@ -918,14 +1024,30 @@ onMounted(async () => {
   background: rgba(15, 23, 42, 0.06);
   color: #475569;
 }
+:global(.dark) .growpro .goal {
+  background: rgba(15, 32, 67, 0.72);
+}
+:global(.dark) .growpro .progress-track {
+  background: rgba(148, 163, 184, 0.18);
+}
+:global(.dark) .growpro .pill.subtle {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--text);
+}
 @media (min-width: 1200px) {
   .goal-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 @media (max-width: 720px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
   .log-row {
     grid-template-columns: 1fr;
+  }
+  .header-actions {
+    width: 100%;
   }
 }
 </style>

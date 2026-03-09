@@ -3,7 +3,7 @@
     <div v-if="visible" class="toast" :data-type="type">
       <span class="label">{{ label }}</span>
       <span class="message">{{ message }}</span>
-      <button class="close" type="button" @click="emit('close')" aria-label="Toast schliessen">x</button>
+      <button class="close" type="button" @click="emit('close')" aria-label="Toast schließen">x</button>
     </div>
   </transition>
 </template>

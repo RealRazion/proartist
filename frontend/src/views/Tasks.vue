@@ -40,6 +40,24 @@
             {{ boardTypeLabels[type] }}
           </button>
         </div>
+        <div class="kpi-row" v-if="taskSummary.total">
+          <div class="kpi">
+            <span>Gesamt</span>
+            <strong>{{ taskSummary.total }}</strong>
+          </div>
+          <div class="kpi">
+            <span>Aktiv</span>
+            <strong>{{ taskSummary.active }}</strong>
+          </div>
+          <div class="kpi warning">
+            <span>Review</span>
+            <strong>{{ taskSummary.by_status?.REVIEW || 0 }}</strong>
+          </div>
+          <div class="kpi success">
+            <span>Done</span>
+            <strong>{{ taskSummary.done }}</strong>
+          </div>
+        </div>
         <div v-if="taskSummary.total" class="progress-strip">
           <div class="progress-bar">
             <div
@@ -70,6 +88,7 @@
                   :key="task.id"
                   class="task-card"
                   :class="{ overdue: dueState(task) === 'overdue', soon: dueState(task) === 'soon' }"
+                  :data-status="task.status"
                 >
                   <div class="title-row">
                     <div>
@@ -575,6 +594,7 @@ const boardTypeFilter = ref("ALL");
 function setBoardType(value) {
   boardTypeFilter.value = value;
   taskTypeFilter.value = value === "ALL" ? "ALL" : value;
+  loadTasks();
 }
 
 function resetFilters() {
@@ -587,6 +607,7 @@ function resetFilters() {
   showCompleted.value = false;
   showArchived.value = false;
   sortOrder.value = "-due_date";
+  loadTasks();
 }
 
 const visibleTasks = computed(() => {
@@ -602,7 +623,7 @@ const boardColumns = computed(() =>
     items: visibleTasks.value
       .filter((task) => task.status === status)
       .slice()
-      .sort((a, b) => compareDueDates(a.due_date, b.due_date)),
+      .sort(compareTasks),
   }))
 );
 const statusProgress = computed(() =>
@@ -726,11 +747,48 @@ function taskCommentDraft(taskId) {
   return commentDrafts.value[taskId];
 }
 
+function normalizeListPayload(payload) {
+  if (Array.isArray(payload)) {
+    return { items: payload, next: null, previous: null, count: payload.length };
+  }
+  const data = payload || {};
+  const items = Array.isArray(data.results) ? data.results : [];
+  return {
+    items,
+    next: data.next || null,
+    previous: data.previous || null,
+    count: data.count ?? items.length,
+  };
+}
+
+function mergeUniqueTasks(list) {
+  const map = new Map();
+  list.forEach((task) => {
+    if (!task?.id) return;
+    map.set(task.id, task);
+  });
+  return Array.from(map.values());
+}
+
 function compareDueDates(a, b) {
   if (!a && !b) return 0;
   if (!a) return 1;
   if (!b) return -1;
   return new Date(a) - new Date(b);
+}
+
+function priorityRank(priority) {
+  return { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }[priority] ?? 4;
+}
+
+function compareTasks(a, b) {
+  const dueComparison = compareDueDates(a?.due_date, b?.due_date);
+  if (dueComparison !== 0) return dueComparison;
+  const prioComparison = priorityRank(a?.priority) - priorityRank(b?.priority);
+  if (prioComparison !== 0) return prioComparison;
+  const aCreated = new Date(a?.created_at || 0).getTime();
+  const bCreated = new Date(b?.created_at || 0).getTime();
+  return bCreated - aCreated;
 }
 
 function formatDueDate(value) {
@@ -825,23 +883,23 @@ async function loadTasks({ append = false, pageUrl = null } = {}) {
   if (append && !taskPagination.value.next && !pageUrl) return;
   const target = append ? loadingMoreTasks : loadingTasks;
   if (target.value) return;
+  const requestId = Date.now() + Math.random();
+  loadTasks._lastRequestId = requestId;
   target.value = true;
   try {
     const params = pageUrl ? undefined : buildTaskParams();
     const url = pageUrl || "tasks/";
     const { data } = await api.get(url, { params });
-    if (Array.isArray(data)) {
-      tasks.value = append ? tasks.value.concat(data) : data;
-      taskPagination.value = { next: null, previous: null, count: data.length };
-    } else {
-      const results = data.results || [];
-      tasks.value = append ? tasks.value.concat(results) : results;
-      taskPagination.value = {
-        next: data.next,
-        previous: data.previous,
-        count: data.count ?? results.length,
-      };
-    }
+    if (loadTasks._lastRequestId !== requestId) return;
+    const normalized = normalizeListPayload(data);
+    tasks.value = append
+      ? mergeUniqueTasks(tasks.value.concat(normalized.items))
+      : normalized.items;
+    taskPagination.value = {
+      next: normalized.next,
+      previous: normalized.previous,
+      count: normalized.count,
+    };
     if (activeTaskId.value && !tasks.value.find((task) => task.id === activeTaskId.value)) {
       activeTaskId.value = null;
     }
@@ -993,8 +1051,8 @@ function openFilterModal() {
 function closeFilterModal() {
   showFilterModal.value = false;
 }
-function applyFilters() {
-  loadTasks();
+async function applyFilters() {
+  await Promise.all([loadTasks(), loadTaskSummary()]);
   closeFilterModal();
 }
 
@@ -1019,6 +1077,7 @@ async function applyStatusChange(task, newStatus, reviewStatus, previousStatus) 
   try {
     await api.patch(`tasks/${task.id}/`, payload);
     statusSnapshot.value = { ...statusSnapshot.value, [task.id]: newStatus };
+    task.status = newStatus;
     if (reviewStatus) {
       task.review_status = reviewStatus;
     } else if (newStatus !== "DONE") {
@@ -1027,31 +1086,33 @@ async function applyStatusChange(task, newStatus, reviewStatus, previousStatus) 
     if (newStatus === "DONE") {
       showCompleted.value = true;
     }
-    await loadTaskSummary();
+    await Promise.all([loadTasks(), loadTaskSummary()]);
     showToast("Status aktualisiert", "success");
+    return true;
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
     task.status = fallbackStatus;
     showToast("Status konnte nicht aktualisiert werden", "error");
+    return false;
   }
 }
 
-function onStatusChange(task, event) {
+async function onStatusChange(task, event) {
   const nextStatus = event?.target?.value || task.status;
   const previousStatus = statusSnapshot.value[task.id] || task.status;
   if (nextStatus === "DONE" && previousStatus !== "DONE") {
     openReviewModal(task, previousStatus);
     return;
   }
-  applyStatusChange(task, nextStatus, null, previousStatus);
+  await applyStatusChange(task, nextStatus, null, previousStatus);
 }
 
-function confirmReviewDecision(reviewed) {
+async function confirmReviewDecision(reviewed) {
   if (!reviewTarget.value) return;
   const task = reviewTarget.value;
   const reviewStatus = reviewed ? "REVIEWED" : "NOT_REVIEWED";
-  applyStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
-  closeReviewModal();
+  const success = await applyStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
+  if (success) closeReviewModal();
 }
 
 function cancelReviewDecision() {
@@ -1077,7 +1138,8 @@ async function loadProfiles() {
   if (!isTeam.value) return;
   try {
     const { data } = await api.get("profiles/");
-    profiles.value = data.map((profile) => ({
+    const list = Array.isArray(data) ? data : data?.results || [];
+    profiles.value = list.map((profile) => ({
       id: profile.id,
       name: profile.name || profile.username,
       username: profile.username,
@@ -1150,23 +1212,6 @@ watch(
     }
   },
   { immediate: true }
-);
-
-watch(
-  () => [
-    filterProject.value,
-    filterStatus.value,
-    priorityFilter.value,
-    dueFilter.value,
-    taskTypeFilter.value,
-    sortOrder.value,
-    showArchived.value,
-    showCompleted.value,
-  ],
-  () => {
-    if (!isTeam.value) return;
-    loadTasks();
-  }
 );
 
 watch(
@@ -1280,6 +1325,38 @@ onBeforeUnmount(() => {
   border-color: #2563eb;
   color: #2563eb;
 }
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.kpi {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kpi span {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.kpi strong {
+  font-size: 22px;
+  line-height: 1;
+}
+.kpi.warning {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
+}
+.kpi.success {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.1);
+}
 .progress-strip {
   display: flex;
   flex-direction: column;
@@ -1334,7 +1411,7 @@ onBeforeUnmount(() => {
 }
 .columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(4, minmax(240px, 1fr));
   gap: 18px;
   width: 100%;
   align-items: flex-start;
@@ -1358,10 +1435,33 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 170px;
+  min-height: 190px;
   background: var(--card);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   transition: transform 0.2s ease;
+  position: relative;
+}
+.task-card::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.5);
+}
+.task-card[data-status="OPEN"]::before {
+  background: #f59e0b;
+}
+.task-card[data-status="IN_PROGRESS"]::before {
+  background: #3b82f6;
+}
+.task-card[data-status="REVIEW"]::before {
+  background: #a855f7;
+}
+.task-card[data-status="DONE"]::before {
+  background: #10b981;
 }
 .task-card:hover {
   transform: translateY(-3px);
@@ -1445,6 +1545,7 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+  margin-top: auto;
 }
 .actions .input {
   flex: 1;
@@ -1762,6 +1863,9 @@ select[multiple] {
   border-color: var(--border);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
+:global(.dark) .tasks .kpi {
+  background: rgba(15, 23, 42, 0.45);
+}
 :global(.dark) .tasks .modal {
   background: var(--card);
   box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55);
@@ -1811,16 +1915,27 @@ select[multiple] {
   .workspace.has-detail {
     grid-template-columns: minmax(0, 1fr);
   }
+  .columns {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
 }
 @media (max-width: 720px) {
   .columns {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: 1fr;
   }
   .modal {
     padding: 18px;
   }
   .form-grid {
     grid-template-columns: 1fr;
+  }
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .actions .btn,
+  .actions .input {
+    width: 100%;
   }
 }
 </style>

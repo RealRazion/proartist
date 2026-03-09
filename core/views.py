@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
-from django.db.models import Count, Max, Q
+from django.db.models import Case, Count, IntegerField, Max, Q, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
@@ -659,7 +659,23 @@ class TaskViewSet(viewsets.ModelViewSet):
         ordering = self.request.query_params.get("ordering")
         allowed = {"due_date", "-due_date", "priority", "-priority", "created_at", "-created_at"}
         if ordering in allowed:
-            qs = qs.order_by(ordering)
+            if ordering in {"priority", "-priority"}:
+                qs = qs.annotate(
+                    priority_rank=Case(
+                        When(priority="CRITICAL", then=0),
+                        When(priority="HIGH", then=1),
+                        When(priority="MEDIUM", then=2),
+                        When(priority="LOW", then=3),
+                        default=4,
+                        output_field=IntegerField(),
+                    )
+                )
+                if ordering == "-priority":
+                    qs = qs.order_by("priority_rank", "due_date", "-created_at")
+                else:
+                    qs = qs.order_by("-priority_rank", "due_date", "-created_at")
+            else:
+                qs = qs.order_by(ordering)
         return self._apply_visibility_filters(qs).distinct()
 
     def _log_overdue_if_needed(self, task):

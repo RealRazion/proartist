@@ -38,6 +38,25 @@
       </div>
     </section>
 
+    <section v-if="isTeam" class="stats-row">
+      <article class="card stat">
+        <span class="label">Review offen</span>
+        <strong>{{ reviewTasks.length }}</strong>
+      </article>
+      <article class="card stat warning">
+        <span class="label">Faellig in 2 Tagen</span>
+        <strong>{{ reviewSoonCount }}</strong>
+      </article>
+      <article class="card stat danger">
+        <span class="label">Ueberfaellig</span>
+        <strong>{{ reviewOverdueCount }}</strong>
+      </article>
+      <article class="card stat">
+        <span class="label">Nicht geprueft</span>
+        <strong>{{ pendingReviewTasks.length }}</strong>
+      </article>
+    </section>
+
     <section v-if="isTeam" class="grid">
       <article class="card panel">
         <div class="panel-head">
@@ -185,6 +204,8 @@ function dueStatusLabel(task) {
 
 const filteredReviewTasks = computed(() => applyFilters(reviewTasks.value));
 const filteredPendingTasks = computed(() => applyFilters(pendingReviewTasks.value));
+const reviewOverdueCount = computed(() => reviewTasks.value.filter((task) => dueStatus(task) === "overdue").length);
+const reviewSoonCount = computed(() => reviewTasks.value.filter((task) => dueStatus(task) === "soon").length);
 
 const allReviewSelected = computed(
   () => filteredReviewTasks.value.length > 0 && selectedReviewIds.value.length === filteredReviewTasks.value.length
@@ -347,6 +368,34 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
 }
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stat .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.stat strong {
+  font-size: 24px;
+  line-height: 1;
+}
+.stat.warning {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+}
+.stat.danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.1);
+}
 .filters {
   display: flex;
   flex-direction: column;
@@ -473,6 +522,9 @@ onMounted(() => {
   .filter-row {
     flex-direction: column;
     align-items: stretch;
+  }
+  .stats-row {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

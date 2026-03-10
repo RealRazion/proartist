@@ -491,6 +491,29 @@ textarea {
   background: var(--bg);
 }
 
+.content.compact-content > * > header.card.header,
+.content.compact-content > * > header.card.hero,
+.content.compact-content > * > header.hero.card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  gap: 10px;
+}
+
+.content.compact-content > * > header.card.header h1,
+.content.compact-content > * > header.card.hero h1,
+.content.compact-content > * > header.hero.card h1 {
+  margin: 0;
+  font-size: clamp(20px, 2.6vw, 26px);
+  line-height: 1.15;
+}
+
+.content.compact-content > * > header.card.header p,
+.content.compact-content > * > header.card.hero p,
+.content.compact-content > * > header.hero.card p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
 .wide {
   width: 100%;
   display: flex;

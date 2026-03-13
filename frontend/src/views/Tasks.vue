@@ -135,6 +135,25 @@
                       Archivieren
                     </button>
                   </div>
+                  <div v-if="canResolveReview(task)" class="review-actions">
+                    <button
+                      class="btn tiny"
+                      type="button"
+                      @click="setTaskReviewStatus(task, true)"
+                      :disabled="reviewActionSaving[task.id]"
+                    >
+                      {{ reviewActionSaving[task.id] ? "Speichere..." : "Als geprüft markieren" }}
+                    </button>
+                    <button
+                      v-if="task.status === 'REVIEW'"
+                      class="btn ghost tiny danger"
+                      type="button"
+                      @click="setTaskReviewStatus(task, false)"
+                      :disabled="reviewActionSaving[task.id]"
+                    >
+                      Als nicht geprüft markieren
+                    </button>
+                  </div>
                 </li>
               </ul>
               <p v-if="!column.items.length" class="muted empty">Keine Tasks</p>
@@ -212,6 +231,25 @@
                 <dd>{{ formatUser(activeTask.updated_by) }}</dd>
               </div>
             </dl>
+            <div v-if="canResolveReview(activeTask)" class="review-actions">
+              <button
+                class="btn tiny"
+                type="button"
+                @click="setTaskReviewStatus(activeTask, true)"
+                :disabled="reviewActionSaving[activeTask.id]"
+              >
+                {{ reviewActionSaving[activeTask.id] ? "Speichere..." : "Als geprüft markieren" }}
+              </button>
+              <button
+                v-if="activeTask.status === 'REVIEW'"
+                class="btn ghost tiny danger"
+                type="button"
+                @click="setTaskReviewStatus(activeTask, false)"
+                :disabled="reviewActionSaving[activeTask.id]"
+              >
+                Als nicht geprüft markieren
+              </button>
+            </div>
             <div class="chip-section">
               <span class="label">Verantwortlich</span>
               <div class="chip-list" v-if="activeTask.assignees?.length">
@@ -523,6 +561,7 @@ const reviewModalVisible = ref(false);
 const reviewTarget = ref(null);
 const reviewPreviousStatus = ref(null);
 const statusSnapshot = ref({});
+const reviewActionSaving = ref({});
 
 function getDefaultTaskForm() {
   return {
@@ -1070,6 +1109,10 @@ function closeReviewModal() {
   reviewModalVisible.value = false;
 }
 
+function canResolveReview(task) {
+  return Boolean(task && (task.status === "REVIEW" || (task.status === "DONE" && task.review_status === "NOT_REVIEWED")));
+}
+
 async function applyStatusChange(task, newStatus, reviewStatus, previousStatus) {
   const fallbackStatus = previousStatus ?? statusSnapshot.value[task.id] ?? task.status;
   const payload = { status: newStatus };
@@ -1115,6 +1158,17 @@ async function confirmReviewDecision(reviewed) {
   const reviewStatus = reviewed ? "REVIEWED" : "NOT_REVIEWED";
   const success = await applyStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
   if (success) closeReviewModal();
+}
+
+async function setTaskReviewStatus(task, reviewed) {
+  if (!task?.id || reviewActionSaving.value[task.id]) return;
+  reviewActionSaving.value = { ...reviewActionSaving.value, [task.id]: true };
+  try {
+    const previousStatus = statusSnapshot.value[task.id] ?? task.status;
+    await applyStatusChange(task, "DONE", reviewed ? "REVIEWED" : "NOT_REVIEWED", previousStatus);
+  } finally {
+    reviewActionSaving.value = { ...reviewActionSaving.value, [task.id]: false };
+  }
 }
 
 function cancelReviewDecision() {
@@ -1565,6 +1619,11 @@ onBeforeUnmount(() => {
 }
 .actions .input {
   width: 100%;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .skeleton-column {
   display: flex;

@@ -223,6 +223,25 @@
                 <button class="btn ghost danger tiny" type="button" @click="archiveTask(task)">Archivieren</button>
               </div>
             </div>
+            <div v-if="canResolveTaskReview(task)" class="task-review-actions">
+              <button
+                class="btn tiny"
+                type="button"
+                @click="setTaskReviewStatus(task, true)"
+                :disabled="reviewActionSaving[task.id]"
+              >
+                {{ reviewActionSaving[task.id] ? "Speichere..." : "Als geprüft markieren" }}
+              </button>
+              <button
+                v-if="task.status === 'REVIEW'"
+                class="btn ghost tiny danger"
+                type="button"
+                @click="setTaskReviewStatus(task, false)"
+                :disabled="reviewActionSaving[task.id]"
+              >
+                Als nicht geprüft markieren
+              </button>
+            </div>
           </li>
         </ul>
         <p v-else class="muted empty">Keine Tasks fÃ¼r dieses Projekt.</p>
@@ -438,6 +457,7 @@ const reviewModalVisible = ref(false);
 const reviewTarget = ref(null);
 const reviewPreviousStatus = ref(null);
 const statusSnapshot = ref({});
+const reviewActionSaving = ref({});
 
 const projectStatusOptions = ["PLANNED", "IN_PROGRESS", "ON_HOLD", "DONE"];
 const projectStatusLabels = {
@@ -749,6 +769,10 @@ function closeReviewModal() {
   reviewModalVisible.value = false;
 }
 
+function canResolveTaskReview(task) {
+  return Boolean(task && (task.status === "REVIEW" || (task.status === "DONE" && task.review_status === "NOT_REVIEWED")));
+}
+
 async function applyTaskStatusChange(task, newStatus, reviewStatus, previousStatus) {
   const fallbackStatus = previousStatus ?? statusSnapshot.value[task.id] ?? task.status;
   const payload = { status: newStatus };
@@ -758,6 +782,7 @@ async function applyTaskStatusChange(task, newStatus, reviewStatus, previousStat
   try {
     await api.patch(`tasks/${task.id}/`, payload);
     statusSnapshot.value = { ...statusSnapshot.value, [task.id]: newStatus };
+    task.status = newStatus;
     if (reviewStatus) {
       task.review_status = reviewStatus;
     } else if (newStatus !== "DONE") {
@@ -766,31 +791,45 @@ async function applyTaskStatusChange(task, newStatus, reviewStatus, previousStat
     if (newStatus === "DONE") {
       showCompletedTasks.value = true;
     }
+    await loadTasks();
     showToast("Task-Status aktualisiert", "success");
+    return true;
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
     task.status = fallbackStatus;
     showToast("Task-Status konnte nicht aktualisiert werden", "error");
-    loadTasks();
+    await loadTasks();
+    return false;
   }
 }
 
-function onTaskStatusChange(task, event) {
+async function onTaskStatusChange(task, event) {
   const nextStatus = event?.target?.value || task.status;
   const previousStatus = statusSnapshot.value[task.id] || task.status;
   if (nextStatus === "DONE" && previousStatus !== "DONE") {
     openReviewModal(task, previousStatus);
     return;
   }
-  applyTaskStatusChange(task, nextStatus, null, previousStatus);
+  await applyTaskStatusChange(task, nextStatus, null, previousStatus);
 }
 
-function confirmReviewDecision(reviewed) {
+async function confirmReviewDecision(reviewed) {
   if (!reviewTarget.value) return;
   const task = reviewTarget.value;
   const reviewStatus = reviewed ? "REVIEWED" : "NOT_REVIEWED";
-  applyTaskStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
-  closeReviewModal();
+  const success = await applyTaskStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
+  if (success) closeReviewModal();
+}
+
+async function setTaskReviewStatus(task, reviewed) {
+  if (!task?.id || reviewActionSaving.value[task.id]) return;
+  reviewActionSaving.value = { ...reviewActionSaving.value, [task.id]: true };
+  try {
+    const previousStatus = statusSnapshot.value[task.id] ?? task.status;
+    await applyTaskStatusChange(task, "DONE", reviewed ? "REVIEWED" : "NOT_REVIEWED", previousStatus);
+  } finally {
+    reviewActionSaving.value = { ...reviewActionSaving.value, [task.id]: false };
+  }
 }
 
 function cancelReviewDecision() {
@@ -1248,6 +1287,11 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+}
+.task-review-actions {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .review-pill {

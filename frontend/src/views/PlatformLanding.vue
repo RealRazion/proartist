@@ -42,7 +42,6 @@
           <h2>{{ card.heading }}</h2>
           <p>{{ card.description }}</p>
         </div>
-        </div>
         <button class="btn" type="button" @click="openPlatform(card.key)">
           {{ card.buttonLabel }}
         </button>

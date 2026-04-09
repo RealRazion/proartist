@@ -78,7 +78,7 @@ router.beforeEach((to, from, next) => {
     return;
   }
   if (guestOnly && token) {
-    next({ name: "dashboard" });
+    next({ name: "platforms" });
     return;
   }
   next();

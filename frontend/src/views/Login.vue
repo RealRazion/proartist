@@ -2,7 +2,7 @@
   <div class="auth-page">
     <div class="card auth-card">
       <h1>Login</h1>
-      <p class="subtitle">Melde dich an, um dein Dashboard zu öffnen.</p>
+      <p class="subtitle">Melde dich an, um den UNYQ Hub zu öffnen.</p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label>
@@ -77,7 +77,7 @@ async function submit() {
     localStorage.setItem("access", data.access);
     localStorage.setItem("refresh", data.refresh);
     showMessage("Login erfolgreich, weiterleiten...", "success");
-    const redirect = route.query.redirect || "/dashboard";
+    const redirect = route.query.redirect || "/platforms";
     setTimeout(() => router.replace(redirect), 350);
   } catch (err) {
     console.error(err);

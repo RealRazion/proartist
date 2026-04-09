@@ -2,64 +2,127 @@
   <div class="platform-landing">
     <header class="hero card">
       <div class="hero-copy">
-        <p class="tag">UNYQ Startseite</p>
-        <h1>Wähle deine UNYQ-Plattform</h1>
+        <p class="tag">UNYQ Hub</p>
+        <h1>Der neue Einstiegspunkt für deine UNYQ-Welten</h1>
         <p class="lead">
-          Diese Seite ist dein privater Einstieg in die UNYQ-Welten. Hier findest du später die unterschiedlichen Plattformen als klar strukturierte Auswahl.
+          Starte hier in die verschiedenen UNYQ-Plattformen. Je nach Rolle werden nur die passenden Bereiche angezeigt.
         </p>
+      </div>
+      <div v-if="isTeam" class="preview-panel card">
+        <strong>Team-Perspektive</strong>
+        <p class="muted">Als Team-Mitglied kannst du hier den Hub in anderen Rollen ansehen.</p>
+        <div class="role-pills">
+          <button
+            v-for="option in previewOptions"
+            :key="option.key"
+            type="button"
+            class="pill"
+            :class="{ active: viewMode === option.key }"
+            @click="setViewMode(option.key)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
       </div>
     </header>
 
     <section class="platform-grid">
-      <article class="platform-card platform-card--contests card">
-        <div>
-          <span class="card-label">UNYQ Contests</span>
-          <h2>Wettbewerbe &amp; Challenges</h2>
-          <p>Ein eigener Bereich für Wettbewerbe, Bewerbungen und kreative Aktionen.</p>
+      <article
+        v-for="card in visibleCards"
+        :key="card.key"
+        :class="['platform-card', `platform-card--${card.key}`, 'card']"
+      >
+        <div class="platform-head">
+          <div class="platform-icon" :class="`platform-icon--${card.key}`">
+            {{ card.icon }}
+          </div>
+          <span class="card-label">{{ card.title }}</span>
         </div>
-        <button class="btn" type="button" @click="openPlatform('contests')">
-          Zur Contests-Ansicht
-        </button>
-      </article>
-
-      <article class="platform-card platform-card--music card">
         <div>
-          <span class="card-label">UNYQ Music Manager</span>
-          <h2>Musikprojekte &amp; Releases</h2>
-          <p>Verwalte Songs, Projekte und Releases in einer klaren Musikübersicht.</p>
+          <h2>{{ card.heading }}</h2>
+          <p>{{ card.description }}</p>
         </div>
-        <button class="btn" type="button" @click="openPlatform('music')">
-          Zum Music Manager
-        </button>
-      </article>
-
-      <article class="platform-card platform-card--locations card">
-        <div>
-          <span class="card-label">UNYQ Locations</span>
-          <h2>Locations &amp; Events</h2>
-          <p>Verwalte Orte, Termine und Veranstaltungsoptionen für dein Team.</p>
-        </div>
-        <button class="btn" type="button" @click="openPlatform('locations')">
-          Zu Locations
+        <button class="btn" type="button" @click="openPlatform(card.key)">
+          {{ card.buttonLabel }}
         </button>
       </article>
     </section>
 
     <footer class="platform-note card">
       <p>
-        Diese Seite nutzt die Team-Farbwelt von UNYQ, bleibt aber bewusst minimal.
-        Später kann sie als Hub zu eigenen Plattformen wie Contests, Music Manager und Locations dienen.
+        Der Hub ist dein zentraler Ausgangspunkt. Für Team-Mitglieder gibt es eine Vorschau auf andere Rollen,
+        damit du den gleichen Einstieg wie ein Artist oder Producer sehen kannst.
       </p>
     </footer>
   </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "../composables/useToast";
+import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const router = useRouter();
 const { showToast } = useToast();
+const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
+
+const viewMode = ref("default");
+const previewOptions = [
+  { key: "default", label: "Eigene Ansicht" },
+  { key: "ARTIST", label: "Als Artist" },
+  { key: "PRODUCER", label: "Als Producer" },
+  { key: "LOCATION", label: "Als Location" },
+];
+
+const cards = [
+  {
+    key: "contests",
+    title: "UNYQ Contests",
+    heading: "Wettbewerbe & Challenges",
+    description: "Bewerbe dich für Auftritte, Challenges und Team-Aktionen.",
+    buttonLabel: "Zur Contests-Ansicht",
+    icon: "🏆",
+    roles: ["TEAM", "ARTIST", "PRODUCER"],
+  },
+  {
+    key: "music",
+    title: "UNYQ Music Manager",
+    heading: "Musikprojekte & Releases",
+    description: "Verwalte Songs, Projekte und Releases in einer klaren Musikübersicht.",
+    buttonLabel: "Zum Music Manager",
+    icon: "🎵",
+    roles: ["TEAM", "ARTIST", "PRODUCER"],
+  },
+  {
+    key: "locations",
+    title: "UNYQ Locations",
+    heading: "Locations & Events",
+    description: "Verwalte Orte, Termine und Veranstaltungsoptionen für dein Team.",
+    buttonLabel: "Zu Locations",
+    icon: "📍",
+    roles: ["TEAM", "LOCATION", "PRODUCER"],
+  },
+];
+
+const activeRole = computed(() => {
+  if (viewMode.value !== "default") return viewMode.value;
+  if (isTeam.value) return "TEAM";
+  const role = (me.value?.roles || []).find((roleItem) => roleItem.key !== "TEAM");
+  return role?.key || "ARTIST";
+});
+
+const visibleCards = computed(() => {
+  const currentRole = activeRole.value;
+  return cards.filter((card) => card.roles.includes(currentRole));
+});
+
+function setViewMode(mode) {
+  viewMode.value = mode;
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem("unyq:platform-view-mode", mode);
+  }
+}
 
 function openPlatform(platform) {
   const mapping = {
@@ -74,6 +137,14 @@ function openPlatform(platform) {
   }
   showToast("Diese Plattform wird bald verfügbar sein", "info");
 }
+
+onMounted(async () => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("unyq:platform-view-mode");
+    if (stored) viewMode.value = stored;
+  }
+  await fetchProfile();
+});
 </script>
 
 <style scoped>
@@ -84,6 +155,9 @@ function openPlatform(platform) {
 }
 
 .hero {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr;
   padding: 32px;
   background: linear-gradient(135deg, rgba(47, 99, 255, 0.16), rgba(6, 182, 212, 0.12));
   border: 1px solid rgba(47, 99, 255, 0.18);
@@ -91,26 +165,67 @@ function openPlatform(platform) {
 
 .tag {
   display: inline-flex;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(6, 182, 212, 0.12);
+  background: rgba(6, 182, 212, 0.14);
   color: var(--brand);
   font-weight: 700;
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
 .hero h1 {
-  margin: 18px 0 12px;
-  font-size: clamp(2rem, 2.8vw, 3rem);
+  margin: 0;
+  font-size: clamp(2rem, 2.6vw, 3rem);
+  line-height: 1.05;
 }
 
 .lead {
   margin: 0;
-  max-width: 690px;
+  max-width: 720px;
   color: var(--muted);
   line-height: 1.72;
+}
+
+.preview-panel {
+  padding: 20px 24px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.preview-panel strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.preview-panel .muted {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
+.role-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pill {
+  border: 1px solid rgba(47, 99, 255, 0.18);
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.pill:hover,
+.pill.active {
+  border-color: var(--brand);
+  background: rgba(47, 99, 255, 0.12);
+  transform: translateY(-1px);
 }
 
 .platform-grid {
@@ -124,11 +239,39 @@ function openPlatform(platform) {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 260px;
-  gap: 22px;
+  min-height: 280px;
+  gap: 20px;
   padding: 28px;
-  border: 1px solid rgba(47, 99, 255, 0.16);
-  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(47, 99, 255, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.platform-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.platform-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.platform-icon--contests {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(99, 102, 241, 0.16));
+}
+
+.platform-icon--music {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(34, 211, 238, 0.16));
+}
+
+.platform-icon--locations {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.22), rgba(52, 211, 153, 0.16));
 }
 
 .platform-card--contests {
@@ -148,20 +291,20 @@ function openPlatform(platform) {
   margin-bottom: 14px;
   color: var(--brand);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
 }
 
 .platform-card h2 {
   margin: 0;
-  font-size: 1.45rem;
+  font-size: 1.4rem;
 }
 
 .platform-card p {
   margin: 0;
   color: var(--muted);
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .platform-card .btn {
@@ -194,4 +337,3 @@ function openPlatform(platform) {
     padding: 22px;
   }
 }
-</style>

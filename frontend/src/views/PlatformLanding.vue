@@ -337,3 +337,4 @@ onMounted(async () => {
     padding: 22px;
   }
 }
+</style>

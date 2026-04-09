@@ -91,8 +91,10 @@
 import { ref, computed, nextTick, onBeforeUnmount, onMounted } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useToast } from "../composables/useToast";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
+const { showToast } = useToast();
 const posts = ref([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -261,6 +263,7 @@ async function loadNews() {
   } catch (err) {
     console.error("News konnten nicht geladen werden", err);
     posts.value = [];
+    showToast("News konnten nicht geladen werden", "error");
   } finally {
     loading.value = false;
   }
@@ -290,6 +293,7 @@ async function createPost() {
     await loadNews();
   } catch (err) {
     console.error("Post konnte nicht gespeichert werden", err);
+    showToast("Post konnte nicht gespeichert werden", "error");
   } finally {
     saving.value = false;
   }
@@ -302,6 +306,7 @@ async function togglePublish(post) {
     await loadNews();
   } catch (err) {
     console.error("Statuswechsel fehlgeschlagen", err);
+    showToast("Statuswechsel fehlgeschlagen", "error");
   } finally {
     savingIds.value.delete(post.id);
   }
@@ -315,6 +320,7 @@ async function removePost(post) {
     await loadNews();
   } catch (err) {
     console.error("Post konnte nicht gelÃ¶scht werden", err);
+    showToast("Post konnte nicht gelÃ¶scht werden", "error");
   } finally {
     savingIds.value.delete(post.id);
   }

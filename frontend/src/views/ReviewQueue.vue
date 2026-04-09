@@ -5,6 +5,7 @@
         <p class="eyebrow">Review</p>
         <h1>Review Queue</h1>
         <p class="muted">Tasks, die im Review sind oder noch bestaetigt werden muessen.</p>
+        <p class="muted small">Erledigte Aufgaben werden hier weitergeführt, bis sie als geprüft oder nicht geprüft bestätigt wurden.</p>
       </div>
       <button class="btn ghost" type="button" @click="refresh" :disabled="loading">
         {{ loading ? "Lade..." : "Aktualisieren" }}

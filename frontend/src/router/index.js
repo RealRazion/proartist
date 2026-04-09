@@ -21,6 +21,7 @@ import PluginGuides from "../views/PluginGuides.vue";
 import ReviewQueue from "../views/ReviewQueue.vue";
 import Points from "../views/Points.vue";
 import ApiCenter from "../views/ApiCenter.vue";
+import PlatformLanding from "../views/PlatformLanding.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
 const routes = [
@@ -61,6 +62,7 @@ const routes = [
       { path: "me", name: "me", component: MyProfile, alias: "/me", meta: { requiresAuth: true } },
     ],
   },
+  { path: "/platforms", name: "platforms", component: PlatformLanding, meta: { requiresAuth: true } },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 

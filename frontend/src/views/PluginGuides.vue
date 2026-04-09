@@ -91,8 +91,10 @@
 import { ref, computed, nextTick, onBeforeUnmount, onMounted } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useToast } from "../composables/useToast";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
+const { showToast } = useToast();
 const guides = ref([]);
 const loading = ref(false);
 const saving = ref(false);
@@ -261,6 +263,7 @@ async function loadGuides() {
   } catch (err) {
     console.error("Guides konnten nicht geladen werden", err);
     guides.value = [];
+    showToast("Guides konnten nicht geladen werden", "error");
   } finally {
     loading.value = false;
   }
@@ -290,6 +293,7 @@ async function createGuide() {
     await loadGuides();
   } catch (err) {
     console.error("Guide konnte nicht gespeichert werden", err);
+    showToast("Guide konnte nicht gespeichert werden", "error");
   } finally {
     saving.value = false;
   }
@@ -302,6 +306,7 @@ async function togglePublish(guide) {
     await loadGuides();
   } catch (err) {
     console.error("Statuswechsel fehlgeschlagen", err);
+    showToast("Statuswechsel fehlgeschlagen", "error");
   } finally {
     savingIds.value.delete(guide.id);
   }
@@ -315,6 +320,7 @@ async function removeGuide(guide) {
     await loadGuides();
   } catch (err) {
     console.error("Guide konnte nicht geloescht werden", err);
+    showToast("Guide konnte nicht geloescht werden", "error");
   } finally {
     savingIds.value.delete(guide.id);
   }

@@ -119,8 +119,8 @@ def build_team_points_breakdown(team_profiles=None):
         profile.id: {
             "profile": {
                 "id": profile.id,
-                "name": profile.name or profile.user.username,
-                "username": profile.user.username,
+                "name": profile.name or getattr(profile.user, "username", "unbekannt"),
+                "username": getattr(profile.user, "username", "unbekannt"),
             },
             "total": 0,
             "tasks": [],

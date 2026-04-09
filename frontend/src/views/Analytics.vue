@@ -330,7 +330,9 @@ async function loadAnalyticsSummary() {
       completed_last_7_days: data.completed_last_7_days || 0,
     };
   } catch (err) {
+    console.error("Analytics-Zusammenfassung konnte nicht geladen werden", err);
     analytics.value = { active_tasks: 0, overdue_tasks: 0, due_soon_tasks: 0, completed_last_7_days: 0 };
+    showToast("Analytics konnten nicht vollständig geladen werden", "error");
   }
 }
 
@@ -392,7 +394,9 @@ async function loadAdminOverview() {
       overdue_tasks: data.overdue_tasks || 0,
     };
   } catch (err) {
+    console.error("Admin-Übersicht konnte nicht geladen werden", err);
     adminOverview.value = { total_users: 0, locked_users: 0, team_members: 0, new_users_last_7_days: 0, active_projects: 0, overdue_tasks: 0 };
+    showToast("Analytics konnten nicht vollständig geladen werden", "error");
   }
 }
 

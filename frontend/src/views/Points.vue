@@ -144,8 +144,9 @@ async function loadPoints() {
   loading.value = true;
   try {
     const { data } = await api.get("team-points/");
-    members.value = data?.members || [];
-    rules.value = data?.rules || null;
+    const payload = Array.isArray(data) ? { members: data, rules: null } : data || {};
+    members.value = payload.members || [];
+    rules.value = payload.rules || null;
   } catch (err) {
     console.error("Team-Punkte konnten nicht geladen werden", err);
     showToast("Team-Punkte konnten nicht geladen werden", "error");

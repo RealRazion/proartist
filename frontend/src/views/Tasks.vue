@@ -4,6 +4,7 @@
       <div>
         <h1>Tasks</h1>
         <p class="muted">Verteile Aufgaben, lade Dateien hoch und halte Kommentare fest.</p>
+        <p class="muted small">Wähle "Erledigt" und bestätige dann, ob die Aufgabe geprüft wurde.</p>
       </div>
       <button class="btn ghost" type="button" @click="refreshTasks" :disabled="loadingTasks">
         {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
@@ -1171,11 +1172,12 @@ async function setTaskReviewStatus(task, reviewed) {
   }
 }
 
-function cancelReviewDecision() {
+async function cancelReviewDecision() {
   if (reviewTarget.value && reviewPreviousStatus.value) {
     reviewTarget.value.status = reviewPreviousStatus.value;
   }
   closeReviewModal();
+  await loadTasks();
 }
 
 async function archiveTask(task) {

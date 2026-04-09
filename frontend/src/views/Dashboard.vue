@@ -13,11 +13,13 @@
           <button class="btn ghost" type="button" @click="openUserModal">Benutzer einladen</button>
           <button class="btn ghost" type="button" @click="goTo('reviews')">Review</button>
           <button class="btn ghost" type="button" @click="goTo('analytics')">Analytics</button>
+          <button class="btn ghost" type="button" @click="goTo('platforms')">UNYQ Hub</button>
         </template>
         <template v-else>
           <button class="btn ghost" type="button" @click="goTo('me')">Profil</button>
           <button class="btn ghost" type="button" @click="goTo('projects')">Projekte</button>
           <button class="btn ghost" type="button" @click="goTo('growpro')">GrowPro</button>
+          <button class="btn ghost" type="button" @click="goTo('platforms')">UNYQ Hub</button>
         </template>
       </div>
     </header>

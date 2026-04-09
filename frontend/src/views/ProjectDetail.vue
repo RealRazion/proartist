@@ -16,9 +16,12 @@
           {{ loadingProject ? "Lade..." : "Aktualisieren" }}
         </button>
         <button v-if="isTeam" class="btn" type="button" @click="editMode = !editMode">
-          {{ editMode ? "Bearbeitung schlieÃŸen" : "Bearbeiten" }}
+          {{ editMode ? "Bearbeitung schließen" : "Bearbeiten" }}
         </button>
       </div>
+      <p class="muted small hero-note">
+        Statusänderungen auf Aufgaben werden für Review-Aufgaben automatisch als geprüft oder nicht geprüft verwaltet.
+      </p>
     </header>
 
     <section v-if="projectError" class="card info">
@@ -832,11 +835,12 @@ async function setTaskReviewStatus(task, reviewed) {
   }
 }
 
-function cancelReviewDecision() {
+async function cancelReviewDecision() {
   if (reviewTarget.value && reviewPreviousStatus.value) {
     reviewTarget.value.status = reviewPreviousStatus.value;
   }
   closeReviewModal();
+  await loadTasks();
 }
 
 async function archiveTask(task) {

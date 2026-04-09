@@ -228,12 +228,34 @@
             </svg>
             <span v-if="openRequests" class="pill toolbar-pill">{{ openRequests }}</span>
           </button>
-          <button class="iconbtn top-icon-btn" type="button" @click="goToChats" title="Chats öffnen">
-            <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20 15a3 3 0 0 1-3 3H9l-5 3v-3a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3z" />
-            </svg>
-            <span v-if="unreadCount" class="pill toolbar-pill">{{ unreadCount }}</span>
-          </button>
+          <div class="chat-dropdown">
+            <button class="iconbtn top-icon-btn" type="button" @click.stop="toggleChatMenu" title="Chats öffnen">
+              <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M20 15a3 3 0 0 1-3 3H9l-5 3v-3a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3z" />
+              </svg>
+              <span v-if="unreadCount" class="pill toolbar-pill">{{ unreadCount }}</span>
+            </button>
+            <div v-if="chatOpen" class="chat-menu card">
+              <div class="chat-menu-head">
+                <strong>Chat starten</strong>
+                <button class="btn ghost tiny" type="button" @click="openAllChats">Alle Chats</button>
+              </div>
+              <div v-if="chatLoading" class="muted small">Lade Kontakte...</div>
+              <div v-else>
+                <button
+                  v-for="profile in chatContacts"
+                  :key="profile.id"
+                  class="menu-item"
+                  type="button"
+                  @click="openChatWith(profile.id)"
+                >
+                  {{ profile.name || profile.username }}
+                </button>
+                <p v-if="!chatContacts.length && !chatLoading" class="muted small">Keine Chat-Kontakte gefunden.</p>
+              </div>
+              <p v-if="chatError" class="muted danger small">{{ chatError }}</p>
+            </div>
+          </div>
           <div class="profile" :class="{ open }">
             <button class="avatar" type="button" @click="open = !open">
               {{ initial }}
@@ -294,6 +316,10 @@ const collapsed = ref(false);
 const mobileOpen = ref(false);
 const isMobile = ref(false);
 const openRequests = ref(0);
+const chatOpen = ref(false);
+const chatContacts = ref([]);
+const chatLoading = ref(false);
+const chatError = ref(null);
 const { showToast } = useToast();
 const viewRefreshKey = ref(0);
 
@@ -361,8 +387,42 @@ function toggleTheme() {
   applyTheme();
 }
 
-function goToChats() {
+function toggleChatMenu() {
+  chatOpen.value = !chatOpen.value;
+  if (chatOpen.value && !chatContacts.value.length) {
+    loadChatContacts();
+  }
+}
+
+function openAllChats() {
+  chatOpen.value = false;
   router.push({ name: "chats" });
+}
+
+async function openChatWith(profileId) {
+  chatOpen.value = false;
+  try {
+    const { data } = await api.post("threads/ensure/", { profile_id: profileId });
+    router.push({ name: "chats", query: { thread: data.id } });
+  } catch (err) {
+    console.error("Chat konnte nicht geöffnet werden", err);
+    showToast("Chat konnte nicht geöffnet werden", "error");
+  }
+}
+
+async function loadChatContacts() {
+  chatLoading.value = true;
+  chatError.value = null;
+  try {
+    const { data } = await api.get("profiles/", { params: { page_size: 100, ordering: "name" } });
+    const payload = Array.isArray(data) ? data : data.results || [];
+    chatContacts.value = payload.filter((profile) => profile.id !== me.value?.id).slice(0, 10);
+  } catch (err) {
+    console.error("Chat-Kontakte konnten nicht geladen werden", err);
+    chatError.value = "Chat-Kontakte konnten nicht geladen werden";
+  } finally {
+    chatLoading.value = false;
+  }
 }
 
 function goToProfile() {
@@ -572,6 +632,39 @@ onBeforeUnmount(() => {
   padding: 0 5px;
   font-size: 11px;
   line-height: 18px;
+}
+.chat-dropdown {
+  position: relative;
+}
+.chat-menu {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  min-width: 240px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+.chat-menu-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.chat-menu .menu-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.chat-menu .menu-item:hover {
+  background: rgba(15, 23, 42, 0.05);
 }
 @media (max-width: 900px) {
   .page-toolbar {

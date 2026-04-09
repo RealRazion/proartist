@@ -9,7 +9,7 @@ def send_notification_email(subject, message, recipients):
     """
     if not recipients:
         return
-    sender = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@proartist.app")
+    sender = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@unyq.app")
     try:
         send_mail(subject, message, sender, recipients, fail_silently=True)
     except Exception:

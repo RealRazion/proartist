@@ -145,7 +145,7 @@ def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
     link = f"{frontend_url}/set-password?uid={uid}&token={token}"
     if send_email:
         send_notification_email(
-            "Dein ProArtist Zugang",
+            "Dein UNYQ Zugang",
             f"Hallo,\n\nbitte setze dein Passwort über diesen Link:\n{link}\n\nViele Grüße",
             [email],
         )

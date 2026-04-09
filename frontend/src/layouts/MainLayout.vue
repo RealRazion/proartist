@@ -3,7 +3,7 @@
     <aside :class="['sidebar', { collapsed: collapsed && !isMobile, 'mobile-open': mobileOpen && isMobile }]">
       <div class="sidebar-top">
         <div class="brand">
-          <span class="brand-mark">ProArtist</span>
+          <span class="brand-mark">UNYQ</span>
           <span v-if="isTeam" class="badge">Team</span>
           <span v-else-if="me" class="badge artist">Artist</span>
         </div>
@@ -326,7 +326,7 @@ const initial = computed(() => {
 });
 
 const themeLabel = computed(() => (theme.value === "dark" ? "Dark" : "Light"));
-const pageMetaCurrent = computed(() => pageMeta[route.name] || { title: "ProArtist", team: "Arbeitsbereich", artist: "Arbeitsbereich" });
+const pageMetaCurrent = computed(() => pageMeta[route.name] || { title: "UNYQ", team: "UNYQ TEAM", artist: "Arbeitsbereich" });
 const pageTitle = computed(() => pageMetaCurrent.value.title);
 const pageKicker = computed(() => (isTeam.value ? pageMetaCurrent.value.team : pageMetaCurrent.value.artist));
 const routerViewKey = computed(() => `${route.fullPath}::${viewRefreshKey.value}`);

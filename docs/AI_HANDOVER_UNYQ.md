@@ -1,4 +1,4 @@
-# UNYQ AI Handover (detailliert)
+# ProArtist AI Handover (detailliert)
 
 Diese Datei ist eine technische Uebergabe fuer eine weitere KI, die in diesem Projekt effektiv und sicher arbeiten soll.
 Ziel: schnell produktiv werden, keine blinden Annahmen, keine regressionsreichen Aenderungen.
@@ -7,7 +7,7 @@ Ziel: schnell produktiv werden, keine blinden Annahmen, keine regressionsreichen
 
 ## 1) Produktbild in 90 Sekunden
 
-UNYQ ist eine Django + Vue Anwendung fuer Team/Artist Collaboration:
+ProArtist ist eine Django + Vue Anwendung fuer Team/Artist Collaboration:
 
 - Team verwaltet Projekte, Tasks, Reviews, GrowPro-Ziele, News, Plugin Guides, Team Points, Admin und API-Center.
 - Artists sehen ihr Dashboard, Profile, Chats, News, Guides und eigene GrowPro-Ziele.
@@ -24,7 +24,7 @@ Wichtige Leitidee:
 ## 2) Repo-Topologie (wichtigste Pfade)
 
 ```text
-unyq/
+proartist/
   backend/
     settings.py
     urls.py
@@ -71,7 +71,7 @@ Empfohlene Lesereihenfolge fuer neue KI:
 ### Backend
 
 ```powershell
-cd unyq
+cd proartist
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
@@ -82,7 +82,7 @@ python manage.py runserver
 ### Frontend
 
 ```powershell
-cd unyq\frontend
+cd proartist\frontend
 npm install
 npm run dev
 ```
@@ -95,7 +95,7 @@ cd proartist
 venv\Scripts\python.exe manage.py test
 
 # Frontend
-cd unyq\frontend
+cd proartist\frontend
 npm run build
 ```
 

@@ -2,7 +2,7 @@
   <div class="home">
     <header class="hero card">
       <div class="hero-copy">
-        <p class="tag">Welcome to ProArtist</p>
+        <p class="tag">Welcome to UNYQ</p>
         <h1>Die Schaltzentrale für Artists, Producer &amp; Teams</h1>
         <p class="lead">
           Manage Projekte, Tasks, Chats und Releases in einem klaren Workflow. Alles an einem Ort - live, sicher

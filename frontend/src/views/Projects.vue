@@ -98,6 +98,10 @@
               </span>
               <span v-else class="names muted">Noch kein Team zugeordnet</span>
             </div>
+            <div class="owners">
+              <span class="label">Projektrechte:</span>
+              <span class="names">{{ participantTaskAccessLabels[project.participant_task_access] || "Keine" }}</span>
+            </div>
           </li>
         </ul>
         <div ref="projectSentinel" class="sentinel" v-if="hasMoreProjects"></div>
@@ -182,6 +186,14 @@
             Status
             <select class="input" v-model="projectForm.status">
               <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
+            </select>
+          </label>
+          <label>
+            Projektrechte
+            <select class="input" v-model="projectForm.participant_task_access">
+              <option v-for="opt in participantTaskAccessOptions" :key="opt" :value="opt">
+                {{ participantTaskAccessLabels[opt] }}
+              </option>
             </select>
           </label>
           <label class="full">
@@ -274,6 +286,12 @@ const statusLabels = {
   ON_HOLD: "Pausiert",
   DONE: "Abgeschlossen",
 };
+const participantTaskAccessOptions = ["NONE", "COMMENT", "EDIT"];
+const participantTaskAccessLabels = {
+  NONE: "Nur Team bearbeitet Tasks",
+  COMMENT: "Teilnehmer duerfen kommentieren",
+  EDIT: "Teilnehmer duerfen Tasks bearbeiten",
+};
 
 const statusChipOptions = ["ALL", ...statusOptions];
 const hasActiveFilters = computed(
@@ -308,6 +326,7 @@ function getDefaultProjectForm() {
     title: "",
     description: "",
     status: "PLANNED",
+    participant_task_access: "NONE",
     participant_ids: [],
     owner_ids: [],
   };
@@ -456,6 +475,7 @@ function startEditProject(project) {
     title: project.title,
     description: project.description || "",
     status: project.status,
+    participant_task_access: project.participant_task_access || "NONE",
     participant_ids: project.participants?.map((p) => p.id) || [],
     owner_ids: project.owners?.map((p) => p.id) || [],
   };

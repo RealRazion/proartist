@@ -58,6 +58,16 @@
           <small v-if="unreadCount" class="pill">{{ unreadCount }}</small>
         </router-link>
         <router-link
+          to="/notifications"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Benachrichtigungen' : null"
+        >
+          <span class="icon">🔔</span>
+          <span class="label">Notifications</span>
+          <small v-if="notificationCount" class="pill">{{ notificationCount }}</small>
+        </router-link>
+        <router-link
           to="/news"
           class="nav-link"
           @click="handleNavClick"
@@ -209,6 +219,18 @@
           <button
             class="iconbtn top-icon-btn"
             type="button"
+            @click="router.push({ name: 'notifications' })"
+            title="Benachrichtigungen"
+          >
+            <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 8a6 6 0 1 1 12 0v4.5l1.7 2.6A1 1 0 0 1 18.9 17H5.1a1 1 0 0 1-.8-1.9L6 12.5z" />
+              <path d="M10 19a2 2 0 0 0 4 0" />
+            </svg>
+            <span v-if="notificationCount" class="pill toolbar-pill">{{ notificationCount }}</span>
+          </button>
+          <button
+            class="iconbtn top-icon-btn"
+            type="button"
             @click="notify('Request-Ansicht folgt bald')"
             title="Offene Requests"
           >
@@ -300,6 +322,7 @@ const { profile: me, isTeam, fetchProfile, clearProfile } = useCurrentProfile();
 const open = ref(false);
 const search = ref("");
 const unreadCount = ref(0);
+const notificationCount = ref(0);
 const theme = ref("light");
 const loadingUnread = ref(false);
 const collapsed = ref(false);
@@ -314,6 +337,7 @@ const { showToast } = useToast();
 const viewRefreshKey = ref(0);
 
 let unreadInterval = null;
+let notificationInterval = null;
 
 const pageMeta = {
   dashboard: { title: "Dashboard", team: "Teamsteuerung auf einen Blick", artist: "Dein zentraler Startpunkt" },
@@ -328,6 +352,7 @@ const pageMeta = {
   reviews: { title: "Review Queue", team: "Freigaben und Qualitaetssicherung", artist: "Reviews" },
   timeline: { title: "Timeline", team: "Fristen und Deadlines", artist: "Timeline" },
   activity: { title: "Aktivitaet", team: "Letzte Team-Ereignisse", artist: "Aktivitaetsfeed" },
+  notifications: { title: "Notifications", team: "Inbox und Updates", artist: "Persoenliche Inbox" },
   admin: { title: "Admin", team: "Benutzer und Systemverwaltung", artist: "Admin" },
   points: { title: "Points", team: "Workload und Scoring", artist: "Points" },
   "api-center": { title: "API Center", team: "Automationen und Integrationen", artist: "API Center" },
@@ -453,6 +478,15 @@ async function loadUnread() {
   }
 }
 
+async function loadNotificationCount() {
+  try {
+    const { data } = await api.get("notifications/unread-count/");
+    notificationCount.value = data?.unread || 0;
+  } catch (err) {
+    console.error("Konnte Notification-Count nicht laden", err);
+  }
+}
+
 function performSearch() {
   const term = search.value.trim();
   if (!term) {
@@ -540,11 +574,14 @@ onMounted(async () => {
   }
   await loadStats();
   await loadUnread();
+  await loadNotificationCount();
   unreadInterval = setInterval(loadUnread, 15000);
+  notificationInterval = setInterval(loadNotificationCount, 15000);
 });
 
 onBeforeUnmount(() => {
   if (unreadInterval) clearInterval(unreadInterval);
+  if (notificationInterval) clearInterval(notificationInterval);
   if (typeof window !== "undefined") {
     window.removeEventListener("resize", updateViewport);
   }

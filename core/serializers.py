@@ -1,3 +1,8 @@
+from calendar import monthrange
+from datetime import date, timedelta
+from decimal import Decimal, ROUND_HALF_UP
+
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
@@ -9,25 +14,90 @@ from .models import (
     Contract,
     Event,
     Example,
-    Song,
-    SongVersion,
+    FinanceEntry,
+    FinanceMember,
+    FinanceProject,
     GrowProGoal,
     GrowProUpdate,
     NewsPost,
+    Notification,
     Payment,
     Profile,
-    Project,
     ProjectAttachment,
     PluginGuide,
+    Project,
     Release,
     Request,
     RegistrationRequest,
     Role,
+    Song,
+    SongVersion,
     SystemIntegration,
     Task,
     TaskAttachment,
     TaskComment,
 )
+
+
+DECIMAL_2 = Decimal("0.01")
+
+
+def _money(value):
+    return Decimal(value or 0).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
+
+
+def _safe_date(year, month, day):
+    return date(year, month, min(day, monthrange(year, month)[1]))
+
+
+def _monthly_amount(entry, today):
+    amount = _money(entry.amount)
+    if not getattr(entry, "is_active", True):
+        return Decimal("0.00")
+    if entry.frequency == "MONTHLY":
+        return amount
+    if entry.frequency == "WEEKLY":
+        return (amount * Decimal("52") / Decimal("12")).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
+    if entry.frequency == "YEARLY":
+        return (amount / Decimal("12")).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
+    if entry.frequency == "ONCE" and entry.due_date and entry.due_date.year == today.year and entry.due_date.month == today.month:
+        return amount
+    return Decimal("0.00")
+
+
+def _next_due_date(entry, today):
+    if not getattr(entry, "is_active", True):
+        return None
+    if entry.frequency == "ONCE":
+        return entry.due_date if entry.due_date and entry.due_date >= today else None
+    if entry.frequency == "MONTHLY":
+        if not entry.due_day:
+            return None
+        candidate = _safe_date(today.year, today.month, entry.due_day)
+        if candidate < today:
+            month_index = today.month
+            year = today.year + month_index // 12
+            month = month_index % 12 + 1
+            candidate = _safe_date(year, month, entry.due_day)
+        return candidate
+    if entry.frequency == "WEEKLY":
+        if not entry.due_date:
+            return None
+        weekday = entry.due_date.weekday()
+        delta = (weekday - today.weekday()) % 7
+        return today + timedelta(days=delta)
+    if entry.frequency == "YEARLY":
+        if not entry.due_date:
+            return None
+        candidate = _safe_date(today.year, entry.due_date.month, entry.due_date.day)
+        if candidate < today:
+            candidate = _safe_date(today.year + 1, entry.due_date.month, entry.due_date.day)
+        return candidate
+    return None
+
+
+def _to_float(value):
+    return float(_money(value))
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -241,6 +311,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "participant_ids",
             "owners",
             "owner_ids",
+            "participant_task_access",
             "is_archived",
             "archived_at",
         ]
@@ -314,6 +385,10 @@ class TaskSerializer(serializers.ModelSerializer):
             "assignee_ids",
             "due_date",
             "task_type",
+            "recurrence_pattern",
+            "recurrence_interval",
+            "recurrence_generated",
+            "recurrence_parent",
             "stakeholders",
             "stakeholder_ids",
             "created_by",
@@ -335,10 +410,33 @@ class TaskSerializer(serializers.ModelSerializer):
             "assignees",
             "created_by",
             "updated_by",
+            "recurrence_generated",
+            "recurrence_parent",
         ]
         extra_kwargs = {
             "project": {"allow_null": True, "required": False},
         }
+
+    def validate(self, attrs):
+        recurrence_pattern = attrs.get("recurrence_pattern")
+        if recurrence_pattern is None and self.instance is not None:
+            recurrence_pattern = self.instance.recurrence_pattern
+        recurrence_pattern = recurrence_pattern or "NONE"
+
+        recurrence_interval = attrs.get("recurrence_interval")
+        if recurrence_interval is None and self.instance is not None:
+            recurrence_interval = self.instance.recurrence_interval
+        recurrence_interval = recurrence_interval or 1
+
+        due_date = attrs.get("due_date")
+        if due_date is None and self.instance is not None:
+            due_date = self.instance.due_date
+
+        if recurrence_pattern != "NONE" and not due_date:
+            raise serializers.ValidationError({"due_date": "Wiederholende Tasks brauchen ein Fälligkeitsdatum."})
+        if recurrence_interval < 1:
+            raise serializers.ValidationError({"recurrence_interval": "Das Wiederholungsintervall muss mindestens 1 sein."})
+        return attrs
 
     def create(self, validated_data):
         stakeholders = validated_data.pop("stakeholders", [])
@@ -550,6 +648,232 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class FinanceMemberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FinanceMember
+        fields = ["id", "project", "name", "role", "notes", "sort_order", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class FinanceEntrySerializer(serializers.ModelSerializer):
+    member_name = serializers.SerializerMethodField()
+    monthly_amount = serializers.SerializerMethodField()
+    next_due_date = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FinanceEntry
+        fields = [
+            "id",
+            "project",
+            "member",
+            "member_name",
+            "title",
+            "category",
+            "entry_type",
+            "amount",
+            "monthly_amount",
+            "frequency",
+            "due_day",
+            "due_date",
+            "next_due_date",
+            "is_shared",
+            "is_active",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "member_name", "monthly_amount", "next_due_date", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        frequency = attrs.get("frequency") or getattr(self.instance, "frequency", "MONTHLY")
+        due_day = attrs.get("due_day", getattr(self.instance, "due_day", None))
+        due_date = attrs.get("due_date", getattr(self.instance, "due_date", None))
+        member = attrs.get("member", getattr(self.instance, "member", None))
+        project = attrs.get("project", getattr(self.instance, "project", None))
+
+        if due_day is not None and (due_day < 1 or due_day > 31):
+            raise serializers.ValidationError({"due_day": "Der Faelligkeitstag muss zwischen 1 und 31 liegen."})
+        if frequency == "MONTHLY" and due_day is None:
+            raise serializers.ValidationError({"due_day": "Monatliche Posten brauchen einen Faelligkeitstag."})
+        if frequency == "ONCE" and not due_date:
+            raise serializers.ValidationError({"due_date": "Einmalige Posten brauchen ein Datum."})
+        if member and project and member.project_id != project.id:
+            raise serializers.ValidationError({"member": "Die Person gehoert nicht zu diesem Finanzprojekt."})
+        return attrs
+
+    def get_member_name(self, obj):
+        return obj.member.name if obj.member else None
+
+    def get_monthly_amount(self, obj):
+        return _to_float(_monthly_amount(obj, timezone.now().date()))
+
+    def get_next_due_date(self, obj):
+        next_due = _next_due_date(obj, timezone.now().date())
+        return next_due.isoformat() if next_due else None
+
+
+class FinanceProjectListSerializer(serializers.ModelSerializer):
+    members = FinanceMemberSerializer(many=True, read_only=True)
+    overview = serializers.SerializerMethodField()
+    initial_members = serializers.ListField(
+        child=serializers.CharField(max_length=120),
+        write_only=True,
+        required=False,
+        allow_empty=True,
+    )
+
+    class Meta:
+        model = FinanceProject
+        fields = [
+            "id",
+            "title",
+            "description",
+            "currency",
+            "current_balance",
+            "monthly_savings_target",
+            "emergency_buffer_target",
+            "members",
+            "initial_members",
+            "overview",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "members", "overview", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        initial_members = validated_data.pop("initial_members", [])
+        project = super().create(validated_data)
+        cleaned = []
+        for raw_name in initial_members:
+            name = (raw_name or "").strip()
+            if name and name not in cleaned:
+                cleaned.append(name)
+        if not cleaned:
+            owner = getattr(project.owner, "name", "") or getattr(project.owner.user, "username", "Ich")
+            cleaned = [owner]
+        FinanceMember.objects.bulk_create(
+            [
+                FinanceMember(
+                    project=project,
+                    name=name,
+                    role="PRIMARY" if index == 0 else "PARTNER",
+                    sort_order=index,
+                )
+                for index, name in enumerate(cleaned[:8])
+            ]
+        )
+        return project
+
+    def get_overview(self, obj):
+        today = timezone.now().date()
+        active_entries = list(obj.entries.filter(is_active=True).select_related("member"))
+        totals = {
+            "INCOME": Decimal("0.00"),
+            "FIXED": Decimal("0.00"),
+            "VARIABLE": Decimal("0.00"),
+            "DEBT": Decimal("0.00"),
+            "SAVING": Decimal("0.00"),
+        }
+        category_totals = {}
+        member_totals = {}
+        due_items = []
+
+        for member in obj.members.all():
+            member_totals[member.id] = {
+                "member_id": member.id,
+                "member_name": member.name,
+                "income": Decimal("0.00"),
+                "outflow": Decimal("0.00"),
+                "net": Decimal("0.00"),
+            }
+        shared_bucket = {
+            "member_id": None,
+            "member_name": "Gemeinsam",
+            "income": Decimal("0.00"),
+            "outflow": Decimal("0.00"),
+            "net": Decimal("0.00"),
+        }
+
+        for entry in active_entries:
+            monthly_amount = _monthly_amount(entry, today)
+            totals[entry.entry_type] = totals.get(entry.entry_type, Decimal("0.00")) + monthly_amount
+            if entry.category:
+                category_totals[entry.category] = category_totals.get(entry.category, Decimal("0.00")) + monthly_amount
+
+            bucket = shared_bucket if entry.is_shared or not entry.member_id else member_totals.get(entry.member_id)
+            if bucket:
+                if entry.entry_type == "INCOME":
+                    bucket["income"] += monthly_amount
+                    bucket["net"] += monthly_amount
+                else:
+                    bucket["outflow"] += monthly_amount
+                    bucket["net"] -= monthly_amount
+
+            next_due = _next_due_date(entry, today)
+            if next_due and next_due <= today + timedelta(days=14):
+                due_items.append(
+                    {
+                        "id": entry.id,
+                        "title": entry.title,
+                        "entry_type": entry.entry_type,
+                        "amount": _to_float(entry.amount),
+                        "monthly_amount": _to_float(monthly_amount),
+                        "due_date": next_due.isoformat(),
+                        "member_name": entry.member.name if entry.member else ("Gemeinsam" if entry.is_shared else None),
+                        "frequency": entry.frequency,
+                    }
+                )
+
+        monthly_outflow = totals["FIXED"] + totals["VARIABLE"] + totals["DEBT"] + totals["SAVING"]
+        monthly_left = totals["INCOME"] - monthly_outflow
+        projected_balance = _money(obj.current_balance) + monthly_left
+        buffer_gap = max(Decimal("0.00"), _money(obj.emergency_buffer_target) - _money(obj.current_balance))
+
+        member_rows = list(member_totals.values())
+        if shared_bucket["income"] or shared_bucket["outflow"]:
+            member_rows.append(shared_bucket)
+
+        return {
+            "snapshot_month": today.strftime("%Y-%m"),
+            "people_count": obj.members.count(),
+            "active_entry_count": len(active_entries),
+            "monthly_income": _to_float(totals["INCOME"]),
+            "monthly_fixed_costs": _to_float(totals["FIXED"]),
+            "monthly_variable_costs": _to_float(totals["VARIABLE"]),
+            "monthly_debt": _to_float(totals["DEBT"]),
+            "monthly_savings": _to_float(totals["SAVING"]),
+            "monthly_outflow": _to_float(monthly_outflow),
+            "monthly_left": _to_float(monthly_left),
+            "current_balance": _to_float(obj.current_balance),
+            "projected_balance": _to_float(projected_balance),
+            "monthly_savings_target": _to_float(obj.monthly_savings_target),
+            "emergency_buffer_target": _to_float(obj.emergency_buffer_target),
+            "buffer_gap": _to_float(buffer_gap),
+            "due_soon": sorted(due_items, key=lambda item: item["due_date"])[:6],
+            "member_totals": [
+                {
+                    **row,
+                    "income": _to_float(row["income"]),
+                    "outflow": _to_float(row["outflow"]),
+                    "net": _to_float(row["net"]),
+                }
+                for row in sorted(member_rows, key=lambda row: (row["member_id"] is None, row["member_name"]))
+            ],
+            "top_categories": [
+                {"category": category, "amount": _to_float(amount)}
+                for category, amount in sorted(category_totals.items(), key=lambda item: item[1], reverse=True)[:5]
+            ],
+        }
+
+
+class FinanceProjectSerializer(FinanceProjectListSerializer):
+    entries = FinanceEntrySerializer(many=True, read_only=True)
+
+    class Meta(FinanceProjectListSerializer.Meta):
+        fields = FinanceProjectListSerializer.Meta.fields[:-2] + ["entries", "created_at", "updated_at"]
+        read_only_fields = FinanceProjectListSerializer.Meta.read_only_fields + ["entries"]
+
+
 class ReleaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Release
@@ -585,6 +909,52 @@ class ActivityEntrySerializer(serializers.ModelSerializer):
             "project",
             "task",
             "metadata",
+            "created_at",
+        ]
+
+    def get_project(self, obj):
+        if not obj.project:
+            return None
+        return {"id": obj.project_id, "title": obj.project.title}
+
+    def get_task(self, obj):
+        if not obj.task:
+            return None
+        return {"id": obj.task_id, "title": obj.task.title}
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    actor = ProfileMiniSerializer(read_only=True)
+    project = serializers.SerializerMethodField()
+    task = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "notification_type",
+            "title",
+            "body",
+            "severity",
+            "actor",
+            "project",
+            "task",
+            "metadata",
+            "is_read",
+            "read_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "notification_type",
+            "title",
+            "body",
+            "severity",
+            "actor",
+            "project",
+            "task",
+            "metadata",
+            "read_at",
             "created_at",
         ]
 

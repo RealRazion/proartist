@@ -6,9 +6,14 @@
         <p class="muted">Verteile Aufgaben, lade Dateien hoch und halte Kommentare fest.</p>
         <p class="muted small">Wähle "Erledigt" und bestätige dann, ob die Aufgabe geprüft wurde.</p>
       </div>
-      <button class="btn ghost" type="button" @click="refreshTasks" :disabled="loadingTasks">
-        {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
-      </button>
+      <div class="board-actions">
+        <button class="btn ghost" type="button" @click="exportCalendar" :disabled="calendarExporting">
+          {{ calendarExporting ? "Exportiere..." : "Kalender Export" }}
+        </button>
+        <button class="btn ghost" type="button" @click="refreshTasks" :disabled="loadingTasks">
+          {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
+        </button>
+      </div>
     </header>
 
     <section v-if="!isTeam" class="card info">
@@ -98,6 +103,9 @@
                         <span class="task-type" :data-type="task.task_type">
                           {{ taskTypeLabels[task.task_type] || task.task_type }}
                         </span>
+                        <span v-if="task.recurrence_pattern && task.recurrence_pattern !== 'NONE'" class="task-type recurrence">
+                          {{ recurrenceLabel(task) }}
+                        </span>
                         <span
                           v-if="task.review_status"
                           class="review-chip"
@@ -173,6 +181,9 @@
               <span class="status-chip" :data-status="activeTask.status">{{ statusLabels[activeTask.status] }}</span>
               <span class="priority-chip" :data-priority="activeTask.priority">{{ priorityLabels[activeTask.priority] }}</span>
               <span class="type-chip" :data-type="activeTask.task_type">{{ taskTypeLabels[activeTask.task_type] }}</span>
+              <span v-if="activeTask.recurrence_pattern && activeTask.recurrence_pattern !== 'NONE'" class="type-chip recurrence">
+                {{ recurrenceLabel(activeTask) }}
+              </span>
               <span
                 v-if="activeTask.review_status"
                 class="review-chip"
@@ -218,6 +229,10 @@
               <div>
                 <dt>Priorität</dt>
                 <dd>{{ priorityLabels[activeTask.priority] }}</dd>
+              </div>
+              <div>
+                <dt>Wiederholung</dt>
+                <dd>{{ recurrenceLabel(activeTask) }}</dd>
               </div>
               <div>
                 <dt>Erstellt</dt>
@@ -454,6 +469,18 @@
             Fällig am
             <input class="input" type="date" v-model="taskForm.due_date" />
           </label>
+          <label>
+            Wiederholung
+            <select class="input" v-model="taskForm.recurrence_pattern">
+              <option v-for="opt in recurrenceOptions" :key="opt" :value="opt">
+                {{ recurrenceLabels[opt] }}
+              </option>
+            </select>
+          </label>
+          <label v-if="taskForm.recurrence_pattern !== 'NONE'">
+            Intervall
+            <input class="input" type="number" min="1" step="1" v-model.number="taskForm.recurrence_interval" />
+          </label>
           <div v-if="taskModalMode === 'edit'" class="danger-zone full">
             <p class="muted">Task archivieren oder komplett löschen.</p>
             <div class="danger-buttons">
@@ -563,6 +590,7 @@ const reviewTarget = ref(null);
 const reviewPreviousStatus = ref(null);
 const statusSnapshot = ref({});
 const reviewActionSaving = ref({});
+const calendarExporting = ref(false);
 
 function getDefaultTaskForm() {
   return {
@@ -574,6 +602,8 @@ function getDefaultTaskForm() {
     stakeholder_ids: [],
     due_date: "",
     task_type: "EXTERNAL",
+    recurrence_pattern: "NONE",
+    recurrence_interval: 1,
   };
 }
 const filterProject = ref("ALL");
@@ -614,6 +644,13 @@ const taskTypeLabels = {
   INTERNAL: "Intern",
   EXTERNAL: "Extern",
 };
+const recurrenceOptions = ["NONE", "DAILY", "WEEKLY", "MONTHLY"];
+const recurrenceLabels = {
+  NONE: "Keine",
+  DAILY: "Taeglich",
+  WEEKLY: "Woechentlich",
+  MONTHLY: "Monatlich",
+};
 const boardTypeOptions = ["ALL", ...taskTypeOptions];
 const boardTypeLabels = {
   ALL: "Alle Tasks",
@@ -627,6 +664,13 @@ const priorityLabels = {
   HIGH: "Hoch",
   CRITICAL: "Kritisch",
 };
+
+function recurrenceLabel(task) {
+  if (!task?.recurrence_pattern || task.recurrence_pattern === "NONE") return "Keine";
+  const base = recurrenceLabels[task.recurrence_pattern] || task.recurrence_pattern;
+  const interval = Number(task.recurrence_interval || 1);
+  return interval > 1 ? `${base} x${interval}` : base;
+}
 const boardTypeFilter = ref("ALL");
 function setBoardType(value) {
   boardTypeFilter.value = value;
@@ -985,6 +1029,35 @@ async function refreshTasks() {
   await Promise.all([loadTasks(), loadTaskSummary()]);
 }
 
+async function exportCalendar() {
+  if (calendarExporting.value) return;
+  calendarExporting.value = true;
+  try {
+    const { data } = await api.get("tasks/calendar-export/", {
+      params: {
+        project: filterProject.value !== "ALL" ? filterProject.value : undefined,
+        include_archived: showArchived.value ? 1 : 0,
+        include_done: showCompleted.value ? 1 : 0,
+      },
+      responseType: "blob",
+    });
+    const blob = new Blob([data], { type: "text/calendar;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "tasks.ics";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Kalender Export fehlgeschlagen", err);
+    showToast("Kalender Export fehlgeschlagen", "error");
+  } finally {
+    calendarExporting.value = false;
+  }
+}
+
 async function submitTaskForm() {
   if (!taskForm.value.title.trim()) return;
   taskSaving.value = true;
@@ -995,6 +1068,8 @@ async function submitTaskForm() {
     task_type: taskForm.value.task_type,
     stakeholder_ids: taskForm.value.stakeholder_ids,
     assignee_ids: taskForm.value.assignee_ids,
+    recurrence_pattern: taskForm.value.recurrence_pattern,
+    recurrence_interval: taskForm.value.recurrence_pattern === "NONE" ? 1 : Number(taskForm.value.recurrence_interval || 1),
   };
   if (taskForm.value.project) {
     payload.project = taskForm.value.project;
@@ -1045,6 +1120,8 @@ function startEditTask(task) {
     stakeholder_ids: task.stakeholders?.map((p) => p.id) || [],
     due_date: task.due_date || "",
     task_type: task.task_type || "EXTERNAL",
+    recurrence_pattern: task.recurrence_pattern || "NONE",
+    recurrence_interval: task.recurrence_interval || 1,
   };
   taskModalVisible.value = true;
 }
@@ -1593,6 +1670,11 @@ onBeforeUnmount(() => {
 .task-type[data-type="INTERNAL"] {
   background: rgba(248, 113, 113, 0.22);
   color: #b91c1c;
+}
+.task-type.recurrence,
+.type-chip.recurrence {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
 }
 .card-buttons {
   display: flex;

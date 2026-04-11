@@ -13,8 +13,12 @@ from core.views import (
     ContractViewSet,
     EventViewSet,
     ExampleViewSet,
+    FinanceEntryViewSet,
+    FinanceMemberViewSet,
+    FinanceProjectViewSet,
     GrowProGoalViewSet,
     NewsPostViewSet,
+    NotificationViewSet,
     PaymentViewSet,
     PluginGuideViewSet,
     ProfileViewSet,
@@ -47,6 +51,7 @@ from core.views import (
 router = routers.DefaultRouter()
 router.register(r"roles", RoleViewSet)
 router.register(r"profiles", ProfileViewSet)
+router.register(r"notifications", NotificationViewSet, basename="notifications")
 router.register(r"examples", ExampleViewSet)
 router.register(r"requests", RequestViewSet)
 router.register(r"threads", ChatThreadViewSet)
@@ -65,6 +70,9 @@ router.register(r"automation-rules", AutomationRuleViewSet, basename="automation
 router.register(r"system-integrations", SystemIntegrationViewSet, basename="system-integrations")
 router.register(r"contracts", ContractViewSet)
 router.register(r"payments", PaymentViewSet)
+router.register(r"finance-projects", FinanceProjectViewSet, basename="finance-projects")
+router.register(r"finance-members", FinanceMemberViewSet, basename="finance-members")
+router.register(r"finance-entries", FinanceEntryViewSet, basename="finance-entries")
 router.register(r"releases", ReleaseViewSet)
 router.register(r"events", EventViewSet)
 router.register(r"bookings", BookingViewSet)

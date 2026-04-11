@@ -1,6 +1,7 @@
 import csv
 import io
 import os
+from calendar import monthrange
 from datetime import datetime, timedelta
 import re
 
@@ -17,6 +18,7 @@ from django.utils.dateparse import parse_date
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import permissions, viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -32,7 +34,13 @@ from .models import (
     Contract,
     Event,
     Example,
+    FinanceEntry,
+    FinanceMember,
+    FinanceProject,
+    GrowProGoal,
+    GrowProUpdate,
     NewsPost,
+    Notification,
     Payment,
     PluginGuide,
     Profile,
@@ -48,10 +56,15 @@ from .models import (
     TaskComment,
     Song,
     SongVersion,
-    GrowProGoal,
-    GrowProUpdate,
 )
-from .permissions import IsTeam, IsTeamOrReadOnly
+from .permissions import (
+    IsTeam,
+    IsTeamOrReadOnly,
+    can_comment_on_project_tasks,
+    can_manage_project_tasks,
+    can_view_project,
+    is_team_profile,
+)
 from .serializers import (
     ActivityEntrySerializer,
     AutomationRuleSerializer,
@@ -61,9 +74,14 @@ from .serializers import (
     ContractSerializer,
     EventSerializer,
     ExampleSerializer,
+    FinanceEntrySerializer,
+    FinanceMemberSerializer,
+    FinanceProjectListSerializer,
+    FinanceProjectSerializer,
     GrowProGoalSerializer,
     GrowProUpdateSerializer,
     NewsPostSerializer,
+    NotificationSerializer,
     PaymentSerializer,
     PluginGuideSerializer,
     ProfileSerializer,
@@ -82,7 +100,7 @@ from .serializers import (
 )
 from .assignment import assign_task_for_review, build_team_points_breakdown, build_team_points_daily, rebalance_growpro_assignments
 from .utils import log_activity
-from .notifications import send_notification_email
+from .notifications import create_in_app_notification, notify_profiles, send_notification_email
 from .realtime import notify_project_event, notify_task_event
 from .automation import _profile_emails, run_automation_rules_for_project, run_automation_rules_for_task, send_task_reminders
 
@@ -416,6 +434,127 @@ def _profile_emails(profiles, exclude_ids=None):
     return emails
 
 
+def _project_queryset_for_profile(profile, queryset=None):
+    qs = queryset or Project.objects.all()
+    if is_team_profile(profile):
+        return qs
+    return qs.filter(Q(participants=profile) | Q(owners=profile)).distinct()
+
+
+def _task_queryset_for_profile(profile, queryset=None):
+    qs = queryset or Task.objects.all()
+    if is_team_profile(profile):
+        return qs
+    return qs.filter(
+        Q(project__participants=profile)
+        | Q(project__owners=profile)
+        | Q(assignees=profile)
+        | Q(stakeholders=profile)
+    ).distinct()
+
+
+def _can_view_task(profile, task):
+    if not profile or not task:
+        return False
+    if is_team_profile(profile):
+        return True
+    if task.assignees.filter(id=profile.id).exists() or task.stakeholders.filter(id=profile.id).exists():
+        return True
+    return can_view_project(profile, task.project)
+
+
+def _require_task_access(profile, task, *, comment_only=False):
+    if not profile:
+        raise PermissionDenied("Authentifizierung erforderlich.")
+    if _can_view_task(profile, task) and comment_only and can_comment_on_project_tasks(profile, task.project):
+        return
+    if can_manage_project_tasks(profile, task.project):
+        return
+    if comment_only and task.assignees.filter(id=profile.id).exists():
+        return
+    raise PermissionDenied("Keine Berechtigung für diese Task.")
+
+
+def _shift_task_due_date(base_date, pattern, interval):
+    if not base_date or pattern == "NONE":
+        return None
+    interval = max(1, int(interval or 1))
+    if pattern == "DAILY":
+        return base_date + timedelta(days=interval)
+    if pattern == "WEEKLY":
+        return base_date + timedelta(weeks=interval)
+    if pattern == "MONTHLY":
+        month_index = (base_date.month - 1) + interval
+        year = base_date.year + month_index // 12
+        month = month_index % 12 + 1
+        day = min(base_date.day, monthrange(year, month)[1])
+        return base_date.replace(year=year, month=month, day=day)
+    return None
+
+
+def _generate_recurring_task(task, actor=None):
+    if not task or task.recurrence_pattern == "NONE" or task.recurrence_generated or not task.due_date:
+        return None
+    next_due_date = _shift_task_due_date(task.due_date, task.recurrence_pattern, task.recurrence_interval)
+    if not next_due_date:
+        return None
+    template = task.recurrence_parent or task
+    next_task = Task.objects.create(
+        project=task.project,
+        title=task.title,
+        status="OPEN",
+        due_date=next_due_date,
+        priority=task.priority,
+        task_type=task.task_type,
+        review_status=None,
+        created_by=actor,
+        updated_by=actor,
+        recurrence_pattern=task.recurrence_pattern,
+        recurrence_interval=task.recurrence_interval,
+        recurrence_parent=template,
+    )
+    next_task.assignees.set(task.assignees.all())
+    next_task.stakeholders.set(task.stakeholders.all())
+    task.recurrence_generated = True
+    task.save(update_fields=["recurrence_generated"])
+    log_activity(
+        "task_recurring_generated",
+        f"Wiederkehrende Task erstellt: {next_task.title}",
+        description=f"Nächster Termin: {next_due_date}",
+        actor=actor,
+        severity="INFO",
+        task=next_task,
+        project=next_task.project,
+        metadata={"source_task_id": task.id},
+    )
+    recipients = list(next_task.assignees.exclude(id=getattr(actor, "id", None)).select_related("user"))
+    notify_profiles(
+        recipients,
+        f"Wiederkehrende Task: {next_task.title}",
+        f"Eine neue wiederkehrende Aufgabe wurde für {next_due_date} erstellt.",
+        notification_type="task_recurring_generated",
+        actor=actor,
+        severity="INFO",
+        project=next_task.project,
+        task=next_task,
+        metadata={"source_task_id": task.id},
+        preference_key="task_assigned",
+    )
+    return next_task
+
+
+def _ics_escape(value):
+    if value is None:
+        return ""
+    return (
+        str(value)
+        .replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\n", "\\n")
+    )
+
+
 def _ensure_task_overdue_entries():
     today = timezone.now().date()
     overdue_tasks = (
@@ -454,9 +593,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def _base_queryset(self):
         qs = Project.objects.prefetch_related("participants", "owners").order_by("-created_at")
         me = self.request.user.profile
-        if me.roles.filter(key="TEAM").exists():
-            return qs
-        return qs.filter(Q(participants=me) | Q(owners=me)).distinct()
+        return _project_queryset_for_profile(me, qs)
 
     def _apply_visibility_filters(self, qs):
         include_archived = _bool_param(self.request.query_params.get("include_archived"))
@@ -507,6 +644,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
             severity="INFO",
             project=project,
         )
+        recipients = list(
+            project.participants.exclude(id=getattr(actor, "id", None)).select_related("user")
+        ) + list(
+            project.owners.exclude(id=getattr(actor, "id", None)).select_related("user")
+        )
+        notify_profiles(
+            recipients,
+            f"Neues Projekt: {project.title}",
+            project.description or "Du wurdest einem neuen Projekt zugeordnet.",
+            notification_type="project_created",
+            actor=actor,
+            severity="INFO",
+            project=project,
+            preference_key="project_updates",
+        )
         notify_project_event(project, "created")
 
     def perform_update(self, serializer):
@@ -524,6 +676,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 severity=severity,
                 project=project,
             )
+            recipients = list(
+                project.participants.exclude(id=getattr(actor, "id", None)).select_related("user")
+            ) + list(
+                project.owners.exclude(id=getattr(actor, "id", None)).select_related("user")
+            )
+            notify_profiles(
+                recipients,
+                f"Projekt-Update: {project.title}",
+                f"Der Projektstatus wurde von {previous_status} auf {project.status} geändert.",
+                notification_type="project_status_updated",
+                actor=actor,
+                severity=severity,
+                project=project,
+                metadata={"previous_status": previous_status, "status": project.status},
+                preference_key="project_updates",
+            )
+            run_automation_rules_for_project(project, "PROJECT_STATUS", actor=actor)
         notify_project_event(project, "updated")
 
     def perform_destroy(self, instance):
@@ -596,6 +765,32 @@ class ProjectViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(detail=True, methods=["GET"], url_path="health")
+    def health(self, request, pk=None):
+        project = self.get_object()
+        today = timezone.now().date()
+        base_qs = project.tasks.filter(is_archived=False)
+        active_qs = base_qs.exclude(status="DONE")
+        review_qs = base_qs.filter(Q(status="REVIEW") | Q(review_status="NOT_REVIEWED"))
+        overdue_qs = active_qs.filter(due_date__isnull=False, due_date__lt=today)
+        due_soon_qs = active_qs.filter(due_date__isnull=False, due_date__gte=today, due_date__lte=today + timedelta(days=7))
+        next_task = active_qs.filter(due_date__isnull=False).order_by("due_date").first()
+        return Response(
+            {
+                "open_tasks": active_qs.count(),
+                "done_tasks": base_qs.filter(status="DONE").count(),
+                "review_tasks": review_qs.count(),
+                "overdue_tasks": overdue_qs.count(),
+                "due_soon_tasks": due_soon_qs.count(),
+                "next_due_task": {
+                    "id": next_task.id,
+                    "title": next_task.title,
+                    "due_date": next_task.due_date,
+                    "status": next_task.status,
+                } if next_task else None,
+            }
+        )
+
     @action(detail=False, methods=["GET"], url_path="export")
     def export(self, request):
         qs = self._apply_search_filters(self._apply_visibility_filters(self._base_queryset()))
@@ -614,15 +809,17 @@ class ProjectViewSet(viewsets.ModelViewSet):
 class TaskViewSet(viewsets.ModelViewSet):
     queryset=Task.objects.all().order_by("-created_at")
     serializer_class=TaskSerializer
-    permission_classes=[permissions.IsAuthenticated, IsTeam]
+    permission_classes=[permissions.IsAuthenticated]
     pagination_class = StandardPagination
 
     def _base_queryset(self):
-        return (
+        qs = (
             Task.objects.select_related("project", "created_by__user", "updated_by__user")
             .prefetch_related("stakeholders__user", "assignees__user")
             .order_by("-created_at")
         )
+        me = getattr(self.request.user, "profile", None)
+        return _task_queryset_for_profile(me, qs)
 
     def _apply_visibility_filters(self, qs):
         include_archived = _bool_param(self.request.query_params.get("include_archived"))
@@ -704,6 +901,13 @@ class TaskViewSet(viewsets.ModelViewSet):
                 qs = qs.order_by(ordering)
         return self._apply_visibility_filters(qs).distinct()
 
+    def _ensure_project_task_access(self, project):
+        actor = getattr(self.request.user, "profile", None)
+        if is_team_profile(actor):
+            return
+        if not project or not can_manage_project_tasks(actor, project):
+            raise PermissionDenied("Keine Berechtigung fuer diese Task-Aktion.")
+
     def _log_overdue_if_needed(self, task):
         if not task.due_date or task.status == "DONE":
             return
@@ -727,6 +931,8 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         actor = getattr(self.request.user, "profile", None)
+        project = serializer.validated_data.get("project")
+        self._ensure_project_task_access(project)
         task = serializer.save(created_by=actor)
         if task.status == "DONE":
             update_fields = []
@@ -760,13 +966,27 @@ class TaskViewSet(viewsets.ModelViewSet):
             run_automation_rules_for_task(task, "TASK_STATUS", actor=actor)
         if task.due_date:
             run_automation_rules_for_task(task, "TASK_DUE", actor=actor)
-        recipients = _profile_emails(task.assignees.all(), exclude_ids={getattr(actor, "id", None)})
+        assignees = list(task.assignees.exclude(id=getattr(actor, "id", None)).select_related("user"))
+        recipients = _profile_emails(assignees)
         if recipients:
             send_notification_email(
                 f"Neuer Task: {task.title}",
                 f"Dir wurde ein neuer Task zugewiesen.\n\nTitel: {task.title}\nProjekt: {task.project.title if task.project else 'Kein Projekt'}\nStatus: {task.status}",
                 recipients,
             )
+            notify_profiles(
+                assignees,
+                f"Neuer Task: {task.title}",
+                f"Dir wurde ein neuer Task zugewiesen. Status: {task.status}.",
+                notification_type="task_assigned",
+                actor=actor,
+                severity="INFO",
+                project=task.project,
+                task=task,
+                preference_key="task_assigned",
+            )
+        if task.status == "DONE":
+            _generate_recurring_task(task, actor=actor)
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -776,6 +996,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         prev_due_date = instance.due_date
         previous_assignees = set(instance.assignees.values_list("id", flat=True))
         actor = getattr(self.request.user, "profile", None)
+        target_project = serializer.validated_data.get("project", instance.project)
+        self._ensure_project_task_access(target_project)
         task = serializer.save(updated_by=actor)
         review_fields = []
         if prev_status != task.status:
@@ -850,9 +1072,25 @@ class TaskViewSet(viewsets.ModelViewSet):
             run_automation_rules_for_task(task, "TASK_STATUS", actor=actor)
         if prev_due_date != task.due_date:
             run_automation_rules_for_task(task, "TASK_DUE", actor=actor)
+        if prev_status != "DONE" and task.status == "DONE":
+            _generate_recurring_task(task, actor=actor)
+
+        notify_profiles(
+            mentions,
+            f"Erwaehnung in {comment.task.title}",
+            f"{comment.author.name or comment.author.user.username} hat dich in einem Kommentar erwaehnt.",
+            notification_type="task_mentioned",
+            actor=comment.author,
+            severity="INFO",
+            project=comment.task.project,
+            task=comment.task,
+            metadata={"comment_id": comment.id},
+            preference_key="task_mentioned",
+        )
 
     def perform_destroy(self, instance):
         actor = getattr(self.request.user, "profile", None)
+        self._ensure_project_task_access(instance.project)
         notify_task_event(instance, "deleted")
         log_activity(
             "task_deleted",
@@ -867,6 +1105,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["POST"], url_path="archive")
     def archive(self, request, pk=None):
         task = self.get_object()
+        self._ensure_project_task_access(task.project)
         if not task.is_archived:
             task.is_archived = True
             task.archived_at = timezone.now()
@@ -895,7 +1134,9 @@ class TaskViewSet(viewsets.ModelViewSet):
         new_ids = current_ids - set(previous_assignees or [])
         if not new_ids:
             return
-        new_profiles = task.assignees.filter(id__in=new_ids)
+        new_profiles = list(
+            task.assignees.filter(id__in=new_ids).exclude(id=getattr(actor, "id", None)).select_related("user")
+        )
         recipients = _profile_emails(new_profiles, exclude_ids={getattr(actor, "id", None)})
         if not recipients:
             return
@@ -905,16 +1146,67 @@ class TaskViewSet(viewsets.ModelViewSet):
             recipients,
         )
 
+        notify_profiles(
+            new_profiles,
+            f"Neuer Task: {task.title}",
+            f"Dir wurde ein Task zugewiesen. Faellig: {task.due_date or 'Kein Termin'}.",
+            notification_type="task_assigned",
+            actor=actor,
+            severity="INFO",
+            project=task.project,
+            task=task,
+            preference_key="task_assigned",
+        )
+
     @action(detail=False, methods=["GET"], url_path="calendar")
     def calendar(self, request):
         start = _parse_date_param(request.query_params.get("start")) or timezone.now().date()
         end_param = _parse_date_param(request.query_params.get("end")) or (start + timedelta(days=30))
         qs = (
-            self._base_queryset()
+            self.get_queryset()
             .filter(due_date__isnull=False, due_date__gte=start, due_date__lte=end_param)
         )
         serializer = self.get_serializer(qs, many=True)
         return Response({"start": start, "end": end_param, "results": serializer.data})
+
+    @action(detail=False, methods=["GET"], url_path="calendar-export")
+    def calendar_export(self, request):
+        start = _parse_date_param(request.query_params.get("start")) or timezone.now().date()
+        end_param = _parse_date_param(request.query_params.get("end")) or (start + timedelta(days=90))
+        qs = (
+            self.get_queryset()
+            .filter(due_date__isnull=False, due_date__gte=start, due_date__lte=end_param)
+            .order_by("due_date", "title")
+        )
+        now_stamp = timezone.now().strftime("%Y%m%dT%H%M%SZ")
+        lines = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//UNYQ//Tasks Calendar//DE",
+            "CALSCALE:GREGORIAN",
+            "METHOD:PUBLISH",
+        ]
+        for task in qs:
+            due_value = task.due_date.strftime("%Y%m%d")
+            end_value = (task.due_date + timedelta(days=1)).strftime("%Y%m%d")
+            project_title = task.project.title if task.project else "Kein Projekt"
+            description = f"Status: {task.status} | Projekt: {project_title}"
+            lines.extend(
+                [
+                    "BEGIN:VEVENT",
+                    f"UID:task-{task.id}@unyq.local",
+                    f"DTSTAMP:{now_stamp}",
+                    f"DTSTART;VALUE=DATE:{due_value}",
+                    f"DTEND;VALUE=DATE:{end_value}",
+                    f"SUMMARY:{_ics_escape(task.title)}",
+                    f"DESCRIPTION:{_ics_escape(description)}",
+                    "END:VEVENT",
+                ]
+            )
+        lines.append("END:VCALENDAR")
+        response = HttpResponse("\r\n".join(lines), content_type="text/calendar; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="tasks.ics"'
+        return response
     @action(detail=False, methods=["GET"], url_path="summary")
     def summary(self, request):
         qs = self.get_queryset()
@@ -945,7 +1237,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def overdue(self, request):
         today = timezone.now().date()
         qs = (
-            self._base_queryset()
+            self.get_queryset()
             .filter(is_archived=False, due_date__lt=today)
             .exclude(status="DONE")
             .order_by("due_date")[:15]
@@ -960,7 +1252,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         start = timezone.now().date()
         end = start + timedelta(days=days)
         qs = (
-            self._base_queryset()
+            self.get_queryset()
             .filter(is_archived=False, due_date__gte=start, due_date__lte=end)
             .exclude(status="DONE")
             .order_by("due_date", "priority")[:limit]
@@ -1012,16 +1304,20 @@ class TaskAttachmentViewSet(viewsets.ModelViewSet):
     queryset = TaskAttachment.objects.select_related("task__project", "uploaded_by__user").order_by("-created_at")
     serializer_class = TaskAttachmentSerializer
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated, IsTeam]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
         task_id = self.request.query_params.get("task")
         if task_id:
             qs = qs.filter(task_id=task_id)
+        allowed_tasks = _task_queryset_for_profile(getattr(self.request.user, "profile", None), Task.objects.all())
+        qs = qs.filter(task__in=allowed_tasks)
         return qs
 
     def perform_create(self, serializer):
+        task = serializer.validated_data["task"]
+        _require_task_access(self.request.user.profile, task)
         attachment = serializer.save(uploaded_by=self.request.user.profile)
         log_activity(
             "task_attachment_added",
@@ -1034,6 +1330,7 @@ class TaskAttachmentViewSet(viewsets.ModelViewSet):
         )
 
     def perform_destroy(self, instance):
+        _require_task_access(self.request.user.profile, instance.task)
         log_activity(
             "task_attachment_removed",
             f"Taskanhang entfernt: {instance.task.title}",
@@ -1049,16 +1346,20 @@ class TaskAttachmentViewSet(viewsets.ModelViewSet):
 class TaskCommentViewSet(viewsets.ModelViewSet):
     queryset = TaskComment.objects.select_related("task__project", "author__user").prefetch_related("mentions__user")
     serializer_class = TaskCommentSerializer
-    permission_classes = [permissions.IsAuthenticated, IsTeam]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
         task_id = self.request.query_params.get("task")
         if task_id:
             qs = qs.filter(task_id=task_id)
+        allowed_tasks = _task_queryset_for_profile(getattr(self.request.user, "profile", None), Task.objects.all())
+        qs = qs.filter(task__in=allowed_tasks)
         return qs.order_by("-created_at")
 
     def perform_create(self, serializer):
+        task = serializer.validated_data["task"]
+        _require_task_access(self.request.user.profile, task, comment_only=True)
         comment = serializer.save(author=self.request.user.profile)
         log_activity(
             "task_comment",
@@ -1079,6 +1380,7 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
             )
 
     def perform_destroy(self, instance):
+        _require_task_access(self.request.user.profile, instance.task, comment_only=True)
         log_activity(
             "task_comment_removed",
             f"Kommentar entfernt: {instance.task.title}",
@@ -1345,6 +1647,76 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return [IsTeam()]
         return [permissions.IsAuthenticated()]
 
+
+class FinanceProjectViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            FinanceProject.objects
+            .filter(owner=self.request.user.profile)
+            .prefetch_related("members", "entries__member")
+            .order_by("-updated_at", "-created_at")
+        )
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return FinanceProjectSerializer
+        return FinanceProjectListSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user.profile)
+
+
+class FinanceMemberViewSet(viewsets.ModelViewSet):
+    serializer_class = FinanceMemberSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = (
+            FinanceMember.objects
+            .select_related("project")
+            .filter(project__owner=self.request.user.profile)
+            .order_by("project__title", "sort_order", "name")
+        )
+        project_id = self.request.query_params.get("project")
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        return qs
+
+    def perform_create(self, serializer):
+        project = serializer.validated_data["project"]
+        if project.owner_id != self.request.user.profile.id:
+            raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")
+        serializer.save()
+
+
+class FinanceEntryViewSet(viewsets.ModelViewSet):
+    serializer_class = FinanceEntrySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = (
+            FinanceEntry.objects
+            .select_related("project", "member")
+            .filter(project__owner=self.request.user.profile)
+            .order_by("entry_type", "title", "-created_at")
+        )
+        project_id = self.request.query_params.get("project")
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        active_only = _bool_param(self.request.query_params.get("active"), True)
+        if self.action == "list" and active_only:
+            qs = qs.filter(is_active=True)
+        return qs
+
+    def perform_create(self, serializer):
+        project = serializer.validated_data["project"]
+        if project.owner_id != self.request.user.profile.id:
+            raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")
+        serializer.save()
+
+
 class ReleaseViewSet(viewsets.ModelViewSet):
     queryset=Release.objects.all(); serializer_class=ReleaseSerializer; permission_classes=[permissions.IsAuthenticated]
 
@@ -1471,6 +1843,40 @@ class NewsPostViewSet(viewsets.ModelViewSet):
         post.is_published = publish
         post.save(update_fields=["is_published"])
         return Response({"is_published": publish})
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    queryset = Notification.objects.select_related("recipient__user", "actor__user", "project", "task").order_by("-created_at")
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "patch", "head", "options"]
+    pagination_class = StandardPagination
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(recipient=self.request.user.profile)
+        unread_only = _bool_param(self.request.query_params.get("unread"))
+        if unread_only:
+            qs = qs.filter(is_read=False)
+        return qs
+
+    def partial_update(self, request, *args, **kwargs):
+        notification = self.get_object()
+        should_mark_read = _bool_param(request.data.get("is_read"), True)
+        notification.is_read = should_mark_read
+        notification.read_at = timezone.now() if should_mark_read else None
+        notification.save(update_fields=["is_read", "read_at"])
+        serializer = self.get_serializer(notification)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["POST"], url_path="mark-all-read")
+    def mark_all_read(self, request):
+        now = timezone.now()
+        updated = self.get_queryset().filter(is_read=False).update(is_read=True, read_at=now)
+        return Response({"updated": updated})
+
+    @action(detail=False, methods=["GET"], url_path="unread-count")
+    def unread_count(self, request):
+        return Response({"unread": self.get_queryset().filter(is_read=False).count()})
 
 
 class ActivityFeedView(APIView):

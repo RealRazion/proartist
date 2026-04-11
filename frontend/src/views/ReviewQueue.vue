@@ -114,6 +114,7 @@
                   <span class="dot">·</span>
                   {{ task.due_date ? formatDate(task.due_date) : "Kein Termin" }}
                 </p>
+                <p class="muted tiny">Wartet seit: {{ reviewAgeLabel(task) }}</p>
                 <p class="muted tiny">Verantwortlich: {{ formatAssignees(task) }}</p>
               </div>
               <span class="badge" :data-status="dueStatus(task)">{{ dueStatusLabel(task) }}</span>
@@ -164,6 +165,7 @@
                   <span class="dot">·</span>
                   {{ task.due_date ? formatDate(task.due_date) : "Kein Termin" }}
                 </p>
+                <p class="muted tiny">Offen seit: {{ reviewAgeLabel(task) }}</p>
                 <p class="muted tiny">Verantwortlich: {{ formatAssignees(task) }}</p>
               </div>
               <span class="badge danger">Nicht geprüft</span>
@@ -229,6 +231,17 @@ function dueStatusLabel(task) {
   if (status === "overdue") return "Überfällig";
   if (status === "soon") return "Fällig";
   return "Im Plan";
+}
+
+function reviewAgeLabel(task) {
+  const raw = task?.completed_at || task?.created_at;
+  if (!raw) return "unbekannt";
+  const start = new Date(raw);
+  const now = new Date();
+  const diff = Math.max(0, Math.floor((now - start) / (1000 * 60 * 60 * 24)));
+  if (diff === 0) return "heute";
+  if (diff === 1) return "1 Tag";
+  return `${diff} Tage`;
 }
 
 const filteredReviewTasks = computed(() => applyFilters(reviewTasks.value));

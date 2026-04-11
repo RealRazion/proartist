@@ -1,138 +1,363 @@
 <template>
-  <div class="platform-page finance-page">
-    <header class="page-hero card">
-      <div>
-        <p class="eyebrow">UNYQ Finance</p>
-        <h1>Finanzielle Freiheit erreichen</h1>
-        <p class="lead">
-          Ein umfassendes Finanzmanagement-Tool für Einnahmen, Ausgaben, Schulden und Budgetplanung.
+  <div class="finance-entry">
+    <section class="hero card">
+      <div class="hero-copy">
+        <p class="eyebrow">Finance</p>
+        <h1>Ein Finanzprojekt statt zehn Einzelseiten.</h1>
+        <p class="muted lead">
+          Lege euer Haushalts- oder Finanzprojekt an, trage Personen ein und arbeite danach in einer klaren Monatsübersicht
+          mit Einnahmen, Fixkosten, Schulden, Sparen und den nächsten Fälligkeiten.
         </p>
+        <div class="hero-points">
+          <span>Ein Konto für mehrere Personen</span>
+          <span>Monatsbild statt zerstreuter Tabs</span>
+          <span>Schnell genug für den Alltag</span>
+        </div>
       </div>
-      <div class="hero-actions">
-        <button class="btn" type="button" @click="goHome">Zurück zum Hub</button>
-        <button class="btn secondary" type="button" @click="goToTool">Zum Finanzplaner</button>
-      </div>
-    </header>
 
-    <section class="highlights card">
-      <article>
-        <h2>Einnahmen & Ausgaben</h2>
-        <p>Verfolge regelmäßige und einmalige Einnahmen sowie alle Arten von Ausgaben.</p>
-      </article>
-      <article>
-        <h2>Schuldenmanagement</h2>
-        <p>Behalte Schulden, Ratenzahlungen und Tilgungspläne im Blick.</p>
-      </article>
-      <article>
-        <h2>Budgetplanung</h2>
-        <p>Erstelle monatliche Budgets und verfolge deine finanziellen Ziele.</p>
-      </article>
+      <form class="create-panel" @submit.prevent="createProject">
+        <div class="panel-head">
+          <h2>Finanzprojekt anlegen</h2>
+          <button class="btn ghost" type="button" @click="goBack">Zur Plattformübersicht</button>
+        </div>
+
+        <label>
+          Titel
+          <input v-model.trim="form.title" class="input" placeholder="z. B. Haushalt Samir & Aylin" required />
+        </label>
+
+        <label>
+          Kurze Notiz
+          <textarea
+            v-model.trim="form.description"
+            class="input textarea"
+            rows="3"
+            placeholder="Wofür nutzt ihr das Projekt?"
+          ></textarea>
+        </label>
+
+        <div class="grid two">
+          <label>
+            Währung
+            <select v-model="form.currency" class="input">
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+              <option value="CHF">CHF</option>
+            </select>
+          </label>
+          <label>
+            Startguthaben
+            <input v-model="form.current_balance" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
+          </label>
+        </div>
+
+        <div class="grid two">
+          <label>
+            Sparziel pro Monat
+            <input
+              v-model="form.monthly_savings_target"
+              class="input"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+            />
+          </label>
+          <label>
+            Notgroschen-Ziel
+            <input
+              v-model="form.emergency_buffer_target"
+              class="input"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+            />
+          </label>
+        </div>
+
+        <label>
+          Personen im Projekt
+          <textarea
+            v-model.trim="form.members"
+            class="input textarea"
+            rows="3"
+            placeholder="z. B. Samir, Aylin"
+          ></textarea>
+          <small class="muted hint">Kommagetrennt oder Zeile für Zeile. So könnt ihr direkt 2 Personen unter einem Account führen.</small>
+        </label>
+
+        <button class="btn" type="submit" :disabled="saving">
+          {{ saving ? "Lege an..." : "Projekt erstellen" }}
+        </button>
+      </form>
     </section>
 
-    <section class="cards-grid">
-      <article class="card feature-card income">
-        <h3>Einnahmen-Tracker</h3>
-        <p>Regelmäßige Gehälter, Freelance-Jobs, einmalige Zahlungen und mehr.</p>
-      </article>
-      <article class="card feature-card expenses">
-        <h3>Ausgaben-Kategorien</h3>
-        <p>Fixe Kosten, Abos, variable Ausgaben und Ratenzahlungen.</p>
-      </article>
-      <article class="card feature-card debt">
-        <h3>Schulden-Übersicht</h3>
-        <p>Verfolge Tilgungsfortschritt und plane deine Schuldenfreiheit.</p>
-      </article>
-      <article class="card feature-card budget">
-        <h3>Budget-Planer</h3>
-        <p>Setze Sparziele und überwache deine monatlichen Budgets.</p>
-      </article>
+    <section v-if="projects.length" class="card projects-card">
+      <div class="section-head">
+        <div>
+          <h2>Bestehende Finanzprojekte</h2>
+          <p class="muted">Öffne direkt das passende Monatsbild.</p>
+        </div>
+        <button class="btn ghost" type="button" @click="loadProjects" :disabled="loading">
+          {{ loading ? "Lade..." : "Aktualisieren" }}
+        </button>
+      </div>
+
+      <div class="project-grid">
+        <article v-for="project in projects" :key="project.id" class="project-card">
+          <div class="project-top">
+            <div>
+              <h3>{{ project.title }}</h3>
+              <p class="muted small">{{ project.members?.map((member) => member.name).join(", ") || "Ohne Personen" }}</p>
+            </div>
+            <button class="btn ghost sm" type="button" @click="openProject(project.id)">Öffnen</button>
+          </div>
+
+          <div class="stats-grid">
+            <div>
+              <span class="label">Frei pro Monat</span>
+              <strong>{{ formatCurrency(project.overview?.monthly_left, project.currency) }}</strong>
+            </div>
+            <div>
+              <span class="label">Einnahmen</span>
+              <strong>{{ formatCurrency(project.overview?.monthly_income, project.currency) }}</strong>
+            </div>
+            <div>
+              <span class="label">Ausgänge</span>
+              <strong>{{ formatCurrency(project.overview?.monthly_outflow, project.currency) }}</strong>
+            </div>
+            <div>
+              <span class="label">Faellig bald</span>
+              <strong>{{ project.overview?.due_soon?.length || 0 }}</strong>
+            </div>
+          </div>
+        </article>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup>
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import api from "../api";
+
 const router = useRouter();
 
-function goHome() {
+const loading = ref(false);
+const saving = ref(false);
+const projects = ref([]);
+const form = ref({
+  title: "",
+  description: "",
+  currency: "EUR",
+  current_balance: "",
+  monthly_savings_target: "",
+  emergency_buffer_target: "",
+  members: "Ich",
+});
+
+function toAmount(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function parseMembers(value) {
+  return [...new Set((value || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean))];
+}
+
+function formatCurrency(value, currency = "EUR") {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+async function loadProjects() {
+  loading.value = true;
+  try {
+    const { data } = await api.get("finance-projects/");
+    projects.value = Array.isArray(data) ? data : data.results || [];
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function createProject() {
+  saving.value = true;
+  try {
+    const payload = {
+      title: form.value.title,
+      description: form.value.description,
+      currency: form.value.currency,
+      current_balance: toAmount(form.value.current_balance),
+      monthly_savings_target: toAmount(form.value.monthly_savings_target),
+      emergency_buffer_target: toAmount(form.value.emergency_buffer_target),
+      initial_members: parseMembers(form.value.members),
+    };
+    const { data } = await api.post("finance-projects/", payload);
+    await loadProjects();
+    router.push({ name: "finance", params: { projectId: data.id } });
+  } finally {
+    saving.value = false;
+  }
+}
+
+function openProject(projectId) {
+  router.push({ name: "finance", params: { projectId } });
+}
+
+function goBack() {
   router.push({ name: "platforms" });
 }
 
-function goToTool() {
-  router.push({ name: "finance" });
-}
+onMounted(loadProjects);
 </script>
 
 <style scoped>
-.platform-page {
+.finance-entry {
   display: grid;
-  gap: 20px;
+  gap: 18px;
 }
-.page-hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 28px;
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14), rgba(52, 211, 153, 0.12));
-  border: 1px solid rgba(52, 211, 153, 0.24);
-}
-.eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-size: 12px;
-  margin-bottom: 8px;
-  color: var(--brand);
-}
-.lead {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.7;
-}
-.hero-actions {
+
+.hero {
   display: grid;
-  gap: 10px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  gap: 18px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(47, 99, 255, 0.16), transparent 42%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(238, 244, 255, 0.92));
 }
-.highlights {
+
+.hero-copy {
   display: grid;
   gap: 14px;
-  padding: 20px;
+  align-content: start;
 }
-.highlights article {
+
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.lead {
+  max-width: 62ch;
+}
+
+.hero-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.hero-points span {
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(47, 99, 255, 0.08);
+  border: 1px solid rgba(47, 99, 255, 0.12);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.create-panel {
+  display: grid;
+  gap: 14px;
   padding: 18px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(15, 23, 42, 0.08);
 }
-.cards-grid {
+
+.panel-head,
+.section-head,
+.project-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+.grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.hint,
+.small {
+  font-size: 13px;
+}
+
+.projects-card {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
-.feature-card {
-  padding: 24px;
-  border-radius: 20px;
+
+.project-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.project-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
-.feature-card.income {
-  background: rgba(34, 197, 94, 0.08);
+
+.stats-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-.feature-card.expenses {
-  background: rgba(239, 68, 68, 0.08);
+
+.label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 13px;
 }
-.feature-card.debt {
-  background: rgba(245, 158, 11, 0.08);
+
+.sm {
+  padding: 8px 12px;
+  font-size: 14px;
 }
-.feature-card.budget {
-  background: rgba(59, 130, 246, 0.08);
+
+@media (max-width: 920px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
 }
-.btn.secondary {
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-.btn.secondary:hover {
-  background: var(--surface);
+
+@media (max-width: 640px) {
+  .grid.two,
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-head,
+  .section-head,
+  .project-top {
+    flex-direction: column;
+  }
 }
 </style>

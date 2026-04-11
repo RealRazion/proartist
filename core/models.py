@@ -80,6 +80,11 @@ class ChatMessage(models.Model):
     read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 class Project(models.Model):
+    PARTICIPANT_TASK_ACCESS_CHOICES = [
+        ("NONE", "Keine Task-Rechte"),
+        ("COMMENT", "Kommentare"),
+        ("EDIT", "Tasks bearbeiten"),
+    ]
     title=models.CharField(max_length=200)
     description=models.TextField(blank=True)
     status=models.CharField(max_length=50,default="PLANNED")
@@ -88,6 +93,11 @@ class Project(models.Model):
     archived_at = models.DateTimeField(null=True, blank=True)
     participants = models.ManyToManyField('Profile', blank=True, related_name="projects")
     owners = models.ManyToManyField('Profile', blank=True, related_name="owned_projects")
+    participant_task_access = models.CharField(
+        max_length=12,
+        choices=PARTICIPANT_TASK_ACCESS_CHOICES,
+        default="NONE",
+    )
     def __str__(self): return self.title
 
 class Task(models.Model):
@@ -100,6 +110,12 @@ class Task(models.Model):
     TASK_TYPE_CHOICES = [
         ("INTERNAL", "Intern"),
         ("EXTERNAL", "Extern"),
+    ]
+    RECURRENCE_CHOICES = [
+        ("NONE", "Keine"),
+        ("DAILY", "Täglich"),
+        ("WEEKLY", "Wöchentlich"),
+        ("MONTHLY", "Monatlich"),
     ]
     REVIEW_STATUS_CHOICES = [
         ("REVIEWED", "Reviewed"),
@@ -122,6 +138,16 @@ class Task(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     is_archived = models.BooleanField(default=False)
     archived_at = models.DateTimeField(null=True, blank=True)
+    recurrence_pattern = models.CharField(max_length=12, choices=RECURRENCE_CHOICES, default="NONE")
+    recurrence_interval = models.PositiveIntegerField(default=1)
+    recurrence_generated = models.BooleanField(default=False)
+    recurrence_parent = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="generated_recurrences",
+    )
     def __str__(self): return self.title
 
 class ProjectAttachment(models.Model):
@@ -172,6 +198,96 @@ class Payment(models.Model):
     period_month = models.DateField()  # z.B. 2025-11-01 (Monatsstichtag)
     status = models.CharField(max_length=10, choices=STATUS, default="DUE")
     stripe_invoice_id = models.CharField(max_length=80, blank=True)
+
+
+class FinanceProject(models.Model):
+    CURRENCY_CHOICES = [
+        ("EUR", "Euro"),
+        ("USD", "US-Dollar"),
+        ("CHF", "Schweizer Franken"),
+    ]
+
+    owner = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="finance_projects")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default="EUR")
+    current_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    monthly_savings_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    emergency_buffer_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["title", "-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class FinanceMember(models.Model):
+    ROLE_CHOICES = [
+        ("PRIMARY", "Hauptperson"),
+        ("PARTNER", "Partner"),
+        ("CHILD", "Kind"),
+        ("OTHER", "Weitere Person"),
+    ]
+
+    project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="members")
+    name = models.CharField(max_length=120)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="PRIMARY")
+    notes = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "name", "created_at"]
+
+    def __str__(self):
+        return f"{self.project.title}: {self.name}"
+
+
+class FinanceEntry(models.Model):
+    TYPE_CHOICES = [
+        ("INCOME", "Einnahme"),
+        ("FIXED", "Fixkosten"),
+        ("VARIABLE", "Variable Ausgabe"),
+        ("DEBT", "Schuldenrate"),
+        ("SAVING", "Sparen"),
+    ]
+    FREQUENCY_CHOICES = [
+        ("MONTHLY", "Monatlich"),
+        ("WEEKLY", "Woechentlich"),
+        ("YEARLY", "Jaehrlich"),
+        ("ONCE", "Einmalig"),
+    ]
+
+    project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="entries")
+    member = models.ForeignKey(
+        FinanceMember,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="entries",
+    )
+    title = models.CharField(max_length=160)
+    category = models.CharField(max_length=120, blank=True)
+    entry_type = models.CharField(max_length=12, choices=TYPE_CHOICES, default="FIXED")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    frequency = models.CharField(max_length=12, choices=FREQUENCY_CHOICES, default="MONTHLY")
+    due_day = models.PositiveSmallIntegerField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    is_shared = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["entry_type", "title", "-created_at"]
+
+    def __str__(self):
+        return self.title
+
 
 class Release(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE,related_name="releases")
@@ -289,6 +405,33 @@ class ActivityEntry(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self): return f"{self.title} ({self.event_type})"
+
+
+class Notification(models.Model):
+    SEVERITY_CHOICES = [
+        ("INFO", "Info"),
+        ("SUCCESS", "Erfolg"),
+        ("WARNING", "Hinweis"),
+        ("DANGER", "Alarm"),
+    ]
+    recipient = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="notifications")
+    actor = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="sent_notifications")
+    notification_type = models.CharField(max_length=50, default="system")
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, default="INFO")
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications")
+    task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications")
+    metadata = models.JSONField(default=dict, blank=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.recipient} - {self.title}"
 
 class NewsPost(models.Model):
     author = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, related_name="news_posts")

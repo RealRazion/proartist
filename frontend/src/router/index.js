@@ -13,6 +13,7 @@ import Chats from "../views/Chats.vue";
 import MyProfile from "../views/MyProfile.vue";
 import News from "../views/News.vue";
 import ActivityFeed from "../views/ActivityFeed.vue";
+import Notifications from "../views/Notifications.vue";
 import Admin from "../views/Admin.vue";
 import GrowPro from "../views/GrowPro.vue";
 import Songs from "../views/Songs.vue";
@@ -27,6 +28,8 @@ import MusicLanding from "../views/MusicLanding.vue";
 import LocationsLanding from "../views/LocationsLanding.vue";
 import FinanceLanding from "../views/FinanceLanding.vue";
 import FinanceTool from "../views/FinanceTool.vue";
+import FitnessLanding from "../views/FitnessLanding.vue";
+import FitnessTool from "../views/FitnessTool.vue";
 import SearchView from "../views/SearchView.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
@@ -58,6 +61,7 @@ const routes = [
       { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },
       { path: "guides", name: "guides", component: PluginGuides, alias: "/guides", meta: { requiresAuth: true } },
       { path: "activity", name: "activity", component: ActivityFeed, alias: "/activity", meta: { requiresAuth: true } },
+      { path: "notifications", name: "notifications", component: Notifications, alias: "/notifications", meta: { requiresAuth: true } },
       { path: "admin", name: "admin", component: Admin, alias: "/admin", meta: { requiresAuth: true } },
       { path: "points", name: "points", component: Points, alias: "/points", meta: { requiresAuth: true } },
       { path: "api-center", name: "api-center", component: ApiCenter, alias: "/api-center", meta: { requiresAuth: true } },
@@ -74,7 +78,9 @@ const routes = [
   { path: "/platforms/music", name: "platform-music", component: MusicLanding, meta: { requiresAuth: true } },
   { path: "/platforms/locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
   { path: "/platforms/finance", name: "platform-finance", component: FinanceLanding, meta: { requiresAuth: true } },
-  { path: "/platforms/finance/planner", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
+  { path: "/platforms/finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
+  { path: "/platforms/fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },
+  { path: "/platforms/fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 

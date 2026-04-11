@@ -44,6 +44,10 @@
           <div class="action-icon">💰</div>
           <span>Finance</span>
         </button>
+        <button class="action-card" @click="openPlatform('fitness')" v-if="isVisible('fitness')">
+          <div class="action-icon">🏋️</div>
+          <span>Fitness</span>
+        </button>
       </div>
     </section>
 
@@ -177,6 +181,16 @@ const platforms = [
     features: ["Budget", "Schulden", "Einnahmen"],
     roles: ["TEAM"],
   },
+  {
+    key: "fitness",
+    title: "Fitness Tracker",
+    category: "Health",
+    description: "Tracke Kalorien, schaetze deinen Tagesverbrauch und finde einfache Essensideen fuer jede Mahlzeit.",
+    buttonLabel: "Starten",
+    icon: "🏋️",
+    features: ["Kcal", "Verbrauch", "Essensideen"],
+    roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC"],
+  },
 ];
 
 const activeRole = computed(() => {
@@ -203,6 +217,7 @@ function openPlatform(platform) {
     music: "/platforms/music",
     locations: "/platforms/locations",
     finance: "/platforms/finance",
+    fitness: "/platforms/fitness",
   };
   const path = mapping[platform];
   if (path) {

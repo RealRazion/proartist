@@ -87,6 +87,38 @@
           </div>
           <p v-else class="muted small">Noch kein Team zugeordnet.</p>
         </div>
+        <div class="people">
+          <h3>Projektrechte</h3>
+          <p class="muted small">{{ participantTaskAccessLabels[project?.participant_task_access] || "Nur Team bearbeitet Tasks" }}</p>
+        </div>
+      </div>
+
+      <div class="card overview">
+        <div class="section-head">
+          <div>
+            <h2>Project Health</h2>
+            <p class="muted small">Offene Punkte, Reviews und naechste Deadline kompakt.</p>
+          </div>
+          <span class="muted small" v-if="loadingHealth">Aktualisiere...</span>
+        </div>
+        <div class="stats health-stats">
+          <div>
+            <span class="label">Offen</span>
+            <strong>{{ projectHealth.open_tasks }}</strong>
+          </div>
+          <div>
+            <span class="label">Review</span>
+            <strong>{{ projectHealth.review_tasks }}</strong>
+          </div>
+          <div>
+            <span class="label">Ueberfaellig</span>
+            <strong>{{ projectHealth.overdue_tasks }}</strong>
+          </div>
+        </div>
+        <p v-if="projectHealth.next_due_task" class="muted small">
+          Naechste Frist: {{ projectHealth.next_due_task.title }} am {{ formatDate(projectHealth.next_due_task.due_date) }}
+        </p>
+        <p v-else class="muted small">Keine naechste Deadline vorhanden.</p>
       </div>
 
       <form v-if="isTeam && editMode" class="card edit" @submit.prevent="saveProject">
@@ -109,6 +141,14 @@
           <select class="input" v-model="projectDraft.status">
             <option v-for="opt in projectStatusOptions" :key="opt" :value="opt">
               {{ projectStatusLabels[opt] }}
+            </option>
+          </select>
+        </label>
+        <label>
+          Projektrechte
+          <select class="input" v-model="projectDraft.participant_task_access">
+            <option v-for="opt in participantTaskAccessOptions" :key="opt" :value="opt">
+              {{ participantTaskAccessLabels[opt] }}
             </option>
           </select>
         </label>
@@ -158,15 +198,18 @@
           </p>
         </div>
         <div class="section-actions">
+          <button class="btn ghost" type="button" @click="exportCalendar" :disabled="calendarExporting">
+            {{ calendarExporting ? "Exportiere..." : "Kalender Export" }}
+          </button>
           <button class="btn ghost" type="button" @click="loadTasks" :disabled="loadingTasks">
             {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
           </button>
-          <button v-if="isTeam" class="btn" type="button" @click="openTaskModal">Task hinzufÃ¼gen</button>
+          <button v-if="canManageTasks" class="btn" type="button" @click="openTaskModal">Task hinzufÃ¼gen</button>
         </div>
       </div>
 
-      <div v-if="!isTeam" class="muted">
-        Nur Team-Mitglieder kÃ¶nnen Projekt-Tasks verwalten.
+      <div v-if="!canViewTasks" class="muted">
+        Fuer dieses Projekt hast du keinen Task-Zugriff.
       </div>
       <template v-else>
         <div class="task-filters">
@@ -202,6 +245,9 @@
                 <p class="muted small">
                   {{ task.due_date ? `FÃ¤llig ${formatDate(task.due_date)}` : "Kein Termin" }}
                   - {{ taskPriorityLabels[task.priority] }}
+                  <span v-if="task.recurrence_pattern && task.recurrence_pattern !== 'NONE'" class="review-pill">
+                    {{ recurrenceLabel(task) }}
+                  </span>
                   <span
                     v-if="task.review_status"
                     class="review-pill"
@@ -217,16 +263,16 @@
                 </p>
               </div>
               <div class="task-actions">
-                <select class="input tiny" v-model="task.status" @change="onTaskStatusChange(task, $event)">
+                <select class="input tiny" v-model="task.status" @change="onTaskStatusChange(task, $event)" :disabled="!canManageTasks">
                   <option v-for="opt in taskStatusOptions" :key="opt" :value="opt">
                     {{ taskStatusLabels[opt] }}
                   </option>
                 </select>
-                <button class="btn ghost tiny" type="button" @click="startEditTask(task)">Bearbeiten</button>
-                <button class="btn ghost danger tiny" type="button" @click="archiveTask(task)">Archivieren</button>
+                <button v-if="canManageTasks" class="btn ghost tiny" type="button" @click="startEditTask(task)">Bearbeiten</button>
+                <button v-if="canManageTasks" class="btn ghost danger tiny" type="button" @click="archiveTask(task)">Archivieren</button>
               </div>
             </div>
-            <div v-if="canResolveTaskReview(task)" class="task-review-actions">
+            <div v-if="canManageTasks && canResolveTaskReview(task)" class="task-review-actions">
               <button
                 class="btn tiny"
                 type="button"
@@ -367,6 +413,16 @@
             FÃ¤llig am
             <input class="input" type="date" v-model="taskForm.due_date" />
           </label>
+          <label>
+            Wiederholung
+            <select class="input" v-model="taskForm.recurrence_pattern">
+              <option v-for="opt in recurrenceOptions" :key="opt" :value="opt">{{ recurrenceLabels[opt] }}</option>
+            </select>
+          </label>
+          <label v-if="taskForm.recurrence_pattern !== 'NONE'">
+            Intervall
+            <input class="input" type="number" min="1" step="1" v-model.number="taskForm.recurrence_interval" />
+          </label>
           <div class="form-actions">
             <button class="btn ghost" type="button" @click="closeTaskModal" :disabled="taskSaving">Abbrechen</button>
             <button class="btn" type="submit" :disabled="taskSaving">
@@ -418,13 +474,15 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const route = useRoute();
 const router = useRouter();
-const { isTeam, fetchProfile } = useCurrentProfile();
+const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
 const project = ref(null);
+const projectHealth = ref({ open_tasks: 0, done_tasks: 0, review_tasks: 0, overdue_tasks: 0, due_soon_tasks: 0, next_due_task: null });
 const projectDraft = ref(getDefaultProjectDraft());
 const editMode = ref(true);
 const loadingProject = ref(false);
+const loadingHealth = ref(false);
 const savingProject = ref(false);
 const projectError = ref("");
 
@@ -461,6 +519,7 @@ const reviewTarget = ref(null);
 const reviewPreviousStatus = ref(null);
 const statusSnapshot = ref({});
 const reviewActionSaving = ref({});
+const calendarExporting = ref(false);
 
 const projectStatusOptions = ["PLANNED", "IN_PROGRESS", "ON_HOLD", "DONE"];
 const projectStatusLabels = {
@@ -468,6 +527,12 @@ const projectStatusLabels = {
   IN_PROGRESS: "In Arbeit",
   ON_HOLD: "Pausiert",
   DONE: "Abgeschlossen",
+};
+const participantTaskAccessOptions = ["NONE", "COMMENT", "EDIT"];
+const participantTaskAccessLabels = {
+  NONE: "Nur Team bearbeitet Tasks",
+  COMMENT: "Teilnehmer duerfen kommentieren",
+  EDIT: "Teilnehmer duerfen Tasks bearbeiten",
 };
 
 const taskStatusOptions = ["OPEN", "IN_PROGRESS", "REVIEW", "DONE"];
@@ -495,6 +560,13 @@ const taskTypeLabels = {
   INTERNAL: "Intern",
   EXTERNAL: "Extern",
 };
+const recurrenceOptions = ["NONE", "DAILY", "WEEKLY", "MONTHLY"];
+const recurrenceLabels = {
+  NONE: "Keine",
+  DAILY: "Taeglich",
+  WEEKLY: "Woechentlich",
+  MONTHLY: "Monatlich",
+};
 
 const songStatusLabels = {
   ACTIVE: "Aktiv",
@@ -505,6 +577,16 @@ const songStatusLabels = {
 const projectId = computed(() => Number(route.params.projectId || 0));
 const teamProfiles = computed(() =>
   profiles.value.filter((profile) => (profile.roles || []).some((role) => role.key === "TEAM"))
+);
+const isProjectParticipant = computed(() =>
+  Boolean(project.value?.participants?.some((person) => String(person.id) === String(me.value?.id)))
+);
+const isProjectOwner = computed(() =>
+  Boolean(project.value?.owners?.some((person) => String(person.id) === String(me.value?.id)))
+);
+const canViewTasks = computed(() => isTeam.value || isProjectParticipant.value || isProjectOwner.value);
+const canManageTasks = computed(() =>
+  isTeam.value || isProjectOwner.value || (isProjectParticipant.value && project.value?.participant_task_access === "EDIT")
 );
 const hasMoreTasks = computed(() => Boolean(taskPagination.value.next));
 const hasMoreSongs = computed(() => Boolean(songsPagination.value.next));
@@ -523,6 +605,7 @@ const hasProjectChanges = computed(() => {
   if (draft.title.trim() !== (project.value.title || "")) return true;
   if ((draft.description || "").trim() !== (project.value.description || "")) return true;
   if (draft.status !== project.value.status) return true;
+  if ((draft.participant_task_access || "NONE") !== (project.value.participant_task_access || "NONE")) return true;
   const participants = normalizeIds(draft.participant_ids);
   const owners = normalizeIds(draft.owner_ids);
   const currentParticipants = normalizeIds((project.value.participants || []).map((p) => p.id));
@@ -535,6 +618,7 @@ function getDefaultProjectDraft() {
     title: "",
     description: "",
     status: "PLANNED",
+    participant_task_access: "NONE",
     participant_ids: [],
     owner_ids: [],
   };
@@ -549,6 +633,8 @@ function getDefaultTaskForm() {
     assignee_ids: [],
     stakeholder_ids: [],
     due_date: "",
+    recurrence_pattern: "NONE",
+    recurrence_interval: 1,
   };
 }
 
@@ -563,11 +649,19 @@ function statusLabel(status) {
   return projectStatusLabels[status] || status || "-";
 }
 
+function recurrenceLabel(task) {
+  if (!task?.recurrence_pattern || task.recurrence_pattern === "NONE") return "Keine";
+  const base = recurrenceLabels[task.recurrence_pattern] || task.recurrence_pattern;
+  const interval = Number(task.recurrence_interval || 1);
+  return interval > 1 ? `${base} x${interval}` : base;
+}
+
 function applyProjectDraft(data) {
   projectDraft.value = {
     title: data?.title || "",
     description: data?.description || "",
     status: data?.status || "PLANNED",
+    participant_task_access: data?.participant_task_access || "NONE",
     participant_ids: data?.participants?.map((p) => p.id) || [],
     owner_ids: data?.owners?.map((p) => p.id) || [],
   };
@@ -597,6 +691,51 @@ async function loadProject() {
   }
 }
 
+async function loadProjectHealth() {
+  if (!projectId.value) return;
+  loadingHealth.value = true;
+  try {
+    const { data } = await api.get(`projects/${projectId.value}/health/`);
+    projectHealth.value = {
+      open_tasks: data.open_tasks || 0,
+      done_tasks: data.done_tasks || 0,
+      review_tasks: data.review_tasks || 0,
+      overdue_tasks: data.overdue_tasks || 0,
+      due_soon_tasks: data.due_soon_tasks || 0,
+      next_due_task: data.next_due_task || null,
+    };
+  } catch (err) {
+    console.error("Project Health konnte nicht geladen werden", err);
+  } finally {
+    loadingHealth.value = false;
+  }
+}
+
+async function exportCalendar() {
+  if (!projectId.value || calendarExporting.value) return;
+  calendarExporting.value = true;
+  try {
+    const { data } = await api.get("tasks/calendar-export/", {
+      params: { project: projectId.value, include_archived: showArchivedTasks.value ? 1 : 0, include_done: 1 },
+      responseType: "blob",
+    });
+    const blob = new Blob([data], { type: "text/calendar;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `project-${projectId.value}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Kalender Export fehlgeschlagen", err);
+    showToast("Kalender Export fehlgeschlagen", "error");
+  } finally {
+    calendarExporting.value = false;
+  }
+}
+
 async function saveProject() {
   if (!project.value || !hasProjectChanges.value) return;
   savingProject.value = true;
@@ -604,6 +743,7 @@ async function saveProject() {
     title: projectDraft.value.title.trim(),
     description: projectDraft.value.description?.trim() || "",
     status: projectDraft.value.status,
+    participant_task_access: projectDraft.value.participant_task_access,
     participant_ids: projectDraft.value.participant_ids,
     owner_ids: projectDraft.value.owner_ids,
   };
@@ -658,7 +798,7 @@ async function deleteProject() {
 }
 
 async function loadProfiles() {
-  if (!isTeam.value) return;
+  if (!isTeam.value && !canManageTasks.value) return;
   if (loadingProfiles.value) return;
   loadingProfiles.value = true;
   try {
@@ -690,7 +830,7 @@ function buildTaskParams() {
 }
 
 async function loadTasks({ append = false, pageUrl = null } = {}) {
-  if (!isTeam.value) return;
+  if (!canViewTasks.value) return;
   const target = append ? loadingMoreTasks : loadingTasks;
   if (target.value) return;
   target.value = true;
@@ -856,6 +996,7 @@ async function archiveTask(task) {
 }
 
 function openTaskModal() {
+  if (!canManageTasks.value) return;
   taskModalMode.value = "create";
   editingTaskId.value = null;
   taskForm.value = { ...getDefaultTaskForm() };
@@ -868,6 +1009,7 @@ function closeTaskModal() {
 }
 
 function startEditTask(task) {
+  if (!canManageTasks.value) return;
   taskModalMode.value = "edit";
   editingTaskId.value = task.id;
   taskForm.value = {
@@ -878,6 +1020,8 @@ function startEditTask(task) {
     assignee_ids: task.assignees?.map((p) => p.id) || [],
     stakeholder_ids: task.stakeholders?.map((p) => p.id) || [],
     due_date: task.due_date || "",
+    recurrence_pattern: task.recurrence_pattern || "NONE",
+    recurrence_interval: task.recurrence_interval || 1,
   };
   taskModalVisible.value = true;
 }
@@ -894,6 +1038,8 @@ async function submitTaskForm() {
     stakeholder_ids: taskForm.value.stakeholder_ids,
     project: projectId.value,
     due_date: taskForm.value.due_date || null,
+    recurrence_pattern: taskForm.value.recurrence_pattern,
+    recurrence_interval: taskForm.value.recurrence_pattern === "NONE" ? 1 : Number(taskForm.value.recurrence_interval || 1),
   };
   try {
     if (taskModalMode.value === "edit" && editingTaskId.value) {
@@ -998,8 +1144,15 @@ function goBack() {
 
 async function refreshAll() {
   await loadProject();
+  await loadProjectHealth();
+  if (canViewTasks.value) {
+    await loadTasks();
+  }
   if (isTeam.value) {
-    await Promise.all([loadTasks(), loadActivity(), loadProfiles()]);
+    await loadActivity();
+  }
+  if (canManageTasks.value || isTeam.value) {
+    await loadProfiles();
   }
   await loadSongs();
 }
@@ -1018,7 +1171,7 @@ watch(
 watch(
   () => [taskStatusFilter.value, showArchivedTasks.value, showCompletedTasks.value],
   () => {
-    if (!isTeam.value) return;
+    if (!canViewTasks.value) return;
     loadTasks();
   }
 );
@@ -1034,7 +1187,7 @@ watch(
 watch(
   () => taskSearch.value,
   () => {
-    if (!isTeam.value) return;
+    if (!canViewTasks.value) return;
     if (taskSearchDebounce) clearTimeout(taskSearchDebounce);
     taskSearchDebounce = setTimeout(() => loadTasks(), 300);
   }
@@ -1050,9 +1203,7 @@ watch(
 
 onMounted(async () => {
   await fetchProfile();
-  if (isTeam.value) {
-    await loadProfiles();
-  }
+  await refreshAll();
 });
 
 onBeforeUnmount(() => {

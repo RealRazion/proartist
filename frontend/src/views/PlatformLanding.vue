@@ -169,8 +169,9 @@ onMounted(async () => {
   gap: 24px;
   grid-template-columns: 1fr;
   padding: 32px;
-  background: linear-gradient(135deg, rgba(47, 99, 255, 0.16), rgba(6, 182, 212, 0.12));
-  border: 1px solid rgba(47, 99, 255, 0.18);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
 }
 
 .tag {
@@ -200,8 +201,8 @@ onMounted(async () => {
 
 .preview-panel {
   padding: 20px 24px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .preview-panel strong {
@@ -222,8 +223,8 @@ onMounted(async () => {
 }
 
 .pill {
-  border: 1px solid rgba(47, 99, 255, 0.18);
-  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid var(--border);
+  background: var(--card);
   color: var(--text);
   padding: 10px 16px;
   border-radius: 999px;
@@ -252,8 +253,15 @@ onMounted(async () => {
   min-height: 280px;
   gap: 20px;
   padding: 28px;
-  border: 1px solid rgba(47, 99, 255, 0.14);
-  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.platform-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-strong);
 }
 
 .platform-head {
@@ -285,15 +293,18 @@ onMounted(async () => {
 }
 
 .platform-card--contests {
-  background: rgba(47, 99, 255, 0.06);
+  border-color: rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.06));
 }
 
 .platform-card--music {
-  background: rgba(6, 182, 212, 0.06);
+  border-color: rgba(6, 182, 212, 0.3);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(34, 211, 238, 0.06));
 }
 
 .platform-card--locations {
-  background: rgba(76, 196, 116, 0.08);
+  border-color: rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(52, 211, 153, 0.06));
 }
 
 .card-label {
@@ -325,8 +336,8 @@ onMounted(async () => {
 .platform-note {
   margin-top: 24px;
   padding: 22px;
-  border: 1px solid rgba(47, 99, 255, 0.12);
-  background: rgba(247, 250, 255, 0.9);
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .platform-note p {

@@ -25,6 +25,7 @@ import PlatformLanding from "../views/PlatformLanding.vue";
 import ContestLanding from "../views/ContestLanding.vue";
 import MusicLanding from "../views/MusicLanding.vue";
 import LocationsLanding from "../views/LocationsLanding.vue";
+import FinanceTool from "../views/FinanceTool.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
 const routes = [
@@ -60,6 +61,7 @@ const routes = [
       { path: "api-center", name: "api-center", component: ApiCenter, alias: "/api-center", meta: { requiresAuth: true } },
       { path: "growpro", name: "growpro", component: GrowPro, alias: "/growpro", meta: { requiresAuth: true } },
       { path: "songs", name: "songs", component: Songs, alias: "/songs", meta: { requiresAuth: true } },
+      { path: "finance", name: "finance", component: FinanceTool, alias: "/finance", meta: { requiresAuth: true } },
       { path: "team/roles", redirect: { name: "admin" } },
       { path: "chats", name: "chats", component: Chats, alias: "/chats", meta: { requiresAuth: true } },
       { path: "me", name: "me", component: MyProfile, alias: "/me", meta: { requiresAuth: true } },

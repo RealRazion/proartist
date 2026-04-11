@@ -33,97 +33,30 @@
     </section>
 
     <section v-if="isTeam" class="grid">
-      <article class="card panel">
+      <article v-for="widgetId in widgetOrder" :key="widgetId" class="card panel">
         <div class="panel-head">
-          <h2>Prioritaeten heute</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Task Board</button>
+          <h2>{{ widgetConfigs[widgetId]?.title }}</h2>
+          <button v-if="widgetConfigs[widgetId]?.cta" class="btn ghost tiny" type="button" @click="widgetConfigs[widgetId].cta.action()">{{ widgetConfigs[widgetId].cta.text }}</button>
         </div>
-        <ul v-if="urgentTasks.length" class="list">
-          <li v-for="task in urgentTasks" :key="task.id" :data-tone="dueState(task.due_date)">
-            <div>
-              <strong>{{ task.title }}</strong>
-              <p class="muted">{{ task.project_title || "Kein Projekt" }}</p>
-            </div>
-            <div class="row-actions">
-              <span class="badge">{{ priorityLabel(task.priority) }}</span>
-              <span class="badge" :data-tone="dueState(task.due_date)">{{ dueLabel(task.due_date) }}</span>
-              <button class="btn ghost tiny" type="button" @click="openTask(task)">Oeffnen</button>
-            </div>
-          </li>
-        </ul>
-        <p v-else class="muted">Keine dringenden Tasks.</p>
-      </article>
-
-      <article class="card panel">
-        <div class="panel-head">
-          <h2>Review Queue</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('reviews')">Alle Reviews</button>
-        </div>
-        <ul v-if="reviewList.length" class="list">
-          <li v-for="entry in reviewList" :key="entry.key" :data-tone="entry.tone">
-            <div>
-              <strong>{{ entry.title }}</strong>
-              <p class="muted">{{ entry.subtitle }}</p>
-            </div>
-            <div class="row-actions">
-              <span class="badge" :data-tone="entry.tone">{{ entry.flag }}</span>
-              <button class="btn ghost tiny" type="button" @click="openTask(entry.task)">Zur Task</button>
-              <button class="btn tiny" type="button" @click="markReviewed(entry.task)" :disabled="reviewSaving[entry.task.id]">
-                {{ reviewSaving[entry.task.id] ? "..." : "Geprueft" }}
-              </button>
-            </div>
-          </li>
-        </ul>
-        <p v-else class="muted">Keine offenen Reviews.</p>
-      </article>
-
-      <article class="card panel">
-        <div class="panel-head">
-          <h2>Naechste Fristen</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('timeline')">Timeline</button>
-        </div>
-        <ul v-if="deadlines.length" class="list">
-          <li v-for="entry in deadlines" :key="entry.key" :data-tone="entry.tone">
-            <div>
-              <strong>{{ entry.title }}</strong>
-              <p class="muted">{{ entry.subtitle }}</p>
-            </div>
-            <div class="row-actions">
-              <span class="badge" :data-tone="entry.tone">{{ entry.dateLabel }}</span>
-              <button class="btn ghost tiny" type="button" @click="goToRoute(entry.route)">Oeffnen</button>
-            </div>
-          </li>
-        </ul>
-        <p v-else class="muted">Keine Fristen verfuegbar.</p>
-      </article>
-
-      <article class="card panel">
-        <div class="panel-head">
-          <h2>Requests & Feed</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('activity')">Aktivitaet</button>
-        </div>
-        <ul class="list">
-          <li v-for="req in requests.slice(0, 4)" :key="`req-${req.id}`">
-            <div>
-              <strong>{{ requestTypeLabel(req.req_type) }}</strong>
-              <p class="muted">{{ req.sender_name }} -> {{ req.receiver_name }}</p>
-            </div>
-            <div class="row-actions">
-              <button class="btn ghost tiny" type="button" @click="respondRequest(req.id, 'accept')">Annehmen</button>
-              <button class="btn ghost tiny danger" type="button" @click="respondRequest(req.id, 'decline')">Ablehnen</button>
-            </div>
-          </li>
-          <li v-for="item in activity.slice(0, 4)" :key="`act-${item.id}`">
+        <ul v-if="widgetConfigs[widgetId]?.content" class="list">
+          <li v-for="(item, index) in widgetConfigs[widgetId].content" :key="index">
             <div>
               <strong>{{ item.title }}</strong>
-              <p class="muted">{{ item.description || "Keine Details" }}</p>
+              <p class="muted">{{ item.subtitle }}</p>
             </div>
-            <span class="badge">{{ formatDateTime(item.created_at) }}</span>
+            <div class="row-actions">
+              <span v-for="badge in item.badges" :key="badge.text" class="badge" :data-tone="badge.tone">{{ badge.text }}</span>
+              <span v-if="item.badge" class="badge" :data-tone="item.badge.tone">{{ item.badge.text }}</span>
+              <button v-if="item.action" class="btn ghost tiny" type="button" @click="item.action()">Öffnen</button>
+              <template v-if="item.actions">
+                <button v-for="action in item.actions" :key="action.text" :class="['btn', 'tiny', action.danger ? 'danger' : 'ghost']" type="button" @click="action.action()" :disabled="action.disabled">{{ action.text }}</button>
+              </template>
+            </div>
           </li>
         </ul>
+        <p v-else class="muted">{{ widgetConfigs[widgetId]?.emptyText }}</p>
       </article>
     </section>
-
     <section v-else class="grid artist-grid">
       <article class="card panel">
         <h2>Mein Startstatus</h2>
@@ -223,6 +156,9 @@ const projects = ref([]);
 const examples = ref([]);
 const reviewSaving = ref({});
 
+// Widget configuration
+const widgetOrder = ref(JSON.parse(localStorage.getItem('dashboardWidgets') || '["priorities", "reviews", "deadlines", "requests"]'));
+
 const taskModalOpen = ref(false);
 const taskSaving = ref(false);
 const taskForm = ref({ title: "", projectId: "", dueDate: "", priority: "MEDIUM" });
@@ -266,6 +202,102 @@ const kpis = computed(() => [
   { key: "requests", label: "Offene Requests", value: requests.value.length, hint: "Schnelle Entscheidungen", tone: requests.value.length ? "warning" : "ok" },
   { key: "growpro", label: "GrowPro Watch", value: growpro.value.length, hint: `${staleGrowproCount.value} stale`, tone: staleGrowproCount.value ? "danger" : "ok" },
 ]);
+
+const widgetConfigs = computed(() => ({
+  priorities: {
+    id: "priorities",
+    title: "Prioritäten heute",
+    cta: { text: "Task Board", action: () => goTo('tasks') },
+    content: urgentTasks.value.length ? urgentTasks.value.map(task => ({
+      title: task.title,
+      subtitle: task.project_title || "Kein Projekt",
+      badges: [
+        { text: priorityLabel(task.priority), tone: 'info' },
+        { text: dueLabel(task.due_date), tone: dueState(task.due_date) }
+      ],
+      action: () => openTask(task)
+    })) : null,
+    emptyText: "Keine dringenden Tasks."
+  },
+  reviews: {
+    id: "reviews",
+    title: "Review Queue",
+    cta: { text: "Alle Reviews", action: () => goTo('reviews') },
+    content: reviewList.value.length ? reviewList.value.map(entry => ({
+      title: entry.title,
+      subtitle: entry.subtitle,
+      badges: [{ text: entry.flag, tone: entry.tone }],
+      actions: [
+        { text: "Zur Task", action: () => openTask(entry.task) },
+        { text: reviewSaving.value[entry.task.id] ? "..." : "Geprüft", action: () => markReviewed(entry.task), disabled: reviewSaving.value[entry.task.id] }
+      ]
+    })) : null,
+    emptyText: "Keine offenen Reviews."
+  },
+  deadlines: {
+    id: "deadlines",
+    title: "Nächste Fristen",
+    cta: { text: "Timeline", action: () => goTo('timeline') },
+    content: deadlines.value.length ? deadlines.value.map(entry => ({
+      title: entry.title,
+      subtitle: entry.subtitle,
+      badges: [{ text: entry.dateLabel, tone: entry.tone }],
+      action: () => goToRoute(entry.route)
+    })) : null,
+    emptyText: "Keine Fristen verfügbar."
+  },
+  requests: {
+    id: "requests",
+    title: "Requests & Feed",
+    cta: { text: "Aktivität", action: () => goTo('activity') },
+    content: [
+      ...requests.value.slice(0, 4).map(req => ({
+        title: requestTypeLabel(req.req_type),
+        subtitle: `${req.sender_name} -> ${req.receiver_name}`,
+        actions: [
+          { text: "Annehmen", action: () => respondRequest(req.id, 'accept') },
+          { text: "Ablehnen", action: () => respondRequest(req.id, 'decline'), danger: true }
+        ]
+      })),
+      ...activity.value.slice(0, 4).map(item => ({
+        title: item.title,
+        subtitle: item.description || "Keine Details",
+        badge: { text: formatDateTime(item.created_at), tone: 'info' }
+      }))
+    ],
+    emptyText: "Keine Requests oder Aktivitäten."
+  },
+  onboarding: {
+    id: "onboarding",
+    title: "Mein Startstatus",
+    content: onboarding.value.map(item => ({
+      title: item.label,
+      subtitle: item.hint,
+      badges: [{ text: item.done ? "Erledigt" : "Offen", tone: item.done ? 'ok' : 'soon' }],
+      action: item.cta
+    }))
+  },
+  projects: {
+    id: "projects",
+    title: "Meine Projekte",
+    content: projects.value.length ? projects.value.slice(0, 8).map(project => ({
+      title: project.title,
+      subtitle: project.description || "Keine Beschreibung",
+      badges: [{ text: statusLabel(project.status), tone: 'info' }],
+      action: () => goToProject(project.id)
+    })) : null,
+    emptyText: "Noch keine Projekte vorhanden."
+  }
+}));
+
+const currentWidgets = computed(() => {
+  const configs = widgetConfigs.value;
+  if (isTeam.value) {
+    return widgetOrder.value.map(id => configs[id]).filter(Boolean);
+  } else {
+    return ['onboarding', 'projects'].map(id => configs[id]);
+  }
+});
 
 const urgentTasks = computed(() =>
   [...tasks.value]
@@ -538,10 +570,10 @@ onMounted(refresh);
 .list li[data-tone="overdue"] { border-color: rgba(248, 113, 113, 0.45); }
 .list li[data-tone="soon"] { border-color: rgba(245, 158, 11, 0.45); }
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
-.badge { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 11px; background: rgba(59, 130, 246, 0.15); color: #1d4ed8; }
-.badge[data-tone="overdue"] { background: rgba(248, 113, 113, 0.18); color: #b91c1c; }
-.badge[data-tone="soon"] { background: rgba(245, 158, 11, 0.18); color: #b45309; }
-.badge[data-tone="ok"] { background: rgba(34, 197, 94, 0.16); color: #15803d; }
+.badge { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; font-size: 11px; background: rgba(59, 130, 246, 0.15); color: var(--status-in-progress); }
+.badge[data-tone="overdue"] { background: rgba(248, 113, 113, 0.18); color: var(--status-overdue); }
+.badge[data-tone="soon"] { background: rgba(245, 158, 11, 0.18); color: var(--status-soon); }
+.badge[data-tone="ok"] { background: rgba(34, 197, 94, 0.16); color: var(--status-ok); }
 .tiny { padding: 6px 10px; font-size: 12px; }
 .btn.danger { color: #b91c1c; border-color: rgba(248, 113, 113, 0.45); }
 .modal-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.55); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }

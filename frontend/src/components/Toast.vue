@@ -47,9 +47,9 @@ const label = computed(() => {
   color: var(--text);
   z-index: 999;
 }
-.toast[data-type="success"] { border-left-color: #22c55e; }
-.toast[data-type="error"] { border-left-color: #ef4444; }
-.toast[data-type="warning"] { border-left-color: #f59e0b; }
+.toast[data-type="success"] { border-left-color: var(--status-ok); }
+.toast[data-type="error"] { border-left-color: var(--status-overdue); }
+.toast[data-type="warning"] { border-left-color: var(--status-soon); }
 .label { font-weight: 700; }
 .message { font-size: 14px; }
 .close { background: transparent; border: none; color: inherit; font-size: 18px; cursor: pointer; }

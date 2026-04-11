@@ -903,7 +903,7 @@ onMounted(async () => {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #3b82f6, #10b981);
+  background: linear-gradient(90deg, var(--status-in-progress), var(--status-done));
 }
 .badge {
   padding: 4px 8px;
@@ -913,11 +913,11 @@ onMounted(async () => {
 }
 .badge.warn {
   background: rgba(234, 179, 8, 0.18);
-  color: #a16207;
+  color: var(--status-soon);
 }
 .badge.danger {
   background: rgba(248, 113, 113, 0.15);
-  color: #b91c1c;
+  color: var(--status-overdue);
 }
 .log-row {
   display: grid;

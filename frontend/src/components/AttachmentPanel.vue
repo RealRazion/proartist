@@ -197,6 +197,6 @@ watch(
   cursor: pointer;
 }
 .iconbtn.danger {
-  color: #dc2626;
+  color: var(--status-overdue);
 }
 </style>

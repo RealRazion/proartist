@@ -11,6 +11,15 @@
   --border: rgba(15, 23, 42, 0.11);
   --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.1);
   --shadow-strong: 0 16px 36px rgba(15, 23, 42, 0.16);
+
+  /* Status colors for light mode */
+  --status-open: #f59e0b;
+  --status-in-progress: #3b82f6;
+  --status-review: #a855f7;
+  --status-done: #10b981;
+  --status-overdue: #ef4444;
+  --status-soon: #f59e0b;
+  --status-ok: #22c55e;
 }
 
 :root.dark {
@@ -26,6 +35,15 @@
   --border: rgba(148, 163, 184, 0.2);
   --shadow-soft: 0 12px 28px rgba(2, 6, 23, 0.44);
   --shadow-strong: 0 18px 42px rgba(2, 6, 23, 0.6);
+
+  /* Status colors for dark mode */
+  --status-open: #fbbf24;
+  --status-in-progress: #60a5fa;
+  --status-review: #c084fc;
+  --status-done: #34d399;
+  --status-overdue: #f87171;
+  --status-soon: #fbbf24;
+  --status-ok: #4ade80;
 }
 
 * {
@@ -581,6 +599,79 @@ textarea {
   .content {
     padding: 16px;
   }
+
+  .hero {
+    padding: 24px;
+  }
+
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .kpis {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .panel-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .row-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .modal {
+    margin: 16px;
+    max-width: calc(100vw - 32px);
+  }
+
+  .form {
+    gap: 12px;
+  }
+
+  .input, .btn {
+    width: 100%;
+  }
+
+  .search-controls form {
+    flex-direction: column;
+  }
+
+  .result-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .result-meta {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
 
   .topbar {
     flex-direction: column;

@@ -1111,19 +1111,19 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   background: rgba(59, 130, 246, 0.15);
-  color: #1d4ed8;
+  color: var(--status-in-progress);
 }
 .status[data-status="IN_PROGRESS"] {
   background: rgba(249, 115, 22, 0.16);
-  color: #ea580c;
+  color: var(--status-open);
 }
 .status[data-status="DONE"] {
   background: rgba(16, 185, 129, 0.16);
-  color: #059669;
+  color: var(--status-done);
 }
 .status[data-status="ON_HOLD"] {
   background: rgba(148, 163, 184, 0.18);
-  color: #475569;
+  color: var(--status-overdue);
 }
 .badge.archived {
   background: rgba(148, 163, 184, 0.2);

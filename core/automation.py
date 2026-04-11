@@ -1,8 +1,9 @@
 from datetime import timedelta
+import json
 
 from django.utils import timezone
 
-from .models import ActivityEntry, Task
+from .models import ActivityEntry, AutomationRule, Profile, Task
 from .notifications import send_notification_email
 from .utils import log_activity
 
@@ -97,3 +98,81 @@ def send_task_reminders(days=3, include_overdue=True, include_due_soon=True, dry
                 summary[key] += value
 
     return summary
+
+
+def _rule_recipients(rule, task):
+    if rule.action != "NOTIFY":
+        return []
+    config = rule.config or {}
+    recipient_ids = config.get("recipient_ids") or []
+    if recipient_ids:
+        return [p for p in task.assignees.all() if p.id in recipient_ids] + [p for p in task.stakeholders.all() if p.id in recipient_ids]
+    if config.get("notify_assignees", True):
+        return list(task.assignees.all())
+    if config.get("notify_stakeholders"):
+        return list(task.stakeholders.all())
+    return []
+
+
+def _run_automation_rule(rule, task, actor=None):
+    if not rule.is_active:
+        return None
+    action = rule.action
+    config = rule.config or {}
+    if action == "NOTIFY":
+        recipients = _rule_recipients(rule, task)
+        if not recipients:
+            return None
+        emails = _profile_emails(recipients)
+        if not emails:
+            return None
+        subject = config.get("subject") or f"Automatisierte Benachrichtigung: {task.title}"
+        message = config.get("message") or f"Die Task \"{task.title}\" hat einen neuen Status: {task.status}."
+        send_notification_email(subject, message, emails)
+        log_activity(
+            "automation_notification",
+            subject,
+            description=message[:200],
+            actor=actor,
+            severity="INFO",
+            task=task,
+            project=task.project,
+            metadata={"rule": rule.name, "action": action},
+        )
+    elif action == "ASSIGN":
+        assignee_id = config.get("assignee_id")
+        if assignee_id:
+            try:
+                assignee = Profile.objects.get(id=assignee_id)
+            except Profile.DoesNotExist:
+                assignee = None
+            if assignee and not task.assignees.filter(id=assignee.id).exists():
+                task.assignees.add(assignee)
+                log_activity(
+                    "automation_assign",
+                    f"Automatischer Assignee: {assignee.name or assignee.user.username}",
+                    actor=actor,
+                    severity="INFO",
+                    task=task,
+                    project=task.project,
+                    metadata={"rule": rule.name},
+                )
+    elif action == "WEBHOOK":
+        log_activity(
+            "automation_webhook",
+            f"Webhook ausgelöst: {rule.name}",
+            actor=actor,
+            severity="INFO",
+            task=task,
+            project=task.project,
+            metadata={"rule": rule.name, "config": config},
+        )
+    return True
+
+
+def run_automation_rules_for_task(task, event_type, actor=None):
+    if event_type not in {"TASK_STATUS", "TASK_DUE"}:
+        return
+    rules = AutomationRule.objects.filter(trigger=event_type, is_active=True)
+    for rule in rules:
+        _run_automation_rule(rule, task, actor=actor)

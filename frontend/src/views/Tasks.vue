@@ -1449,16 +1449,16 @@ onBeforeUnmount(() => {
   transition: width 0.25s ease;
 }
 .progress-track[data-status="OPEN"] .progress-fill {
-  background: #f59e0b;
+  background: var(--status-open);
 }
 .progress-track[data-status="IN_PROGRESS"] .progress-fill {
-  background: #3b82f6;
+  background: var(--status-in-progress);
 }
 .progress-track[data-status="REVIEW"] .progress-fill {
-  background: #a855f7;
+  background: var(--status-review);
 }
 .progress-track[data-status="DONE"] .progress-fill {
-  background: #10b981;
+  background: var(--status-done);
 }
 .dot {
   display: inline-block;
@@ -1468,16 +1468,16 @@ onBeforeUnmount(() => {
   margin-right: 4px;
 }
 .dot[data-status="OPEN"] {
-  background: #f59e0b;
+  background: var(--status-open);
 }
 .dot[data-status="IN_PROGRESS"] {
-  background: #3b82f6;
+  background: var(--status-in-progress);
 }
 .dot[data-status="REVIEW"] {
-  background: #a855f7;
+  background: var(--status-review);
 }
 .dot[data-status="DONE"] {
-  background: #10b981;
+  background: var(--status-done);
 }
 .columns {
   display: grid;

@@ -2,6 +2,7 @@ import csv
 import io
 import os
 from datetime import datetime, timedelta
+import re
 
 from django.contrib.auth.models import User
 from django.conf import settings
@@ -83,7 +84,7 @@ from .assignment import assign_task_for_review, build_team_points_breakdown, bui
 from .utils import log_activity
 from .notifications import send_notification_email
 from .realtime import notify_project_event, notify_task_event
-from .automation import send_task_reminders
+from .automation import _profile_emails, run_automation_rules_for_project, run_automation_rules_for_task, send_task_reminders
 
 API_CENTER_OFFLINE = getattr(settings, "API_CENTER_OFFLINE", True)
 
@@ -755,6 +756,10 @@ class TaskViewSet(viewsets.ModelViewSet):
         )
         self._log_overdue_if_needed(task)
         notify_task_event(task, "created")
+        if task.status:
+            run_automation_rules_for_task(task, "TASK_STATUS", actor=actor)
+        if task.due_date:
+            run_automation_rules_for_task(task, "TASK_DUE", actor=actor)
         recipients = _profile_emails(task.assignees.all(), exclude_ids={getattr(actor, "id", None)})
         if recipients:
             send_notification_email(
@@ -768,6 +773,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         prev_status = instance.status
         prev_review_status = instance.review_status
         prev_priority = instance.priority
+        prev_due_date = instance.due_date
         previous_assignees = set(instance.assignees.values_list("id", flat=True))
         actor = getattr(self.request.user, "profile", None)
         task = serializer.save(updated_by=actor)
@@ -840,6 +846,10 @@ class TaskViewSet(viewsets.ModelViewSet):
         self._notify_new_assignees(previous_assignees, task, actor)
         self._log_overdue_if_needed(task)
         notify_task_event(task, "updated")
+        if prev_status != task.status:
+            run_automation_rules_for_task(task, "TASK_STATUS", actor=actor)
+        if prev_due_date != task.due_date:
+            run_automation_rules_for_task(task, "TASK_DUE", actor=actor)
 
     def perform_destroy(self, instance):
         actor = getattr(self.request.user, "profile", None)
@@ -1485,78 +1495,117 @@ class ActivityFeedView(APIView):
         return Response(serializer.data)
 
 
-class TeamPointsView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsTeam]
+class SearchView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        members = build_team_points_breakdown()
-        daily = build_team_points_daily()
-        rules = {
-            "tasks": {
-                "LOW": 1,
-                "MEDIUM": 1,
-                "HIGH": 2,
-                "CRITICAL": 3,
-            },
-            "project_participation": 2,
-            "growpro_assignment": 1,
-        }
-        for member in members:
-            stats = daily.get(member["profile"]["id"], {})
-            member["daily"] = stats
+        query = request.query_params.get("q", "").strip()
+        search_type = request.query_params.get("type", "all")
+        date_filter = request.query_params.get("date", "")
 
-        if request.query_params.get("format") == "csv":
-            buffer = io.StringIO()
-            writer = csv.writer(buffer, delimiter=";")
-            writer.writerow(
-                [
-                    "Name",
-                    "Username",
-                    "Total",
-                    "Heute +",
-                    "Heute -",
-                    "Heute Netto",
-                    "Avg + (7d)",
-                    "Avg - (7d)",
-                    "Avg Netto (7d)",
-                    "Heute + Details",
-                    "Heute - Details",
-                ]
-            )
-            for member in members:
-                daily_stats = member.get("daily") or {}
-                plus_details = ", ".join(
-                    f"{item['title']} (+{item['points']})" for item in daily_stats.get("today_plus_details", [])
-                )
-                minus_details = ", ".join(
-                    f"{item['title']} (-{item['points']})" for item in daily_stats.get("today_minus_details", [])
-                )
-                writer.writerow(
-                    [
-                        member["profile"]["name"],
-                        member["profile"]["username"],
-                        member["total"],
-                        daily_stats.get("today_plus", 0),
-                        daily_stats.get("today_minus", 0),
-                        daily_stats.get("today_net", 0),
-                        daily_stats.get("avg_daily_plus", 0),
-                        daily_stats.get("avg_daily_minus", 0),
-                        daily_stats.get("avg_daily_net", 0),
-                        plus_details,
-                        minus_details,
-                    ]
-                )
-            response = HttpResponse(buffer.getvalue(), content_type="text/csv")
-            response["Content-Disposition"] = 'attachment; filename="team_points.csv"'
-            return response
+        if not query:
+            return Response({"results": []})
 
-        return Response(
-            {
-                "rules": rules,
-                "members": members,
-                "updated_at": timezone.now().isoformat(),
-            }
-        )
+        results = []
+
+        # Search tasks
+        if search_type in ["all", "tasks"]:
+            tasks = Task.objects.filter(
+                Q(title__icontains=query) | Q(description__icontains=query),
+                project__team=request.user.profile.team
+            ).select_related("project")[:20]
+            for task in tasks:
+                results.append({
+                    "id": task.id,
+                    "type": "task",
+                    "typeLabel": "Task",
+                    "title": task.title,
+                    "description": task.project.title if task.project else "Kein Projekt",
+                    "created_at": task.created_at
+                })
+
+        # Search projects
+        if search_type in ["all", "projects"]:
+            projects = Project.objects.filter(
+                Q(title__icontains=query) | Q(description__icontains=query),
+                team=request.user.profile.team
+            )[:20]
+            for project in projects:
+                results.append({
+                    "id": project.id,
+                    "type": "project",
+                    "typeLabel": "Projekt",
+                    "title": project.title,
+                    "description": project.description or "",
+                    "created_at": project.created_at
+                })
+
+        # Search users
+        if search_type in ["all", "users"]:
+            profiles = Profile.objects.filter(
+                Q(name__icontains=query) | Q(user__username__icontains=query),
+                team=request.user.profile.team
+            )[:20]
+            for profile in profiles:
+                results.append({
+                    "id": profile.id,
+                    "type": "user",
+                    "typeLabel": "Benutzer",
+                    "title": profile.name or profile.user.username,
+                    "description": profile.city or "",
+                    "created_at": profile.created_at
+                })
+
+        # Search file attachments
+        if search_type in ["all", "files"]:
+            task_attachments = TaskAttachment.objects.filter(
+                Q(label__icontains=query) | Q(file__icontains=query),
+                task__project__team=request.user.profile.team
+            ).select_related("task__project")[:15]
+            for attachment in task_attachments:
+                title = attachment.label or attachment.file.name
+                results.append({
+                    "id": f"task-file-{attachment.id}",
+                    "type": "file",
+                    "typeLabel": "Datei",
+                    "title": title,
+                    "description": f"Task: {attachment.task.title} · Projekt: {attachment.task.project.title if attachment.task.project else 'Kein Projekt'}",
+                    "created_at": attachment.created_at,
+                })
+            project_attachments = ProjectAttachment.objects.filter(
+                Q(label__icontains=query) | Q(file__icontains=query),
+                project__team=request.user.profile.team
+            ).select_related("project")[:15]
+            for attachment in project_attachments:
+                title = attachment.label or attachment.file.name
+                results.append({
+                    "id": f"project-file-{attachment.id}",
+                    "type": "file",
+                    "typeLabel": "Datei",
+                    "title": title,
+                    "description": f"Projekt: {attachment.project.title}",
+                    "created_at": attachment.created_at,
+                })
+
+        # Apply date filter
+        if date_filter:
+            now = timezone.now()
+            if date_filter == "today":
+                start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif date_filter == "week":
+                start = now - timedelta(days=now.weekday())
+                start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif date_filter == "month":
+                start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            elif date_filter == "year":
+                start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:
+                start = None
+
+            if start:
+                results = [r for r in results if parse_date(r["created_at"]) >= start.date()]
+
+        return Response({"results": results})
 
 # --- Stats (rollenbasiert) ---
 @api_view(["GET"])
@@ -1626,8 +1675,153 @@ def analytics_summary(request):
             "overdue_tasks": overdue_tasks,
             "due_soon_tasks": due_soon_tasks,
             "completed_last_7_days": completed_last_7_days,
+            "active_contracts": Contract.objects.filter(status="ACTIVE").count(),
+            "due_payments": Payment.objects.filter(status="DUE").count(),
+            "paid_payments": Payment.objects.filter(status="PAID").count(),
+            "open_requests": Request.objects.filter(status="OPEN").count(),
+            "artist_count": Profile.objects.filter(roles__key="ARTIST").distinct().count(),
+            "example_count": Example.objects.count(),
         }
     )
+
+
+class TeamPointsView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeam]
+
+    def get(self, request):
+        members = build_team_points_breakdown()
+        daily = build_team_points_daily()
+        for member in members:
+            member["daily"] = daily.get(member["profile"]["id"], {})
+
+        if request.query_params.get("format") == "csv":
+            buffer = io.StringIO()
+            writer = csv.writer(buffer, delimiter=";")
+            writer.writerow(
+                [
+                    "Name",
+                    "Username",
+                    "Total",
+                    "Heute +",
+                    "Heute -",
+                    "Heute Netto",
+                    "Avg + (7d)",
+                    "Avg - (7d)",
+                    "Avg Netto (7d)",
+                ]
+            )
+            for member in members:
+                daily_stats = member.get("daily") or {}
+                writer.writerow(
+                    [
+                        member["profile"]["name"],
+                        member["profile"]["username"],
+                        member["total"],
+                        daily_stats.get("today_plus", 0),
+                        daily_stats.get("today_minus", 0),
+                        daily_stats.get("today_net", 0),
+                        daily_stats.get("avg_daily_plus", 0),
+                        daily_stats.get("avg_daily_minus", 0),
+                        daily_stats.get("avg_daily_net", 0),
+                    ]
+                )
+            response = HttpResponse(buffer.getvalue(), content_type="text/csv")
+            response["Content-Disposition"] = 'attachment; filename="team_points.csv"'
+            return response
+
+        return Response({"members": members, "rules": {"tasks": {"LOW": 1, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}, "project_participation": 2, "growpro_assignment": 1}})
+
+
+class ArtistEngagementView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        artist_profiles = Profile.objects.filter(roles__key="ARTIST").distinct().select_related("user")
+        results = []
+        for profile in artist_profiles:
+            task_count = Task.objects.filter(assignees=profile, is_archived=False).count()
+            project_count = Project.objects.filter(Q(participants=profile) | Q(owners=profile), is_archived=False).distinct().count()
+            example_count = Example.objects.filter(profile=profile).count()
+            song_count = Song.objects.filter(profile=profile).count()
+            growpro_count = GrowProGoal.objects.filter(profile=profile, status__in=["ACTIVE", "ON_HOLD"]).count()
+            comment_count = TaskComment.objects.filter(author=profile).count()
+            total = task_count * 2 + project_count * 2 + example_count * 2 + song_count + growpro_count + comment_count
+            results.append(
+                {
+                    "profile": {
+                        "id": profile.id,
+                        "name": profile.name or profile.user.username,
+                        "username": profile.user.username,
+                    },
+                    "task_count": task_count,
+                    "project_count": project_count,
+                    "example_count": example_count,
+                    "song_count": song_count,
+                    "growpro_count": growpro_count,
+                    "comment_count": comment_count,
+                    "total": total,
+                }
+            )
+        results.sort(key=lambda item: (-item["total"], item["profile"]["name"]))
+        if request.query_params.get("format") == "csv":
+            buffer = io.StringIO()
+            writer = csv.writer(buffer, delimiter=";")
+            writer.writerow(["Name", "Username", "Total", "Tasks", "Projekte", "Beispiele", "Songs", "GrowPro", "Kommentare"])
+            for item in results:
+                writer.writerow([
+                    item["profile"]["name"],
+                    item["profile"]["username"],
+                    item["total"],
+                    item["task_count"],
+                    item["project_count"],
+                    item["example_count"],
+                    item["song_count"],
+                    item["growpro_count"],
+                    item["comment_count"],
+                ])
+            response = HttpResponse(buffer.getvalue(), content_type="text/csv")
+            response["Content-Disposition"] = 'attachment; filename="artist_engagement.csv"'
+            return response
+        return Response({"artists": results})
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def calendar_export(request):
+    me = request.user.profile
+    today = timezone.now().date()
+    if me.roles.filter(key="TEAM").exists():
+        tasks = Task.objects.filter(is_archived=False, due_date__isnull=False).order_by("due_date")[:200]
+    else:
+        tasks = Task.objects.filter(
+            is_archived=False,
+            due_date__isnull=False,
+        ).filter(
+            Q(assignees=me) | Q(stakeholders=me) | Q(created_by=me)
+        ).order_by("due_date")[:200]
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//ProArtist//Kalender-Export//DE",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+    ]
+    for task in tasks:
+        dt = task.due_date.strftime("%Y%m%d")
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID=task-{task.id}@proartist.local",
+            f"DTSTAMP={timezone.now().strftime('%Y%m%dT%H%M%SZ')}",
+            f"DTSTART;VALUE=DATE:{dt}",
+            f"SUMMARY={task.title}",
+            f"DESCRIPTION={task.project.title if task.project else 'Task'} - Status: {task.status}",
+            "END:VEVENT",
+        ]
+    lines.append("END:VCALENDAR")
+    response = HttpResponse("\r\n".join(lines), content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="proartist_calendar.ics"'
+    return response
+
 
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated, IsTeam])

@@ -1,59 +1,110 @@
 <template>
-  <div class="platform-landing">
-    <header class="hero card">
-      <div class="hero-copy">
-        <p class="tag">UNYQ Hub</p>
-        <h1>Der neue Einstiegspunkt für deine UNYQ-Welten</h1>
-        <p class="lead">
-          Starte hier in die verschiedenen UNYQ-Plattformen. Je nach Rolle werden nur die passenden Bereiche angezeigt.
-        </p>
+  <div class="platform-hub">
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="hero-content">
+        <div class="hero-text">
+          <h1 class="hero-title">Willkommen im UNYQ Hub</h1>
+          <p class="hero-subtitle">
+            Dein zentraler Zugang zu allen UNYQ-Plattformen. Entdecke Tools und Funktionen, die auf deine Rolle zugeschnitten sind.
+          </p>
+        </div>
+        <div class="hero-visual">
+          <div class="floating-icons">
+            <div class="icon-float icon-1">🎵</div>
+            <div class="icon-float icon-2">🏆</div>
+            <div class="icon-float icon-3">📍</div>
+            <div class="icon-float icon-4">💰</div>
+            <div class="icon-float icon-5">📊</div>
+          </div>
+        </div>
       </div>
-      <div v-if="isTeam" class="preview-panel card">
-        <strong>Team-Perspektive</strong>
-        <p class="muted">Als Team-Mitglied kannst du hier den Hub in anderen Rollen ansehen.</p>
-        <div class="role-pills">
-          <button
-            v-for="option in previewOptions"
-            :key="option.key"
-            type="button"
-            class="pill"
-            :class="{ active: viewMode === option.key }"
-            @click="setViewMode(option.key)"
-          >
-            {{ option.label }}
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="quick-actions">
+      <div class="actions-grid">
+        <button class="action-card" @click="openPlatform('dashboard')">
+          <div class="action-icon">🏠</div>
+          <span>Dashboard</span>
+        </button>
+        <button class="action-card" @click="openPlatform('contests')" v-if="isVisible('contests')">
+          <div class="action-icon">🏆</div>
+          <span>Contests</span>
+        </button>
+        <button class="action-card" @click="openPlatform('music')" v-if="isVisible('music')">
+          <div class="action-icon">🎵</div>
+          <span>Music</span>
+        </button>
+        <button class="action-card" @click="openPlatform('locations')" v-if="isVisible('locations')">
+          <div class="action-icon">📍</div>
+          <span>Locations</span>
+        </button>
+        <button class="action-card" @click="openPlatform('finance')" v-if="isVisible('finance')">
+          <div class="action-icon">💰</div>
+          <span>Finance</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Platforms Grid -->
+    <section class="platforms-section">
+      <div class="section-header">
+        <h2>Plattformen</h2>
+        <p>Entdecke alle verfügbaren Tools und Bereiche</p>
+      </div>
+
+      <div class="platforms-grid">
+        <div
+          v-for="platform in visiblePlatforms"
+          :key="platform.key"
+          class="platform-card"
+          @click="openPlatform(platform.key)"
+        >
+          <div class="platform-header">
+            <div class="platform-icon">{{ platform.icon }}</div>
+            <div class="platform-meta">
+              <h3>{{ platform.title }}</h3>
+              <span class="platform-tag">{{ platform.category }}</span>
+            </div>
+          </div>
+          <p class="platform-description">{{ platform.description }}</p>
+          <div class="platform-features">
+            <span v-for="feature in platform.features" :key="feature" class="feature-tag">
+              {{ feature }}
+            </span>
+          </div>
+          <button class="platform-btn">
+            {{ platform.buttonLabel }}
+            <svg class="arrow-icon" viewBox="0 0 24 24">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
           </button>
         </div>
       </div>
-    </header>
-
-    <section class="platform-grid">
-      <article
-        v-for="card in visibleCards"
-        :key="card.key"
-        :class="['platform-card', `platform-card--${card.key}`, 'card']"
-      >
-        <div class="platform-head">
-          <div class="platform-icon" :class="`platform-icon--${card.key}`">
-            {{ card.icon }}
-          </div>
-          <span class="card-label">{{ card.title }}</span>
-        </div>
-        <div>
-          <h2>{{ card.heading }}</h2>
-          <p>{{ card.description }}</p>
-        </div>
-        <button class="btn" type="button" @click="openPlatform(card.key)">
-          {{ card.buttonLabel }}
-        </button>
-      </article>
     </section>
 
-    <footer class="platform-note card">
-      <p>
-        Der Hub ist dein zentraler Ausgangspunkt. Für Team-Mitglieder gibt es eine Vorschau auf andere Rollen,
-        damit du den gleichen Einstieg wie ein Artist oder Producer sehen kannst.
-      </p>
-    </footer>
+    <!-- Stats Section -->
+    <section class="stats-section" v-if="isTeam">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-number">{{ totalUsers }}</div>
+          <div class="stat-label">Aktive Nutzer</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">{{ activeProjects }}</div>
+          <div class="stat-label">Laufende Projekte</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">{{ pendingTasks }}</div>
+          <div class="stat-label">Offene Tasks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">{{ upcomingEvents }}</div>
+          <div class="stat-label">Bevorstehende Events</div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -68,57 +119,62 @@ const { showToast } = useToast();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 
 const viewMode = ref("default");
-const previewOptions = [
-  { key: "default", label: "Eigene Ansicht" },
-  { key: "ARTIST", label: "Als Artist" },
-  { key: "PRODUCER", label: "Als Producer" },
-  { key: "LOCATION", label: "Als Location" },
-];
 
-const cards = [
+// Mock data for stats
+const totalUsers = ref(42);
+const activeProjects = ref(8);
+const pendingTasks = ref(15);
+const upcomingEvents = ref(3);
+
+const platforms = [
   {
     key: "dashboard",
     title: "Dashboard",
-    heading: "Dein persönlicher Hub",
-    description: "Ein anpassbares Dashboard für deine Rolle – Team oder Artist.",
-    buttonLabel: "Zum Dashboard",
+    category: "Übersicht",
+    description: "Dein persönliches Dashboard mit allen wichtigen Informationen und Schnellzugriffen.",
+    buttonLabel: "Öffnen",
     icon: "📊",
+    features: ["Übersicht", "Schnellzugriffe", "Benachrichtigungen"],
     roles: ["TEAM", "ARTIST", "PRODUCER", "LOCATION"],
   },
   {
     key: "contests",
     title: "UNYQ Contests",
-    heading: "Wettbewerbe & Challenges",
-    description: "Bewerbe dich für Auftritte, Challenges und Team-Aktionen.",
-    buttonLabel: "Zur Contest-Plattform",
+    category: "Wettbewerbe",
+    description: "Beteilige dich an Contests, Challenges und gewinne Preise für deine Kunst.",
+    buttonLabel: "Entdecken",
     icon: "🏆",
+    features: ["Contests", "Challenges", "Preise"],
     roles: ["TEAM", "ARTIST", "PRODUCER"],
   },
   {
     key: "music",
-    title: "UNYQ Music Manager",
-    heading: "Musikprojekte & Releases",
-    description: "Verwalte Songs, Projekte und Releases in einer klaren Musikübersicht.",
-    buttonLabel: "Zum Music Manager",
+    title: "Music Manager",
+    category: "Musik",
+    description: "Verwalte deine Songs, Alben und Releases in einem professionellen Music Manager.",
+    buttonLabel: "Verwalten",
     icon: "🎵",
+    features: ["Songs", "Releases", "Analytics"],
     roles: ["TEAM", "ARTIST", "PRODUCER"],
   },
   {
     key: "locations",
-    title: "UNYQ Locations",
-    heading: "Locations & Events",
-    description: "Verwalte Orte, Termine und Veranstaltungsoptionen für dein Team.",
-    buttonLabel: "Zu Locations",
+    title: "Locations",
+    category: "Events",
+    description: "Finde und verwalte Locations für deine Events und Auftritte.",
+    buttonLabel: "Suchen",
     icon: "📍",
+    features: ["Locations", "Events", "Buchungen"],
     roles: ["TEAM", "LOCATION", "PRODUCER"],
   },
   {
     key: "finance",
-    title: "UNYQ Finance",
-    heading: "Finanzplanung & Budget",
-    description: "Verwalte Einnahmen, Ausgaben, Schulden und plane deine finanzielle Zukunft.",
-    buttonLabel: "Zum Finanzplaner",
+    title: "Finance Planner",
+    category: "Finanzen",
+    description: "Plane dein Budget, verwalte Einnahmen und Ausgaben, tilge Schulden effizient.",
+    buttonLabel: "Planen",
     icon: "💰",
+    features: ["Budget", "Schulden", "Einnahmen"],
     roles: ["TEAM"],
   },
 ];
@@ -130,16 +186,14 @@ const activeRole = computed(() => {
   return role?.key || "ARTIST";
 });
 
-const visibleCards = computed(() => {
+const visiblePlatforms = computed(() => {
   const currentRole = activeRole.value;
-  return cards.filter((card) => card.roles.includes(currentRole));
+  return platforms.filter((platform) => platform.roles.includes(currentRole));
 });
 
-function setViewMode(mode) {
-  viewMode.value = mode;
-  if (typeof localStorage !== "undefined") {
-    localStorage.setItem("unyq:platform-view-mode", mode);
-  }
+function isVisible(platformKey) {
+  const platform = platforms.find(p => p.key === platformKey);
+  return platform && platform.roles.includes(activeRole.value);
 }
 
 function openPlatform(platform) {
@@ -148,6 +202,7 @@ function openPlatform(platform) {
     contests: "/platforms/contests",
     music: "/platforms/music",
     locations: "/platforms/locations",
+    finance: "/platforms/finance",
   };
   const path = mapping[platform];
   if (path) {
@@ -158,213 +213,360 @@ function openPlatform(platform) {
 }
 
 onMounted(async () => {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("unyq:platform-view-mode");
-    if (stored) viewMode.value = stored;
-  }
   await fetchProfile();
 });
 </script>
 
 <style scoped>
-.platform-landing {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 36px 20px 60px;
+.platform-hub {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
 }
 
-.hero {
+/* Hero Section */
+.hero-section {
+  padding: 60px 20px;
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+  opacity: 0.3;
+}
+
+.hero-content {
+  max-width: 1200px;
+  margin: 0 auto;
   display: grid;
-  gap: 24px;
-  grid-template-columns: 1fr;
-  padding: 32px;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-text h1 {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 800;
+  margin: 0 0 20px;
+  line-height: 1.1;
+}
+
+.hero-subtitle {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.hero-visual {
+  position: relative;
+  height: 300px;
+}
+
+.floating-icons {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.icon-float {
+  position: absolute;
+  font-size: 3rem;
+  animation: float 6s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+}
+
+.icon-1 { top: 10%; left: 10%; animation-delay: 0s; }
+.icon-2 { top: 20%; right: 20%; animation-delay: 1s; }
+.icon-3 { bottom: 20%; left: 20%; animation-delay: 2s; }
+.icon-4 { bottom: 10%; right: 10%; animation-delay: 3s; }
+.icon-5 { top: 50%; left: 50%; animation-delay: 4s; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  25% { transform: translateY(-20px) rotate(5deg); }
+  50% { transform: translateY(-10px) rotate(-5deg); }
+  75% { transform: translateY(-25px) rotate(3deg); }
+}
+
+/* Quick Actions */
+.quick-actions {
+  padding: 40px 20px;
+  background: var(--bg-soft);
+}
+
+.actions-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 20px;
+}
+
+.action-card {
   background: var(--card);
   border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
   box-shadow: var(--shadow-soft);
 }
 
-.tag {
-  display: inline-flex;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(6, 182, 212, 0.14);
-  color: var(--brand);
-  font-weight: 700;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-.hero h1 {
-  margin: 0;
-  font-size: clamp(2rem, 2.6vw, 3rem);
-  line-height: 1.05;
-}
-
-.lead {
-  margin: 0;
-  max-width: 720px;
-  color: var(--muted);
-  line-height: 1.72;
-}
-
-.preview-panel {
-  padding: 20px 24px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.preview-panel strong {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-.preview-panel .muted {
-  margin: 0 0 16px;
-  color: var(--muted);
-}
-
-.role-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.pill {
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--text);
-  padding: 10px 16px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-}
-
-.pill:hover,
-.pill.active {
+.action-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-strong);
   border-color: var(--brand);
-  background: rgba(47, 99, 255, 0.12);
-  transform: translateY(-1px);
 }
 
-.platform-grid {
+.action-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.action-card span {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Platforms Section */
+.platforms-section {
+  padding: 60px 20px;
+  background: var(--bg);
+}
+
+.section-header {
+  max-width: 1200px;
+  margin: 0 auto 40px;
+  text-align: center;
+}
+
+.section-header h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.section-header p {
+  font-size: 1.1rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.platforms-grid {
+  max-width: 1200px;
+  margin: 0 auto;
   display: grid;
-  gap: 20px;
-  margin-top: 28px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 30px;
 }
 
 .platform-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-height: 280px;
-  gap: 20px;
-  padding: 28px;
-  border: 1px solid var(--border);
   background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  cursor: pointer;
+  transition: all 0.3s ease;
   box-shadow: var(--shadow-soft);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.platform-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.platform-card:hover::before {
+  transform: scaleX(1);
 }
 
 .platform-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-8px);
   box-shadow: var(--shadow-strong);
+  border-color: var(--brand);
 }
 
-.platform-head {
+.platform-header {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .platform-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 18px;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  border-radius: 16px;
   display: grid;
   place-items: center;
-  font-size: 22px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  font-size: 1.5rem;
+  box-shadow: var(--shadow-soft);
 }
 
-.platform-icon--contests {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(99, 102, 241, 0.16));
-}
-
-.platform-icon--music {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.22), rgba(34, 211, 238, 0.16));
-}
-
-.platform-icon--locations {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.22), rgba(52, 211, 153, 0.16));
-}
-
-.platform-card--contests {
-  border-color: rgba(59, 130, 246, 0.3);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(99, 102, 241, 0.06));
-}
-
-.platform-card--music {
-  border-color: rgba(6, 182, 212, 0.3);
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(34, 211, 238, 0.06));
-}
-
-.platform-card--locations {
-  border-color: rgba(34, 197, 94, 0.3);
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(52, 211, 153, 0.06));
-}
-
-.card-label {
-  display: inline-flex;
-  margin-bottom: 14px;
-  color: var(--brand);
-  font-weight: 700;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-.platform-card h2 {
-  margin: 0;
+.platform-meta h3 {
+  margin: 0 0 4px;
   font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
-.platform-card p {
-  margin: 0;
+.platform-tag {
+  background: rgba(47, 99, 255, 0.1);
+  color: var(--brand);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.platform-description {
   color: var(--muted);
-  line-height: 1.65;
+  line-height: 1.6;
+  margin: 0 0 20px;
+  font-size: 1rem;
 }
 
-.platform-card .btn {
+.platform-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.feature-tag {
+  background: var(--bg-soft);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.platform-btn {
   width: 100%;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: white;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
 }
 
-.platform-note {
-  margin-top: 24px;
-  padding: 22px;
+.platform-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(47, 99, 255, 0.3);
+}
+
+.arrow-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Stats Section */
+.stats-section {
+  padding: 40px 20px;
+  background: var(--bg-soft);
+}
+
+.stats-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: var(--card);
   border: 1px solid var(--border);
-  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: var(--shadow-soft);
 }
 
-.platform-note p {
-  margin: 0;
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--brand);
+  margin-bottom: 8px;
+}
+
+.stat-label {
   color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.9rem;
 }
 
-@media (max-width: 720px) {
-  .platform-landing {
-    padding: 24px 16px 40px;
+/* Responsive */
+@media (max-width: 768px) {
+  .hero-content {
+    grid-template-columns: 1fr;
+    text-align: center;
   }
 
-  .hero {
-    padding: 24px;
+  .hero-visual {
+    display: none;
   }
 
-  .platform-card {
-    padding: 22px;
+  .platforms-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

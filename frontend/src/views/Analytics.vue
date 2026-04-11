@@ -632,11 +632,11 @@ onMounted(async () => {
   font-size: 12px;
   font-weight: 600;
   background: rgba(59, 130, 246, 0.16);
-  color: #1d4ed8;
+  color: var(--status-in-progress);
 }
 .badge.danger {
   background: rgba(248, 113, 113, 0.18);
-  color: #b91c1c;
+  color: var(--status-overdue);
 }
 .info {
   max-width: 520px;

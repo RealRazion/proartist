@@ -27,6 +27,7 @@ import MusicLanding from "../views/MusicLanding.vue";
 import LocationsLanding from "../views/LocationsLanding.vue";
 import FinanceLanding from "../views/FinanceLanding.vue";
 import FinanceTool from "../views/FinanceTool.vue";
+import SearchView from "../views/SearchView.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
 const routes = [
@@ -62,9 +63,9 @@ const routes = [
       { path: "api-center", name: "api-center", component: ApiCenter, alias: "/api-center", meta: { requiresAuth: true } },
       { path: "growpro", name: "growpro", component: GrowPro, alias: "/growpro", meta: { requiresAuth: true } },
       { path: "songs", name: "songs", component: Songs, alias: "/songs", meta: { requiresAuth: true } },
-      { path: "finance", name: "finance", component: FinanceTool, alias: "/finance", meta: { requiresAuth: true } },
       { path: "team/roles", redirect: { name: "admin" } },
       { path: "chats", name: "chats", component: Chats, alias: "/chats", meta: { requiresAuth: true } },
+      { path: "search", name: "search", component: SearchView, alias: "/search", meta: { requiresAuth: true } },
       { path: "me", name: "me", component: MyProfile, alias: "/me", meta: { requiresAuth: true } },
     ],
   },
@@ -73,6 +74,7 @@ const routes = [
   { path: "/platforms/music", name: "platform-music", component: MusicLanding, meta: { requiresAuth: true } },
   { path: "/platforms/locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
   { path: "/platforms/finance", name: "platform-finance", component: FinanceLanding, meta: { requiresAuth: true } },
+  { path: "/platforms/finance/planner", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 

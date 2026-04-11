@@ -156,16 +156,6 @@
           <span class="label">API</span>
         </router-link>
         <router-link
-          v-if="isTeam"
-          to="/finance"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Finanzen' : null"
-        >
-          <span class="icon">💰</span>
-          <span class="label">Finanzen</span>
-        </router-link>
-        <router-link
           to="/me"
           class="nav-link"
           @click="handleNavClick"
@@ -342,7 +332,7 @@ const pageMeta = {
   points: { title: "Points", team: "Workload und Scoring", artist: "Points" },
   "api-center": { title: "API Center", team: "Automationen und Integrationen", artist: "API Center" },
   growpro: { title: "GrowPro", team: "Ziele und Fortschritt", artist: "Wachstumsziele" },
-  finance: { title: "Finanzen", team: "Schuldenübersicht und Budgetplanung", artist: "Finanzen" },
+
   songs: { title: "Songs", team: "Versionen und Releases", artist: "Songs" },
   me: { title: "Mein Profil", team: "Persoenliche Einstellungen", artist: "Persoenliche Einstellungen" },
 };

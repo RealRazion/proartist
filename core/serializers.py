@@ -12,6 +12,7 @@ from .models import (
     ChatMessage,
     ChatThread,
     Contract,
+    Debt,
     Event,
     Example,
     FinanceEntry,
@@ -872,6 +873,51 @@ class FinanceProjectSerializer(FinanceProjectListSerializer):
     class Meta(FinanceProjectListSerializer.Meta):
         fields = FinanceProjectListSerializer.Meta.fields[:-2] + ["entries", "created_at", "updated_at"]
         read_only_fields = FinanceProjectListSerializer.Meta.read_only_fields + ["entries"]
+
+
+class DebtSerializer(serializers.ModelSerializer):
+    remaining_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    is_fully_paid = serializers.BooleanField(read_only=True)
+    months_remaining = serializers.IntegerField(read_only=True)
+    payment_percentage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Debt
+        fields = [
+            "id",
+            "project",
+            "name",
+            "total_amount",
+            "amount_paid",
+            "monthly_payment",
+            "due_day",
+            "status",
+            "start_date",
+            "paid_off_date",
+            "remaining_amount",
+            "is_fully_paid",
+            "months_remaining",
+            "payment_percentage",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "remaining_amount",
+            "is_fully_paid",
+            "months_remaining",
+            "payment_percentage",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_payment_percentage(self, obj):
+        total = float(obj.total_amount or 0)
+        if total <= 0:
+            return 0
+        paid = float(obj.amount_paid or 0)
+        return round((paid / total) * 100, 2)
 
 
 class ReleaseSerializer(serializers.ModelSerializer):

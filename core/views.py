@@ -72,6 +72,7 @@ from .serializers import (
     ChatMessageSerializer,
     ChatThreadSerializer,
     ContractSerializer,
+    DebtSerializer,
     EventSerializer,
     ExampleSerializer,
     FinanceEntrySerializer,
@@ -1711,6 +1712,31 @@ class FinanceEntryViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
+        project = serializer.validated_data["project"]
+        if project.owner_id != self.request.user.profile.id:
+            raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")
+        serializer.save()
+
+
+class DebtViewSet(viewsets.ModelViewSet):
+    serializer_class = DebtSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        from .models import Debt
+        qs = (
+            Debt.objects
+            .select_related("project")
+            .filter(project__owner=self.request.user.profile)
+            .order_by("-created_at")
+        )
+        project_id = self.request.query_params.get("project")
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        return qs
+
+    def perform_create(self, serializer):
+        from .models import Debt
         project = serializer.validated_data["project"]
         if project.owner_id != self.request.user.profile.id:
             raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")

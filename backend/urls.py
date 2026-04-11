@@ -11,6 +11,7 @@ from core.views import (
     ChatMessageViewSet,
     ChatThreadViewSet,
     ContractViewSet,
+    DebtViewSet,
     EventViewSet,
     ExampleViewSet,
     FinanceEntryViewSet,
@@ -73,6 +74,7 @@ router.register(r"payments", PaymentViewSet)
 router.register(r"finance-projects", FinanceProjectViewSet, basename="finance-projects")
 router.register(r"finance-members", FinanceMemberViewSet, basename="finance-members")
 router.register(r"finance-entries", FinanceEntryViewSet, basename="finance-entries")
+router.register(r"debts", DebtViewSet, basename="debts")
 router.register(r"releases", ReleaseViewSet)
 router.register(r"events", EventViewSet)
 router.register(r"bookings", BookingViewSet)

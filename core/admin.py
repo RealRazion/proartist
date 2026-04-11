@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import (
     ActivityEntry,
     AutomationRule,
+    Debt,
     FinanceEntry,
     FinanceMember,
     FinanceProject,
@@ -38,6 +39,7 @@ admin.site.register(SystemIntegration)
 admin.site.register(FinanceProject)
 admin.site.register(FinanceMember)
 admin.site.register(FinanceEntry)
+admin.site.register(Debt)
 admin.site.register(Song)
 admin.site.register(SongVersion)
 admin.site.register(GrowProGoal)

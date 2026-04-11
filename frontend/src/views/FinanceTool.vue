@@ -35,69 +35,83 @@
         </div>
       </header>
 
-      <section class="summary-grid">
-        <article class="card summary-card positive">
-          <span class="label">Frei pro Monat</span>
-          <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
-          <small class="muted">Einnahmen minus alle geplanten Ausgänge</small>
-        </article>
-        <article class="card summary-card">
-          <span class="label">Einnahmen</span>
-          <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
-          <small class="muted">Fixe und wiederkehrende Einnahmen</small>
-        </article>
-        <article class="card summary-card">
-          <span class="label">Geplante Ausgänge</span>
-          <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
-          <small class="muted">Fixkosten, variabel, Schulden und Sparen</small>
-        </article>
-        <article class="card summary-card" :class="{ warning: Number(overview.buffer_gap || 0) > 0 }">
-          <span class="label">Voraussichtlicher Stand</span>
-          <strong>{{ formatCurrency(overview.projected_balance) }}</strong>
-          <small class="muted">
-            Notgroschen-Lücke: {{ formatCurrency(overview.buffer_gap) }}
-          </small>
-        </article>
-      </section>
+      <!-- Tab Navigation -->
+      <div class="finance-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab"
+          class="tab-btn"
+          :class="{ active: activeTab === tab }"
+          @click="activeTab = tab"
+        >
+          {{ tabLabels[tab] }}
+        </button>
+      </div>
 
-      <section class="finance-layout">
-        <div class="main-column">
-          <article class="card project-settings">
-            <div class="section-head">
-              <div>
-                <h2>Projektbasis</h2>
-                <p class="muted">Die paar Werte, die dein Monatsbild steuern.</p>
+      <!-- Übersicht Tab -->
+      <section v-show="activeTab === 'overview'" class="summary-grid">
+          <article class="card summary-card positive">
+            <span class="label">Frei pro Monat</span>
+            <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
+            <small class="muted">Einnahmen minus alle geplanten Ausgänge</small>
+          </article>
+          <article class="card summary-card">
+            <span class="label">Einnahmen</span>
+            <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
+            <small class="muted">Fixe und wiederkehrende Einnahmen</small>
+          </article>
+          <article class="card summary-card">
+            <span class="label">Geplante Ausgänge</span>
+            <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
+            <small class="muted">Fixkosten, variabel, Schulden und Sparen</small>
+          </article>
+          <article class="card summary-card" :class="{ warning: Number(overview.buffer_gap || 0) > 0 }">
+            <span class="label">Voraussichtlicher Stand</span>
+            <strong>{{ formatCurrency(overview.projected_balance) }}</strong>
+            <small class="muted">
+              Notgroschen-Lücke: {{ formatCurrency(overview.buffer_gap) }}
+            </small>
+          </article>
+        </section>
+
+        <section v-show="activeTab === 'entries' || activeTab === 'settings'" class="finance-layout">
+          <div class="main-column">
+            <article class="card project-settings">
+              <div class="section-head">
+                <div>
+                  <h2>Projektbasis</h2>
+                  <p class="muted">Die paar Werte, die dein Monatsbild steuern.</p>
+                </div>
+                <button class="btn" type="button" @click="saveProject" :disabled="savingProject">
+                  {{ savingProject ? "Speichere..." : "Basis speichern" }}
+                </button>
               </div>
-              <button class="btn" type="button" @click="saveProject" :disabled="savingProject">
-                {{ savingProject ? "Speichere..." : "Basis speichern" }}
-              </button>
-            </div>
 
-            <div class="grid project-grid">
-              <label>
-                Titel
-                <input v-model.trim="projectForm.title" class="input" />
-              </label>
-              <label>
-                Währung
-                <select v-model="projectForm.currency" class="input">
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
-                  <option value="CHF">CHF</option>
-                </select>
-              </label>
-              <label>
-                Aktuelles Guthaben
-                <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
-              </label>
-              <label>
-                Sparziel pro Monat
-                <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
-              </label>
-              <label>
-                Notgroschen-Ziel
-                <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
-              </label>
+              <div class="grid project-grid">
+                <label>
+                  Titel
+                  <input v-model.trim="projectForm.title" class="input" />
+                </label>
+                <label>
+                  Währung
+                  <select v-model="projectForm.currency" class="input">
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </label>
+                <label>
+                  Aktuelles Guthaben
+                  <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
+                </label>
+                <label>
+                  Sparziel pro Monat
+                  <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
+                </label>
+                <label>
+                  Notgroschen-Ziel
+                  <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
+                </label>
               <label class="full">
                 Notiz
                 <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
@@ -370,6 +384,11 @@
           </article>
         </aside>
       </section>
+
+      <!-- Debt Tracker Section -->
+      <section v-show="activeTab === 'debts' && selectedProjectId" class="debt-section">
+        <DebtTracker :projectId="selectedProjectId" />
+      </section>
     </template>
   </div>
 </template>
@@ -378,6 +397,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
+import DebtTracker from "../components/DebtTracker.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -390,7 +410,16 @@ const projects = ref([]);
 const project = ref(null);
 const selectedProjectId = ref(null);
 const activeEntryFilter = ref("ALL");
+const activeTab = ref("overview");
 const editingEntryId = ref(null);
+
+const tabs = ["overview", "entries", "debts", "settings"];
+const tabLabels = {
+  overview: "📊 Übersicht",
+  entries: "📝 Posten verwalten",
+  debts: "💳 Schulden",
+  settings: "⚙️ Einstellungen",
+};
 
 const memberRoleLabels = {
   PRIMARY: "Hauptperson",
@@ -687,6 +716,47 @@ onMounted(syncProjectSelection);
 .hero-copy {
   display: grid;
   gap: 8px;
+}
+
+/* Tab Navigation */
+.finance-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  border-bottom: 2px solid var(--border);
+  overflow-x: auto;
+  margin: 0 0 18px 0;
+}
+
+.tab-btn {
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+}
+
+.tab-btn.active {
+  color: var(--brand);
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--brand);
 }
 
 .eyebrow {
@@ -993,6 +1063,83 @@ onMounted(syncProjectSelection);
 
 .empty-hint {
   margin: 0;
+}
+
+/* Dark Mode and Accessibility Fixes */
+.input,
+.textarea,
+select {
+  background-color: var(--background);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.input:focus,
+.textarea:focus,
+select:focus {
+  background-color: var(--background);
+  color: var(--text);
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(47, 99, 255, 0.1);
+}
+
+/* Dark mode explicit color support */
+@media (prefers-color-scheme: dark) {
+  .input,
+  .textarea,
+  select {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #fff;
+  }
+
+  .input::placeholder,
+  .textarea::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .input:focus,
+  .textarea:focus,
+  select:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .modal-overlay {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+
+  .card {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .summary-card {
+    background: linear-gradient(160deg, rgba(47, 99, 255, 0.08), rgba(255, 255, 255, 0.02));
+  }
+
+  .summary-card.positive {
+    background: linear-gradient(160deg, rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.02));
+  }
+
+  .summary-card.warning {
+    background: linear-gradient(160deg, rgba(245, 158, 11, 0.1), rgba(255, 255, 255, 0.02));
+  }
+
+  .surface {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .progress-bar {
+    background: rgba(47, 99, 255, 0.15);
+  }
+
+  .progress-bar.alt {
+    background: rgba(16, 185, 129, 0.15);
+  }
+}
+
+/* Debt Section */
+.debt-section {
+  margin-top: 28px;
 }
 
 @media (max-width: 1120px) {

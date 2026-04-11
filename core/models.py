@@ -289,6 +289,55 @@ class FinanceEntry(models.Model):
         return self.title
 
 
+class Debt(models.Model):
+    """Track individual debts with payment schedules (e.g., Klarna, loans, etc.)"""
+    STATUS = [
+        ("ACTIVE", "Aktiv"),
+        ("PAID_OFF", "Abbezahlt"),
+        ("PAUSED", "Pausiert"),
+    ]
+    
+    project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="debts")
+    name = models.CharField(max_length=200, help_text="z.B. Klarna, Darlehen, etc.")
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Gesamtbetrag der Schulden")
+    amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Bisheriger bezahlter Betrag")
+    monthly_payment = models.DecimalField(max_digits=12, decimal_places=2, help_text="Monatliche Zahlungsrate")
+    due_day = models.PositiveSmallIntegerField(help_text="Tag im Monat für die Zahlungen (1-31)")
+    status = models.CharField(max_length=20, choices=STATUS, default="ACTIVE")
+    start_date = models.DateField()
+    paid_off_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name} ({self.project.title})"
+    
+    @property
+    def remaining_amount(self):
+        """Calculate remaining debt"""
+        from decimal import Decimal
+        return max(Decimal("0"), self.total_amount - self.amount_paid)
+    
+    @property
+    def is_fully_paid(self):
+        """Check if debt is fully paid"""
+        from decimal import Decimal
+        return self.remaining_amount <= Decimal("0")
+    
+    @property
+    def months_remaining(self):
+        """Calculate estimated months to pay off"""
+        from decimal import Decimal
+        if self.monthly_payment <= 0 or self.is_fully_paid:
+            return 0
+        remaining = self.remaining_amount
+        return int((remaining / self.monthly_payment) + (1 if remaining % self.monthly_payment else 0))
+
+
 class Release(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE,related_name="releases")
     title = models.CharField(max_length=200)

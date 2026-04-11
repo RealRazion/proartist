@@ -77,11 +77,20 @@ const previewOptions = [
 
 const cards = [
   {
+    key: "dashboard",
+    title: "Dashboard",
+    heading: "Dein persönlicher Hub",
+    description: "Ein anpassbares Dashboard für deine Rolle – Team oder Artist.",
+    buttonLabel: "Zum Dashboard",
+    icon: "📊",
+    roles: ["TEAM", "ARTIST", "PRODUCER", "LOCATION"],
+  },
+  {
     key: "contests",
     title: "UNYQ Contests",
     heading: "Wettbewerbe & Challenges",
     description: "Bewerbe dich für Auftritte, Challenges und Team-Aktionen.",
-    buttonLabel: "Zur Contests-Ansicht",
+    buttonLabel: "Zur Contest-Plattform",
     icon: "🏆",
     roles: ["TEAM", "ARTIST", "PRODUCER"],
   },
@@ -126,9 +135,10 @@ function setViewMode(mode) {
 
 function openPlatform(platform) {
   const mapping = {
-    contests: "/app/projects?platform=contests",
-    music: "/app/projects?platform=music-manager",
-    locations: "/app/activity",
+    dashboard: "/app/dashboard",
+    contests: "/platforms/contests",
+    music: "/platforms/music",
+    locations: "/platforms/locations",
   };
   const path = mapping[platform];
   if (path) {

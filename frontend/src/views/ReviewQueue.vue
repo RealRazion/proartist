@@ -119,8 +119,12 @@
               <span class="badge" :data-status="dueStatus(task)">{{ dueStatusLabel(task) }}</span>
             </div>
             <div class="task-actions">
-              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprüft</button>
-              <button class="btn ghost tiny danger" type="button" @click="markNotReviewed(task)">Nicht geprüft</button>
+              <button class="btn tiny" type="button" @click="markReviewed(task)" :disabled="reviewSaving.value[task.id]">
+                {{ reviewSaving.value[task.id] ? "..." : "Geprüft" }}
+              </button>
+              <button class="btn ghost tiny danger" type="button" @click="markNotReviewed(task)" :disabled="reviewSaving.value[task.id]">
+                {{ reviewSaving.value[task.id] ? "..." : "Nicht geprüft" }}
+              </button>
               <button class="btn ghost tiny" type="button" @click="goToTask(task)">Zur Task</button>
             </div>
           </li>
@@ -165,7 +169,9 @@
               <span class="badge danger">Nicht geprüft</span>
             </div>
             <div class="task-actions">
-              <button class="btn tiny" type="button" @click="markReviewed(task)">Geprüft</button>
+              <button class="btn tiny" type="button" @click="markReviewed(task)" :disabled="reviewSaving.value[task.id]">
+                {{ reviewSaving.value[task.id] ? "..." : "Geprüft" }}
+              </button>
               <button class="btn ghost tiny" type="button" @click="goToTask(task)">Zur Task</button>
             </div>
           </li>
@@ -194,6 +200,7 @@ const filters = ref({ search: "", due: "ALL", onlyMine: false });
 const activeTab = ref("review");
 const selectedReviewIds = ref([]);
 const selectedPendingIds = ref([]);
+const reviewSaving = ref({});
 
 function formatDate(value) {
   if (!value) return "-";
@@ -300,25 +307,42 @@ async function loadReviewTasks() {
   }
 }
 
+function buildReviewPayload(task, reviewed) {
+  const payload = {};
+  if (task.status === "REVIEW") {
+    payload.status = "DONE";
+  }
+  payload.review_status = reviewed ? "REVIEWED" : "NOT_REVIEWED";
+  return payload;
+}
+
 async function markReviewed(task) {
+  if (!task?.id) return;
+  reviewSaving.value = { ...reviewSaving.value, [task.id]: true };
   try {
-    await api.patch(`tasks/${task.id}/`, { status: "DONE", review_status: "REVIEWED" });
+    await api.patch(`tasks/${task.id}/`, buildReviewPayload(task, true));
     showToast("Task als geprüft markiert", "success");
-    loadReviewTasks();
+    await loadReviewTasks();
   } catch (err) {
     console.error("Review konnte nicht gespeichert werden", err);
     showToast("Review konnte nicht gespeichert werden", "error");
+  } finally {
+    reviewSaving.value = { ...reviewSaving.value, [task.id]: false };
   }
 }
 
 async function markNotReviewed(task) {
+  if (!task?.id) return;
+  reviewSaving.value = { ...reviewSaving.value, [task.id]: true };
   try {
-    await api.patch(`tasks/${task.id}/`, { status: "DONE", review_status: "NOT_REVIEWED" });
+    await api.patch(`tasks/${task.id}/`, buildReviewPayload(task, false));
     showToast("Task als nicht geprüft markiert", "info");
-    loadReviewTasks();
+    await loadReviewTasks();
   } catch (err) {
     console.error("Task konnte nicht aktualisiert werden", err);
     showToast("Task konnte nicht aktualisiert werden", "error");
+  } finally {
+    reviewSaving.value = { ...reviewSaving.value, [task.id]: false };
   }
 }
 
@@ -334,10 +358,12 @@ async function bulkNotReviewed() {
 }
 
 async function bulkUpdate(ids, payload, successMessage) {
+  if (!ids.length) return;
+  const cleanIds = Array.from(new Set(ids.filter(Boolean)));
   try {
-    await Promise.all(ids.map((id) => api.patch(`tasks/${id}/`, payload)));
+    await Promise.all(cleanIds.map((id) => api.patch(`tasks/${id}/`, payload)));
     showToast(successMessage, "success");
-    loadReviewTasks();
+    await loadReviewTasks();
   } catch (err) {
     console.error("Bulk-Update fehlgeschlagen", err);
     showToast("Bulk-Update fehlgeschlagen", "error");

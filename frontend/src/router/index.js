@@ -22,6 +22,9 @@ import ReviewQueue from "../views/ReviewQueue.vue";
 import Points from "../views/Points.vue";
 import ApiCenter from "../views/ApiCenter.vue";
 import PlatformLanding from "../views/PlatformLanding.vue";
+import ContestLanding from "../views/ContestLanding.vue";
+import MusicLanding from "../views/MusicLanding.vue";
+import LocationsLanding from "../views/LocationsLanding.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
 const routes = [
@@ -63,6 +66,9 @@ const routes = [
     ],
   },
   { path: "/platforms", name: "platforms", component: PlatformLanding, meta: { requiresAuth: true } },
+  { path: "/platforms/contests", name: "platform-contests", component: ContestLanding, meta: { requiresAuth: true } },
+  { path: "/platforms/music", name: "platform-music", component: MusicLanding, meta: { requiresAuth: true } },
+  { path: "/platforms/locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 

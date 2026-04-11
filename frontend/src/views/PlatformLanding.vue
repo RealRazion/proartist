@@ -112,6 +112,15 @@ const cards = [
     icon: "📍",
     roles: ["TEAM", "LOCATION", "PRODUCER"],
   },
+  {
+    key: "finance",
+    title: "UNYQ Finance",
+    heading: "Finanzplanung & Budget",
+    description: "Verwalte Einnahmen, Ausgaben, Schulden und plane deine finanzielle Zukunft.",
+    buttonLabel: "Zum Finanzplaner",
+    icon: "💰",
+    roles: ["TEAM"],
+  },
 ];
 
 const activeRole = computed(() => {

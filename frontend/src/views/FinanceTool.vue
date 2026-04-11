@@ -2,107 +2,203 @@
   <div class="finance-tool">
     <div class="finance-header">
       <h2>Finanzübersicht</h2>
-      <p>Verwalte Einkommen, Ausgaben und Schulden für eine bessere finanzielle Planung.</p>
+      <p>Umfassendes Finanzmanagement für Einnahmen, Ausgaben und Schulden.</p>
     </div>
 
-    <div class="finance-grid">
-      <!-- Einkommen Übersicht -->
-      <div class="finance-card income-card">
-        <div class="card-header">
-          <h3>Einkommen</h3>
-          <button class="btn small" @click="showIncomeModal = true">Hinzufügen</button>
-        </div>
-        <div class="income-list">
-          <div v-for="income in incomes" :key="income.id" class="income-item">
-            <div class="income-info">
-              <strong>{{ income.name }}</strong>
-              <span class="income-amount">{{ formatCurrency(income.amount) }}</span>
-              <small v-if="income.frequency">{{ income.frequency }}</small>
-            </div>
-            <button class="btn ghost tiny" @click="editIncome(income)">Bearbeiten</button>
-          </div>
-        </div>
-        <div class="total-income">
-          <strong>Gesamt: {{ formatCurrency(totalIncome) }}</strong>
-        </div>
-      </div>
+    <div class="finance-tabs">
+      <button :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">Übersicht</button>
+      <button :class="{ active: activeTab === 'income' }" @click="activeTab = 'income'">Einnahmen</button>
+      <button :class="{ active: activeTab === 'expenses' }" @click="activeTab = 'expenses'">Ausgaben</button>
+      <button :class="{ active: activeTab === 'debt' }" @click="activeTab = 'debt'">Schulden</button>
+      <button :class="{ active: activeTab === 'budget' }" @click="activeTab = 'budget'">Budget</button>
+    </div>
 
-      <!-- Schulden Übersicht -->
-      <div class="finance-card debt-card">
-        <div class="card-header">
-          <h3>Schulden</h3>
-          <button class="btn small" @click="showDebtModal = true">Hinzufügen</button>
-        </div>
-        <div class="debt-list">
-          <div v-for="debt in debts" :key="debt.id" class="debt-item" :class="{ 'paid-off': debt.paidOff }">
-            <div class="debt-info">
-              <strong>{{ debt.name }}</strong>
-              <span class="debt-amount">{{ formatCurrency(debt.amount) }}</span>
-              <small>Zins: {{ debt.interestRate }}%</small>
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: debtProgress(debt) + '%' }"></div>
-              </div>
-              <small>{{ formatCurrency(debt.paidAmount) }} / {{ formatCurrency(debt.amount) }}</small>
-            </div>
-            <div class="debt-actions">
-              <button class="btn ghost tiny" @click="addPayment(debt)">Zahlung</button>
-              <button class="btn ghost tiny" @click="editDebt(debt)">Bearbeiten</button>
-            </div>
+    <!-- Übersicht Tab -->
+    <div v-if="activeTab === 'overview'" class="finance-grid">
+      <div class="finance-card summary-card">
+        <h3>Monatliche Zusammenfassung</h3>
+        <div class="summary-stats">
+          <div class="stat">
+            <span class="label">Einnahmen</span>
+            <span class="value positive">{{ formatCurrency(monthlyIncome) }}</span>
           </div>
-        </div>
-        <div class="total-debt">
-          <strong>Gesamt Schulden: {{ formatCurrency(totalDebt) }}</strong>
-          <br>
-          <small>Bezahlt: {{ formatCurrency(totalPaid) }}</small>
-        </div>
-      </div>
-
-      <!-- Kalender für Zahlungen -->
-      <div class="finance-card calendar-card">
-        <div class="card-header">
-          <h3>Zahlungskalender</h3>
-        </div>
-        <div class="calendar">
-          <div class="calendar-header">
-            <button @click="prevMonth">&lt;</button>
-            <h4>{{ currentMonthName }} {{ currentYear }}</h4>
-            <button @click="nextMonth">&gt;</button>
+          <div class="stat">
+            <span class="label">Ausgaben</span>
+            <span class="value negative">{{ formatCurrency(monthlyExpenses) }}</span>
           </div>
-          <div class="calendar-grid">
-            <div v-for="day in calendarDays" :key="day.date" class="calendar-day" :class="{ today: day.isToday, hasPayment: day.hasPayment }">
-              <span>{{ day.day }}</span>
-              <div v-if="day.payments" class="day-payments">
-                <div v-for="payment in day.payments" :key="payment.id" class="payment-dot" :class="payment.type"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Statistiken -->
-      <div class="finance-card stats-card">
-        <div class="card-header">
-          <h3>Statistiken</h3>
-        </div>
-        <div class="stats">
-          <div class="stat-item">
-            <span class="stat-label">Monatliches Einkommen</span>
-            <span class="stat-value">{{ formatCurrency(monthlyIncome) }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Monatliche Schuldenzahlungen</span>
-            <span class="stat-value">{{ formatCurrency(monthlyDebtPayments) }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label">Verfügbares Budget</span>
-            <span class="stat-value" :class="{ negative: monthlyIncome - monthlyDebtPayments < 0 }">
-              {{ formatCurrency(monthlyIncome - monthlyDebtPayments) }}
+          <div class="stat">
+            <span class="label">Saldo</span>
+            <span :class="['value', monthlyIncome - monthlyExpenses >= 0 ? 'positive' : 'negative']">
+              {{ formatCurrency(monthlyIncome - monthlyExpenses) }}
             </span>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">Schuldenfrei in</span>
-            <span class="stat-value">{{ debtFreeMonths }} Monaten</span>
+        </div>
+      </div>
+
+      <div class="finance-card chart-card">
+        <h3>Ausgaben nach Kategorie</h3>
+        <div class="expense-breakdown">
+          <div v-for="category in expenseCategories" :key="category.key" class="category-item">
+            <span class="category-name">{{ category.name }}</span>
+            <span class="category-amount">{{ formatCurrency(category.amount) }}</span>
+            <div class="category-bar">
+              <div class="bar-fill" :style="{ width: (category.amount / totalMonthlyExpenses * 100) + '%' }"></div>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <div class="finance-card goals-card">
+        <h3>Sparziele</h3>
+        <div class="goals-list">
+          <div v-for="goal in savingsGoals" :key="goal.id" class="goal-item">
+            <div class="goal-info">
+              <strong>{{ goal.name }}</strong>
+              <span>{{ formatCurrency(goal.current) }} / {{ formatCurrency(goal.target) }}</span>
+            </div>
+            <div class="goal-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: (goal.current / goal.target * 100) + '%' }"></div>
+              </div>
+              <small>{{ Math.round(goal.current / goal.target * 100) }}%</small>
+            </div>
+          </div>
+        </div>
+        <button class="btn small" @click="showGoalModal = true">Neues Ziel</button>
+      </div>
+    </div>
+
+    <!-- Einnahmen Tab -->
+    <div v-if="activeTab === 'income'" class="tab-content">
+      <div class="section-header">
+        <h3>Einnahmen verwalten</h3>
+        <button class="btn" @click="showIncomeModal = true">Einnahme hinzufügen</button>
+      </div>
+      <div class="items-grid">
+        <div v-for="income in incomes" :key="income.id" class="item-card">
+          <div class="item-header">
+            <h4>{{ income.name }}</h4>
+            <span class="amount positive">{{ formatCurrency(income.amount) }}</span>
+          </div>
+          <div class="item-details">
+            <span class="frequency">{{ income.frequency || 'Einmalig' }}</span>
+            <div class="item-actions">
+              <button @click="editIncome(income)">Bearbeiten</button>
+              <button @click="deleteIncome(income)">Löschen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ausgaben Tab -->
+    <div v-if="activeTab === 'expenses'" class="tab-content">
+      <div class="section-header">
+        <h3>Ausgaben verwalten</h3>
+        <button class="btn" @click="showExpenseModal = true">Ausgabe hinzufügen</button>
+      </div>
+      <div class="expense-categories">
+        <button v-for="cat in expenseCategoryTypes" :key="cat.key" 
+                :class="['category-tab', { active: selectedCategory === cat.key }]" 
+                @click="selectedCategory = cat.key">
+          {{ cat.name }}
+        </button>
+      </div>
+      <div class="items-grid">
+        <div v-for="expense in filteredExpenses" :key="expense.id" class="item-card">
+          <div class="item-header">
+            <h4>{{ expense.name }}</h4>
+            <span class="amount negative">{{ formatCurrency(expense.amount) }}</span>
+          </div>
+          <div class="item-details">
+            <span class="category">{{ getCategoryName(expense.category) }}</span>
+            <span class="frequency">{{ expense.frequency || 'Einmalig' }}</span>
+            <div class="item-actions">
+              <button @click="editExpense(expense)">Bearbeiten</button>
+              <button @click="deleteExpense(expense)">Löschen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schulden Tab -->
+    <div v-if="activeTab === 'debt'" class="tab-content">
+      <div class="section-header">
+        <h3>Schulden verwalten</h3>
+        <button class="btn" @click="showDebtModal = true">Schuld hinzufügen</button>
+      </div>
+      <div class="debt-summary">
+        <div class="summary-item">
+          <span>Gesamtschulden</span>
+          <span class="amount">{{ formatCurrency(totalDebt) }}</span>
+        </div>
+        <div class="summary-item">
+          <span>Bezahlt</span>
+          <span class="amount positive">{{ formatCurrency(totalPaid) }}</span>
+        </div>
+        <div class="summary-item">
+          <span>Verbleibend</span>
+          <span class="amount">{{ formatCurrency(totalDebt - totalPaid) }}</span>
+        </div>
+      </div>
+      <div class="items-grid">
+        <div v-for="debt in debts" :key="debt.id" class="item-card debt-card" :class="{ 'paid-off': debt.paidAmount >= debt.amount }">
+          <div class="item-header">
+            <h4>{{ debt.name }}</h4>
+            <span class="amount">{{ formatCurrency(debt.amount - debt.paidAmount) }}</span>
+          </div>
+          <div class="debt-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: (debt.paidAmount / debt.amount * 100) + '%' }"></div>
+            </div>
+            <small>{{ formatCurrency(debt.paidAmount) }} / {{ formatCurrency(debt.amount) }}</small>
+          </div>
+          <div class="item-details">
+            <span>Zins: {{ debt.interestRate }}%</span>
+            <div class="item-actions">
+              <button @click="addPayment(debt)">Zahlung</button>
+              <button @click="editDebt(debt)">Bearbeiten</button>
+              <button @click="deleteDebt(debt)">Löschen</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Budget Tab -->
+    <div v-if="activeTab === 'budget'" class="tab-content">
+      <div class="section-header">
+        <h3>Budget planen</h3>
+        <button class="btn" @click="showBudgetModal = true">Budget setzen</button>
+      </div>
+      <div class="budget-overview">
+        <div class="budget-item">
+          <span>Monatliches Budget</span>
+          <span>{{ formatCurrency(monthlyBudget) }}</span>
+        </div>
+        <div class="budget-item">
+          <span>Ausgaben bisher</span>
+          <span>{{ formatCurrency(currentMonthExpenses) }}</span>
+        </div>
+        <div class="budget-item">
+          <span>Verbleibend</span>
+          <span :class="monthlyBudget - currentMonthExpenses >= 0 ? 'positive' : 'negative'">
+            {{ formatCurrency(monthlyBudget - currentMonthExpenses) }}
+          </span>
+        </div>
+      </div>
+      <div class="budget-breakdown">
+        <h4>Budget nach Kategorie</h4>
+        <div v-for="budget in categoryBudgets" :key="budget.category" class="budget-category">
+          <div class="category-header">
+            <span>{{ getCategoryName(budget.category) }}</span>
+            <span>{{ formatCurrency(budget.allocated) }}</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: Math.min((getCategorySpent(budget.category) / budget.allocated * 100), 100) + '%' }"></div>
+          </div>
+          <small>Ausgegeben: {{ formatCurrency(getCategorySpent(budget.category)) }}</small>
         </div>
       </div>
     </div>
@@ -110,7 +206,7 @@
     <!-- Modals -->
     <div v-if="showIncomeModal" class="modal-overlay" @click="showIncomeModal = false">
       <div class="modal" @click.stop>
-        <h3>{{ editingIncome ? 'Einkommen bearbeiten' : 'Neues Einkommen' }}</h3>
+        <h3>{{ editingIncome ? 'Einnahme bearbeiten' : 'Neue Einnahme' }}</h3>
         <form @submit.prevent="saveIncome">
           <div class="form-group">
             <label>Name</label>
@@ -131,6 +227,41 @@
           </div>
           <div class="modal-actions">
             <button type="button" class="btn ghost" @click="showIncomeModal = false">Abbrechen</button>
+            <button type="submit" class="btn">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showExpenseModal" class="modal-overlay" @click="showExpenseModal = false">
+      <div class="modal" @click.stop>
+        <h3>{{ editingExpense ? 'Ausgabe bearbeiten' : 'Neue Ausgabe' }}</h3>
+        <form @submit.prevent="saveExpense">
+          <div class="form-group">
+            <label>Name</label>
+            <input v-model="expenseForm.name" type="text" required>
+          </div>
+          <div class="form-group">
+            <label>Betrag</label>
+            <input v-model.number="expenseForm.amount" type="number" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label>Kategorie</label>
+            <select v-model="expenseForm.category" required>
+              <option v-for="cat in expenseCategoryTypes" :key="cat.key" :value="cat.key">{{ cat.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Häufigkeit</label>
+            <select v-model="expenseForm.frequency">
+              <option value="">Einmalig</option>
+              <option value="monatlich">Monatlich</option>
+              <option value="wöchentlich">Wöchentlich</option>
+              <option value="jährlich">Jährlich</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" @click="showExpenseModal = false">Abbrechen</button>
             <button type="submit" class="btn">Speichern</button>
           </div>
         </form>
@@ -184,6 +315,53 @@
         </form>
       </div>
     </div>
+
+    <div v-if="showGoalModal" class="modal-overlay" @click="showGoalModal = false">
+      <div class="modal" @click.stop>
+        <h3>Neues Sparziel</h3>
+        <form @submit.prevent="saveGoal">
+          <div class="form-group">
+            <label>Name</label>
+            <input v-model="goalForm.name" type="text" required>
+          </div>
+          <div class="form-group">
+            <label>Zielbetrag</label>
+            <input v-model.number="goalForm.target" type="number" step="0.01" required>
+          </div>
+          <div class="form-group">
+            <label>Aktuell gespart</label>
+            <input v-model.number="goalForm.current" type="number" step="0.01">
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" @click="showGoalModal = false">Abbrechen</button>
+            <button type="submit" class="btn">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div v-if="showBudgetModal" class="modal-overlay" @click="showBudgetModal = false">
+      <div class="modal" @click.stop>
+        <h3>Monatliches Budget setzen</h3>
+        <form @submit.prevent="saveBudget">
+          <div class="form-group">
+            <label>Gesamtbudget</label>
+            <input v-model.number="budgetForm.total" type="number" step="0.01" required>
+          </div>
+          <div class="category-budgets">
+            <h4>Budget pro Kategorie</h4>
+            <div v-for="cat in expenseCategoryTypes" :key="cat.key" class="budget-input">
+              <label>{{ cat.name }}</label>
+              <input v-model.number="budgetForm.categories[cat.key]" type="number" step="0.01">
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" @click="showBudgetModal = false">Abbrechen</button>
+            <button type="submit" class="btn">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -191,21 +369,38 @@
 import { ref, computed, onMounted, watch } from 'vue';
 
 // Reactive data
+const activeTab = ref('overview');
 const incomes = ref([]);
+const expenses = ref([]);
 const debts = ref([]);
 const payments = ref([]);
+const savingsGoals = ref([]);
+const categoryBudgets = ref([]);
+
+const selectedCategory = ref('all');
 
 const showIncomeModal = ref(false);
+const showExpenseModal = ref(false);
 const showDebtModal = ref(false);
 const showPaymentModal = ref(false);
+const showGoalModal = ref(false);
+const showBudgetModal = ref(false);
 
 const editingIncome = ref(null);
+const editingExpense = ref(null);
 const editingDebt = ref(null);
 const currentDebt = ref(null);
 
 const incomeForm = ref({
   name: '',
   amount: 0,
+  frequency: ''
+});
+
+const expenseForm = ref({
+  name: '',
+  amount: 0,
+  category: '',
   frequency: ''
 });
 
@@ -221,57 +416,35 @@ const paymentForm = ref({
   date: new Date().toISOString().split('T')[0]
 });
 
-// Calendar
-const currentDate = ref(new Date());
-
-const currentMonthName = computed(() => {
-  return currentDate.value.toLocaleDateString('de-DE', { month: 'long' });
+const goalForm = ref({
+  name: '',
+  target: 0,
+  current: 0
 });
 
-const currentYear = computed(() => {
-  return currentDate.value.getFullYear();
+const budgetForm = ref({
+  total: 0,
+  categories: {}
 });
 
-const calendarDays = computed(() => {
-  const year = currentDate.value.getFullYear();
-  const month = currentDate.value.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startingDayOfWeek = firstDay.getDay() || 7; // 1 = Monday, 7 = Sunday
-
-  const days = [];
-
-  // Add empty cells for days before the first day of the month
-  for (let i = 1; i < startingDayOfWeek; i++) {
-    days.push({ day: '', date: null, isToday: false, hasPayment: false });
-  }
-
-  // Add days of the month
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    const isToday = date.toDateString() === new Date().toDateString();
-    const dayPayments = payments.value.filter(p => {
-      const paymentDate = new Date(p.date);
-      return paymentDate.toDateString() === date.toDateString();
-    });
-    const hasPayment = dayPayments.length > 0;
-
-    days.push({
-      day,
-      date,
-      isToday,
-      hasPayment,
-      payments: dayPayments
-    });
-  }
-
-  return days;
-});
+const expenseCategoryTypes = [
+  { key: 'fixed', name: 'Fixe Kosten' },
+  { key: 'subscriptions', name: 'Abos' },
+  { key: 'installments', name: 'Ratenzahlungen' },
+  { key: 'variable', name: 'Variable Ausgaben' },
+  { key: 'entertainment', name: 'Unterhaltung' },
+  { key: 'food', name: 'Essen' },
+  { key: 'transport', name: 'Transport' },
+  { key: 'other', name: 'Sonstiges' }
+];
 
 // Computed properties
 const totalIncome = computed(() => {
   return incomes.value.reduce((sum, income) => sum + income.amount, 0);
+});
+
+const totalExpenses = computed(() => {
+  return expenses.value.reduce((sum, expense) => sum + expense.amount, 0);
 });
 
 const totalDebt = computed(() => {
@@ -288,19 +461,46 @@ const monthlyIncome = computed(() => {
     .reduce((sum, income) => sum + income.amount, 0);
 });
 
-const monthlyDebtPayments = computed(() => {
-  // Simplified: assume minimum payments based on debt amount and interest
-  return debts.value.reduce((sum, debt) => {
-    const remaining = debt.amount - (debt.paidAmount || 0);
-    return sum + Math.max(remaining * 0.02, 50); // 2% or minimum 50€
-  }, 0);
+const monthlyExpenses = computed(() => {
+  return expenses.value
+    .filter(expense => expense.frequency === 'monatlich')
+    .reduce((sum, expense) => sum + expense.amount, 0);
 });
 
-const debtFreeMonths = computed(() => {
-  const monthlySurplus = monthlyIncome.value - monthlyDebtPayments.value;
-  if (monthlySurplus <= 0) return 'Unendlich';
-  const remainingDebt = totalDebt.value - totalPaid.value;
-  return Math.ceil(remainingDebt / monthlySurplus);
+const totalMonthlyExpenses = computed(() => monthlyExpenses.value);
+
+const expenseCategories = computed(() => {
+  const categories = {};
+  expenses.value.forEach(expense => {
+    if (!categories[expense.category]) {
+      categories[expense.category] = { amount: 0, name: getCategoryName(expense.category) };
+    }
+    categories[expense.category].amount += expense.amount;
+  });
+  return Object.values(categories);
+});
+
+const filteredExpenses = computed(() => {
+  if (selectedCategory.value === 'all') return expenses.value;
+  return expenses.value.filter(expense => expense.category === selectedCategory.value);
+});
+
+const monthlyBudget = computed(() => {
+  return categoryBudgets.value.reduce((sum, budget) => sum + budget.allocated, 0);
+});
+
+const currentMonthExpenses = computed(() => {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  return expenses.value
+    .filter(expense => {
+      if (!expense.frequency || expense.frequency === 'monatlich') return true;
+      // For simplicity, assume monthly for now
+      return true;
+    })
+    .reduce((sum, expense) => sum + expense.amount, 0);
 });
 
 // Methods
@@ -311,8 +511,15 @@ function formatCurrency(amount) {
   }).format(amount);
 }
 
-function debtProgress(debt) {
-  return ((debt.paidAmount || 0) / debt.amount) * 100;
+function getCategoryName(key) {
+  const cat = expenseCategoryTypes.find(c => c.key === key);
+  return cat ? cat.name : key;
+}
+
+function getCategorySpent(category) {
+  return expenses.value
+    .filter(expense => expense.category === category)
+    .reduce((sum, expense) => sum + expense.amount, 0);
 }
 
 function saveIncome() {
@@ -334,6 +541,35 @@ function editIncome(income) {
   showIncomeModal.value = true;
 }
 
+function deleteIncome(income) {
+  const index = incomes.value.indexOf(income);
+  if (index > -1) incomes.value.splice(index, 1);
+}
+
+function saveExpense() {
+  if (editingExpense.value) {
+    Object.assign(editingExpense.value, expenseForm.value);
+  } else {
+    expenses.value.push({
+      id: Date.now(),
+      ...expenseForm.value
+    });
+  }
+  resetExpenseForm();
+  showExpenseModal.value = false;
+}
+
+function editExpense(expense) {
+  editingExpense.value = expense;
+  expenseForm.value = { ...expense };
+  showExpenseModal.value = true;
+}
+
+function deleteExpense(expense) {
+  const index = expenses.value.indexOf(expense);
+  if (index > -1) expenses.value.splice(index, 1);
+}
+
 function saveDebt() {
   if (editingDebt.value) {
     Object.assign(editingDebt.value, debtForm.value);
@@ -352,6 +588,11 @@ function editDebt(debt) {
   editingDebt.value = debt;
   debtForm.value = { ...debt };
   showDebtModal.value = true;
+}
+
+function deleteDebt(debt) {
+  const index = debts.value.indexOf(debt);
+  if (index > -1) debts.value.splice(index, 1);
 }
 
 function addPayment(debt) {
@@ -377,6 +618,23 @@ function savePayment() {
   showPaymentModal.value = false;
 }
 
+function saveGoal() {
+  savingsGoals.value.push({
+    id: Date.now(),
+    ...goalForm.value
+  });
+  resetGoalForm();
+  showGoalModal.value = false;
+}
+
+function saveBudget() {
+  categoryBudgets.value = Object.keys(budgetForm.value.categories).map(key => ({
+    category: key,
+    allocated: budgetForm.value.categories[key] || 0
+  }));
+  showBudgetModal.value = false;
+}
+
 function resetIncomeForm() {
   incomeForm.value = {
     name: '',
@@ -384,6 +642,16 @@ function resetIncomeForm() {
     frequency: ''
   };
   editingIncome.value = null;
+}
+
+function resetExpenseForm() {
+  expenseForm.value = {
+    name: '',
+    amount: 0,
+    category: '',
+    frequency: ''
+  };
+  editingExpense.value = null;
 }
 
 function resetDebtForm() {
@@ -396,27 +664,37 @@ function resetDebtForm() {
   editingDebt.value = null;
 }
 
-function prevMonth() {
-  currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() - 1, 1);
-}
-
-function nextMonth() {
-  currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() + 1, 1);
+function resetGoalForm() {
+  goalForm.value = {
+    name: '',
+    target: 0,
+    current: 0
+  };
 }
 
 // Load data from localStorage
 onMounted(() => {
   const savedIncomes = localStorage.getItem('finance-incomes');
+  const savedExpenses = localStorage.getItem('finance-expenses');
   const savedDebts = localStorage.getItem('finance-debts');
   const savedPayments = localStorage.getItem('finance-payments');
+  const savedGoals = localStorage.getItem('finance-goals');
+  const savedBudgets = localStorage.getItem('finance-budgets');
 
   if (savedIncomes) incomes.value = JSON.parse(savedIncomes);
+  if (savedExpenses) expenses.value = JSON.parse(savedExpenses);
   if (savedDebts) debts.value = JSON.parse(savedDebts);
   if (savedPayments) payments.value = JSON.parse(savedPayments);
+  if (savedGoals) savingsGoals.value = JSON.parse(savedGoals);
+  if (savedBudgets) categoryBudgets.value = JSON.parse(savedBudgets);
 
   // Watch for changes and save to localStorage
   watch(incomes, (newIncomes) => {
     localStorage.setItem('finance-incomes', JSON.stringify(newIncomes));
+  }, { deep: true });
+
+  watch(expenses, (newExpenses) => {
+    localStorage.setItem('finance-expenses', JSON.stringify(newExpenses));
   }, { deep: true });
 
   watch(debts, (newDebts) => {
@@ -425,6 +703,14 @@ onMounted(() => {
 
   watch(payments, (newPayments) => {
     localStorage.setItem('finance-payments', JSON.stringify(newPayments));
+  }, { deep: true });
+
+  watch(savingsGoals, (newGoals) => {
+    localStorage.setItem('finance-goals', JSON.stringify(newGoals));
+  }, { deep: true });
+
+  watch(categoryBudgets, (newBudgets) => {
+    localStorage.setItem('finance-budgets', JSON.stringify(newBudgets));
   }, { deep: true });
 });
 </script>
@@ -448,6 +734,28 @@ onMounted(() => {
 .finance-header p {
   margin: 0;
   color: var(--muted);
+}
+
+.finance-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.finance-tabs button {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.finance-tabs button.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
 }
 
 .finance-grid {
@@ -475,35 +783,116 @@ onMounted(() => {
   margin: 0;
 }
 
-.income-list, .debt-list {
-  margin-bottom: 20px;
+.tab-content {
+  padding: 20px 0;
 }
 
-.income-item, .debt-item {
+.section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
 }
 
-.income-item:last-child, .debt-item:last-child {
-  border-bottom: none;
+.section-header h3 {
+  margin: 0;
 }
 
-.income-info, .debt-info {
-  flex: 1;
+.items-grid {
+  display: grid;
+  gap: 15px;
 }
 
-.income-amount, .debt-amount {
-  display: block;
+.item-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.item-header h4 {
+  margin: 0;
+}
+
+.amount {
   font-weight: bold;
-  color: var(--brand);
+  font-size: 1.1rem;
 }
 
-.debt-item.paid-off .debt-amount {
+.amount.positive {
+  color: #10b981;
+}
+
+.amount.negative {
+  color: #ef4444;
+}
+
+.item-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   color: var(--muted);
-  text-decoration: line-through;
+  font-size: 0.9rem;
+}
+
+.item-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.expense-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 20px;
+}
+
+.category-tab {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-tab.active {
+  background: var(--brand);
+  color: white;
+  border-color: var(--brand);
+}
+
+.debt-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.summary-item {
+  text-align: center;
+  padding: 15px;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.summary-item span:first-child {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 5px;
+}
+
+.debt-progress {
+  margin: 10px 0;
 }
 
 .progress-bar {
@@ -511,8 +900,8 @@ onMounted(() => {
   height: 8px;
   background: var(--border);
   border-radius: 4px;
-  margin: 5px 0;
   overflow: hidden;
+  margin: 5px 0;
 }
 
 .progress-fill {
@@ -521,98 +910,129 @@ onMounted(() => {
   transition: width 0.3s ease;
 }
 
-.debt-actions {
-  display: flex;
-  gap: 5px;
+.budget-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
 }
 
-.total-income, .total-debt {
-  padding-top: 15px;
-  border-top: 1px solid var(--border);
-  text-align: center;
-}
-
-.calendar {
-  background: var(--surface);
-  border-radius: 8px;
-  padding: 15px;
-}
-
-.calendar-header {
+.budget-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  padding: 15px;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
-.calendar-header h4 {
-  margin: 0;
-}
-
-.calendar-grid {
+.budget-breakdown {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
+  gap: 15px;
 }
 
-.calendar-day {
-  aspect-ratio: 1;
+.budget-category {
+  padding: 15px;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.category-header {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 5px;
-  border-radius: 6px;
-  position: relative;
+  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
-.calendar-day.today {
-  background: rgba(47, 99, 255, 0.1);
-  font-weight: bold;
-}
-
-.calendar-day.hasPayment {
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.day-payments {
-  display: flex;
-  gap: 2px;
-  margin-top: 2px;
-}
-
-.payment-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.payment-dot.debt {
-  background: var(--brand);
-}
-
-.stats {
+.summary-stats {
   display: flex;
   flex-direction: column;
   gap: 15px;
 }
 
-.stat-item {
+.stat {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.stat-label {
+.stat .label {
   color: var(--muted);
 }
 
-.stat-value {
+.stat .value {
   font-weight: bold;
+  font-size: 1.1rem;
 }
 
-.stat-value.negative {
+.value.positive {
+  color: #10b981;
+}
+
+.value.negative {
   color: #ef4444;
+}
+
+.expense-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.category-amount {
+  font-weight: bold;
+  color: var(--brand);
+}
+
+.category-bar {
+  flex: 2;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+}
+
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.goal-item {
+  padding: 15px;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.goal-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.goal-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .modal-overlay {
@@ -669,6 +1089,25 @@ onMounted(() => {
   margin-top: 20px;
 }
 
+.category-budgets {
+  margin-top: 20px;
+}
+
+.budget-input {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.budget-input label {
+  flex: 1;
+}
+
+.budget-input input {
+  width: 120px;
+}
+
 .btn.small {
   padding: 6px 12px;
   font-size: 0.9rem;
@@ -677,5 +1116,10 @@ onMounted(() => {
 .btn.tiny {
   padding: 4px 8px;
   font-size: 0.8rem;
+}
+
+.debt-card.paid-off {
+  opacity: 0.7;
+  border-color: #10b981;
 }
 </style>

@@ -25,6 +25,7 @@ import PlatformLanding from "../views/PlatformLanding.vue";
 import ContestLanding from "../views/ContestLanding.vue";
 import MusicLanding from "../views/MusicLanding.vue";
 import LocationsLanding from "../views/LocationsLanding.vue";
+import FinanceLanding from "../views/FinanceLanding.vue";
 import FinanceTool from "../views/FinanceTool.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 
@@ -71,6 +72,7 @@ const routes = [
   { path: "/platforms/contests", name: "platform-contests", component: ContestLanding, meta: { requiresAuth: true } },
   { path: "/platforms/music", name: "platform-music", component: MusicLanding, meta: { requiresAuth: true } },
   { path: "/platforms/locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
+  { path: "/platforms/finance", name: "platform-finance", component: FinanceLanding, meta: { requiresAuth: true } },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 

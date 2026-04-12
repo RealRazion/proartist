@@ -1957,7 +1957,7 @@ select[multiple] {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1971,8 +1971,8 @@ select[multiple] {
   overflow-y: auto;
   border-radius: 26px;
   padding: 24px;
-  background: var(--card);
-  box-shadow: 0 40px 80px rgba(15, 23, 42, 0.35);
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
 }
 .modal.wide {
   max-width: 920px;

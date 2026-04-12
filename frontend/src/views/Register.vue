@@ -1,8 +1,8 @@
-<template>
+﻿<template>
   <div class="auth-page">
     <div class="card auth-card">
       <h1>Registrierung anfragen</h1>
-      <p class="subtitle">Trage deine E-Mail ein und beschreibe kurz, wer du bist. Das Team prüft deine Anfrage — anschließend kannst du den UNYQ Hub nutzen.</p>
+      <p class="subtitle">Trage deine E-Mail ein und beschreibe kurz, wer du bist. Das Team prüft deine Anfrage.</p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label>

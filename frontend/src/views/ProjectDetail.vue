@@ -1551,7 +1551,7 @@ onBeforeUnmount(() => {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1565,9 +1565,9 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   border-radius: 26px;
   padding: 24px;
-  background: var(--card);
+  background: var(--modal-bg);
   border: 1px solid var(--border);
-  box-shadow: 0 40px 80px rgba(15, 23, 42, 0.35);
+  box-shadow: var(--modal-shadow);
 }
 .modal.wide {
   max-width: 920px;

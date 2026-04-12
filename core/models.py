@@ -296,13 +296,18 @@ class Debt(models.Model):
         ("PAID_OFF", "Abbezahlt"),
         ("PAUSED", "Pausiert"),
     ]
+    PAYMENT_TYPES = [
+        ("INSTALLMENT", "Ratenzahlung"),
+        ("FIXED_AMOUNT", "Fixbetrag"),
+    ]
     
     project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="debts")
     name = models.CharField(max_length=200, help_text="z.B. Klarna, Darlehen, etc.")
+    payment_type = models.CharField(max_length=20, choices=PAYMENT_TYPES, default="INSTALLMENT")
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Gesamtbetrag der Schulden")
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Bisheriger bezahlter Betrag")
-    monthly_payment = models.DecimalField(max_digits=12, decimal_places=2, help_text="Monatliche Zahlungsrate")
-    due_day = models.PositiveSmallIntegerField(help_text="Tag im Monat für die Zahlungen (1-31)")
+    monthly_payment = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Monatliche Zahlungsrate")
+    due_day = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Tag im Monat fuer die Zahlungen (1-31)")
     status = models.CharField(max_length=20, choices=STATUS, default="ACTIVE")
     start_date = models.DateField()
     paid_off_date = models.DateField(null=True, blank=True)
@@ -329,10 +334,22 @@ class Debt(models.Model):
         return self.remaining_amount <= Decimal("0")
     
     @property
+    def scheduled_payment_amount(self):
+        """Amount currently due for this debt type."""
+        from decimal import Decimal
+
+        if self.payment_type == "FIXED_AMOUNT":
+            return self.remaining_amount
+        return self.monthly_payment or Decimal("0")
+
+    @property
     def months_remaining(self):
         """Calculate estimated months to pay off"""
-        from decimal import Decimal
-        if self.monthly_payment <= 0 or self.is_fully_paid:
+        if self.is_fully_paid:
+            return 0
+        if self.payment_type == "FIXED_AMOUNT":
+            return 1
+        if not self.monthly_payment or self.monthly_payment <= 0:
             return 0
         remaining = self.remaining_amount
         return int((remaining / self.monthly_payment) + (1 if remaining % self.monthly_payment else 0))

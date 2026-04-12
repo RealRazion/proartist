@@ -576,8 +576,8 @@ onMounted(refresh);
 .badge[data-tone="ok"] { background: rgba(34, 197, 94, 0.16); color: var(--status-ok); }
 .tiny { padding: 6px 10px; font-size: 12px; }
 .btn.danger { color: #b91c1c; border-color: rgba(248, 113, 113, 0.45); }
-.modal-backdrop { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.55); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
-.modal { width: min(540px, 100%); max-height: 90vh; overflow: auto; display: grid; gap: 10px; }
+.modal-backdrop { position: fixed; inset: 0; background: var(--modal-overlay); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.modal { width: min(540px, 100%); max-height: 90vh; overflow: auto; display: grid; gap: 10px; background: var(--modal-bg); border: 1px solid var(--border); box-shadow: var(--modal-shadow); border-radius: 24px; padding: 20px; }
 .form { display: grid; gap: 10px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .invite-link { border-top: 1px solid var(--border); padding-top: 10px; display: grid; gap: 8px; }

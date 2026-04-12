@@ -18,6 +18,7 @@
             <div>
               <h3>{{ debt.name }}</h3>
               <p class="muted small">Gestartet: {{ formatDate(debt.start_date) }}</p>
+              <p class="muted small">{{ formatPaymentType(debt.payment_type) }}</p>
             </div>
             <span :class="['status-badge', `status-${debt.status.toLowerCase()}`]">
               {{ formatStatus(debt.status) }}
@@ -50,14 +51,17 @@
               </strong>
             </div>
             <div class="stat">
-              <span class="stat-label">Monatliche Rate</span>
-              <strong>{{ formatCurrency(debt.monthly_payment) }}</strong>
+              <span class="stat-label">{{ debt.payment_type === 'INSTALLMENT' ? 'Monatliche Rate' : 'Fixbetrag faellig' }}</span>
+              <strong>{{ formatCurrency(debt.scheduled_payment_amount) }}</strong>
             </div>
           </div>
 
-          <p v-if="!debt.is_fully_paid && debt.months_remaining > 0" class="muted small">
+          <p v-if="debt.payment_type === 'INSTALLMENT' && !debt.is_fully_paid && debt.months_remaining > 0" class="muted small">
             Noch ca. <strong>{{ debt.months_remaining }} Monat{{ debt.months_remaining !== 1 ? 'e' : '' }}</strong>
             bis zur Tilgung
+          </p>
+          <p v-else-if="debt.payment_type === 'FIXED_AMOUNT' && !debt.is_fully_paid" class="muted small">
+            Offener Fixbetrag mit Faelligkeit ab {{ formatDate(debt.start_date) }}
           </p>
           <p v-else-if="debt.is_fully_paid" class="success-text small">
             ✓ Abbezahlt am {{ formatDate(debt.paid_off_date) }}
@@ -110,6 +114,14 @@
             <input v-model.trim="debtForm.name" class="input" required />
           </label>
 
+          <label>
+            Schuldentyp
+            <select v-model="debtForm.payment_type" class="input">
+              <option value="INSTALLMENT">Ratenzahlung</option>
+              <option value="FIXED_AMOUNT">Fixbetrag</option>
+            </select>
+          </label>
+
           <div class="grid two">
             <label>
               Gesamtschuld
@@ -134,7 +146,7 @@
             </label>
           </div>
 
-          <div class="grid two">
+          <div v-if="debtForm.payment_type === 'INSTALLMENT'" class="grid two">
             <label>
               Monatliche Rate
               <input
@@ -151,6 +163,10 @@
               <input v-model="debtForm.due_day" class="input" type="number" min="1" max="31" required />
             </label>
           </div>
+
+          <p v-else class="muted small">
+            Bei einem Fixbetrag wird keine monatliche Rate verlangt. Der offene Restbetrag ist ab dem Startdatum faellig.
+          </p>
 
           <div class="grid two">
             <label>
@@ -330,7 +346,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue';
+import { computed, ref, watch } from 'vue';
 import api from '../api';
 
 const props = defineProps({
@@ -360,10 +376,11 @@ const klarnaEntries = ref([]);
 function buildDebtForm(data = {}) {
   return {
     name: data.name || '',
-    total_amount: data.total_amount || '',
-    amount_paid: data.amount_paid || 0,
-    monthly_payment: data.monthly_payment || '',
-    due_day: data.due_day || '',
+    payment_type: data.payment_type || 'INSTALLMENT',
+    total_amount: data.total_amount ?? '',
+    amount_paid: data.amount_paid ?? 0,
+    monthly_payment: data.monthly_payment ?? '',
+    due_day: data.due_day ?? '',
     status: data.status || 'ACTIVE',
     start_date: data.start_date || new Date().toISOString().split('T')[0],
     notes: data.notes || '',
@@ -381,6 +398,7 @@ function buildPaymentForm() {
 function buildKlarnaQuickEntry() {
   return {
     name: '',
+    payment_type: 'INSTALLMENT',
     total_amount: '',
     monthly_payment: '',
     due_day: '',
@@ -401,10 +419,18 @@ const nextMonthsBreakdown = computed(() => {
     debts.value
       .filter((debt) => !debt.is_fully_paid && debt.status === 'ACTIVE')
       .forEach((debt) => {
+        const debtStartMonth = String(debt.start_date || '').slice(0, 7);
+        const isInstallment = debt.payment_type === 'INSTALLMENT';
+        const isDueThisMonth = isInstallment ? debtStartMonth <= monthStr : debtStartMonth === monthStr;
+
+        if (!isDueThisMonth) {
+          return;
+        }
+
         entries.push({
           debt_id: debt.id,
           name: debt.name,
-          amount: debt.monthly_payment,
+          amount: debt.scheduled_payment_amount,
         });
         remaining_total += parseFloat(debt.remaining_amount || 0);
       });
@@ -446,6 +472,31 @@ function formatStatus(status) {
   return labels[status] || status;
 }
 
+function formatPaymentType(paymentType) {
+  const labels = {
+    INSTALLMENT: 'Ratenzahlung',
+    FIXED_AMOUNT: 'Fixbetrag',
+  };
+  return labels[paymentType] || paymentType;
+}
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const data = error?.response?.data;
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
+  if (data && typeof data === 'object') {
+    const firstValue = Object.values(data)[0];
+    if (Array.isArray(firstValue) && firstValue.length) {
+      return String(firstValue[0]);
+    }
+    if (typeof firstValue === 'string' && firstValue.trim()) {
+      return firstValue;
+    }
+  }
+  return fallbackMessage;
+}
+
 function calculateMonths(amount, payment) {
   const a = parseFloat(amount || 0);
   const p = parseFloat(payment || 0);
@@ -458,6 +509,9 @@ async function loadDebts() {
   try {
     const { data } = await api.get(`debts/?project=${props.projectId}`);
     debts.value = Array.isArray(data) ? data : data.results || [];
+  } catch (error) {
+    debts.value = [];
+    alert(getApiErrorMessage(error, 'Schulden konnten nicht geladen werden.'));
   } finally {
     loading.value = false;
   }
@@ -476,8 +530,13 @@ function closeAddDebtModal() {
 }
 
 async function saveDebt() {
-  if (!debtForm.value.name || !debtForm.value.total_amount || !debtForm.value.monthly_payment) {
-    alert('Bitte alle erforderlichen Felder ausfüllen');
+  const isInstallment = debtForm.value.payment_type === 'INSTALLMENT';
+  if (
+    !debtForm.value.name ||
+    !debtForm.value.total_amount ||
+    (isInstallment && (!debtForm.value.monthly_payment || !debtForm.value.due_day))
+  ) {
+    alert('Bitte alle erforderlichen Felder ausfuellen');
     return;
   }
 
@@ -488,8 +547,8 @@ async function saveDebt() {
       project: props.projectId,
       total_amount: parseFloat(debtForm.value.total_amount),
       amount_paid: parseFloat(debtForm.value.amount_paid || 0),
-      monthly_payment: parseFloat(debtForm.value.monthly_payment),
-      due_day: parseInt(debtForm.value.due_day),
+      monthly_payment: isInstallment ? parseFloat(debtForm.value.monthly_payment) : null,
+      due_day: isInstallment ? parseInt(debtForm.value.due_day, 10) : null,
     };
 
     if (editingDebtId.value) {
@@ -500,6 +559,8 @@ async function saveDebt() {
 
     closeAddDebtModal();
     await loadDebts();
+  } catch (error) {
+    alert(getApiErrorMessage(error, 'Schuld konnte nicht gespeichert werden.'));
   } finally {
     savingDebt.value = false;
   }
@@ -514,7 +575,7 @@ async function removeDebt(debt) {
     await api.delete(`debts/${debt.id}/`);
     await loadDebts();
   } catch (err) {
-    alert('Fehler beim Löschen');
+    alert(getApiErrorMessage(err, 'Fehler beim Loeschen'));
   }
 }
 
@@ -548,6 +609,8 @@ async function recordPayment() {
 
     closePaymentModal();
     await loadDebts();
+  } catch (error) {
+    alert(getApiErrorMessage(error, 'Zahlung konnte nicht gespeichert werden.'));
   } finally {
     savingPayment.value = false;
   }
@@ -563,7 +626,7 @@ function addKlarnaEntry() {
   const entry = klarnaQuickEntry.value;
 
   if (!entry.name || !entry.total_amount || !entry.monthly_payment || !entry.due_day) {
-    alert('Bitte alle Felder ausfüllen');
+    alert('Bitte alle Felder ausfuellen');
     return;
   }
 
@@ -571,7 +634,7 @@ function addKlarnaEntry() {
     ...entry,
     total_amount: parseFloat(entry.total_amount),
     monthly_payment: parseFloat(entry.monthly_payment),
-    due_day: parseInt(entry.due_day),
+    due_day: parseInt(entry.due_day, 10),
   });
 
   klarnaQuickEntry.value = buildKlarnaQuickEntry();
@@ -583,7 +646,7 @@ function removeKlarnaEntry(idx) {
 
 async function saveAllKlarnaEntries() {
   if (!klarnaEntries.value.length) {
-    alert('Keine Einträge zum Speichern');
+    alert('Keine Eintraege zum Speichern');
     return;
   }
 
@@ -601,12 +664,24 @@ async function saveAllKlarnaEntries() {
 
     closeKlarnaCalculator();
     await loadDebts();
+  } catch (error) {
+    alert(getApiErrorMessage(error, 'Klarna-Eintraege konnten nicht gespeichert werden.'));
   } finally {
     savingKlarna.value = false;
   }
 }
 
-onMounted(loadDebts);
+watch(
+  () => props.projectId,
+  (projectId) => {
+    if (!projectId) {
+      debts.value = [];
+      return;
+    }
+    loadDebts();
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
@@ -814,19 +889,20 @@ onMounted(loadDebts);
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 16px;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(10px);
 }
 
 .modal-content {
-  background: var(--surface);
+  background: var(--modal-bg);
   border-radius: 16px;
   border: 1px solid var(--border);
+  box-shadow: var(--modal-shadow);
   max-width: 500px;
   width: 100%;
   max-height: 90vh;
@@ -887,7 +963,7 @@ onMounted(loadDebts);
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--background);
+  background: var(--input-bg);
   color: var(--text);
   font-size: 14px;
 }
@@ -929,7 +1005,7 @@ onMounted(loadDebts);
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--background);
+  background: var(--input-bg);
   color: var(--text);
   font-size: 14px;
 }

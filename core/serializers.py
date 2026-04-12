@@ -880,6 +880,7 @@ class DebtSerializer(serializers.ModelSerializer):
     is_fully_paid = serializers.BooleanField(read_only=True)
     months_remaining = serializers.IntegerField(read_only=True)
     payment_percentage = serializers.SerializerMethodField()
+    scheduled_payment_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = Debt
@@ -887,6 +888,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "id",
             "project",
             "name",
+            "payment_type",
             "total_amount",
             "amount_paid",
             "monthly_payment",
@@ -898,6 +900,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "is_fully_paid",
             "months_remaining",
             "payment_percentage",
+            "scheduled_payment_amount",
             "notes",
             "created_at",
             "updated_at",
@@ -908,6 +911,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "is_fully_paid",
             "months_remaining",
             "payment_percentage",
+            "scheduled_payment_amount",
             "created_at",
             "updated_at",
         ]
@@ -918,6 +922,55 @@ class DebtSerializer(serializers.ModelSerializer):
             return 0
         paid = float(obj.amount_paid or 0)
         return round((paid / total) * 100, 2)
+
+    def validate(self, attrs):
+        instance = self.instance
+        payment_type = attrs.get("payment_type", getattr(instance, "payment_type", "INSTALLMENT"))
+        total_amount = attrs.get("total_amount", getattr(instance, "total_amount", None))
+        amount_paid = attrs.get("amount_paid", getattr(instance, "amount_paid", Decimal("0")))
+        monthly_payment = attrs.get("monthly_payment", getattr(instance, "monthly_payment", None))
+        due_day = attrs.get("due_day", getattr(instance, "due_day", None))
+        status = attrs.get("status", getattr(instance, "status", "ACTIVE"))
+        paid_off_date = attrs.get("paid_off_date", getattr(instance, "paid_off_date", None))
+
+        errors = {}
+
+        if total_amount is None or total_amount <= 0:
+            errors["total_amount"] = "Der Gesamtbetrag muss groesser als 0 sein."
+
+        if amount_paid is None or amount_paid < 0:
+            errors["amount_paid"] = "Der bezahlte Betrag darf nicht negativ sein."
+        elif total_amount is not None and amount_paid > total_amount:
+            errors["amount_paid"] = "Der bezahlte Betrag darf die Gesamtschuld nicht uebersteigen."
+
+        if due_day is not None and (due_day < 1 or due_day > 31):
+            errors["due_day"] = "Der Faelligkeitstag muss zwischen 1 und 31 liegen."
+
+        if payment_type == "INSTALLMENT":
+            if monthly_payment is None:
+                errors["monthly_payment"] = "Raten-Schulden brauchen eine monatliche Rate."
+            elif monthly_payment <= 0:
+                errors["monthly_payment"] = "Die monatliche Rate muss groesser als 0 sein."
+            if due_day is None:
+                errors["due_day"] = "Raten-Schulden brauchen einen Faelligkeitstag."
+        else:
+            attrs["monthly_payment"] = monthly_payment if monthly_payment not in ("", None) else None
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        fully_paid = total_amount is not None and amount_paid >= total_amount
+        if fully_paid:
+            attrs["status"] = "PAID_OFF"
+            attrs["paid_off_date"] = paid_off_date or date.today()
+        else:
+            if status == "PAID_OFF":
+                raise serializers.ValidationError(
+                    {"status": "Der Status kann nur auf 'PAID_OFF' stehen, wenn die Schuld komplett bezahlt ist."}
+                )
+            attrs["paid_off_date"] = None
+
+        return attrs
 
 
 class ReleaseSerializer(serializers.ModelSerializer):

@@ -257,46 +257,6 @@
           <article class="card side-card">
             <div class="section-head compact">
               <div>
-                <h2>Personen</h2>
-                <p class="muted">Wer im Finanzprojekt steckt.</p>
-              </div>
-            </div>
-
-            <ul v-if="members.length" class="member-list">
-              <li v-for="member in members" :key="member.id">
-                <div>
-                  <strong>{{ member.name }}</strong>
-                  <p class="muted small">{{ memberRoleLabels[member.role] || member.role }}</p>
-                </div>
-                <button class="btn ghost sm danger" type="button" @click="removeMember(member)">Entfernen</button>
-              </li>
-            </ul>
-            <p v-else class="muted empty-hint">Noch keine Personen angelegt.</p>
-
-            <form class="stack-form" @submit.prevent="createMember">
-              <label>
-                Name
-                <input v-model.trim="memberForm.name" class="input" placeholder="z. B. Samir" required />
-              </label>
-              <label>
-                Rolle
-                <select v-model="memberForm.role" class="input">
-                  <option v-for="(label, key) in memberRoleLabels" :key="key" :value="key">{{ label }}</option>
-                </select>
-              </label>
-              <label>
-                Notiz
-                <textarea v-model.trim="memberForm.notes" class="input textarea" rows="2" placeholder="optional"></textarea>
-              </label>
-              <button class="btn" type="submit" :disabled="savingMember">
-                {{ savingMember ? "Speichere..." : "Person hinzufügen" }}
-              </button>
-            </form>
-          </article>
-
-          <article class="card side-card">
-            <div class="section-head compact">
-              <div>
                 <h2>{{ editingEntryId ? "Posten bearbeiten" : "Neuer Posten" }}</h2>
                 <p class="muted">Einfach halten: Titel, Betrag, Rhythmus, Person.</p>
               </div>
@@ -382,6 +342,67 @@
               </button>
             </form>
           </article>
+
+          <article class="card side-card compact-members-card">
+            <div class="section-head compact">
+              <div>
+                <h2>Personen</h2>
+                <p class="muted">Nur bei Bedarf aufklappen.</p>
+              </div>
+              <button class="btn ghost sm" type="button" @click="membersPanelOpen = !membersPanelOpen">
+                {{ membersPanelOpen ? "Schließen" : members.length ? "Verwalten" : "Anlegen" }}
+              </button>
+            </div>
+
+            <div class="member-summary">
+              <strong>{{ members.length }} {{ members.length === 1 ? "Person" : "Personen" }}</strong>
+              <p class="muted small">
+                {{ members.length ? "Im Projekt hinterlegt." : "Noch keine Personen angelegt." }}
+              </p>
+
+              <div v-if="memberPreview.length" class="member-preview">
+                <span v-for="member in memberPreview" :key="member.id" class="member-pill">
+                  {{ member.name }}
+                </span>
+                <span v-if="members.length > memberPreview.length" class="member-pill muted">
+                  +{{ members.length - memberPreview.length }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="membersPanelOpen" class="member-manager">
+              <ul v-if="members.length" class="member-list">
+                <li v-for="member in members" :key="member.id">
+                  <div>
+                    <strong>{{ member.name }}</strong>
+                    <p class="muted small">{{ memberRoleLabels[member.role] || member.role }}</p>
+                  </div>
+                  <button class="btn ghost sm danger" type="button" @click="removeMember(member)">Entfernen</button>
+                </li>
+              </ul>
+              <p v-else class="muted empty-hint">Noch keine Personen angelegt.</p>
+
+              <form class="stack-form" @submit.prevent="createMember">
+                <label>
+                  Name
+                  <input v-model.trim="memberForm.name" class="input" placeholder="z. B. Samir" required />
+                </label>
+                <label>
+                  Rolle
+                  <select v-model="memberForm.role" class="input">
+                    <option v-for="(label, key) in memberRoleLabels" :key="key" :value="key">{{ label }}</option>
+                  </select>
+                </label>
+                <label>
+                  Notiz
+                  <textarea v-model.trim="memberForm.notes" class="input textarea" rows="2" placeholder="optional"></textarea>
+                </label>
+                <button class="btn" type="submit" :disabled="savingMember">
+                  {{ savingMember ? "Speichere..." : "Person hinzufügen" }}
+                </button>
+              </form>
+            </div>
+          </article>
         </aside>
       </section>
 
@@ -412,6 +433,7 @@ const selectedProjectId = ref(null);
 const activeEntryFilter = ref("ALL");
 const activeTab = ref("overview");
 const editingEntryId = ref(null);
+const membersPanelOpen = ref(false);
 
 const tabs = ["overview", "entries", "debts", "settings"];
 const tabLabels = {
@@ -496,6 +518,7 @@ const members = computed(() => project.value?.members || []);
 const entries = computed(() => project.value?.entries || []);
 const currency = computed(() => project.value?.currency || "EUR");
 const currentMonthLabel = computed(() => new Date().toISOString().slice(0, 7));
+const memberPreview = computed(() => members.value.slice(0, 4));
 
 const filteredEntries = computed(() => {
   if (activeEntryFilter.value === "ALL") {
@@ -554,6 +577,7 @@ async function loadProjectDetail(projectId) {
     project.value = data;
     selectedProjectId.value = data.id;
     projectForm.value = buildProjectForm(data);
+    membersPanelOpen.value = false;
   } finally {
     loading.value = false;
   }
@@ -610,6 +634,7 @@ async function createMember() {
       sort_order: members.value.length,
     });
     memberForm.value = buildMemberForm();
+    membersPanelOpen.value = false;
     await refreshCurrent();
   } finally {
     savingMember.value = false;
@@ -1021,6 +1046,41 @@ onMounted(syncProjectSelection);
   gap: 12px;
 }
 
+.compact-members-card {
+  gap: 10px;
+}
+
+.member-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.member-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.member-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(47, 99, 255, 0.08);
+  border: 1px solid rgba(47, 99, 255, 0.12);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.member-manager {
+  display: grid;
+  gap: 12px;
+}
+
 .stack-form {
   display: grid;
   gap: 12px;
@@ -1069,7 +1129,7 @@ onMounted(syncProjectSelection);
 .input,
 .textarea,
 select {
-  background-color: var(--background);
+  background-color: var(--input-bg);
   color: var(--text);
   border-color: var(--border);
 }
@@ -1077,7 +1137,7 @@ select {
 .input:focus,
 .textarea:focus,
 select:focus {
-  background-color: var(--background);
+  background-color: var(--input-bg-focus);
   color: var(--text);
   border-color: var(--brand);
   box-shadow: 0 0 0 2px rgba(47, 99, 255, 0.1);

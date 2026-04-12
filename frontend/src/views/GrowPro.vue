@@ -969,7 +969,7 @@ onMounted(async () => {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.6);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -982,8 +982,8 @@ onMounted(async () => {
   overflow-y: auto;
   border-radius: 18px;
   padding: 20px;
-  background: var(--card);
-  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.25);
+  background: var(--modal-bg);
+  box-shadow: var(--modal-shadow);
   border: 1px solid var(--border);
 }
 .modal.wide {

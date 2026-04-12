@@ -29,7 +29,7 @@
             </select>
           </label>
           <div class="hero-actions">
-            <button class="btn ghost" type="button" @click="router.push({ name: 'platform-finance' })">Neues Projekt</button>
+            <button class="btn ghost" type="button" @click="exportOverview">Exportieren</button>
             <button class="btn ghost" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
           </div>
         </div>
@@ -55,33 +55,43 @@
 
       <!-- Übersicht Tab -->
       <section class="summary-grid">
+          <article v-if="overview.monthly_left < 0" class="card alert-card warning">
+            <span class="label">⚠️ Budget-Alert</span>
+            <strong>Defizit von {{ formatCurrency(Math.abs(overview.monthly_left)) }} pro Monat</strong>
+            <small class="muted">Ausgaben übersteigen Einnahmen – Anpassungen nötig!</small>
+          </article>
           <article class="card summary-card positive">
-            <span class="label">Frei pro Monat</span>
+            <span class="label">Frei pro Monat ({{ overview.snapshot_month }})</span>
             <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
             <small class="muted">Einnahmen minus alle geplanten Ausgänge</small>
           </article>
           <article class="card summary-card">
-            <span class="label">Einnahmen</span>
+            <span class="label">Einnahmen ({{ overview.snapshot_month }})</span>
             <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
             <small class="muted">Fixe und wiederkehrende Einnahmen</small>
           </article>
           <article class="card summary-card">
-            <span class="label">Geplante Ausgänge</span>
+            <span class="label">Geplante Ausgänge ({{ overview.snapshot_month }})</span>
             <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
             <small class="muted">Fixkosten, variabel, Schulden und Sparen</small>
+            <div v-if="overview.top_categories?.length" class="category-breakdown">
+              <small class="muted">Top-Kategorien:</small>
+              <ul>
+                <li v-for="cat in overview.top_categories.slice(0, 3)" :key="cat.category">
+                  {{ cat.category }}: {{ formatCurrency(cat.amount) }}
+                </li>
+              </ul>
+            </div>
           </article>
           <article class="card summary-card" :class="{ warning: Number(overview.buffer_gap || 0) > 0 }">
-            <span class="label">Voraussichtlicher Stand</span>
+            <span class="label">Voraussichtlicher Stand (Ende {{ overview.snapshot_month }})</span>
             <strong>{{ formatCurrency(overview.projected_balance) }}</strong>
             <small class="muted">
               Notgroschen-Lücke: {{ formatCurrency(overview.buffer_gap) }}
             </small>
           </article>
           <article class="card summary-card">
-            <span class="label">Verbleibende Schulden</span>
-            <strong>{{ formatCurrency(overview.total_remaining_debt) }}</strong>
-            <small class="muted">Noch nicht bezahlte Schulden</small>
-          </article>
+            <span class="label">Verbleibende Schulden (Gesamt)</span>
         </section>
 
         <!-- Monatsprognose -->
@@ -92,12 +102,37 @@
                 <h2>Monatsprognose</h2>
                 <p class="muted">Berechne wie viel nach Einnahmen, Ausgaben und Schulden übrig bleibt.</p>
               </div>
-              <button class="btn" type="button" @click="showForecastModal = true">Prognose aufrufen</button>
+              <div class="forecast-actions">
+                <button class="btn ghost sm" type="button" @click="showCompareModal = true">Vergleichen</button>
+                <button class="btn" type="button" @click="showForecastModal = true">Prognose aufrufen</button>
+              </div>
             </div>
             <p v-if="forecast" class="muted">
               Letzte Prognose für {{ forecast.month }}: {{ formatCurrency(forecast.net_income) }} übrig
               (nach {{ formatCurrency(forecast.savings_amount) }} Sparen)
             </p>
+          </article>
+        </section>
+
+        <!-- Einfaches Chart -->
+        <section class="chart-section">
+          <article class="card chart-card">
+            <div class="section-head">
+              <div>
+                <h2>Monatsübersicht ({{ overview.snapshot_month }})</h2>
+                <p class="muted">Visuelle Darstellung der Einnahmen und Ausgaben.</p>
+              </div>
+            </div>
+            <div class="chart-container">
+              <div class="chart-bar income" :style="{ height: `${Math.min(100, (overview.monthly_income / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
+                <span>Einnahmen</span>
+                <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
+              </div>
+              <div class="chart-bar expense" :style="{ height: `${Math.min(100, (overview.monthly_outflow / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
+                <span>Ausgaben</span>
+                <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
+              </div>
+            </div>
           </article>
         </section>
 
@@ -574,6 +609,64 @@
           </div>
         </div>
       </div>
+
+      <!-- Compare Modal -->
+      <div v-if="showCompareModal" class="modal-overlay" @click="showCompareModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>Monate vergleichen</h3>
+            <button class="modal-close" @click="showCompareModal = false">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="grid two">
+              <label>
+                Monat 1
+                <input v-model="compareMonth1" type="month" class="input" />
+              </label>
+              <label>
+                Monat 2
+                <input v-model="compareMonth2" type="month" class="input" />
+              </label>
+            </div>
+            <button class="btn" @click="calculateComparison" :disabled="calculatingComparison">
+              {{ calculatingComparison ? "Berechne..." : "Vergleich berechnen" }}
+            </button>
+            <div v-if="comparison" class="comparison-result">
+              <h4>Vergleich</h4>
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th>Kategorie</th>
+                    <th>{{ comparison.month1 }}</th>
+                    <th>{{ comparison.month2 }}</th>
+                    <th>Differenz</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Einnahmen</td>
+                    <td>{{ formatCurrency(comparison.forecast1.income) }}</td>
+                    <td>{{ formatCurrency(comparison.forecast2.income) }}</td>
+                    <td>{{ formatCurrency(comparison.forecast2.income - comparison.forecast1.income) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Ausgaben</td>
+                    <td>{{ formatCurrency(comparison.forecast1.expenses) }}</td>
+                    <td>{{ formatCurrency(comparison.forecast2.expenses) }}</td>
+                    <td>{{ formatCurrency(comparison.forecast2.expenses - comparison.forecast1.expenses) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Netto-Einkommen</td>
+                    <td>{{ formatCurrency(comparison.forecast1.net_income) }}</td>
+                    <td>{{ formatCurrency(comparison.forecast2.net_income) }}</td>
+                    <td>{{ formatCurrency(comparison.forecast2.net_income - comparison.forecast1.net_income) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -604,6 +697,11 @@ const showForecastModal = ref(false);
 const forecastMonth = ref(new Date().toISOString().slice(0, 7));
 const forecast = ref(null);
 const calculatingForecast = ref(false);
+const showCompareModal = ref(false);
+const compareMonth1 = ref(new Date().toISOString().slice(0, 7));
+const compareMonth2 = ref(new Date().toISOString().slice(0, 7));
+const comparison = ref(null);
+const calculatingComparison = ref(false);
 
 const tabs = ["planner", "debts"];
 const tabLabels = {
@@ -1017,6 +1115,56 @@ async function calculateForecast() {
   }
 }
 
+async function calculateComparison() {
+  if (!selectedProjectId.value || !compareMonth1.value || !compareMonth2.value) return;
+  calculatingComparison.value = true;
+  try {
+    const [response1, response2] = await Promise.all([
+      api.get(`finance-projects/${selectedProjectId.value}/monthly-forecast/?month=${compareMonth1.value}`),
+      api.get(`finance-projects/${selectedProjectId.value}/monthly-forecast/?month=${compareMonth2.value}`)
+    ]);
+    comparison.value = {
+      month1: compareMonth1.value,
+      month2: compareMonth2.value,
+      forecast1: response1.data,
+      forecast2: response2.data
+    };
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Vergleich konnte nicht berechnet werden."));
+  } finally {
+    calculatingComparison.value = false;
+  }
+}
+
+watch(
+  () => activeTab.value,
+  async (newTab) => {
+    if (newTab === 'planner' && selectedProjectId.value) {
+      forecastMonth.value = new Date().toISOString().slice(0, 7);
+      await calculateForecast();
+    }
+  }
+);
+
+async function exportOverview() {
+  if (!selectedProjectId.value) return;
+  try {
+    const response = await api.get(`finance-projects/${selectedProjectId.value}/export-overview/`, {
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `finance_overview.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setSuccess("Übersicht exportiert.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Export fehlgeschlagen."));
+  }
+}
+
 onMounted(syncProjectSelection);
 </script>
 
@@ -1155,6 +1303,11 @@ onMounted(syncProjectSelection);
 
 .summary-card.warning {
   background: linear-gradient(160deg, rgba(245, 158, 11, 0.12), rgba(255, 255, 255, 0.92));
+}
+
+.alert-card.warning {
+  background: linear-gradient(160deg, rgba(245, 158, 11, 0.15), rgba(255, 255, 255, 0.95));
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .label {
@@ -1612,5 +1765,105 @@ onMounted(syncProjectSelection);
   background: var(--surface);
   border-radius: 8px;
   border: 1px solid var(--border);
+}
+
+/* Category Breakdown */
+.category-breakdown {
+  margin-top: 8px;
+}
+
+.category-breakdown ul {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0 0;
+  font-size: 12px;
+}
+
+.category-breakdown li {
+  margin: 2px 0;
+  color: var(--muted);
+}
+
+/* Chart */
+.chart-container {
+  display: flex;
+  align-items: end;
+  gap: 20px;
+  height: 200px;
+  padding: 20px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.chart-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  text-align: center;
+  min-height: 40px;
+}
+
+.chart-bar.income {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.chart-bar.expense {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+
+.chart-bar span {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.chart-bar strong {
+  font-size: 14px;
+}
+
+/* Comparison Table */
+.comparison-result {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.comparison-result h4 {
+  margin: 0 0 12px 0;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison-table th {
+  background: var(--surface);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.comparison-table td {
+  background: var(--surface);
+}
+
+.comparison-table tr:last-child th,
+.comparison-table tr:last-child td {
+  border-bottom: none;
 }
 </style>

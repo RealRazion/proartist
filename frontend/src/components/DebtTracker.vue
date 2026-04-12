@@ -895,6 +895,8 @@ async function recordPayment() {
     payload.status = 'ACTIVE';
     payload.paid_off_date = null;
     payload.next_due_date = paymentForm.value.reschedule_date || nextDueDate;
+    // If payment is missed, increase total amount by the due amount to simulate growing debt
+    payload.total_amount = totalAmount + currentDueAmount;
   }
 
   savingPayment.value = true;

@@ -1723,6 +1723,31 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
             "savings_percentage": float(project.savings_percentage),
         })
 
+    @action(detail=True, methods=["GET"], url_path="export-overview")
+    def export_overview(self, request, pk=None):
+        project = self.get_object()
+        # Generate CSV for current overview
+        import csv
+        from io import StringIO
+
+        output = StringIO()
+        writer = csv.writer(output, delimiter=';')
+        writer.writerow(['Kategorie', 'Betrag'])
+
+        overview = self.get_serializer(project).data['overview']
+        writer.writerow(['Einnahmen', overview['monthly_income']])
+        writer.writerow(['Fixkosten', overview['monthly_fixed_costs']])
+        writer.writerow(['Variable Ausgaben', overview['monthly_variable_costs']])
+        writer.writerow(['Schuldenzahlungen', overview['monthly_debt']])
+        writer.writerow(['Sparen', overview['monthly_savings']])
+        writer.writerow(['Gesamt Ausgaben', overview['monthly_outflow']])
+        writer.writerow(['Frei pro Monat', overview['monthly_left']])
+        writer.writerow(['Verbleibende Schulden', overview['total_remaining_debt']])
+
+        response = HttpResponse(output.getvalue(), content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="finance_overview_{project.title}_{overview["snapshot_month"]}.csv"'
+        return response
+
 
 class FinanceMemberViewSet(viewsets.ModelViewSet):
     serializer_class = FinanceMemberSerializer

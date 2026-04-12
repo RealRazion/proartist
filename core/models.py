@@ -364,6 +364,32 @@ class Debt(models.Model):
         return int((remaining / monthly_payment) + (1 if remaining % monthly_payment else 0))
 
 
+class DailyExpense(models.Model):
+    """Track daily expenses like groceries, coffee, etc."""
+    project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="daily_expenses")
+    member = models.ForeignKey(
+        FinanceMember,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="daily_expenses",
+    )
+    date = models.DateField()
+    title = models.CharField(max_length=160)
+    category = models.CharField(max_length=120, blank=True, help_text="z.B. Lebensmittel, Transport, Unterhaltung")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+        unique_together = ["project", "date", "title", "amount"]  # Prevent duplicate entries
+
+    def __str__(self):
+        return f"{self.date}: {self.title} - {self.amount}€"
+
+
 class Release(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE,related_name="releases")
     title = models.CharField(max_length=200)

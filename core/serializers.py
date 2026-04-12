@@ -12,6 +12,7 @@ from .models import (
     ChatMessage,
     ChatThread,
     Contract,
+    DailyExpense,
     Debt,
     Event,
     Example,
@@ -801,6 +802,43 @@ class FinanceEntrySerializer(serializers.ModelSerializer):
         return next_due.isoformat() if next_due else None
 
 
+class DailyExpenseSerializer(serializers.ModelSerializer):
+    member_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DailyExpense
+        fields = [
+            "id",
+            "project",
+            "member",
+            "member_name",
+            "date",
+            "title",
+            "category",
+            "amount",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "member_name", "created_at", "updated_at"]
+
+    def to_internal_value(self, data):
+        cleaned = data.copy()
+        if cleaned.get("member", serializers.empty) == "":
+            cleaned["member"] = None
+        return super().to_internal_value(cleaned)
+
+    def validate(self, attrs):
+        member = attrs.get("member", getattr(self.instance, "member", None))
+        project = attrs.get("project", getattr(self.instance, "project", None))
+        if member and project and member.project_id != project.id:
+            raise serializers.ValidationError({"member": "Die Person gehoert nicht zu diesem Finanzprojekt."})
+        return attrs
+
+    def get_member_name(self, obj):
+        return obj.member.name if obj.member else None
+
+
 class FinanceProjectListSerializer(serializers.ModelSerializer):
     members = FinanceMemberSerializer(many=True, read_only=True)
     overview = serializers.SerializerMethodField()
@@ -858,6 +896,11 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
         today = timezone.now().date()
         active_entries = list(obj.entries.filter(is_active=True).select_related("member"))
         debts = list(obj.debts.all())
+        # Get daily expenses for current month
+        current_month_start = today.replace(day=1)
+        next_month = (current_month_start + timedelta(days=32)).replace(day=1)
+        daily_expenses = list(obj.daily_expenses.filter(date__gte=current_month_start, date__lt=next_month))
+        
         totals = {
             "INCOME": Decimal("0.00"),
             "FIXED": Decimal("0.00"),
@@ -941,7 +984,19 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
                     }
                 )
 
-        monthly_outflow = totals["FIXED"] + totals["VARIABLE"] + totals["DEBT"] + totals["SAVING"]
+        # Add daily expenses to totals and categories
+        daily_expense_total = Decimal("0.00")
+        for expense in daily_expenses:
+            daily_expense_total += expense.amount
+            if expense.category:
+                category_totals[expense.category] = category_totals.get(expense.category, Decimal("0.00")) + expense.amount
+            
+            bucket = shared_bucket if not expense.member_id else member_totals.get(expense.member_id)
+            if bucket:
+                bucket["outflow"] += expense.amount
+                bucket["net"] -= expense.amount
+
+        monthly_outflow = totals["FIXED"] + totals["VARIABLE"] + totals["DEBT"] + totals["SAVING"] + daily_expense_total
         monthly_left = totals["INCOME"] - monthly_outflow
         projected_balance = _money(obj.current_balance) + monthly_left
         buffer_gap = max(Decimal("0.00"), _money(obj.emergency_buffer_target) - _money(obj.current_balance))
@@ -959,6 +1014,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "monthly_variable_costs": _to_float(totals["VARIABLE"]),
             "monthly_debt": _to_float(totals["DEBT"]),
             "monthly_savings": _to_float(totals["SAVING"]),
+            "monthly_daily_expenses": _to_float(daily_expense_total),
             "monthly_outflow": _to_float(monthly_outflow),
             "monthly_left": _to_float(monthly_left),
             "total_remaining_debt": _to_float(total_remaining_debt),

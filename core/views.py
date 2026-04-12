@@ -32,6 +32,7 @@ from .models import (
     ChatMessage,
     ChatThread,
     Contract,
+    DailyExpense,
     Event,
     Example,
     FinanceEntry,
@@ -73,6 +74,7 @@ from .serializers import (
     ChatMessageSerializer,
     ChatThreadSerializer,
     ContractSerializer,
+    DailyExpenseSerializer,
     DebtSerializer,
     EventSerializer,
     ExampleSerializer,
@@ -1817,6 +1819,36 @@ class DebtViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         from .models import Debt
+        project = serializer.validated_data["project"]
+        if project.owner_id != self.request.user.profile.id:
+            raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")
+        serializer.save()
+
+
+class DailyExpenseViewSet(viewsets.ModelViewSet):
+    serializer_class = DailyExpenseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        from .models import DailyExpense
+        qs = (
+            DailyExpense.objects
+            .select_related("project", "member")
+            .filter(project__owner=self.request.user.profile)
+            .order_by("-date", "-created_at")
+        )
+        project_id = self.request.query_params.get("project")
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        month = self.request.query_params.get("month")
+        if month:
+            # Filter by month (YYYY-MM format)
+            year, month_num = month.split("-")
+            qs = qs.filter(date__year=year, date__month=month_num)
+        return qs
+
+    def perform_create(self, serializer):
+        from .models import DailyExpense
         project = serializer.validated_data["project"]
         if project.owner_id != self.request.user.profile.id:
             raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")

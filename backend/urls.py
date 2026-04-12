@@ -75,6 +75,7 @@ router.register(r"finance-projects", FinanceProjectViewSet, basename="finance-pr
 router.register(r"finance-members", FinanceMemberViewSet, basename="finance-members")
 router.register(r"finance-entries", FinanceEntryViewSet, basename="finance-entries")
 router.register(r"debts", DebtViewSet, basename="debts")
+router.register(r"daily-expenses", DailyExpenseViewSet, basename="daily-expenses")
 router.register(r"releases", ReleaseViewSet)
 router.register(r"events", EventViewSet)
 router.register(r"bookings", BookingViewSet)

@@ -44,7 +44,7 @@
           :class="{ active: activeTab === tab }"
           @click="activeTab = tab"
         >
-          {{ tab === "planner" ? "Planer" : "Schulden" }}
+          {{ tabLabels[tab] }}
         </button>
       </div>
 
@@ -202,6 +202,10 @@
                     <strong>{{ formatCurrency(overview.monthly_variable_costs) }}</strong>
                   </div>
                   <div>
+                    <span class="label">Tägliche Ausgaben</span>
+                    <strong>{{ formatCurrency(overview.monthly_daily_expenses) }}</strong>
+                  </div>
+                  <div>
                     <span class="label">Schulden</span>
                     <strong>{{ formatCurrency(overview.monthly_debt) }}</strong>
                   </div>
@@ -319,94 +323,16 @@
           <article class="card side-card">
             <div class="section-head compact">
               <div>
-                <h2>{{ editingEntryId ? "Posten bearbeiten" : "Neuer Posten" }}</h2>
-                <p class="muted">Einfach halten: Titel, Betrag, Rhythmus und optional eine Person.</p>
+                <h2>Posten verwalten</h2>
+                <p class="muted">Posten hinzufügen, bearbeiten oder entfernen.</p>
               </div>
-              <button v-if="editingEntryId" class="btn ghost sm" type="button" @click="resetEntryForm">Neu</button>
+              <button class="btn" type="button" @click="showEntryModal = true; resetEntryForm()">Neuer Posten</button>
             </div>
 
-            <form class="stack-form" @submit.prevent="saveEntry">
-              <label>
-                Titel
-                <input v-model.trim="entryForm.title" class="input" placeholder="z. B. Miete" required />
-              </label>
-              <div class="grid two">
-                <label>
-                  Typ
-                  <select v-model="entryForm.entry_type" class="input">
-                    <option v-for="(label, key) in entryTypeFormOptions" :key="key" :value="key">{{ label }}</option>
-                  </select>
-                </label>
-                <label>
-                  Betrag
-                  <input v-model="entryForm.amount" class="input" type="number" step="0.01" min="0" required />
-                </label>
-              </div>
-
-              <div class="grid two">
-                <label>
-                  Rhythmus
-                  <select v-model="entryForm.frequency" class="input">
-                    <option v-for="(label, key) in frequencyLabels" :key="key" :value="key">{{ label }}</option>
-                  </select>
-                </label>
-                <label>
-                  Kategorie
-                  <input v-model.trim="entryForm.category" class="input" placeholder="z. B. Wohnen" />
-                </label>
-              </div>
-
-              <div class="grid two">
-                <label>
-                  Zugeordnet an
-                  <select v-model="entryForm.member" class="input">
-                    <option :value="null">Nicht zugeordnet</option>
-                    <option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option>
-                  </select>
-                </label>
-                <label>
-                  Monatlicher Fälligkeitstag
-                  <input
-                    v-model="entryForm.due_day"
-                    class="input"
-                    type="number"
-                    min="1"
-                    max="31"
-                    :disabled="entryForm.frequency !== 'MONTHLY'"
-                    placeholder="optional"
-                  />
-                </label>
-              </div>
-
-              <label>
-                Datum für einmalig/jährlich/wöchentlich
-                <input v-model="entryForm.due_date" class="input" type="date" :disabled="entryForm.frequency === 'MONTHLY'" />
-              </label>
-
-              <p class="muted small form-hint">
-                Monatliche Posten duerfen auch ohne Faelligkeitstag gespeichert werden. Schulden pflegst du unten separat.
-              </p>
-
-              <label>
-                Notiz
-                <textarea v-model.trim="entryForm.notes" class="input textarea" rows="3" placeholder="optional"></textarea>
-              </label>
-
-              <div class="toggle-row">
-                <label class="toggle">
-                  <input v-model="entryForm.is_shared" type="checkbox" />
-                  Gemeinsam rechnen
-                </label>
-                <label class="toggle">
-                  <input v-model="entryForm.is_active" type="checkbox" />
-                  Aktiv
-                </label>
-              </div>
-
-              <button class="btn" type="submit" :disabled="savingEntry">
-                {{ savingEntry ? "Speichere..." : editingEntryId ? "Posten speichern" : "Posten anlegen" }}
-              </button>
-            </form>
+            <div class="entry-quick-actions">
+              <button class="btn ghost sm" type="button" @click="showEntryModal = true; resetEntryForm()">+ Posten</button>
+              <button class="btn ghost sm" type="button" @click="activeTab = 'daily'">📅 Tägliche Ausgaben</button>
+            </div>
           </article>
 
           <article class="card side-card compact-members-card">
@@ -549,6 +475,65 @@
         </article>
       </section>
 
+      <!-- Daily Expenses Tab -->
+      <section v-show="activeTab === 'daily' && selectedProjectId" class="daily-section">
+        <div class="daily-header">
+          <div>
+            <h2>Tägliche Ausgaben</h2>
+            <p class="muted">Verfolge alltägliche Ausgaben wie Einkäufe, Kaffee, Transport etc.</p>
+          </div>
+          <div class="daily-controls">
+            <label>
+              Monat
+              <input v-model="dailyMonth" type="month" class="input" @change="loadDailyExpenses" />
+            </label>
+            <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Neue Ausgabe</button>
+          </div>
+        </div>
+
+        <div class="daily-summary" v-if="dailyExpenses.length">
+          <div class="summary-item">
+            <span class="label">Ausgaben diesen Monat</span>
+            <strong>{{ formatCurrency(dailyExpensesTotal) }}</strong>
+          </div>
+          <div class="summary-item">
+            <span class="label">Anzahl Einträge</span>
+            <strong>{{ dailyExpenses.length }}</strong>
+          </div>
+          <div class="summary-item">
+            <span class="label">Durchschnitt pro Tag</span>
+            <strong>{{ formatCurrency(dailyExpensesAverage) }}</strong>
+          </div>
+        </div>
+
+        <div class="daily-list" v-if="dailyExpenses.length">
+          <article v-for="expense in dailyExpenses" :key="expense.id" class="daily-item">
+            <div class="daily-main">
+              <div class="daily-title-line">
+                <strong>{{ expense.title }}</strong>
+                <span class="category-badge" v-if="expense.category">{{ expense.category }}</span>
+              </div>
+              <p class="muted small">
+                {{ formatDate(expense.date) }} · {{ expense.member_name || "Nicht zugeordnet" }}
+              </p>
+              <p v-if="expense.notes" class="muted small">{{ expense.notes }}</p>
+            </div>
+            <div class="daily-side">
+              <strong>{{ formatCurrency(expense.amount) }}</strong>
+              <div class="daily-actions">
+                <button class="btn ghost sm" type="button" @click="editDailyExpense(expense)">Bearbeiten</button>
+                <button class="btn ghost sm danger" type="button" @click="removeDailyExpense(expense)">Löschen</button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div v-else class="empty-state">
+          <p class="muted">Noch keine täglichen Ausgaben für {{ dailyMonthLabel }}.</p>
+          <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Erste Ausgabe hinzufügen</button>
+        </div>
+      </section>
+
       <!-- Debt Tracker Section -->
       <section v-show="activeTab === 'debts' && selectedProjectId" class="debt-section">
         <DebtTracker :projectId="selectedProjectId" />
@@ -667,6 +652,158 @@
           </div>
         </div>
       </div>
+
+      <!-- Entry Modal -->
+      <div v-if="showEntryModal" class="modal-overlay" @click="showEntryModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>{{ editingEntryId ? "Posten bearbeiten" : "Neuer Posten" }}</h3>
+            <button class="modal-close" @click="showEntryModal = false">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form class="stack-form" @submit.prevent="saveEntry">
+              <label>
+                Titel
+                <input v-model.trim="entryForm.title" class="input" placeholder="z. B. Miete" required />
+              </label>
+              <div class="grid two">
+                <label>
+                  Typ
+                  <select v-model="entryForm.entry_type" class="input">
+                    <option v-for="(label, key) in entryTypeFormOptions" :key="key" :value="key">{{ label }}</option>
+                  </select>
+                </label>
+                <label>
+                  Betrag
+                  <input v-model="entryForm.amount" class="input" type="number" step="0.01" min="0" required />
+                </label>
+              </div>
+
+              <div class="grid two">
+                <label>
+                  Rhythmus
+                  <select v-model="entryForm.frequency" class="input">
+                    <option v-for="(label, key) in frequencyLabels" :key="key" :value="key">{{ label }}</option>
+                  </select>
+                </label>
+                <label>
+                  Kategorie
+                  <input v-model.trim="entryForm.category" class="input" placeholder="z. B. Wohnen" />
+                </label>
+              </div>
+
+              <div class="grid two">
+                <label>
+                  Zugeordnet an
+                  <select v-model="entryForm.member" class="input">
+                    <option :value="null">Nicht zugeordnet</option>
+                    <option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option>
+                  </select>
+                </label>
+                <label>
+                  Monatlicher Fälligkeitstag
+                  <input
+                    v-model="entryForm.due_day"
+                    class="input"
+                    type="number"
+                    min="1"
+                    max="31"
+                    :disabled="entryForm.frequency !== 'MONTHLY'"
+                    placeholder="optional"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Datum für einmalig/jährlich/wöchentlich
+                <input v-model="entryForm.due_date" class="input" type="date" :disabled="entryForm.frequency === 'MONTHLY'" />
+              </label>
+
+              <p class="muted small form-hint">
+                Monatliche Posten duerfen auch ohne Faelligkeitstag gespeichert werden. Schulden pflegst du unten separat.
+              </p>
+
+              <label>
+                Notiz
+                <textarea v-model.trim="entryForm.notes" class="input textarea" rows="3" placeholder="optional"></textarea>
+              </label>
+
+              <div class="toggle-row">
+                <label class="toggle">
+                  <input v-model="entryForm.is_shared" type="checkbox" />
+                  Gemeinsam rechnen
+                </label>
+                <label class="toggle">
+                  <input v-model="entryForm.is_active" type="checkbox" />
+                  Aktiv
+                </label>
+              </div>
+
+              <div class="modal-actions">
+                <button class="btn ghost" type="button" @click="showEntryModal = false">Abbrechen</button>
+                <button class="btn" type="submit" :disabled="savingEntry">
+                  {{ savingEntry ? "Speichere..." : editingEntryId ? "Posten speichern" : "Posten anlegen" }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Expense Modal -->
+      <div v-if="showDailyExpenseModal" class="modal-overlay" @click="showDailyExpenseModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>{{ editingDailyExpenseId ? "Ausgabe bearbeiten" : "Neue tägliche Ausgabe" }}</h3>
+            <button class="modal-close" @click="showDailyExpenseModal = false">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form class="stack-form" @submit.prevent="saveDailyExpense">
+              <div class="grid two">
+                <label>
+                  Datum
+                  <input v-model="dailyExpenseForm.date" class="input" type="date" required />
+                </label>
+                <label>
+                  Betrag
+                  <input v-model="dailyExpenseForm.amount" class="input" type="number" step="0.01" min="0" required />
+                </label>
+              </div>
+
+              <label>
+                Titel
+                <input v-model.trim="dailyExpenseForm.title" class="input" placeholder="z. B. Aldi Einkauf" required />
+              </label>
+
+              <div class="grid two">
+                <label>
+                  Kategorie
+                  <input v-model.trim="dailyExpenseForm.category" class="input" placeholder="z. B. Lebensmittel" />
+                </label>
+                <label>
+                  Zugeordnet an
+                  <select v-model="dailyExpenseForm.member" class="input">
+                    <option :value="null">Nicht zugeordnet</option>
+                    <option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Notiz
+                <textarea v-model.trim="dailyExpenseForm.notes" class="input textarea" rows="2" placeholder="optional"></textarea>
+              </label>
+
+              <div class="modal-actions">
+                <button class="btn ghost" type="button" @click="showDailyExpenseModal = false">Abbrechen</button>
+                <button class="btn" type="submit" :disabled="savingDailyExpense">
+                  {{ savingDailyExpense ? "Speichere..." : editingDailyExpenseId ? "Ausgabe speichern" : "Ausgabe hinzufügen" }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -702,13 +839,18 @@ const compareMonth1 = ref(new Date().toISOString().slice(0, 7));
 const compareMonth2 = ref(new Date().toISOString().slice(0, 7));
 const comparison = ref(null);
 const calculatingComparison = ref(false);
+const showEntryModal = ref(false);
+const showDailyExpenseModal = ref(false);
+const dailyMonth = ref(new Date().toISOString().slice(0, 7));
+const dailyExpenses = ref([]);
+const editingDailyExpenseId = ref(null);
+const savingDailyExpense = ref(false);
 
-const tabs = ["planner", "debts"];
+const tabs = ["planner", "daily", "debts"];
 const tabLabels = {
-  overview: "📊 Übersicht",
-  entries: "📝 Posten verwalten",
-  debts: "💳 Schulden",
-  settings: "⚙️ Einstellungen",
+  planner: "Planer",
+  daily: "Tägliche Ausgaben",
+  debts: "Schulden",
 };
 
 const memberRoleLabels = {
@@ -758,6 +900,7 @@ const entryFilters = [
 const projectForm = ref(buildProjectForm());
 const memberForm = ref(buildMemberForm());
 const entryForm = ref(buildEntryForm());
+const dailyExpenseForm = ref(buildDailyExpenseForm());
 
 function buildProjectForm(data = {}) {
   return {
@@ -794,12 +937,35 @@ function buildEntryForm(data = {}) {
   };
 }
 
+function buildDailyExpenseForm(data = {}) {
+  return {
+    date: data.date || new Date().toISOString().split('T')[0],
+    title: data.title || "",
+    category: data.category || "",
+    amount: data.amount ?? "",
+    member: data.member ?? null,
+    notes: data.notes || "",
+  };
+}
+
 const overview = computed(() => project.value?.overview || {});
 const members = computed(() => project.value?.members || []);
 const entries = computed(() => project.value?.entries || []);
 const currency = computed(() => project.value?.currency || "EUR");
 const currentMonthLabel = computed(() => new Date().toISOString().slice(0, 7));
 const memberPreview = computed(() => members.value.slice(0, 4));
+const dailyMonthLabel = computed(() => {
+  if (!dailyMonth.value) return currentMonthLabel.value;
+  return dailyMonth.value;
+});
+const dailyExpensesTotal = computed(() => {
+  return dailyExpenses.value.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0);
+});
+const dailyExpensesAverage = computed(() => {
+  if (!dailyExpenses.value.length) return 0;
+  const daysInMonth = new Date(dailyMonth.value.slice(0, 4), dailyMonth.value.slice(5, 7), 0).getDate();
+  return dailyExpensesTotal.value / daysInMonth;
+});
 
 const filteredEntries = computed(() => {
   if (activeEntryFilter.value === "ALL") {
@@ -996,6 +1162,7 @@ async function removeMember(member) {
 function editEntry(entry) {
   editingEntryId.value = entry.id;
   entryForm.value = buildEntryForm(entry);
+  showEntryModal.value = true;
 }
 
 function resetEntryForm() {
@@ -1028,6 +1195,7 @@ async function saveEntry() {
       await api.post("finance-entries/", payload);
     }
     resetEntryForm();
+    showEntryModal.value = false;
     await refreshCurrent();
     setSuccess(wasEditing ? "Posten gespeichert." : "Posten angelegt.");
   } catch (error) {
@@ -1060,6 +1228,77 @@ async function removeEntry(entry) {
     setSuccess(`Posten "${entry.title}" geloescht.`);
   } catch (error) {
     setError(getApiErrorMessage(error, "Posten konnte nicht geloescht werden."));
+  }
+}
+
+// Daily Expense functions
+async function loadDailyExpenses() {
+  if (!selectedProjectId.value || !dailyMonth.value) return;
+  try {
+    const { data } = await api.get(`daily-expenses/?project=${selectedProjectId.value}&month=${dailyMonth.value}`);
+    dailyExpenses.value = data;
+  } catch (error) {
+    dailyExpenses.value = [];
+    setError(getApiErrorMessage(error, "Tägliche Ausgaben konnten nicht geladen werden."));
+  }
+}
+
+function editDailyExpense(expense) {
+  editingDailyExpenseId.value = expense.id;
+  dailyExpenseForm.value = buildDailyExpenseForm(expense);
+  showDailyExpenseModal.value = true;
+}
+
+function resetDailyExpenseForm() {
+  editingDailyExpenseId.value = null;
+  dailyExpenseForm.value = buildDailyExpenseForm();
+}
+
+async function saveDailyExpense() {
+  if (!selectedProjectId.value) return;
+  savingDailyExpense.value = true;
+  try {
+    const wasEditing = Boolean(editingDailyExpenseId.value);
+    const payload = {
+      project: selectedProjectId.value,
+      member: dailyExpenseForm.value.member || null,
+      date: dailyExpenseForm.value.date,
+      title: dailyExpenseForm.value.title,
+      category: dailyExpenseForm.value.category,
+      amount: toAmount(dailyExpenseForm.value.amount),
+      notes: dailyExpenseForm.value.notes,
+    };
+    if (editingDailyExpenseId.value) {
+      await api.patch(`daily-expenses/${editingDailyExpenseId.value}/`, payload);
+    } else {
+      await api.post("daily-expenses/", payload);
+    }
+    resetDailyExpenseForm();
+    showDailyExpenseModal.value = false;
+    await loadDailyExpenses();
+    await refreshCurrent(); // Update overview
+    setSuccess(wasEditing ? "Ausgabe gespeichert." : "Ausgabe hinzugefügt.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Ausgabe konnte nicht gespeichert werden."));
+  } finally {
+    savingDailyExpense.value = false;
+  }
+}
+
+async function removeDailyExpense(expense) {
+  if (!window.confirm(`Ausgabe "${expense.title}" wirklich löschen?`)) {
+    return;
+  }
+  try {
+    await api.delete(`daily-expenses/${expense.id}/`);
+    if (editingDailyExpenseId.value === expense.id) {
+      resetDailyExpenseForm();
+    }
+    await loadDailyExpenses();
+    await refreshCurrent(); // Update overview
+    setSuccess(`Ausgabe "${expense.title}" gelöscht.`);
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Ausgabe konnte nicht gelöscht werden."));
   }
 }
 
@@ -1098,6 +1337,15 @@ watch(
     }
     if (frequency === "MONTHLY") {
       entryForm.value.due_date = "";
+    }
+  }
+);
+
+watch(
+  () => activeTab.value,
+  async (newTab) => {
+    if (newTab === 'daily' && selectedProjectId.value) {
+      await loadDailyExpenses();
     }
   }
 );
@@ -1865,5 +2113,116 @@ onMounted(syncProjectSelection);
 .comparison-table tr:last-child th,
 .comparison-table tr:last-child td {
   border-bottom: none;
+}
+
+/* Daily Expenses */
+.daily-section {
+  margin-top: 28px;
+}
+
+.daily-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.daily-controls {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+}
+
+.daily-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.daily-list {
+  display: grid;
+  gap: 12px;
+}
+
+.daily-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.daily-main {
+  display: grid;
+  gap: 6px;
+}
+
+.daily-title-line {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.category-badge {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(139, 92, 246, 0.12);
+  color: #6d28d9;
+}
+
+.daily-side {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  text-align: right;
+}
+
+.daily-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+@media (max-width: 760px) {
+  .daily-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .daily-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .daily-item {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-side {
+    justify-items: start;
+    text-align: left;
+  }
 }
 </style>

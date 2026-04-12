@@ -93,6 +93,11 @@
       </form>
     </section>
 
+    <section v-if="errorMessage || successMessage" class="feedback-stack">
+      <div v-if="errorMessage" class="feedback-card error">{{ errorMessage }}</div>
+      <div v-if="successMessage" class="feedback-card success">{{ successMessage }}</div>
+    </section>
+
     <section v-if="projects.length" class="card projects-card">
       <div class="section-head">
         <div>
@@ -148,6 +153,8 @@ const router = useRouter();
 const loading = ref(false);
 const saving = ref(false);
 const projects = ref([]);
+const errorMessage = ref("");
+const successMessage = ref("");
 const form = ref({
   title: "",
   description: "",
@@ -176,11 +183,43 @@ function formatCurrency(value, currency = "EUR") {
   }).format(amount);
 }
 
+function setError(message) {
+  errorMessage.value = message;
+  successMessage.value = "";
+}
+
+function setSuccess(message) {
+  successMessage.value = message;
+  errorMessage.value = "";
+}
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const responseData = error?.response?.data;
+  if (typeof responseData === "string" && responseData.trim()) {
+    return responseData;
+  }
+  if (responseData?.detail) {
+    return responseData.detail;
+  }
+  if (responseData && typeof responseData === "object") {
+    const message = Object.entries(responseData)
+      .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(", ") : value}`)
+      .join(" | ");
+    if (message) {
+      return message;
+    }
+  }
+  return fallbackMessage;
+}
+
 async function loadProjects() {
   loading.value = true;
   try {
     const { data } = await api.get("finance-projects/");
     projects.value = Array.isArray(data) ? data : data.results || [];
+  } catch (error) {
+    projects.value = [];
+    setError(getApiErrorMessage(error, "Finanzprojekte konnten nicht geladen werden."));
   } finally {
     loading.value = false;
   }
@@ -200,7 +239,10 @@ async function createProject() {
     };
     const { data } = await api.post("finance-projects/", payload);
     await loadProjects();
+    setSuccess("Finanzprojekt erstellt.");
     router.push({ name: "finance", params: { projectId: data.id } });
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Finanzprojekt konnte nicht erstellt werden."));
   } finally {
     saving.value = false;
   }
@@ -221,6 +263,31 @@ onMounted(loadProjects);
 .finance-entry {
   display: grid;
   gap: 18px;
+}
+
+.feedback-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.feedback-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-weight: 500;
+}
+
+.feedback-card.error {
+  border-color: rgba(239, 68, 68, 0.26);
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+
+.feedback-card.success {
+  border-color: rgba(16, 185, 129, 0.26);
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
 }
 
 .hero {
@@ -272,8 +339,8 @@ onMounted(loadProjects);
   gap: 14px;
   padding: 18px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
 .panel-head,
@@ -342,6 +409,18 @@ onMounted(loadProjects);
   font-size: 14px;
 }
 
+:global(.dark) .finance-entry .feedback-card.error {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.4);
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+:global(.dark) .finance-entry .feedback-card.success {
+  color: #bbf7d0;
+  background: rgba(20, 83, 45, 0.42);
+  border-color: rgba(74, 222, 128, 0.24);
+}
+
 @media (max-width: 920px) {
   .hero {
     grid-template-columns: 1fr;
@@ -359,5 +438,11 @@ onMounted(loadProjects);
   .project-top {
     flex-direction: column;
   }
+}
+
+:global(.dark) .finance-entry .hero {
+  background:
+    radial-gradient(circle at top right, rgba(47, 99, 255, 0.2), transparent 42%),
+    linear-gradient(145deg, rgba(13, 25, 53, 0.96), rgba(10, 20, 45, 0.94));
 }
 </style>

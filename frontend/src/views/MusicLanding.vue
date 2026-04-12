@@ -79,8 +79,8 @@ function goHome() {
 .highlights article {
   padding: 18px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 .cards-grid {
   display: grid;
@@ -101,5 +101,9 @@ function goHome() {
 }
 .feature-card.sync {
   background: rgba(34, 197, 94, 0.08);
+}
+
+:global(.dark) .music-page .page-hero {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.18), rgba(14, 165, 233, 0.12));
 }
 </style>

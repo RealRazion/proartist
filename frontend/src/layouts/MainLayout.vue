@@ -20,6 +20,15 @@
 
       <nav>
         <router-link
+          to="/platforms"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Hub' : null"
+        >
+          <span class="icon">🧭</span>
+          <span class="label">Hub</span>
+        </router-link>
+        <router-link
           to="/dashboard"
           class="nav-link"
           @click="handleNavClick"
@@ -341,6 +350,14 @@ let notificationInterval = null;
 
 const pageMeta = {
   dashboard: { title: "Dashboard", team: "Teamsteuerung auf einen Blick", artist: "Dein zentraler Startpunkt" },
+  platforms: { title: "UNYQ Hub", team: "Plattformen und Tools", artist: "Dein Zugang zu allen Bereichen" },
+  "platform-contests": { title: "Contests", team: "Wettbewerbe und Chancen", artist: "Wettbewerbe und Chancen" },
+  "platform-music": { title: "Music Manager", team: "Musikplanung und Releases", artist: "Musikplanung und Releases" },
+  "platform-locations": { title: "Locations", team: "Orte, Events und Buchungen", artist: "Orte, Events und Buchungen" },
+  "platform-finance": { title: "Finance", team: "Finanzprojekt anlegen", artist: "Finanzprojekt anlegen" },
+  finance: { title: "Finanzplaner", team: "Budget, Schulden und Monatsbild", artist: "Budget, Schulden und Monatsbild" },
+  "platform-fitness": { title: "Fitness", team: "Tracker und Essensideen", artist: "Tracker und Essensideen" },
+  fitness: { title: "Fitness Tracker", team: "Kalorien und Tagesprofil", artist: "Kalorien und Tagesprofil" },
   analytics: { title: "Analytics", team: "Performance und Kennzahlen", artist: "Analyse" },
   profiles: { title: "Profiles", team: "Personen und Rollen", artist: "Netzwerkprofile" },
   chats: { title: "Chats", team: "Direkte Abstimmung im Team", artist: "Direkter Austausch" },
@@ -377,6 +394,10 @@ const secondaryAction = computed(() => {
     return isTeam.value
       ? { label: "Zu Tasks", to: { name: "tasks" } }
       : { label: "Zu Projekten", to: { name: "projects" } };
+  }
+  if (route.name === "platforms") return { label: "Zum Dashboard", to: { name: "dashboard" } };
+  if (String(route.name || "").startsWith("platform-") || route.name === "finance" || route.name === "fitness") {
+    return { label: "Zum Hub", to: { name: "platforms" } };
   }
   if (route.name === "tasks") return { label: "Zur Review Queue", to: { name: "reviews" } };
   if (route.name === "reviews") return { label: "Zur Timeline", to: { name: "timeline" } };

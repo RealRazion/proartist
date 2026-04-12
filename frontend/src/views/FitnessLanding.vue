@@ -136,7 +136,7 @@ function goBack() {
   display: grid;
   gap: 12px;
   align-content: start;
-  background: rgba(255, 255, 255, 0.82);
+  background: var(--card);
 }
 
 .launch-actions,
@@ -183,5 +183,11 @@ function goBack() {
   .sample-grid {
     grid-template-columns: 1fr;
   }
+}
+
+:global(.dark) .fitness-entry .hero {
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.18), transparent 38%),
+    linear-gradient(145deg, rgba(13, 25, 53, 0.96), rgba(11, 29, 23, 0.94));
 }
 </style>

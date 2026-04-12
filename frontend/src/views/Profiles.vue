@@ -350,7 +350,7 @@ onBeforeUnmount(() => {
   transition: background 0.2s ease, border 0.2s ease;
 }
 .view-toggle[aria-pressed="true"] {
-  background: rgba(112, 130, 255, 0.18);
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
   color: #fff;
   border-color: transparent;
 }
@@ -375,7 +375,7 @@ onBeforeUnmount(() => {
   border-color: var(--brand);
 }
 .filter-chip.active {
-  background: rgba(112, 130, 255, 0.18);
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
   border-color: transparent;
   color: #fff;
 }

@@ -97,6 +97,32 @@ def _next_due_date(entry, today):
     return None
 
 
+def _debt_monthly_amount(debt, today):
+    if debt.status != "ACTIVE" or debt.is_fully_paid:
+        return Decimal("0.00")
+    if debt.payment_type == "FIXED_AMOUNT":
+        if debt.start_date and debt.start_date.year == today.year and debt.start_date.month == today.month:
+            return _money(debt.remaining_amount)
+        return Decimal("0.00")
+    return _money(debt.monthly_payment or 0)
+
+
+def _debt_next_due_date(debt, today):
+    if debt.status != "ACTIVE" or debt.is_fully_paid:
+        return None
+    if debt.payment_type == "FIXED_AMOUNT":
+        return debt.start_date if debt.start_date and debt.start_date >= today else None
+    if not debt.due_day:
+        return None
+    candidate = _safe_date(today.year, today.month, debt.due_day)
+    if candidate < today:
+        month_index = today.month
+        year = today.year + month_index // 12
+        month = month_index % 12 + 1
+        candidate = _safe_date(year, month, debt.due_day)
+    return candidate
+
+
 def _to_float(value):
     return float(_money(value))
 
@@ -685,12 +711,23 @@ class FinanceEntrySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "member_name", "monthly_amount", "next_due_date", "created_at", "updated_at"]
 
+    def to_internal_value(self, data):
+        cleaned = data.copy()
+        for field in ("due_day", "due_date", "member"):
+            if cleaned.get(field, serializers.empty) == "":
+                cleaned[field] = None
+        return super().to_internal_value(cleaned)
+
     def validate(self, attrs):
         frequency = attrs.get("frequency") or getattr(self.instance, "frequency", "MONTHLY")
         due_day = attrs.get("due_day", getattr(self.instance, "due_day", None))
         due_date = attrs.get("due_date", getattr(self.instance, "due_date", None))
         member = attrs.get("member", getattr(self.instance, "member", None))
         project = attrs.get("project", getattr(self.instance, "project", None))
+
+        if frequency != "MONTHLY":
+            attrs["due_day"] = None
+            due_day = None
 
         if due_day is not None and (due_day < 1 or due_day > 31):
             raise serializers.ValidationError({"due_day": "Der Faelligkeitstag muss zwischen 1 und 31 liegen."})
@@ -768,6 +805,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
     def get_overview(self, obj):
         today = timezone.now().date()
         active_entries = list(obj.entries.filter(is_active=True).select_related("member"))
+        debts = list(obj.debts.all())
         totals = {
             "INCOME": Decimal("0.00"),
             "FIXED": Decimal("0.00"),
@@ -825,6 +863,29 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        for debt in debts:
+            monthly_amount = _debt_monthly_amount(debt, today)
+            if monthly_amount > 0:
+                totals["DEBT"] += monthly_amount
+                category_totals["Schulden"] = category_totals.get("Schulden", Decimal("0.00")) + monthly_amount
+                shared_bucket["outflow"] += monthly_amount
+                shared_bucket["net"] -= monthly_amount
+
+            next_due = _debt_next_due_date(debt, today)
+            if next_due and next_due <= today + timedelta(days=14):
+                due_items.append(
+                    {
+                        "id": f"debt-{debt.id}",
+                        "title": debt.name,
+                        "entry_type": "DEBT",
+                        "amount": _to_float(debt.scheduled_payment_amount),
+                        "monthly_amount": _to_float(monthly_amount),
+                        "due_date": next_due.isoformat(),
+                        "member_name": "Schulden",
+                        "frequency": debt.payment_type,
+                    }
+                )
+
         monthly_outflow = totals["FIXED"] + totals["VARIABLE"] + totals["DEBT"] + totals["SAVING"]
         monthly_left = totals["INCOME"] - monthly_outflow
         projected_balance = _money(obj.current_balance) + monthly_left
@@ -876,6 +937,10 @@ class FinanceProjectSerializer(FinanceProjectListSerializer):
 
 
 class DebtSerializer(serializers.ModelSerializer):
+    payment_type = serializers.ChoiceField(choices=Debt.PAYMENT_TYPES, required=False)
+    monthly_payment = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
+    due_day = serializers.IntegerField(required=False, allow_null=True)
+    paid_off_date = serializers.DateField(required=False, allow_null=True)
     remaining_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     is_fully_paid = serializers.BooleanField(read_only=True)
     months_remaining = serializers.IntegerField(read_only=True)
@@ -923,6 +988,13 @@ class DebtSerializer(serializers.ModelSerializer):
         paid = float(obj.amount_paid or 0)
         return round((paid / total) * 100, 2)
 
+    def to_internal_value(self, data):
+        cleaned = data.copy()
+        for field in ("monthly_payment", "due_day", "paid_off_date"):
+            if cleaned.get(field, serializers.empty) == "":
+                cleaned[field] = None
+        return super().to_internal_value(cleaned)
+
     def validate(self, attrs):
         instance = self.instance
         payment_type = attrs.get("payment_type", getattr(instance, "payment_type", "INSTALLMENT"))
@@ -954,7 +1026,8 @@ class DebtSerializer(serializers.ModelSerializer):
             if due_day is None:
                 errors["due_day"] = "Raten-Schulden brauchen einen Faelligkeitstag."
         else:
-            attrs["monthly_payment"] = monthly_payment if monthly_payment not in ("", None) else None
+            attrs["monthly_payment"] = None
+            attrs["due_day"] = None
 
         if errors:
             raise serializers.ValidationError(errors)

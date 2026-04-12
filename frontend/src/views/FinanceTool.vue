@@ -48,6 +48,11 @@
         </button>
       </div>
 
+      <section v-if="errorMessage || successMessage" class="feedback-stack">
+        <div v-if="errorMessage" class="feedback-card error">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="feedback-card success">{{ successMessage }}</div>
+      </section>
+
       <!-- Übersicht Tab -->
       <section v-show="activeTab === 'overview'" class="summary-grid">
           <article class="card summary-card positive">
@@ -74,7 +79,7 @@
           </article>
         </section>
 
-        <section v-show="activeTab === 'entries' || activeTab === 'settings'" class="finance-layout">
+        <section v-show="activeTab === 'entries'" class="finance-layout">
           <div class="main-column">
             <article class="card project-settings">
               <div class="section-head">
@@ -406,6 +411,79 @@
         </aside>
       </section>
 
+      <section v-show="activeTab === 'settings'" class="settings-layout">
+        <article class="card project-settings">
+          <div class="section-head">
+            <div>
+              <h2>Projektbasis</h2>
+              <p class="muted">Die Werte, die dein Monatsbild steuern.</p>
+            </div>
+            <button class="btn" type="button" @click="saveProject" :disabled="savingProject">
+              {{ savingProject ? "Speichere..." : "Basis speichern" }}
+            </button>
+          </div>
+
+          <div class="grid project-grid">
+            <label>
+              Titel
+              <input v-model.trim="projectForm.title" class="input" />
+            </label>
+            <label>
+              Waehrung
+              <select v-model="projectForm.currency" class="input">
+                <option value="EUR">EUR</option>
+                <option value="USD">USD</option>
+                <option value="CHF">CHF</option>
+              </select>
+            </label>
+            <label>
+              Aktuelles Guthaben
+              <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
+            </label>
+            <label>
+              Sparziel pro Monat
+              <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
+            </label>
+            <label>
+              Notgroschen-Ziel
+              <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
+            </label>
+            <label class="full">
+              Notiz
+              <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
+            </label>
+          </div>
+        </article>
+
+        <article class="card settings-info-card">
+          <div class="section-head compact">
+            <div>
+              <h2>Projektstatus</h2>
+              <p class="muted">Wichtige Werte auf einen Blick.</p>
+            </div>
+          </div>
+
+          <div class="settings-stats">
+            <div>
+              <span class="label">Personen</span>
+              <strong>{{ members.length }}</strong>
+            </div>
+            <div>
+              <span class="label">Posten aktiv</span>
+              <strong>{{ overview.active_entry_count || 0 }}</strong>
+            </div>
+            <div>
+              <span class="label">Faellig bald</span>
+              <strong>{{ overview.due_soon?.length || 0 }}</strong>
+            </div>
+            <div>
+              <span class="label">Waehrung</span>
+              <strong>{{ currency }}</strong>
+            </div>
+          </div>
+        </article>
+      </section>
+
       <!-- Debt Tracker Section -->
       <section v-show="activeTab === 'debts' && selectedProjectId" class="debt-section">
         <DebtTracker :projectId="selectedProjectId" />
@@ -434,6 +512,8 @@ const activeEntryFilter = ref("ALL");
 const activeTab = ref("overview");
 const editingEntryId = ref(null);
 const membersPanelOpen = ref(false);
+const errorMessage = ref("");
+const successMessage = ref("");
 
 const tabs = ["overview", "entries", "debts", "settings"];
 const tabLabels = {
@@ -564,9 +644,52 @@ function dueLabel(entry) {
   return "Ohne Fälligkeit";
 }
 
+function setError(message) {
+  errorMessage.value = message;
+  successMessage.value = "";
+}
+
+function setSuccess(message) {
+  successMessage.value = message;
+  errorMessage.value = "";
+}
+
+function clearFeedback() {
+  errorMessage.value = "";
+  successMessage.value = "";
+}
+
+function getApiErrorMessage(error, fallbackMessage) {
+  const responseData = error?.response?.data;
+  if (typeof responseData === "string" && responseData.trim()) {
+    return responseData;
+  }
+  if (responseData?.detail) {
+    return responseData.detail;
+  }
+  if (responseData && typeof responseData === "object") {
+    const message = Object.entries(responseData)
+      .map(([field, value]) => {
+        const parts = Array.isArray(value) ? value : [value];
+        return `${field}: ${parts.join(", ")}`;
+      })
+      .join(" | ");
+    if (message) {
+      return message;
+    }
+  }
+  return fallbackMessage;
+}
+
 async function loadProjects() {
-  const { data } = await api.get("finance-projects/");
-  projects.value = Array.isArray(data) ? data : data.results || [];
+  try {
+    const { data } = await api.get("finance-projects/");
+    projects.value = Array.isArray(data) ? data : data.results || [];
+  } catch (error) {
+    projects.value = [];
+    setError(getApiErrorMessage(error, "Finanzprojekte konnten nicht geladen werden."));
+    throw error;
+  }
 }
 
 async function loadProjectDetail(projectId) {
@@ -578,28 +701,37 @@ async function loadProjectDetail(projectId) {
     selectedProjectId.value = data.id;
     projectForm.value = buildProjectForm(data);
     membersPanelOpen.value = false;
+    clearFeedback();
+  } catch (error) {
+    project.value = null;
+    setError(getApiErrorMessage(error, "Finanzprojekt konnte nicht geladen werden."));
+    throw error;
   } finally {
     loading.value = false;
   }
 }
 
 async function syncProjectSelection() {
-  await loadProjects();
-  if (!projects.value.length) {
-    project.value = null;
-    selectedProjectId.value = null;
-    return;
-  }
+  try {
+    await loadProjects();
+    if (!projects.value.length) {
+      project.value = null;
+      selectedProjectId.value = null;
+      return;
+    }
 
-  const routeProjectId = Number(route.params.projectId || 0);
-  const nextProjectId = projects.value.some((item) => item.id === routeProjectId)
-    ? routeProjectId
-    : selectedProjectId.value || projects.value[0].id;
+    const routeProjectId = Number(route.params.projectId || 0);
+    const nextProjectId = projects.value.some((item) => item.id === routeProjectId)
+      ? routeProjectId
+      : selectedProjectId.value || projects.value[0].id;
 
-  if (!routeProjectId || routeProjectId !== nextProjectId) {
-    await router.replace({ name: "finance", params: { projectId: nextProjectId } });
+    if (!routeProjectId || routeProjectId !== nextProjectId) {
+      await router.replace({ name: "finance", params: { projectId: nextProjectId } });
+    }
+    await loadProjectDetail(nextProjectId);
+  } catch {
+    // Errors are already surfaced via setError.
   }
-  await loadProjectDetail(nextProjectId);
 }
 
 async function refreshCurrent() {
@@ -617,6 +749,9 @@ async function saveProject() {
       emergency_buffer_target: toAmount(projectForm.value.emergency_buffer_target),
     });
     await refreshCurrent();
+    setSuccess("Projektbasis gespeichert.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Projektbasis konnte nicht gespeichert werden."));
   } finally {
     savingProject.value = false;
   }
@@ -636,6 +771,9 @@ async function createMember() {
     memberForm.value = buildMemberForm();
     membersPanelOpen.value = false;
     await refreshCurrent();
+    setSuccess("Person hinzugefuegt.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Person konnte nicht hinzugefuegt werden."));
   } finally {
     savingMember.value = false;
   }
@@ -645,8 +783,13 @@ async function removeMember(member) {
   if (!window.confirm(`Person "${member.name}" wirklich entfernen? Zugeordnete Posten bleiben bestehen, aber ohne Person.`)) {
     return;
   }
-  await api.delete(`finance-members/${member.id}/`);
-  await refreshCurrent();
+  try {
+    await api.delete(`finance-members/${member.id}/`);
+    await refreshCurrent();
+    setSuccess(`Person "${member.name}" entfernt.`);
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Person konnte nicht entfernt werden."));
+  }
 }
 
 function editEntry(entry) {
@@ -663,6 +806,7 @@ async function saveEntry() {
   if (!selectedProjectId.value) return;
   savingEntry.value = true;
   try {
+    const wasEditing = Boolean(editingEntryId.value);
     const payload = {
       project: selectedProjectId.value,
       member: entryForm.value.member || null,
@@ -684,25 +828,38 @@ async function saveEntry() {
     }
     resetEntryForm();
     await refreshCurrent();
+    setSuccess(wasEditing ? "Posten gespeichert." : "Posten angelegt.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Posten konnte nicht gespeichert werden."));
   } finally {
     savingEntry.value = false;
   }
 }
 
 async function toggleEntry(entry) {
-  await api.patch(`finance-entries/${entry.id}/`, { is_active: !entry.is_active });
-  await refreshCurrent();
+  try {
+    await api.patch(`finance-entries/${entry.id}/`, { is_active: !entry.is_active });
+    await refreshCurrent();
+    setSuccess(entry.is_active ? "Posten pausiert." : "Posten aktiviert.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Postenstatus konnte nicht geaendert werden."));
+  }
 }
 
 async function removeEntry(entry) {
   if (!window.confirm(`Posten "${entry.title}" wirklich löschen?`)) {
     return;
   }
-  await api.delete(`finance-entries/${entry.id}/`);
-  if (editingEntryId.value === entry.id) {
-    resetEntryForm();
+  try {
+    await api.delete(`finance-entries/${entry.id}/`);
+    if (editingEntryId.value === entry.id) {
+      resetEntryForm();
+    }
+    await refreshCurrent();
+    setSuccess(`Posten "${entry.title}" geloescht.`);
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Posten konnte nicht geloescht werden."));
   }
-  await refreshCurrent();
 }
 
 async function handleProjectChange(event) {
@@ -718,7 +875,29 @@ watch(
     if (!nextId || nextId === Number(previousProjectId || 0)) {
       return;
     }
-    await loadProjectDetail(nextId);
+    if (projects.value.length && !projects.value.some((item) => item.id === nextId)) {
+      await syncProjectSelection();
+      return;
+    }
+    try {
+      await loadProjectDetail(nextId);
+    } catch {
+      if (projects.value.length) {
+        await syncProjectSelection();
+      }
+    }
+  }
+);
+
+watch(
+  () => entryForm.value.frequency,
+  (frequency) => {
+    if (frequency !== "MONTHLY") {
+      entryForm.value.due_day = "";
+    }
+    if (frequency === "MONTHLY") {
+      entryForm.value.due_date = "";
+    }
   }
 );
 
@@ -729,6 +908,31 @@ onMounted(syncProjectSelection);
 .finance-tool {
   display: grid;
   gap: 18px;
+}
+
+.feedback-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.feedback-card {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-weight: 500;
+}
+
+.feedback-card.error {
+  border-color: rgba(239, 68, 68, 0.26);
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+}
+
+.feedback-card.success {
+  border-color: rgba(16, 185, 129, 0.26);
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
 }
 
 .hero {
@@ -848,6 +1052,11 @@ onMounted(syncProjectSelection);
   gap: 18px;
 }
 
+.settings-layout {
+  display: grid;
+  gap: 18px;
+}
+
 .main-column,
 .side-column {
   display: grid;
@@ -866,6 +1075,12 @@ onMounted(syncProjectSelection);
 
 .project-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-stats {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .full {
@@ -1144,57 +1359,63 @@ select:focus {
 }
 
 /* Dark mode explicit color support */
-@media (prefers-color-scheme: dark) {
-  .input,
-  .textarea,
-  select {
-    background-color: rgba(255, 255, 255, 0.05);
-    color: #fff;
-  }
+:global(.dark) .finance-tool .input,
+:global(.dark) .finance-tool .textarea,
+:global(.dark) .finance-tool select {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
 
-  .input::placeholder,
-  .textarea::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-  }
+:global(.dark) .finance-tool .input::placeholder,
+:global(.dark) .finance-tool .textarea::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
 
-  .input:focus,
-  .textarea:focus,
-  select:focus {
-    background-color: rgba(255, 255, 255, 0.08);
-  }
+:global(.dark) .finance-tool .input:focus,
+:global(.dark) .finance-tool .textarea:focus,
+:global(.dark) .finance-tool select:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+}
 
-  .modal-overlay {
-    background-color: rgba(0, 0, 0, 0.7);
-  }
+:global(.dark) .finance-tool .card {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
 
-  .card {
-    background-color: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
+:global(.dark) .finance-tool .summary-card {
+  background: linear-gradient(160deg, rgba(47, 99, 255, 0.08), rgba(255, 255, 255, 0.02));
+}
 
-  .summary-card {
-    background: linear-gradient(160deg, rgba(47, 99, 255, 0.08), rgba(255, 255, 255, 0.02));
-  }
+:global(.dark) .finance-tool .summary-card.positive {
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.02));
+}
 
-  .summary-card.positive {
-    background: linear-gradient(160deg, rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.02));
-  }
+:global(.dark) .finance-tool .summary-card.warning {
+  background: linear-gradient(160deg, rgba(245, 158, 11, 0.1), rgba(255, 255, 255, 0.02));
+}
 
-  .summary-card.warning {
-    background: linear-gradient(160deg, rgba(245, 158, 11, 0.1), rgba(255, 255, 255, 0.02));
-  }
+:global(.dark) .finance-tool .feedback-card.error {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.4);
+  border-color: rgba(248, 113, 113, 0.28);
+}
 
-  .surface {
-    background-color: rgba(255, 255, 255, 0.02);
-  }
+:global(.dark) .finance-tool .feedback-card.success {
+  color: #bbf7d0;
+  background: rgba(20, 83, 45, 0.42);
+  border-color: rgba(74, 222, 128, 0.24);
+}
 
-  .progress-bar {
-    background: rgba(47, 99, 255, 0.15);
-  }
+:global(.dark) .finance-tool .surface {
+  background-color: rgba(255, 255, 255, 0.02);
+}
 
-  .progress-bar.alt {
-    background: rgba(16, 185, 129, 0.15);
-  }
+:global(.dark) .finance-tool .progress-bar {
+  background: rgba(47, 99, 255, 0.15);
+}
+
+:global(.dark) .finance-tool .progress-bar.alt {
+  background: rgba(16, 185, 129, 0.15);
 }
 
 /* Debt Section */
@@ -1206,7 +1427,8 @@ select:focus {
   .summary-grid,
   .overview-grid,
   .project-grid,
-  .mini-stats {
+  .mini-stats,
+  .settings-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1233,6 +1455,7 @@ select:focus {
   .overview-grid,
   .project-grid,
   .mini-stats,
+  .settings-stats,
   .grid.two {
     grid-template-columns: 1fr;
   }

@@ -1656,7 +1656,7 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
         return (
             FinanceProject.objects
             .filter(owner=self.request.user.profile)
-            .prefetch_related("members", "entries__member")
+            .prefetch_related("members", "entries__member", "debts")
             .order_by("-updated_at", "-created_at")
         )
 

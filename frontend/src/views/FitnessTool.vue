@@ -787,6 +787,20 @@ function resetTracker() {
   margin: 0;
 }
 
+:global(.dark) .fitness-tool .hero {
+  background:
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.18), transparent 35%),
+    linear-gradient(145deg, rgba(13, 25, 53, 0.96), rgba(11, 29, 23, 0.94));
+}
+
+:global(.dark) .fitness-tool .summary-card.positive {
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.16), rgba(255, 255, 255, 0.04));
+}
+
+:global(.dark) .fitness-tool .summary-card.warning {
+  background: linear-gradient(160deg, rgba(239, 68, 68, 0.16), rgba(255, 255, 255, 0.04));
+}
+
 @media (max-width: 1120px) {
   .summary-grid,
   .profile-grid,

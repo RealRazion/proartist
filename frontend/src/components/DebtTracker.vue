@@ -1089,15 +1089,13 @@ watch(
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  .input,
-  .quick-input {
-    background: rgba(255, 255, 255, 0.05);
-  }
+:global(.dark) .debt-tracker .input,
+:global(.dark) .debt-tracker .quick-input {
+  background: rgba(255, 255, 255, 0.05);
+}
 
-  .input:focus,
-  .quick-input:focus {
-    background: rgba(47, 99, 255, 0.1);
-  }
+:global(.dark) .debt-tracker .input:focus,
+:global(.dark) .debt-tracker .quick-input:focus {
+  background: rgba(47, 99, 255, 0.1);
 }
 </style>

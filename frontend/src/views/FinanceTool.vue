@@ -44,7 +44,7 @@
           :class="{ active: activeTab === tab }"
           @click="activeTab = tab"
         >
-          {{ tabLabels[tab] }}
+          {{ tab === "planner" ? "Planer" : "Schulden" }}
         </button>
       </div>
 
@@ -54,7 +54,7 @@
       </section>
 
       <!-- Übersicht Tab -->
-      <section v-show="activeTab === 'overview'" class="summary-grid">
+      <section class="summary-grid">
           <article class="card summary-card positive">
             <span class="label">Frei pro Monat</span>
             <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
@@ -79,9 +79,9 @@
           </article>
         </section>
 
-        <section v-show="activeTab === 'entries'" class="finance-layout">
+        <section v-show="activeTab === 'planner'" class="finance-layout">
           <div class="main-column">
-            <article class="card project-settings">
+            <article v-if="false" class="card project-settings">
               <div class="section-head">
                 <div>
                   <h2>Projektbasis</h2>
@@ -124,7 +124,7 @@
             </div>
           </article>
 
-          <article class="card overview-card">
+          <article v-if="false" class="card overview-card">
             <div class="section-head">
               <div>
                 <h2>Monatsbild</h2>
@@ -263,7 +263,7 @@
             <div class="section-head compact">
               <div>
                 <h2>{{ editingEntryId ? "Posten bearbeiten" : "Neuer Posten" }}</h2>
-                <p class="muted">Einfach halten: Titel, Betrag, Rhythmus, Person.</p>
+                <p class="muted">Einfach halten: Titel, Betrag, Rhythmus und optional eine Person.</p>
               </div>
               <button v-if="editingEntryId" class="btn ghost sm" type="button" @click="resetEntryForm">Neu</button>
             </div>
@@ -277,7 +277,7 @@
                 <label>
                   Typ
                   <select v-model="entryForm.entry_type" class="input">
-                    <option v-for="(label, key) in entryTypeLabels" :key="key" :value="key">{{ label }}</option>
+                    <option v-for="(label, key) in entryTypeFormOptions" :key="key" :value="key">{{ label }}</option>
                   </select>
                 </label>
                 <label>
@@ -323,8 +323,12 @@
 
               <label>
                 Datum für einmalig/jährlich/wöchentlich
-                <input v-model="entryForm.due_date" class="input" type="date" />
+                <input v-model="entryForm.due_date" class="input" type="date" :disabled="entryForm.frequency === 'MONTHLY'" />
               </label>
+
+              <p class="muted small form-hint">
+                Monatliche Posten duerfen auch ohne Faelligkeitstag gespeichert werden. Schulden pflegst du unten separat.
+              </p>
 
               <label>
                 Notiz
@@ -411,7 +415,7 @@
         </aside>
       </section>
 
-      <section v-show="activeTab === 'settings'" class="settings-layout">
+      <section v-show="activeTab === 'planner'" class="settings-layout">
         <article class="card project-settings">
           <div class="section-head">
             <div>
@@ -509,13 +513,13 @@ const projects = ref([]);
 const project = ref(null);
 const selectedProjectId = ref(null);
 const activeEntryFilter = ref("ALL");
-const activeTab = ref("overview");
+const activeTab = ref("planner");
 const editingEntryId = ref(null);
 const membersPanelOpen = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 
-const tabs = ["overview", "entries", "debts", "settings"];
+const tabs = ["planner", "debts"];
 const tabLabels = {
   overview: "📊 Übersicht",
   entries: "📝 Posten verwalten",
@@ -544,6 +548,19 @@ const frequencyLabels = {
   YEARLY: "Jährlich",
   ONCE: "Einmalig",
 };
+
+const entryTypeFormOptions = computed(() => {
+  const options = {
+    INCOME: entryTypeLabels.INCOME,
+    FIXED: entryTypeLabels.FIXED,
+    VARIABLE: entryTypeLabels.VARIABLE,
+    SAVING: entryTypeLabels.SAVING,
+  };
+  if (entryForm.value.entry_type === "DEBT") {
+    options.DEBT = "Schulden (Altbestand)";
+  }
+  return options;
+});
 
 const entryFilters = [
   { value: "ALL", label: "Alle" },
@@ -1325,6 +1342,10 @@ onMounted(syncProjectSelection);
 
 .small {
   font-size: 13px;
+}
+
+.form-hint {
+  margin: -2px 0 0;
 }
 
 .sm {

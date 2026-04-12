@@ -731,8 +731,6 @@ class FinanceEntrySerializer(serializers.ModelSerializer):
 
         if due_day is not None and (due_day < 1 or due_day > 31):
             raise serializers.ValidationError({"due_day": "Der Faelligkeitstag muss zwischen 1 und 31 liegen."})
-        if frequency == "MONTHLY" and due_day is None:
-            raise serializers.ValidationError({"due_day": "Monatliche Posten brauchen einen Faelligkeitstag."})
         if frequency == "ONCE" and not due_date:
             raise serializers.ValidationError({"due_date": "Einmalige Posten brauchen ein Datum."})
         if member and project and member.project_id != project.id:

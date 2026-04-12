@@ -297,7 +297,7 @@ onMounted(loadProjects);
   padding: 22px;
   background:
     radial-gradient(circle at top right, rgba(47, 99, 255, 0.16), transparent 42%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(238, 244, 255, 0.92));
+    linear-gradient(145deg, var(--card), var(--bg-soft));
 }
 
 .hero-copy {

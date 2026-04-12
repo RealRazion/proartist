@@ -1091,11 +1091,11 @@ watch(
 
 :global(.dark) .debt-tracker .input,
 :global(.dark) .debt-tracker .quick-input {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--input-bg);
 }
 
 :global(.dark) .debt-tracker .input:focus,
 :global(.dark) .debt-tracker .quick-input:focus {
-  background: rgba(47, 99, 255, 0.1);
+  background: var(--input-bg-focus);
 }
 </style>

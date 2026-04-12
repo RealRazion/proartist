@@ -1340,48 +1340,6 @@ onMounted(syncProjectSelection);
   margin: 0;
 }
 
-/* Dark Mode and Accessibility Fixes */
-.input,
-.textarea,
-select {
-  background-color: var(--input-bg);
-  color: var(--text);
-  border-color: var(--border);
-}
-
-.input:focus,
-.textarea:focus,
-select:focus {
-  background-color: var(--input-bg-focus);
-  color: var(--text);
-  border-color: var(--brand);
-  box-shadow: 0 0 0 2px rgba(47, 99, 255, 0.1);
-}
-
-/* Dark mode explicit color support */
-:global(.dark) .finance-tool .input,
-:global(.dark) .finance-tool .textarea,
-:global(.dark) .finance-tool select {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: #fff;
-}
-
-:global(.dark) .finance-tool .input::placeholder,
-:global(.dark) .finance-tool .textarea::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-:global(.dark) .finance-tool .input:focus,
-:global(.dark) .finance-tool .textarea:focus,
-:global(.dark) .finance-tool select:focus {
-  background-color: rgba(255, 255, 255, 0.08);
-}
-
-:global(.dark) .finance-tool .card {
-  background-color: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-
 :global(.dark) .finance-tool .summary-card {
   background: linear-gradient(160deg, rgba(47, 99, 255, 0.08), rgba(255, 255, 255, 0.02));
 }

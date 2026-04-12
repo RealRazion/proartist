@@ -145,7 +145,7 @@ onMounted(async () => {
   border-top: none;
   box-shadow: none;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 88%, transparent);
+  background: var(--card);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -155,6 +155,10 @@ onMounted(async () => {
   top: 0;
   z-index: 30;
   backdrop-filter: blur(10px);
+}
+
+:global(.dark) .platform-topbar {
+  background: rgba(8, 19, 47, 0.82);
 }
 
 .topbar-left {

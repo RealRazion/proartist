@@ -1,3 +1,3 @@
-// Versioning: MAJOR.MINOR.PATCH (SemVer). Patch = Fixes, Minor = Features, Major = Breaking.
-export const APP_VERSION = "2.0.0-alpha";
+// UI version label. package.json keeps the SemVer-compatible variant.
+export const APP_VERSION = "2.0.10 - Alpha";
 

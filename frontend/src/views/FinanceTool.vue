@@ -77,6 +77,28 @@
               Notgroschen-Lücke: {{ formatCurrency(overview.buffer_gap) }}
             </small>
           </article>
+          <article class="card summary-card">
+            <span class="label">Verbleibende Schulden</span>
+            <strong>{{ formatCurrency(overview.total_remaining_debt) }}</strong>
+            <small class="muted">Noch nicht bezahlte Schulden</small>
+          </article>
+        </section>
+
+        <!-- Monatsprognose -->
+        <section class="forecast-section">
+          <article class="card forecast-card">
+            <div class="section-head">
+              <div>
+                <h2>Monatsprognose</h2>
+                <p class="muted">Berechne wie viel nach Einnahmen, Ausgaben und Schulden übrig bleibt.</p>
+              </div>
+              <button class="btn" type="button" @click="showForecastModal = true">Prognose aufrufen</button>
+            </div>
+            <p v-if="forecast" class="muted">
+              Letzte Prognose für {{ forecast.month }}: {{ formatCurrency(forecast.net_income) }} übrig
+              (nach {{ formatCurrency(forecast.savings_amount) }} Sparen)
+            </p>
+          </article>
         </section>
 
         <section v-show="activeTab === 'planner'" class="finance-layout">
@@ -452,6 +474,10 @@
               Notgroschen-Ziel
               <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
             </label>
+            <label>
+              Sparrate (% vom Rest)
+              <input v-model="projectForm.savings_percentage" class="input" type="number" step="0.01" min="0" max="100" />
+            </label>
             <label class="full">
               Notiz
               <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
@@ -492,6 +518,62 @@
       <section v-show="activeTab === 'debts' && selectedProjectId" class="debt-section">
         <DebtTracker :projectId="selectedProjectId" />
       </section>
+
+      <!-- Forecast Modal -->
+      <div v-if="showForecastModal" class="modal-overlay" @click="showForecastModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>Monatsprognose</h3>
+            <button class="modal-close" @click="showForecastModal = false">&times;</button>
+          </div>
+          <div class="modal-body">
+            <label>
+              Monat auswählen
+              <input v-model="forecastMonth" type="month" class="input" />
+            </label>
+            <button class="btn" @click="calculateForecast" :disabled="calculatingForecast">
+              {{ calculatingForecast ? "Berechne..." : "Prognose berechnen" }}
+            </button>
+            <div v-if="forecast" class="forecast-result">
+              <h4>Prognose für {{ forecast.month }}</h4>
+              <div class="forecast-grid">
+                <div>
+                  <span>Einnahmen</span>
+                  <strong>{{ formatCurrency(forecast.income) }}</strong>
+                </div>
+                <div>
+                  <span>Ausgaben</span>
+                  <strong>{{ formatCurrency(forecast.expenses) }}</strong>
+                </div>
+                <div>
+                  <span>Schuldenzahlungen</span>
+                  <strong>{{ formatCurrency(forecast.debt_payments) }}</strong>
+                </div>
+                <div>
+                  <span>Gesamt Ausgaben</span>
+                  <strong>{{ formatCurrency(forecast.total_expenses) }}</strong>
+                </div>
+                <div>
+                  <span>Verbleibende Schulden</span>
+                  <strong>{{ formatCurrency(forecast.remaining_debt) }}</strong>
+                </div>
+                <div>
+                  <span>Netto-Einkommen</span>
+                  <strong>{{ formatCurrency(forecast.net_income) }}</strong>
+                </div>
+                <div v-if="forecast.savings_percentage > 0">
+                  <span>Sparen ({{ forecast.savings_percentage }}%)</span>
+                  <strong>{{ formatCurrency(forecast.savings_amount) }}</strong>
+                </div>
+                <div>
+                  <span>Übrig nach Sparen</span>
+                  <strong>{{ formatCurrency(forecast.net_income - forecast.savings_amount) }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -518,6 +600,10 @@ const editingEntryId = ref(null);
 const membersPanelOpen = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
+const showForecastModal = ref(false);
+const forecastMonth = ref(new Date().toISOString().slice(0, 7));
+const forecast = ref(null);
+const calculatingForecast = ref(false);
 
 const tabs = ["planner", "debts"];
 const tabLabels = {
@@ -917,6 +1003,19 @@ watch(
     }
   }
 );
+
+async function calculateForecast() {
+  if (!selectedProjectId.value || !forecastMonth.value) return;
+  calculatingForecast.value = true;
+  try {
+    const response = await api.get(`finance-projects/${selectedProjectId.value}/monthly-forecast/?month=${forecastMonth.value}`);
+    forecast.value = response.data;
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Prognose konnte nicht berechnet werden."));
+  } finally {
+    calculatingForecast.value = false;
+  }
+}
 
 onMounted(syncProjectSelection);
 </script>
@@ -1443,5 +1542,75 @@ onMounted(syncProjectSelection);
     justify-items: start;
     text-align: left;
   }
+}
+
+/* Forecast Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: 16px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.modal-body {
+  padding: 20px;
+  display: grid;
+  gap: 16px;
+}
+
+.forecast-result {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.forecast-result h4 {
+  margin: 0 0 12px 0;
+}
+
+.forecast-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.forecast-grid > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 </style>

@@ -214,6 +214,7 @@ class FinanceProject(models.Model):
     current_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     monthly_savings_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     emergency_buffer_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    savings_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Prozent vom Rest zur Seite legen (0-100)")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -308,6 +309,7 @@ class Debt(models.Model):
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Bisheriger bezahlter Betrag")
     monthly_payment = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text="Monatliche Zahlungsrate")
     due_day = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Tag im Monat fuer die Zahlungen (1-31)")
+    next_due_date = models.DateField(null=True, blank=True, help_text="Naechster Faelligkeitstermin")
     status = models.CharField(max_length=20, choices=STATUS, default="ACTIVE")
     start_date = models.DateField()
     paid_off_date = models.DateField(null=True, blank=True)
@@ -325,7 +327,9 @@ class Debt(models.Model):
     def remaining_amount(self):
         """Calculate remaining debt"""
         from decimal import Decimal
-        return max(Decimal("0"), self.total_amount - self.amount_paid)
+        total_amount = Decimal(self.total_amount or 0)
+        amount_paid = Decimal(self.amount_paid or 0)
+        return max(Decimal("0"), total_amount - amount_paid)
     
     @property
     def is_fully_paid(self):
@@ -338,21 +342,26 @@ class Debt(models.Model):
         """Amount currently due for this debt type."""
         from decimal import Decimal
 
+        remaining = self.remaining_amount
         if self.payment_type == "FIXED_AMOUNT":
-            return self.remaining_amount
-        return self.monthly_payment or Decimal("0")
+            return remaining
+        scheduled = Decimal(self.monthly_payment or 0)
+        return min(remaining, scheduled)
 
     @property
     def months_remaining(self):
         """Calculate estimated months to pay off"""
+        from decimal import Decimal
+
         if self.is_fully_paid:
             return 0
         if self.payment_type == "FIXED_AMOUNT":
             return 1
-        if not self.monthly_payment or self.monthly_payment <= 0:
+        monthly_payment = Decimal(self.monthly_payment or 0)
+        if monthly_payment <= 0:
             return 0
         remaining = self.remaining_amount
-        return int((remaining / self.monthly_payment) + (1 if remaining % self.monthly_payment else 0))
+        return int((remaining / monthly_payment) + (1 if remaining % monthly_payment else 0))
 
 
 class Release(models.Model):

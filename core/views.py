@@ -57,6 +57,7 @@ from .models import (
     Song,
     SongVersion,
 )
+from .serializers import _monthly_amount, _debt_monthly_amount
 from .permissions import (
     IsTeam,
     IsTeamOrReadOnly,
@@ -1667,6 +1668,60 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user.profile)
+
+    @action(detail=True, methods=["GET"], url_path="monthly-forecast")
+    def monthly_forecast(self, request, pk=None):
+        project = self.get_object()
+        month = request.query_params.get("month")
+        if not month:
+            return Response({"detail": "month parameter required (YYYY-MM)"}, status=400)
+        try:
+            year, month_num = map(int, month.split("-"))
+            forecast_date = date(year, month_num, 1)
+        except ValueError:
+            return Response({"detail": "Invalid month format (YYYY-MM)"}, status=400)
+
+        # Calculate for the specified month
+        active_entries = list(project.entries.filter(is_active=True).select_related("member"))
+        debts = list(project.debts.filter(status="ACTIVE").exclude(is_fully_paid=True))
+
+        income = Decimal("0.00")
+        expenses = Decimal("0.00")
+        debt_payments = Decimal("0.00")
+        remaining_debt = Decimal("0.00")
+
+        for entry in active_entries:
+            monthly_amt = _monthly_amount(entry, forecast_date)
+            if entry.entry_type == "INCOME":
+                income += monthly_amt
+            else:
+                expenses += monthly_amt
+
+        for debt in debts:
+            remaining_debt += debt.remaining_amount
+            monthly_amt = _debt_monthly_amount(debt, forecast_date)
+            debt_payments += monthly_amt
+
+        total_expenses = expenses + debt_payments
+        net_income = income - total_expenses
+
+        # Apply savings percentage
+        savings_amount = Decimal("0.00")
+        if project.savings_percentage > 0 and net_income > 0:
+            savings_amount = net_income * (project.savings_percentage / 100)
+            net_income -= savings_amount
+
+        return Response({
+            "month": month,
+            "income": float(income),
+            "expenses": float(expenses),
+            "debt_payments": float(debt_payments),
+            "total_expenses": float(total_expenses),
+            "remaining_debt": float(remaining_debt),
+            "net_income": float(net_income),
+            "savings_amount": float(savings_amount),
+            "savings_percentage": float(project.savings_percentage),
+        })
 
 
 class FinanceMemberViewSet(viewsets.ModelViewSet):

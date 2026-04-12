@@ -51,6 +51,13 @@ def _safe_date(year, month, day):
     return date(year, month, min(day, monthrange(year, month)[1]))
 
 
+def _add_months(source_date, months=1):
+    month_index = source_date.month - 1 + months
+    year = source_date.year + month_index // 12
+    month = month_index % 12 + 1
+    return _safe_date(year, month, source_date.day)
+
+
 def _monthly_amount(entry, today):
     amount = _money(entry.amount)
     if not getattr(entry, "is_active", True):
@@ -100,27 +107,73 @@ def _next_due_date(entry, today):
 def _debt_monthly_amount(debt, today):
     if debt.status != "ACTIVE" or debt.is_fully_paid:
         return Decimal("0.00")
-    if debt.payment_type == "FIXED_AMOUNT":
-        if debt.start_date and debt.start_date.year == today.year and debt.start_date.month == today.month:
-            return _money(debt.remaining_amount)
+    next_due = _debt_next_due_date(debt, today)
+    if not next_due:
         return Decimal("0.00")
-    return _money(debt.monthly_payment or 0)
+    month_end = _safe_date(today.year, today.month, monthrange(today.year, today.month)[1])
+    if next_due > month_end:
+        return Decimal("0.00")
+    return _money(debt.scheduled_payment_amount)
+
+
+def _default_debt_next_due_date(payment_type, start_date, due_day):
+    if not start_date:
+        return None
+    if payment_type == "FIXED_AMOUNT":
+        return start_date
+    if not due_day:
+        return None
+    candidate = _safe_date(start_date.year, start_date.month, due_day)
+    if candidate < start_date:
+        candidate = _safe_date(
+            start_date.year + (1 if start_date.month == 12 else 0),
+            1 if start_date.month == 12 else start_date.month + 1,
+            due_day,
+        )
+    return candidate
+
+
+def _advance_debt_due_date(debt, current_due_date=None):
+    if debt.payment_type != "INSTALLMENT" or not debt.due_day:
+        return None
+    base_due_date = current_due_date or _debt_next_due_date(debt, date.today())
+    if not base_due_date:
+        return None
+    next_month_date = _add_months(base_due_date, 1)
+    return _safe_date(next_month_date.year, next_month_date.month, debt.due_day)
 
 
 def _debt_next_due_date(debt, today):
     if debt.status != "ACTIVE" or debt.is_fully_paid:
         return None
+    stored_due_date = getattr(debt, "next_due_date", None)
+    if stored_due_date:
+        return stored_due_date
     if debt.payment_type == "FIXED_AMOUNT":
-        return debt.start_date if debt.start_date and debt.start_date >= today else None
+        return debt.start_date
     if not debt.due_day:
         return None
-    candidate = _safe_date(today.year, today.month, debt.due_day)
-    if candidate < today:
-        month_index = today.month
-        year = today.year + month_index // 12
-        month = month_index % 12 + 1
-        candidate = _safe_date(year, month, debt.due_day)
+    reference_date = max(today, debt.start_date) if debt.start_date else today
+    candidate = _safe_date(reference_date.year, reference_date.month, debt.due_day)
+    if candidate < reference_date:
+        candidate = _add_months(candidate, 1)
+        candidate = _safe_date(candidate.year, candidate.month, debt.due_day)
     return candidate
+
+
+def _debt_due_state(debt, today):
+    if debt.is_fully_paid or debt.status == "PAID_OFF":
+        return "PAID_OFF"
+    if debt.status == "PAUSED":
+        return "PAUSED"
+    next_due = _debt_next_due_date(debt, today)
+    if not next_due:
+        return "SCHEDULED"
+    if next_due < today:
+        return "OVERDUE"
+    if next_due == today:
+        return "DUE_TODAY"
+    return "UPCOMING"
 
 
 def _to_float(value):
@@ -768,6 +821,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "current_balance",
             "monthly_savings_target",
             "emergency_buffer_target",
+            "savings_percentage",
             "members",
             "initial_members",
             "overview",
@@ -861,7 +915,10 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        total_remaining_debt = Decimal("0.00")
         for debt in debts:
+            if debt.status == "ACTIVE" and not debt.is_fully_paid:
+                total_remaining_debt += debt.remaining_amount
             monthly_amount = _debt_monthly_amount(debt, today)
             if monthly_amount > 0:
                 totals["DEBT"] += monthly_amount
@@ -904,6 +961,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "monthly_savings": _to_float(totals["SAVING"]),
             "monthly_outflow": _to_float(monthly_outflow),
             "monthly_left": _to_float(monthly_left),
+            "total_remaining_debt": _to_float(total_remaining_debt),
             "current_balance": _to_float(obj.current_balance),
             "projected_balance": _to_float(projected_balance),
             "monthly_savings_target": _to_float(obj.monthly_savings_target),
@@ -938,12 +996,14 @@ class DebtSerializer(serializers.ModelSerializer):
     payment_type = serializers.ChoiceField(choices=Debt.PAYMENT_TYPES, required=False)
     monthly_payment = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
     due_day = serializers.IntegerField(required=False, allow_null=True)
+    next_due_date = serializers.DateField(required=False, allow_null=True)
     paid_off_date = serializers.DateField(required=False, allow_null=True)
     remaining_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     is_fully_paid = serializers.BooleanField(read_only=True)
     months_remaining = serializers.IntegerField(read_only=True)
     payment_percentage = serializers.SerializerMethodField()
     scheduled_payment_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    due_state = serializers.SerializerMethodField()
 
     class Meta:
         model = Debt
@@ -956,6 +1016,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "amount_paid",
             "monthly_payment",
             "due_day",
+            "next_due_date",
             "status",
             "start_date",
             "paid_off_date",
@@ -964,6 +1025,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "months_remaining",
             "payment_percentage",
             "scheduled_payment_amount",
+            "due_state",
             "notes",
             "created_at",
             "updated_at",
@@ -986,9 +1048,18 @@ class DebtSerializer(serializers.ModelSerializer):
         paid = float(obj.amount_paid or 0)
         return round((paid / total) * 100, 2)
 
+    def get_due_state(self, obj):
+        return _debt_due_state(obj, timezone.now().date())
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        next_due = _debt_next_due_date(instance, timezone.now().date())
+        data["next_due_date"] = next_due.isoformat() if next_due else None
+        return data
+
     def to_internal_value(self, data):
         cleaned = data.copy()
-        for field in ("monthly_payment", "due_day", "paid_off_date"):
+        for field in ("monthly_payment", "due_day", "next_due_date", "paid_off_date"):
             if cleaned.get(field, serializers.empty) == "":
                 cleaned[field] = None
         return super().to_internal_value(cleaned)
@@ -1000,8 +1071,12 @@ class DebtSerializer(serializers.ModelSerializer):
         amount_paid = attrs.get("amount_paid", getattr(instance, "amount_paid", Decimal("0")))
         monthly_payment = attrs.get("monthly_payment", getattr(instance, "monthly_payment", None))
         due_day = attrs.get("due_day", getattr(instance, "due_day", None))
+        start_date = attrs.get("start_date", getattr(instance, "start_date", None))
+        next_due_date = attrs.get("next_due_date", getattr(instance, "next_due_date", None))
         status = attrs.get("status", getattr(instance, "status", "ACTIVE"))
         paid_off_date = attrs.get("paid_off_date", getattr(instance, "paid_off_date", None))
+        explicit_next_due_date = "next_due_date" in attrs
+        scheduling_changed = instance is None or any(field in attrs for field in ("payment_type", "start_date", "due_day"))
 
         errors = {}
 
@@ -1026,6 +1101,14 @@ class DebtSerializer(serializers.ModelSerializer):
         else:
             attrs["monthly_payment"] = None
             attrs["due_day"] = None
+            due_day = None
+            monthly_payment = None
+
+        if start_date is None:
+            errors["start_date"] = "Ein Startdatum ist erforderlich."
+
+        if next_due_date is not None and start_date is not None and next_due_date < start_date:
+            errors["next_due_date"] = "Die naechste Faelligkeit darf nicht vor dem Startdatum liegen."
 
         if errors:
             raise serializers.ValidationError(errors)
@@ -1034,12 +1117,20 @@ class DebtSerializer(serializers.ModelSerializer):
         if fully_paid:
             attrs["status"] = "PAID_OFF"
             attrs["paid_off_date"] = paid_off_date or date.today()
+            attrs["next_due_date"] = None
         else:
             if status == "PAID_OFF":
                 raise serializers.ValidationError(
                     {"status": "Der Status kann nur auf 'PAID_OFF' stehen, wenn die Schuld komplett bezahlt ist."}
                 )
             attrs["paid_off_date"] = None
+            if status == "ACTIVE" and ((scheduling_changed and not explicit_next_due_date) or next_due_date is None):
+                if instance is not None and next_due_date is None and not scheduling_changed:
+                    attrs["next_due_date"] = _debt_next_due_date(instance, timezone.now().date())
+                else:
+                    attrs["next_due_date"] = _default_debt_next_due_date(payment_type, start_date, due_day)
+            elif status != "ACTIVE" and explicit_next_due_date and attrs.get("next_due_date") is None:
+                attrs["next_due_date"] = _default_debt_next_due_date(payment_type, start_date, due_day)
 
         return attrs
 

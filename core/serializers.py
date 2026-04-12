@@ -63,11 +63,22 @@ def _monthly_amount(entry, today):
     amount = _money(entry.amount)
     if not getattr(entry, "is_active", True):
         return Decimal("0.00")
+
+    month_end = _safe_date(today.year, today.month, monthrange(today.year, today.month)[1])
     if entry.frequency == "MONTHLY":
+        if getattr(entry, "due_date", None) and entry.due_date > month_end:
+            return Decimal("0.00")
         return amount
     if entry.frequency == "WEEKLY":
+        if getattr(entry, "due_date", None) and entry.due_date > month_end:
+            return Decimal("0.00")
         return (amount * Decimal("52") / Decimal("12")).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
     if entry.frequency == "YEARLY":
+        if getattr(entry, "due_date", None):
+            if entry.due_date.year > today.year or (
+                entry.due_date.year == today.year and entry.due_date.month > today.month
+            ):
+                return Decimal("0.00")
         return (amount / Decimal("12")).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
     if entry.frequency == "ONCE" and entry.due_date and entry.due_date.year == today.year and entry.due_date.month == today.month:
         return amount
@@ -80,6 +91,8 @@ def _next_due_date(entry, today):
     if entry.frequency == "ONCE":
         return entry.due_date if entry.due_date and entry.due_date >= today else None
     if entry.frequency == "MONTHLY":
+        if getattr(entry, "due_date", None) and entry.due_date >= today:
+            return entry.due_date
         if not entry.due_day:
             return None
         candidate = _safe_date(today.year, today.month, entry.due_day)
@@ -88,16 +101,22 @@ def _next_due_date(entry, today):
             year = today.year + month_index // 12
             month = month_index % 12 + 1
             candidate = _safe_date(year, month, entry.due_day)
+        if getattr(entry, "due_date", None) and candidate < entry.due_date:
+            return entry.due_date
         return candidate
     if entry.frequency == "WEEKLY":
         if not entry.due_date:
             return None
+        if entry.due_date >= today:
+            return entry.due_date
         weekday = entry.due_date.weekday()
         delta = (weekday - today.weekday()) % 7
         return today + timedelta(days=delta)
     if entry.frequency == "YEARLY":
         if not entry.due_date:
             return None
+        if entry.due_date >= today:
+            return entry.due_date
         candidate = _safe_date(today.year, entry.due_date.month, entry.due_date.day)
         if candidate < today:
             candidate = _safe_date(today.year + 1, entry.due_date.month, entry.due_date.day)
@@ -1018,6 +1037,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "monthly_outflow": _to_float(monthly_outflow),
             "monthly_left": _to_float(monthly_left),
             "total_remaining_debt": _to_float(total_remaining_debt),
+            "total_debt": _to_float(total_remaining_debt),
             "current_balance": _to_float(obj.current_balance),
             "projected_balance": _to_float(projected_balance),
             "monthly_savings_target": _to_float(obj.monthly_savings_target),

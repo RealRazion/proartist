@@ -1,548 +1,388 @@
 <template>
   <div class="finance-tool">
-    <section v-if="loading && !project" class="card loading-card">
+    <section v-if="loading && !project" class="status-card loading-card">
       <h1>Finanzplaner</h1>
       <p class="muted">Lade Finanzprojekt...</p>
     </section>
 
-    <section v-else-if="!projects.length" class="card empty-card">
+    <section v-else-if="!projects.length" class="status-card empty-card">
       <h1>Kein Finanzprojekt vorhanden</h1>
-      <p class="muted">Lege zuerst ein Finanzprojekt an. Danach bekommst du eine gemeinsame Monatsübersicht für alle Personen und Posten.</p>
+      <p class="muted">Lege zuerst ein Finanzprojekt an. Danach kannst du hier deine Monatsplanung klar strukturieren.</p>
       <button class="btn" type="button" @click="router.push({ name: 'platform-finance' })">Zum Einstieg</button>
     </section>
 
     <template v-else>
-      <header class="card hero">
-        <div class="hero-copy">
+      <header class="topbar-card">
+        <div class="topbar-meta">
           <p class="eyebrow">Finanzplaner</p>
           <h1>{{ project?.title || "Finanzprojekt" }}</h1>
-          <p class="muted">
-            Ein Monatsbild für Guthaben, Einnahmen, Ausgänge, Sparziele und die nächsten Fälligkeiten.
-          </p>
+          <p class="muted">Dein eigenes Monats-Dashboard mit klaren Kennzahlen, Prioritäten und sofort ersichtlichen Risiken.</p>
         </div>
 
-        <div class="hero-controls">
-          <label>
-            Projekt
+        <div class="topbar-actions">
+          <div class="project-select">
+            <label>Projekt wechseln</label>
             <select class="input" :value="selectedProjectId || ''" @change="handleProjectChange">
               <option v-for="item in projects" :key="item.id" :value="item.id">{{ item.title }}</option>
             </select>
-          </label>
-          <div class="hero-actions">
-            <button class="btn ghost" type="button" @click="exportOverview">Exportieren</button>
+          </div>
+          <div class="topbar-buttons">
             <button class="btn ghost" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
+            <button class="btn" type="button" @click="exportOverview">Exportieren</button>
           </div>
         </div>
       </header>
 
-      <!-- Tab Navigation -->
-      <div class="finance-tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab"
-          class="tab-btn"
-          :class="{ active: activeTab === tab }"
-          @click="activeTab = tab"
-        >
-          {{ tabLabels[tab] }}
-        </button>
-      </div>
-
-      <section v-if="errorMessage || successMessage" class="feedback-stack">
-        <div v-if="errorMessage" class="feedback-card error">{{ errorMessage }}</div>
-        <div v-if="successMessage" class="feedback-card success">{{ successMessage }}</div>
+      <section v-if="errorMessage || successMessage" class="feedback-bar">
+        <div v-if="errorMessage" class="feedback-pill error">{{ errorMessage }}</div>
+        <div v-if="successMessage" class="feedback-pill success">{{ successMessage }}</div>
       </section>
 
-      <!-- Übersicht Tab -->
-      <section class="summary-grid">
-          <article v-if="overview.monthly_left < 0" class="card alert-card warning">
-            <span class="label">⚠️ Budget-Alert</span>
-            <strong>Defizit von {{ formatCurrency(Math.abs(overview.monthly_left)) }} pro Monat</strong>
-            <small class="muted">Ausgaben übersteigen Einnahmen – Anpassungen nötig!</small>
-          </article>
-          <article class="card summary-card positive">
-            <span class="label">Frei pro Monat ({{ overview.snapshot_month }})</span>
-            <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
-            <small class="muted">Einnahmen minus alle geplanten Ausgänge</small>
-          </article>
-          <article class="card summary-card">
-            <span class="label">Einnahmen ({{ overview.snapshot_month }})</span>
-            <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
-            <small class="muted">Fixe und wiederkehrende Einnahmen</small>
-          </article>
-          <article class="card summary-card">
-            <span class="label">Geplante Ausgänge ({{ overview.snapshot_month }})</span>
-            <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
-            <small class="muted">Fixkosten, variabel, Schulden und Sparen</small>
-            <div v-if="overview.top_categories?.length" class="category-breakdown">
-              <small class="muted">Top-Kategorien:</small>
-              <ul>
-                <li v-for="cat in overview.top_categories.slice(0, 3)" :key="cat.category">
-                  {{ cat.category }}: {{ formatCurrency(cat.amount) }}
+      <section class="summary-band">
+        <article class="metric-card balance-card">
+          <div class="metric-top">
+            <div>
+              <span class="metric-label">Frei im Monat</span>
+              <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
+            </div>
+            <span class="metric-pill">{{ overview.snapshot_month }}</span>
+          </div>
+          <p class="metric-note">Einnahmen minus Ausgaben, Sparen und Schuldentilgung. Hier siehst du direkt, ob der Monat aufgeht.</p>
+          <div class="metric-progress">
+            <span class="metric-pill small">{{ overview.people_count }} Personen</span>
+            <span class="metric-pill small">{{ overview.active_entry_count || 0 }} aktive Posten</span>
+          </div>
+        </article>
+
+        <article class="metric-card">
+          <span class="metric-label">Monatliche Einnahmen</span>
+          <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
+          <p class="metric-note">Fixe und wiederkehrende Werte, die den Monat tragen.</p>
+        </article>
+
+        <article class="metric-card">
+          <span class="metric-label">Monatliche Ausgaben</span>
+          <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
+          <p class="metric-note">Gesamter Mittelabfluss inklusive Sparen und Schulden.</p>
+        </article>
+
+        <article class="metric-card">
+          <span class="metric-label">Verbleibende Schulden</span>
+          <strong>{{ formatCurrency(overview.total_debt) }}</strong>
+          <p class="metric-note">Aktueller Schuldenstand aller laufenden Verbindlichkeiten.</p>
+        </article>
+      </section>
+
+      <section class="tab-panel">
+        <div class="tab-nav">
+          <button
+            v-for="tab in tabs"
+            :key="tab"
+            class="tab-pill"
+            :class="{ active: activeTab === tab }"
+            @click="activeTab = tab"
+          >
+            {{ tabLabels[tab] }}
+          </button>
+        </div>
+
+        <div class="workspace-shell">
+          <aside class="workspace-aside">
+            <article class="panel info-panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Aktuelle Signale</h2>
+                  <p class="muted">Wichtige Kennzahlen auf einen Blick.</p>
+                </div>
+                <span class="badge">Live</span>
+              </div>
+
+              <div class="info-row">
+                <div>
+                  <span class="info-label">Saldo</span>
+                  <strong>{{ overview.monthly_left >= 0 ? 'Positiv' : 'Defizit' }}</strong>
+                </div>
+                <div>
+                  <span class="info-label">Fälligkeiten</span>
+                  <strong>{{ overview.due_soon?.length || 0 }}</strong>
+                </div>
+                <div>
+                  <span class="info-label">Personen</span>
+                  <strong>{{ members.length }}</strong>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel list-panel">
+              <div class="panel-head">
+                <h2>Top-Kategorien</h2>
+              </div>
+              <ul class="compact-list">
+                <li v-if="!overview.top_categories?.length" class="empty-text">Keine Kategoriendaten verfügbar.</li>
+                <li v-for="item in overview.top_categories" :key="item.category">
+                  <span>{{ item.category }}</span>
+                  <strong>{{ formatCurrency(item.amount) }}</strong>
                 </li>
               </ul>
-            </div>
-          </article>
-          <article class="card summary-card" :class="{ warning: Number(overview.buffer_gap || 0) > 0 }">
-            <span class="label">Voraussichtlicher Stand (Ende {{ overview.snapshot_month }})</span>
-            <strong>{{ formatCurrency(overview.projected_balance) }}</strong>
-            <small class="muted">
-              Notgroschen-Lücke: {{ formatCurrency(overview.buffer_gap) }}
-            </small>
-          </article>
-          <article class="card summary-card">
-            <span class="label">Verbleibende Schulden (Gesamt)</span>
-            <strong>{{ formatCurrency(overview.total_debt || overview.debt_total || 0) }}</strong>
-            <small class="muted">Alle offenen Verbindlichkeiten zusammengefasst</small>
-          </article>
-        </section>
+            </article>
 
-        <!-- Monatsprognose -->
-        <section class="forecast-section">
-          <article class="card forecast-card">
-            <div class="section-head">
-              <div>
-                <h2>Monatsprognose</h2>
-                <p class="muted">Berechne wie viel nach Einnahmen, Ausgaben und Schulden übrig bleibt.</p>
+            <article class="panel list-panel">
+              <div class="panel-head">
+                <h2>Nächste Fälligkeiten</h2>
               </div>
-              <div class="forecast-actions">
-                <button class="btn ghost sm" type="button" @click="showCompareModal = true">Vergleichen</button>
-                <button class="btn" type="button" @click="showForecastModal = true">Prognose aufrufen</button>
-              </div>
-            </div>
-            <p v-if="forecast" class="muted">
-              Letzte Prognose für {{ forecast.month }}: {{ formatCurrency(forecast.net_income) }} übrig
-              (nach {{ formatCurrency(forecast.savings_amount) }} Sparen)
-            </p>
-          </article>
-        </section>
+              <ul class="compact-list">
+                <li v-if="!overview.due_soon?.length" class="empty-text">Kein Eintrag in den nächsten 14 Tagen.</li>
+                <li v-for="item in overview.due_soon" :key="item.id">
+                  <span>{{ item.title }}</span>
+                  <strong>{{ formatCurrency(item.monthly_amount) }}</strong>
+                </li>
+              </ul>
+            </article>
+          </aside>
 
-        <!-- Einfaches Chart -->
-        <section class="chart-section">
-          <article class="card chart-card">
-            <div class="section-head">
-              <div>
-                <h2>Monatsübersicht ({{ overview.snapshot_month }})</h2>
-                <p class="muted">Visuelle Darstellung der Einnahmen und Ausgaben.</p>
-              </div>
-            </div>
-            <div class="chart-container">
-              <div class="chart-bar income" :style="{ height: `${Math.min(100, (overview.monthly_income / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
-                <span>Einnahmen</span>
-                <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
-              </div>
-              <div class="chart-bar expense" :style="{ height: `${Math.min(100, (overview.monthly_outflow / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
-                <span>Ausgaben</span>
-                <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
-              </div>
-            </div>
-          </article>
-        </section>
+          <main class="workspace-main">
+            <section v-show="activeTab === 'planner'" class="planner-page">
+              <div class="planner-grid">
+                <article class="panel chart-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Monatliche Struktur</h2>
+                      <p class="muted">Übersicht über Einnahmen, Ausgaben und Nettoergebnis.</p>
+                    </div>
+                    <span class="badge">{{ overview.snapshot_month }}</span>
+                  </div>
 
-        <section v-show="activeTab === 'planner'" class="finance-layout">
-          <div class="main-column">
-            <article v-if="false" class="card project-settings">
-              <div class="section-head">
+                  <div class="performance-cards">
+                    <div class="performance-item income">
+                      <span>Einnahmen</span>
+                      <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
+                    </div>
+                    <div class="performance-item outcome">
+                      <span>Ausgaben</span>
+                      <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
+                    </div>
+                    <div class="performance-item balance">
+                      <span>Saldo</span>
+                      <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="chart-container">
+                    <div class="chart-bar income" :style="{ height: `${Math.min(100, (overview.monthly_income / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
+                      <span>Einnahmen</span>
+                      <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
+                    </div>
+                    <div class="chart-bar expense" :style="{ height: `${Math.min(100, (overview.monthly_outflow / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
+                      <span>Ausgaben</span>
+                      <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="panel entries-panel">
+                  <div class="panel-head panel-head-space">
+                    <div>
+                      <h2>Posten</h2>
+                      <p class="muted">Wähle einen Filter, um dein Monatsbild zu schärfen.</p>
+                    </div>
+                    <div class="filter-row">
+                      <button
+                        v-for="option in entryFilters"
+                        :key="option.value"
+                        type="button"
+                        class="chip"
+                        :class="{ active: activeEntryFilter === option.value }"
+                        @click="activeEntryFilter = option.value"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="filteredEntries.length" class="entry-list">
+                    <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="{ inactive: !entry.is_active }">
+                      <div class="entry-main">
+                        <div class="entry-title-line">
+                          <strong>{{ entry.title }}</strong>
+                          <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
+                        </div>
+                        <p class="muted small">
+                          {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
+                          {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
+                        </p>
+                        <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
+                      </div>
+                      <div class="entry-side">
+                        <strong>{{ formatCurrency(entry.amount) }}</strong>
+                        <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
+                        <span class="muted small">{{ dueLabel(entry) }}</span>
+                        <div class="entry-actions">
+                          <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
+                          <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
+                          <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
+                        </div>
+                      </div>
+                    </article>
+                  </div>
+                  <p v-else class="muted empty-hint">Kein Posten im aktuellen Filter.</p>
+                </article>
+              </div>
+
+              <div class="settings-row">
+                <article class="panel settings-panel">
+                  <div class="panel-head">
+                    <div>
+                      <h2>Projektbasis</h2>
+                      <p class="muted">Die Werte, die deinen Monatsverlauf steuern.</p>
+                    </div>
+                    <button class="btn" type="button" @click="saveProject" :disabled="savingProject">{{ savingProject ? "Speichere..." : "Basis speichern" }}</button>
+                  </div>
+                  <div class="settings-grid">
+                    <label>
+                      Titel
+                      <input v-model.trim="projectForm.title" class="input" />
+                    </label>
+                    <label>
+                      Währung
+                      <select v-model="projectForm.currency" class="input">
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="CHF">CHF</option>
+                      </select>
+                    </label>
+                    <label>
+                      Aktuelles Guthaben
+                      <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
+                    </label>
+                    <label>
+                      Sparziel pro Monat
+                      <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
+                    </label>
+                    <label>
+                      Notgroschen-Ziel
+                      <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
+                    </label>
+                    <label class="full">
+                      Notiz
+                      <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
+                    </label>
+                  </div>
+                </article>
+
+                <article class="panel status-panel">
+                  <div class="panel-head">
+                    <h2>Projektstatus</h2>
+                  </div>
+                  <div class="status-grid">
+                    <div>
+                      <span class="info-label">Personen</span>
+                      <strong>{{ members.length }}</strong>
+                    </div>
+                    <div>
+                      <span class="info-label">Aktive Posten</span>
+                      <strong>{{ overview.active_entry_count || 0 }}</strong>
+                    </div>
+                    <div>
+                      <span class="info-label">Bald fällig</span>
+                      <strong>{{ overview.due_soon?.length || 0 }}</strong>
+                    </div>
+                    <div>
+                      <span class="info-label">Währung</span>
+                      <strong>{{ currency }}</strong>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section v-show="activeTab === 'daily'" class="daily-page">
+              <div class="daily-header">
                 <div>
-                  <h2>Projektbasis</h2>
-                  <p class="muted">Die paar Werte, die dein Monatsbild steuern.</p>
+                  <h2>Tägliche Ausgaben</h2>
+                  <p class="muted">Verfolge alltägliche Ausgaben wie Einkäufe, Kaffee und Transport.</p>
                 </div>
-                <button class="btn" type="button" @click="saveProject" :disabled="savingProject">
-                  {{ savingProject ? "Speichere..." : "Basis speichern" }}
-                </button>
+                <div class="daily-controls">
+                  <label>
+                    Monat
+                    <input v-model="dailyMonth" type="month" class="input" @change="loadDailyExpenses" />
+                  </label>
+                  <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Neue Ausgabe</button>
+                </div>
               </div>
 
-              <div class="grid project-grid">
-                <label>
-                  Titel
-                  <input v-model.trim="projectForm.title" class="input" />
-                </label>
-                <label>
-                  Währung
-                  <select v-model="projectForm.currency" class="input">
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                    <option value="CHF">CHF</option>
-                  </select>
-                </label>
-                <label>
-                  Aktuelles Guthaben
-                  <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
-                </label>
-                <label>
-                  Sparziel pro Monat
-                  <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
-                </label>
-                <label>
-                  Notgroschen-Ziel
-                  <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
-                </label>
-              <label class="full">
-                Notiz
-                <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
-              </label>
-            </div>
-          </article>
-
-          <article v-if="false" class="card overview-card">
-            <div class="section-head">
-              <div>
-                <h2>Monatsbild</h2>
-                <p class="muted">Alles Relevante für diesen Monat in einer Übersicht.</p>
+              <div class="daily-summary">
+                <div class="summary-item">
+                  <span class="label">Gesamt</span>
+                  <strong>{{ formatCurrency(dailyExpensesTotal) }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Einträge</span>
+                  <strong>{{ dailyExpenses.length }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span class="label">Ø pro Tag</span>
+                  <strong>{{ formatCurrency(dailyExpensesAverage) }}</strong>
+                </div>
               </div>
-              <span class="snapshot">{{ overview.snapshot_month || currentMonthLabel }}</span>
-            </div>
 
-            <div class="overview-grid">
-              <div class="overview-stack">
-                <div class="mini-stats">
+              <div v-if="dailyExpenses.length" class="daily-list">
+                <article v-for="expense in dailyExpenses" :key="expense.id" class="daily-item">
+                  <div class="daily-main">
+                    <div class="daily-title-line">
+                      <strong>{{ expense.title }}</strong>
+                      <span class="category-badge" v-if="expense.category">{{ expense.category }}</span>
+                    </div>
+                    <p class="muted small">{{ formatDate(expense.date) }} · {{ expense.member_name || "Nicht zugeordnet" }}</p>
+                    <p v-if="expense.notes" class="muted small">{{ expense.notes }}</p>
+                  </div>
+                  <div class="daily-side">
+                    <strong>{{ formatCurrency(expense.amount) }}</strong>
+                    <div class="daily-actions">
+                      <button class="btn ghost sm" type="button" @click="editDailyExpense(expense)">Bearbeiten</button>
+                      <button class="btn ghost sm danger" type="button" @click="removeDailyExpense(expense)">Löschen</button>
+                    </div>
+                  </div>
+                </article>
+              </div>
+
+              <div v-else class="empty-state">
+                <p class="muted">Noch keine täglichen Ausgaben für {{ dailyMonthLabel }}.</p>
+                <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Erste Ausgabe hinzufügen</button>
+              </div>
+            </section>
+
+            <section v-show="activeTab === 'debts'" class="debt-page">
+              <article class="panel debt-summary-panel">
+                <div class="panel-head">
                   <div>
-                    <span class="label">Fixkosten</span>
-                    <strong>{{ formatCurrency(overview.monthly_fixed_costs) }}</strong>
+                    <h2>Schuldenübersicht</h2>
+                    <p class="muted">Gesamtbestand und monatliche Belastung.</p>
+                  </div>
+                </div>
+                <div class="status-grid">
+                  <div>
+                    <span class="info-label">Total</span>
+                    <strong>{{ formatCurrency(overview.total_debt) }}</strong>
                   </div>
                   <div>
-                    <span class="label">Variable Ausgaben</span>
-                    <strong>{{ formatCurrency(overview.monthly_variable_costs) }}</strong>
-                  </div>
-                  <div>
-                    <span class="label">Tägliche Ausgaben</span>
-                    <strong>{{ formatCurrency(overview.monthly_daily_expenses) }}</strong>
-                  </div>
-                  <div>
-                    <span class="label">Schulden</span>
+                    <span class="info-label">Monatlich</span>
                     <strong>{{ formatCurrency(overview.monthly_debt) }}</strong>
                   </div>
                   <div>
-                    <span class="label">Sparen</span>
-                    <strong>{{ formatCurrency(overview.monthly_savings) }}</strong>
-                  </div>
-                </div>
-
-                <div class="progress-list">
-                  <div class="progress-block">
-                    <div class="progress-head">
-                      <span>Sparziel</span>
-                      <strong>{{ formatCurrency(overview.monthly_savings) }} / {{ formatCurrency(project?.monthly_savings_target) }}</strong>
-                    </div>
-                    <div class="progress-bar">
-                      <span :style="{ width: `${progressPercent(overview.monthly_savings, project?.monthly_savings_target)}%` }"></span>
-                    </div>
-                  </div>
-
-                  <div class="progress-block">
-                    <div class="progress-head">
-                      <span>Notgroschen</span>
-                      <strong>{{ formatCurrency(project?.current_balance) }} / {{ formatCurrency(project?.emergency_buffer_target) }}</strong>
-                    </div>
-                    <div class="progress-bar alt">
-                      <span :style="{ width: `${progressPercent(project?.current_balance, project?.emergency_buffer_target)}%` }"></span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="overview-stack">
-                <h3>Demnächst fällig</h3>
-                <ul v-if="overview.due_soon?.length" class="due-list">
-                  <li v-for="item in overview.due_soon" :key="item.id">
-                    <div>
-                      <strong>{{ item.title }}</strong>
-                      <p class="muted small">
-                        {{ entryTypeLabels[item.entry_type] || item.entry_type }} · {{ item.member_name || "Nicht zugeordnet" }}
-                      </p>
-                    </div>
-                    <div class="due-side">
-                      <strong>{{ formatCurrency(item.amount) }}</strong>
-                      <span class="muted small">{{ formatDate(item.due_date) }}</span>
-                    </div>
-                  </li>
-                </ul>
-                <p v-else class="muted empty-hint">Für die nächsten 14 Tage ist nichts geplant.</p>
-
-                <h3>Personenbild</h3>
-                <ul class="person-totals" v-if="overview.member_totals?.length">
-                  <li v-for="row in overview.member_totals" :key="row.member_id ?? row.member_name">
-                    <span>{{ row.member_name }}</span>
-                    <span>{{ formatCurrency(row.net) }}</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </article>
-
-          <article class="card entries-card">
-            <div class="section-head">
-              <div>
-                <h2>Posten</h2>
-                <p class="muted">Alle Bausteine, aus denen sich dein Monat zusammensetzt.</p>
-              </div>
-              <div class="filter-row">
-                <button
-                  v-for="option in entryFilters"
-                  :key="option.value"
-                  type="button"
-                  class="chip"
-                  :class="{ active: activeEntryFilter === option.value }"
-                  @click="activeEntryFilter = option.value"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-            </div>
-
-            <div v-if="filteredEntries.length" class="entry-list">
-              <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="{ inactive: !entry.is_active }">
-                <div class="entry-main">
-                  <div class="entry-title-line">
-                    <strong>{{ entry.title }}</strong>
-                    <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
-                  </div>
-                  <p class="muted small">
-                    {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
-                    {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
-                  </p>
-                  <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
-                </div>
-
-                <div class="entry-side">
-                  <strong>{{ formatCurrency(entry.amount) }}</strong>
-                  <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
-                  <span class="muted small">{{ dueLabel(entry) }}</span>
-                  <div class="entry-actions">
-                    <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
-                    <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">
-                      {{ entry.is_active ? "Pausieren" : "Aktivieren" }}
-                    </button>
-                    <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
+                    <span class="info-label">Fällig bald</span>
+                    <strong>{{ overview.due_soon?.filter(item => item.entry_type === 'DEBT').length || 0 }}</strong>
                   </div>
                 </div>
               </article>
-            </div>
-            <p v-else class="muted empty-hint">Noch keine Posten im aktuellen Filter.</p>
-          </article>
-        </div>
 
-        <aside class="side-column">
-          <article class="card side-card">
-            <div class="section-head compact">
-              <div>
-                <h2>Posten verwalten</h2>
-                <p class="muted">Posten hinzufügen, bearbeiten oder entfernen.</p>
-              </div>
-              <button class="btn" type="button" @click="showEntryModal = true; resetEntryForm()">Neuer Posten</button>
-            </div>
-
-            <div class="entry-quick-actions">
-              <button class="btn ghost sm" type="button" @click="showEntryModal = true; resetEntryForm()">+ Posten</button>
-              <button class="btn ghost sm" type="button" @click="activeTab = 'daily'">📅 Tägliche Ausgaben</button>
-            </div>
-          </article>
-
-          <article class="card side-card compact-members-card">
-            <div class="section-head compact">
-              <div>
-                <h2>Personen</h2>
-                <p class="muted">Nur bei Bedarf aufklappen.</p>
-              </div>
-              <button class="btn ghost sm" type="button" @click="membersPanelOpen = !membersPanelOpen">
-                {{ membersPanelOpen ? "Schließen" : members.length ? "Verwalten" : "Anlegen" }}
-              </button>
-            </div>
-
-            <div class="member-summary">
-              <strong>{{ members.length }} {{ members.length === 1 ? "Person" : "Personen" }}</strong>
-              <p class="muted small">
-                {{ members.length ? "Im Projekt hinterlegt." : "Noch keine Personen angelegt." }}
-              </p>
-
-              <div v-if="memberPreview.length" class="member-preview">
-                <span v-for="member in memberPreview" :key="member.id" class="member-pill">
-                  {{ member.name }}
-                </span>
-                <span v-if="members.length > memberPreview.length" class="member-pill muted">
-                  +{{ members.length - memberPreview.length }}
-                </span>
-              </div>
-            </div>
-
-            <div v-if="membersPanelOpen" class="member-manager">
-              <ul v-if="members.length" class="member-list">
-                <li v-for="member in members" :key="member.id">
-                  <div>
-                    <strong>{{ member.name }}</strong>
-                    <p class="muted small">{{ memberRoleLabels[member.role] || member.role }}</p>
-                  </div>
-                  <button class="btn ghost sm danger" type="button" @click="removeMember(member)">Entfernen</button>
-                </li>
-              </ul>
-              <p v-else class="muted empty-hint">Noch keine Personen angelegt.</p>
-
-              <form class="stack-form" @submit.prevent="createMember">
-                <label>
-                  Name
-                  <input v-model.trim="memberForm.name" class="input" placeholder="z. B. Samir" required />
-                </label>
-                <label>
-                  Rolle
-                  <select v-model="memberForm.role" class="input">
-                    <option v-for="(label, key) in memberRoleLabels" :key="key" :value="key">{{ label }}</option>
-                  </select>
-                </label>
-                <label>
-                  Notiz
-                  <textarea v-model.trim="memberForm.notes" class="input textarea" rows="2" placeholder="optional"></textarea>
-                </label>
-                <button class="btn" type="submit" :disabled="savingMember">
-                  {{ savingMember ? "Speichere..." : "Person hinzufügen" }}
-                </button>
-              </form>
-            </div>
-          </article>
-        </aside>
-      </section>
-
-      <section v-show="activeTab === 'planner'" class="settings-layout">
-        <article class="card project-settings">
-          <div class="section-head">
-            <div>
-              <h2>Projektbasis</h2>
-              <p class="muted">Die Werte, die dein Monatsbild steuern.</p>
-            </div>
-            <button class="btn" type="button" @click="saveProject" :disabled="savingProject">
-              {{ savingProject ? "Speichere..." : "Basis speichern" }}
-            </button>
-          </div>
-
-          <div class="grid project-grid">
-            <label>
-              Titel
-              <input v-model.trim="projectForm.title" class="input" />
-            </label>
-            <label>
-              Waehrung
-              <select v-model="projectForm.currency" class="input">
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
-                <option value="CHF">CHF</option>
-              </select>
-            </label>
-            <label>
-              Aktuelles Guthaben
-              <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
-            </label>
-            <label>
-              Sparziel pro Monat
-              <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
-            </label>
-            <label>
-              Notgroschen-Ziel
-              <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
-            </label>
-            <label>
-              Sparrate (% vom Rest)
-              <input v-model="projectForm.savings_percentage" class="input" type="number" step="0.01" min="0" max="100" />
-            </label>
-            <label class="full">
-              Notiz
-              <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
-            </label>
-          </div>
-        </article>
-
-        <article class="card settings-info-card">
-          <div class="section-head compact">
-            <div>
-              <h2>Projektstatus</h2>
-              <p class="muted">Wichtige Werte auf einen Blick.</p>
-            </div>
-          </div>
-
-          <div class="settings-stats">
-            <div>
-              <span class="label">Personen</span>
-              <strong>{{ members.length }}</strong>
-            </div>
-            <div>
-              <span class="label">Posten aktiv</span>
-              <strong>{{ overview.active_entry_count || 0 }}</strong>
-            </div>
-            <div>
-              <span class="label">Faellig bald</span>
-              <strong>{{ overview.due_soon?.length || 0 }}</strong>
-            </div>
-            <div>
-              <span class="label">Waehrung</span>
-              <strong>{{ currency }}</strong>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <!-- Daily Expenses Tab -->
-      <section v-show="activeTab === 'daily' && selectedProjectId" class="daily-section">
-        <div class="daily-header">
-          <div>
-            <h2>Tägliche Ausgaben</h2>
-            <p class="muted">Verfolge alltägliche Ausgaben wie Einkäufe, Kaffee, Transport etc.</p>
-          </div>
-          <div class="daily-controls">
-            <label>
-              Monat
-              <input v-model="dailyMonth" type="month" class="input" @change="loadDailyExpenses" />
-            </label>
-            <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Neue Ausgabe</button>
-          </div>
-        </div>
-
-        <div class="daily-summary" v-if="dailyExpenses.length">
-          <div class="summary-item">
-            <span class="label">Ausgaben diesen Monat</span>
-            <strong>{{ formatCurrency(dailyExpensesTotal) }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">Anzahl Einträge</span>
-            <strong>{{ dailyExpenses.length }}</strong>
-          </div>
-          <div class="summary-item">
-            <span class="label">Durchschnitt pro Tag</span>
-            <strong>{{ formatCurrency(dailyExpensesAverage) }}</strong>
-          </div>
-        </div>
-
-        <div class="daily-list" v-if="dailyExpenses.length">
-          <article v-for="expense in dailyExpenses" :key="expense.id" class="daily-item">
-            <div class="daily-main">
-              <div class="daily-title-line">
-                <strong>{{ expense.title }}</strong>
-                <span class="category-badge" v-if="expense.category">{{ expense.category }}</span>
-              </div>
-              <p class="muted small">
-                {{ formatDate(expense.date) }} · {{ expense.member_name || "Nicht zugeordnet" }}
-              </p>
-              <p v-if="expense.notes" class="muted small">{{ expense.notes }}</p>
-            </div>
-            <div class="daily-side">
-              <strong>{{ formatCurrency(expense.amount) }}</strong>
-              <div class="daily-actions">
-                <button class="btn ghost sm" type="button" @click="editDailyExpense(expense)">Bearbeiten</button>
-                <button class="btn ghost sm danger" type="button" @click="removeDailyExpense(expense)">Löschen</button>
-              </div>
-            </div>
-          </article>
-        </div>
-
-        <div v-else class="empty-state">
-          <p class="muted">Noch keine täglichen Ausgaben für {{ dailyMonthLabel }}.</p>
-          <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Erste Ausgabe hinzufügen</button>
+              <DebtTracker :projectId="selectedProjectId" />
+            </section>
+          </main>
         </div>
       </section>
+    </template>
 
-      <!-- Debt Tracker Section -->
-      <section v-show="activeTab === 'debts' && selectedProjectId" class="debt-section">
-        <DebtTracker :projectId="selectedProjectId" />
-      </section>
-
-      <!-- Forecast Modal -->
+    <!-- Forecast Modal -->
       <div v-if="showForecastModal" class="modal-overlay" @click="showForecastModal = false">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
@@ -2226,6 +2066,431 @@ onMounted(syncProjectSelection);
   .daily-side {
     justify-items: start;
     text-align: left;
+  }
+}
+
+/* New Finance Dashboard Design */
+.topbar-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 28px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: white;
+}
+
+.topbar-meta {
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.topbar-meta h1 {
+  margin: 0;
+  font-size: clamp(2rem, 2.5vw, 2.8rem);
+}
+
+.topbar-meta .muted {
+  color: rgba(255, 255, 255, 0.78);
+  max-width: 720px;
+}
+
+.topbar-actions {
+  display: grid;
+  gap: 16px;
+  min-width: 240px;
+  width: 100%;
+}
+
+.project-select label {
+  display: grid;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.project-select .input {
+  width: 100%;
+  min-width: 220px;
+}
+
+.topbar-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.feedback-bar {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.feedback-pill {
+  padding: 16px 18px;
+  border-radius: 18px;
+  font-weight: 600;
+}
+
+.feedback-pill.error {
+  background: rgba(248, 113, 113, 0.16);
+  color: #7f1d1d;
+}
+
+.feedback-pill.success {
+  background: rgba(20, 184, 166, 0.16);
+  color: #0f766e;
+}
+
+.summary-band {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+  min-height: 150px;
+}
+
+.balance-card {
+  background: linear-gradient(135deg, #0f766e, #10b981);
+  color: #f8fafc;
+  border: none;
+  box-shadow: 0 28px 74px rgba(15, 118, 110, 0.18);
+}
+
+.metric-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.metric-label {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metric-note {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.metric-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.metric-pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.metric-pill.small {
+  opacity: 0.84;
+}
+
+.tab-panel {
+  margin-top: 28px;
+}
+
+.tab-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px;
+}
+
+.tab-pill {
+  border: none;
+  background: none;
+  padding: 12px 20px;
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.tab-pill.active {
+  background: var(--brand);
+  color: white;
+  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.12);
+}
+
+.workspace-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 22px;
+}
+
+.workspace-aside {
+  display: grid;
+  gap: 20px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.badge {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--brand);
+}
+
+.info-row,
+.status-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.info-row > div,
+.status-grid > div {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.compact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.compact-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.empty-text {
+  color: var(--muted);
+}
+
+.performance-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.performance-item {
+  border-radius: 20px;
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+  min-height: 104px;
+  color: white;
+}
+
+.performance-item span {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+  opacity: 0.92;
+}
+
+.performance-item strong {
+  font-size: 1.5rem;
+}
+
+.performance-item.income {
+  background: linear-gradient(135deg, #059669, #10b981);
+}
+
+.performance-item.outcome {
+  background: linear-gradient(135deg, #c2410c, #f97316);
+}
+
+.performance-item.balance {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+}
+
+.entries-panel .panel-head {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.panel-head-space {
+  gap: 16px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.planner-grid {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
+}
+
+.status-panel {
+  align-self: start;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.9fr;
+  gap: 20px;
+  margin-top: 22px;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-grid label.full {
+  grid-column: span 2;
+}
+
+.daily-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.daily-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.chart-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  height: 210px;
+  padding: 20px;
+  background: var(--surface);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+
+.chart-bar {
+  flex: 1;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  align-items: end;
+  padding: 16px;
+  border-radius: 18px;
+  color: white;
+  text-align: center;
+  min-height: 60px;
+}
+
+.chart-bar.income {
+  background: linear-gradient(135deg, #22c55e, #4ade80);
+}
+
+.chart-bar.expense {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+
+.chart-bar span {
+  font-size: 12px;
+}
+
+.chart-bar strong {
+  font-size: 1rem;
+}
+
+.debt-summary-panel {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1024px) {
+  .workspace-shell,
+  .planner-grid,
+  .settings-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .summary-band {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .topbar-actions {
+    align-items: stretch;
+  }
+
+  .topbar-buttons {
+    justify-content: flex-start;
+  }
+
+  .daily-header,
+  .daily-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-head {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

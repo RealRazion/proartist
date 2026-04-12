@@ -92,6 +92,9 @@
           </article>
           <article class="card summary-card">
             <span class="label">Verbleibende Schulden (Gesamt)</span>
+            <strong>{{ formatCurrency(overview.total_debt || overview.debt_total || 0) }}</strong>
+            <small class="muted">Alle offenen Verbindlichkeiten zusammengefasst</small>
+          </article>
         </section>
 
         <!-- Monatsprognose -->

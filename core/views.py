@@ -155,13 +155,8 @@ def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
         user.save(update_fields=["password"])
     else:
         username = user.username
-    profile, _ = Profile.objects.get_or_create(user=user, defaults={"name": name or username})
-    if name and not profile.name:
-        profile.name = name
-        profile.save(update_fields=["name"])
-    if role_keys:
-        roles = Role.objects.filter(key__in=role_keys)
-        profile.roles.set(roles)
+    # Profile is created after user sets password, not at invite time
+    # Only store invitation metadata if needed for admin tracking
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
@@ -172,7 +167,7 @@ def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
             f"Hallo,\n\nbitte setze dein Passwort über diesen Link:\n{link}\n\nViele Grüße",
             [email],
         )
-    return {"user": user, "profile": profile, "username": username, "invite_link": link}
+    return {"user": user, "profile": None, "username": username, "invite_link": link}
 
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated, IsTeam])
@@ -187,12 +182,12 @@ def invite_user(request):
         result = _create_invite_for_email(email, name=name, role_keys=role_keys, send_email=send_email)
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=400)
-    profile = result["profile"]
     return Response({
-        "id": profile.id,
+        "user_id": result["user"].id,
         "email": email,
         "username": result["username"],
         "invite_link": result["invite_link"],
+        "status": "invited",
     })
 
 @api_view(["POST"])
@@ -214,7 +209,11 @@ def set_password(request):
         return Response({"detail": "invalid link"}, status=400)
     user.set_password(password)
     user.save(update_fields=["password"])
-    return Response({"detail": "password set"})
+    
+    # Create profile after password is set (onboarding complete)
+    profile, _ = Profile.objects.get_or_create(user=user, defaults={"name": user.username})
+    
+    return Response({"detail": "password set", "profile_id": profile.id})
 
 # --- Registration Requests ---
 class RegistrationRequestViewSet(viewsets.ModelViewSet):

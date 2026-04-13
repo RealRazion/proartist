@@ -647,9 +647,8 @@
           </div>
         </div>
       </div>
-    </template>
-  </div>
-</template>
+    </div>
+  </template>
 
 <script setup>
 import { computed, onMounted, ref, watch } from "vue";

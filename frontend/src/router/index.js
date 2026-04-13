@@ -57,6 +57,7 @@ const routes = [
         meta: { requiresAuth: true },
       },
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
+      { path: "tasks/finished", name: "tasks-finished", component: Tasks, meta: { requiresAuth: true } },
       { path: "reviews", name: "reviews", component: ReviewQueue, alias: "/reviews", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
       { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },

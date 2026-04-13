@@ -172,6 +172,17 @@
         <div ref="taskSentinel" class="sentinel" v-if="hasMoreTasks"></div>
         <p v-if="loadingMoreTasks" class="muted loading-more">Lade weitere Tasks...</p>
       </div>
+      <section v-if="finishedTaskSummary.visible" class="card finished-summary">
+        <div class="finished-summary-body">
+          <div>
+            <h3>Fertige Tasks</h3>
+            <p class="muted">Es gibt {{ finishedTaskSummary.count }} erledigte Tasks. Sie können fertig erledigte Aufgaben separat anzeigen und bei Bedarf zurücksetzen.</p>
+          </div>
+          <button class="btn" type="button" @click="openFinishedTasks">
+            Fertige Tasks ansehen
+          </button>
+        </div>
+      </section>
       <section v-if="activeTask" class="card detail-panel">
         <header class="detail-head">
           <div>
@@ -541,7 +552,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import api from "../api";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
 import { useToast } from "../composables/useToast";
@@ -552,6 +563,7 @@ const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 const { connect: connectRealtime } = useRealtimeUpdates(handleRealtimeEvent);
 const route = useRoute();
+const router = useRouter();
 
 const projects = ref([]);
 const tasks = ref([]);
@@ -672,6 +684,11 @@ function recurrenceLabel(task) {
   return interval > 1 ? `${base} x${interval}` : base;
 }
 const boardTypeFilter = ref("ALL");
+const isFinishedView = computed(() => route.name === "tasks-finished");
+
+function openFinishedTasks() {
+  router.push({ name: "tasks-finished" });
+}
 function setBoardType(value) {
   boardTypeFilter.value = value;
   taskTypeFilter.value = value === "ALL" ? "ALL" : value;
@@ -707,6 +724,11 @@ const boardColumns = computed(() =>
       .sort(compareTasks),
   }))
 );
+
+const finishedTaskSummary = computed(() => ({
+  count: taskSummary.value.done || 0,
+  visible: !isFinishedView.value && (taskSummary.value.done || 0) > 0,
+}));
 const statusProgress = computed(() =>
   statusOptions.map((status) => {
     const count = taskSummary.value.by_status?.[status] || 0;
@@ -1029,6 +1051,24 @@ async function refreshTasks() {
   await Promise.all([loadTasks(), loadTaskSummary()]);
 }
 
+watch(
+  [() => route.name, () => isTeam.value],
+  async ([name, team]) => {
+    if (!team) return;
+    if (name === "tasks-finished") {
+      showCompleted.value = true;
+      filterStatus.value = "DONE";
+    } else if (name === "tasks") {
+      if (filterStatus.value === "DONE") {
+        filterStatus.value = "ALL";
+      }
+      showCompleted.value = false;
+    }
+    await Promise.all([loadTasks(), loadTaskSummary()]);
+  },
+  { immediate: true }
+);
+
 async function exportCalendar() {
   if (calendarExporting.value) return;
   calendarExporting.value = true;
@@ -1197,8 +1237,10 @@ async function applyStatusChange(task, newStatus, reviewStatus, previousStatus) 
   if (reviewStatus) {
     payload.review_status = reviewStatus;
   }
+  let patchSucceeded = false;
   try {
     await api.patch(`tasks/${task.id}/`, payload);
+    patchSucceeded = true;
     statusSnapshot.value = { ...statusSnapshot.value, [task.id]: newStatus };
     task.status = newStatus;
     if (reviewStatus) {
@@ -1209,15 +1251,16 @@ async function applyStatusChange(task, newStatus, reviewStatus, previousStatus) 
     if (newStatus === "DONE") {
       showCompleted.value = true;
     }
-    await Promise.all([loadTasks(), loadTaskSummary()]);
-    showToast("Status aktualisiert", "success");
-    return true;
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
     task.status = fallbackStatus;
     showToast("Status konnte nicht aktualisiert werden", "error");
     return false;
   }
+
+  await Promise.all([loadTasks(), loadTaskSummary()]);
+  showToast("Status aktualisiert", "success");
+  return patchSucceeded;
 }
 
 async function onStatusChange(task, event) {
@@ -1377,7 +1420,7 @@ watch(
 onMounted(async () => {
   await fetchProfile();
   if (isTeam.value) {
-    await Promise.all([loadProjects(), loadProfiles(), refreshTasks()]);
+    await Promise.all([loadProjects(), loadProfiles()]);
     connectRealtime();
   }
 });
@@ -1425,6 +1468,26 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+.finished-summary {
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.06);
+  padding: 18px 20px;
+}
+.finished-summary-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.finished-summary-body h3 {
+  margin: 0;
+}
+.finished-summary-body p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 48rem;
 }
 .board-head {
   display: flex;

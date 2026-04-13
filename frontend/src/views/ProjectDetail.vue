@@ -922,8 +922,10 @@ async function applyTaskStatusChange(task, newStatus, reviewStatus, previousStat
   if (reviewStatus) {
     payload.review_status = reviewStatus;
   }
+  let patchSucceeded = false;
   try {
     await api.patch(`tasks/${task.id}/`, payload);
+    patchSucceeded = true;
     statusSnapshot.value = { ...statusSnapshot.value, [task.id]: newStatus };
     task.status = newStatus;
     if (reviewStatus) {
@@ -934,9 +936,6 @@ async function applyTaskStatusChange(task, newStatus, reviewStatus, previousStat
     if (newStatus === "DONE") {
       showCompletedTasks.value = true;
     }
-    await loadTasks();
-    showToast("Task-Status aktualisiert", "success");
-    return true;
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
     task.status = fallbackStatus;
@@ -944,6 +943,10 @@ async function applyTaskStatusChange(task, newStatus, reviewStatus, previousStat
     await loadTasks();
     return false;
   }
+
+  await loadTasks();
+  showToast("Task-Status aktualisiert", "success");
+  return patchSucceeded;
 }
 
 async function onTaskStatusChange(task, event) {

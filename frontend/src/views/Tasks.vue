@@ -339,6 +339,8 @@
       </section>
     </section>
 
+    <FinishedTasksCard :finishedCount="finishedTasksCount" :finishedTasks="finishedTasksList" v-if="isTeam" />
+
     <div v-if="showFilterModal" class="modal-backdrop" @click.self="closeFilterModal">
       <div class="modal card wide">
         <div class="modal-head">
@@ -555,6 +557,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue"
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
 import AttachmentPanel from "../components/AttachmentPanel.vue";
+import FinishedTasksCard from "../components/FinishedTasksCard.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
@@ -729,6 +732,16 @@ const finishedTaskSummary = computed(() => ({
   count: taskSummary.value.done || 0,
   visible: !isFinishedView.value && (taskSummary.value.done || 0) > 0,
 }));
+
+const finishedTasksCount = computed(() => taskSummary.value.done || 0);
+
+const finishedTasksList = computed(() =>
+  tasks.value
+    .filter(t => t.status === "DONE")
+    .sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))
+    .slice(0, 6)
+);
+
 const statusProgress = computed(() =>
   statusOptions.map((status) => {
     const count = taskSummary.value.by_status?.[status] || 0;

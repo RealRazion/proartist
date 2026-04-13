@@ -338,7 +338,8 @@ async function markReviewed(task) {
     await loadReviewTasks();
   } catch (err) {
     console.error("Review konnte nicht gespeichert werden", err);
-    showToast("Review konnte nicht gespeichert werden", "error");
+    const errorDetail = err.response?.data?.detail || err.message || "Unbekannter Fehler";
+    showToast(`Review konnte nicht gespeichert werden: ${errorDetail}`, "error");
   } finally {
     reviewSaving.value = { ...reviewSaving.value, [task.id]: false };
   }
@@ -353,7 +354,8 @@ async function markNotReviewed(task) {
     await loadReviewTasks();
   } catch (err) {
     console.error("Task konnte nicht aktualisiert werden", err);
-    showToast("Task konnte nicht aktualisiert werden", "error");
+    const errorDetail = err.response?.data?.detail || err.message || "Unbekannter Fehler";
+    showToast(`Task konnte nicht aktualisiert werden: ${errorDetail}`, "error");
   } finally {
     reviewSaving.value = { ...reviewSaving.value, [task.id]: false };
   }

@@ -532,9 +532,10 @@ class TaskSerializer(serializers.ModelSerializer):
         if due_date is None and self.instance is not None:
             due_date = self.instance.due_date
 
-        if recurrence_pattern != "NONE" and not due_date:
+        # Only validate recurrence when it's being explicitly set to non-NONE
+        if "recurrence_pattern" in attrs and attrs["recurrence_pattern"] != "NONE" and not due_date:
             raise serializers.ValidationError({"due_date": "Wiederholende Tasks brauchen ein Fälligkeitsdatum."})
-        if recurrence_interval < 1:
+        if recurrence_interval and recurrence_interval < 1:
             raise serializers.ValidationError({"recurrence_interval": "Das Wiederholungsintervall muss mindestens 1 sein."})
         return attrs
 

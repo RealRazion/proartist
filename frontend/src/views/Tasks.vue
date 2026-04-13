@@ -1131,7 +1131,8 @@ async function submitTaskForm() {
     taskModalVisible.value = false;
   } catch (err) {
     console.error("Task konnte nicht gespeichert werden", err);
-    showToast("Task konnte nicht gespeichert werden", "error");
+    const errorDetail = err.response?.data?.detail || err.message || "Unbekannter Fehler";
+    showToast(`Task konnte nicht gespeichert werden: ${errorDetail}`, "error");
   } finally {
     taskSaving.value = false;
   }
@@ -1254,7 +1255,8 @@ async function applyStatusChange(task, newStatus, reviewStatus, previousStatus) 
   } catch (err) {
     console.error("Task-Status konnte nicht aktualisiert werden", err);
     task.status = fallbackStatus;
-    showToast("Status konnte nicht aktualisiert werden", "error");
+    const errorDetail = err.response?.data?.detail || err.message || "Unbekannter Fehler";
+    showToast(`Status konnte nicht aktualisiert werden: ${errorDetail}`, "error");
     return false;
   }
 
@@ -1278,7 +1280,8 @@ async function confirmReviewDecision(reviewed) {
   const task = reviewTarget.value;
   const reviewStatus = reviewed ? "REVIEWED" : "NOT_REVIEWED";
   const success = await applyStatusChange(task, "DONE", reviewStatus, reviewPreviousStatus.value);
-  if (success) closeReviewModal();
+  // Always close modal after decision, even on error to prevent modal from staying stuck
+  closeReviewModal();
 }
 
 async function setTaskReviewStatus(task, reviewed) {

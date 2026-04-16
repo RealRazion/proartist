@@ -291,21 +291,6 @@
         </div>
       </header>
 
-      <section class="page-toolbar card">
-        <div class="page-heading">
-          <p class="page-kicker">{{ pageKicker }}</p>
-          <h1>{{ pageTitle }}</h1>
-        </div>
-        <div class="page-actions">
-          <button class="btn ghost tiny" type="button" @click="refreshCurrentPage">
-            Neu laden
-          </button>
-          <button class="btn tiny" type="button" @click="runSecondaryAction">
-            {{ secondaryAction.label }}
-          </button>
-        </div>
-      </section>
-
       <main class="content compact-content">
         <router-view :key="routerViewKey" />
       </main>
@@ -348,66 +333,13 @@ const viewRefreshKey = ref(0);
 let unreadInterval = null;
 let notificationInterval = null;
 
-const pageMeta = {
-  dashboard: { title: "Dashboard", team: "Teamsteuerung auf einen Blick", artist: "Dein zentraler Startpunkt" },
-  platforms: { title: "UNYQ Hub", team: "Plattformen und Tools", artist: "Dein Zugang zu allen Bereichen" },
-  "platform-contests": { title: "Contests", team: "Wettbewerbe und Chancen", artist: "Wettbewerbe und Chancen" },
-  "platform-music": { title: "Music Manager", team: "Musikplanung und Releases", artist: "Musikplanung und Releases" },
-  "platform-locations": { title: "Locations", team: "Orte, Events und Buchungen", artist: "Orte, Events und Buchungen" },
-  "platform-finance": { title: "Finance", team: "Finanzprojekt anlegen", artist: "Finanzprojekt anlegen" },
-  finance: { title: "Finanzplaner", team: "Budget, Schulden und Monatsbild", artist: "Budget, Schulden und Monatsbild" },
-  "platform-fitness": { title: "Fitness", team: "Tracker und Essensideen", artist: "Tracker und Essensideen" },
-  fitness: { title: "Fitness Tracker", team: "Kalorien und Tagesprofil", artist: "Kalorien und Tagesprofil" },
-  analytics: { title: "Analytics", team: "Performance und Kennzahlen", artist: "Analyse" },
-  profiles: { title: "Profiles", team: "Personen und Rollen", artist: "Netzwerkprofile" },
-  chats: { title: "Chats", team: "Direkte Abstimmung im Team", artist: "Direkter Austausch" },
-  news: { title: "News", team: "Updates fuer alle Beteiligten", artist: "Aktuelle Team-News" },
-  guides: { title: "Plugin Guides", team: "Wissen und Workflows", artist: "Guides und Tipps" },
-  projects: { title: "Projekte", team: "Projektplanung und Steuerung", artist: "Deine Projektuebersicht" },
-  "project-detail": { title: "Projekt Details", team: "Task- und Projektfokus", artist: "Projektfokus" },
-  tasks: { title: "Tasks", team: "Aufgabenmanagement", artist: "Tasks" },
-  reviews: { title: "Review Queue", team: "Freigaben und Qualitaetssicherung", artist: "Reviews" },
-  timeline: { title: "Timeline", team: "Fristen und Deadlines", artist: "Timeline" },
-  activity: { title: "Aktivitaet", team: "Letzte Team-Ereignisse", artist: "Aktivitaetsfeed" },
-  notifications: { title: "Notifications", team: "Inbox und Updates", artist: "Persoenliche Inbox" },
-  admin: { title: "Admin", team: "Benutzer und Systemverwaltung", artist: "Admin" },
-  points: { title: "Points", team: "Workload und Scoring", artist: "Points" },
-  "api-center": { title: "API Center", team: "Automationen und Integrationen", artist: "API Center" },
-  growpro: { title: "GrowPro", team: "Ziele und Fortschritt", artist: "Wachstumsziele" },
-
-  songs: { title: "Songs", team: "Versionen und Releases", artist: "Songs" },
-  me: { title: "Mein Profil", team: "Persoenliche Einstellungen", artist: "Persoenliche Einstellungen" },
-};
-
 const initial = computed(() => {
   const source = me.value?.name || me.value?.username || "";
   return source ? source.trim().charAt(0).toUpperCase() : "U";
 });
 
 const themeLabel = computed(() => (theme.value === "dark" ? "Dark" : "Light"));
-const pageMetaCurrent = computed(() => pageMeta[route.name] || { title: "UNYQ", team: "UNYQ TEAM", artist: "Arbeitsbereich" });
-const pageTitle = computed(() => pageMetaCurrent.value.title);
-const pageKicker = computed(() => (isTeam.value ? pageMetaCurrent.value.team : pageMetaCurrent.value.artist));
 const routerViewKey = computed(() => `${route.fullPath}::${viewRefreshKey.value}`);
-const secondaryAction = computed(() => {
-  if (route.name === "dashboard") {
-    return isTeam.value
-      ? { label: "Zu Tasks", to: { name: "tasks" } }
-      : { label: "Zu Projekten", to: { name: "projects" } };
-  }
-  if (route.name === "platforms") return { label: "Zum Dashboard", to: { name: "dashboard" } };
-  if (String(route.name || "").startsWith("platform-") || route.name === "finance" || route.name === "fitness") {
-    return { label: "Zum Hub", to: { name: "platforms" } };
-  }
-  if (route.name === "tasks") return { label: "Zur Review Queue", to: { name: "reviews" } };
-  if (route.name === "reviews") return { label: "Zur Timeline", to: { name: "timeline" } };
-  if (route.name === "project-detail") return { label: "Zu Projekten", to: { name: "projects" } };
-  if (route.name === "growpro" && isTeam.value) return { label: "Zu Points", to: { name: "points" } };
-  if (route.name === "admin") return { label: "Zu Analytics", to: { name: "analytics" } };
-  if (route.name === "api-center") return { label: "Zu Admin", to: { name: "admin" } };
-  return { label: "Zum Dashboard", to: { name: "dashboard" } };
-});
-
 function notify(msg) {
   showToast(msg);
 }
@@ -465,16 +397,6 @@ async function loadChatContacts() {
 function goToProfile() {
   router.push({ name: "me" });
   open.value = false;
-}
-
-function refreshCurrentPage() {
-  viewRefreshKey.value += 1;
-}
-
-function runSecondaryAction() {
-  const target = secondaryAction.value?.to;
-  if (!target) return;
-  router.push(target);
 }
 
 function logout() {
@@ -624,37 +546,6 @@ onBeforeUnmount(() => {
 .search-btn {
   white-space: nowrap;
 }
-.page-toolbar {
-  margin: 12px 20px 0;
-  padding: 12px 14px;
-  border-radius: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(100deg, rgba(47, 99, 255, 0.12), rgba(6, 182, 212, 0.08));
-}
-.page-heading {
-  min-width: 0;
-}
-.page-kicker {
-  margin: 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--brand);
-}
-.page-heading h1 {
-  margin: 2px 0 0;
-  font-size: clamp(20px, 2.4vw, 26px);
-  line-height: 1.1;
-}
-.page-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
 .top-icon-btn {
   width: 40px;
   height: 40px;
@@ -715,24 +606,4 @@ onBeforeUnmount(() => {
 .chat-menu .menu-item:hover {
   background: rgba(15, 23, 42, 0.05);
 }
-@media (max-width: 900px) {
-  .page-toolbar {
-    margin: 10px 16px 0;
-  }
-}
-@media (max-width: 720px) {
-  .page-toolbar {
-    margin: 8px 16px 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .page-actions {
-    justify-content: stretch;
-  }
-  .page-actions .btn {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>
+

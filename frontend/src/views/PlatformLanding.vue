@@ -133,13 +133,17 @@ const upcomingEvents = ref(3);
 const platforms = [
   {
     key: "dashboard",
-    title: "Dashboard",
+    title: computed(() => {
+      if (isTeam.value) return "ProArtist Team";
+      return "ProArtist Artist";
+    }),
     category: "Übersicht",
     description: "Dein persönliches Dashboard mit allen wichtigen Informationen und Schnellzugriffen.",
     buttonLabel: "Öffnen",
     icon: "📊",
     features: ["Übersicht", "Schnellzugriffe", "Benachrichtigungen"],
     roles: ["TEAM", "ARTIST", "PRODUCER", "LOCATION"],
+    comingSoon: false,
   },
   {
     key: "contests",
@@ -150,6 +154,7 @@ const platforms = [
     icon: "🏆",
     features: ["Contests", "Challenges", "Preise"],
     roles: ["TEAM", "ARTIST", "PRODUCER"],
+    comingSoon: true,
   },
   {
     key: "music",
@@ -160,6 +165,7 @@ const platforms = [
     icon: "🎵",
     features: ["Songs", "Releases", "Analytics"],
     roles: ["TEAM", "ARTIST", "PRODUCER"],
+    comingSoon: false,
   },
   {
     key: "locations",
@@ -170,6 +176,7 @@ const platforms = [
     icon: "📍",
     features: ["Locations", "Events", "Buchungen"],
     roles: ["TEAM", "LOCATION", "PRODUCER"],
+    comingSoon: true,
   },
   {
     key: "finance",
@@ -180,6 +187,7 @@ const platforms = [
     icon: "💰",
     features: ["Budget", "Schulden", "Einnahmen"],
     roles: ["TEAM"],
+    comingSoon: false,
   },
   {
     key: "fitness",
@@ -190,6 +198,7 @@ const platforms = [
     icon: "🏋️",
     features: ["Kcal", "Verbrauch", "Essensideen"],
     roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC"],
+    comingSoon: false,
   },
 ];
 

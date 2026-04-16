@@ -207,7 +207,11 @@ async function resetTask(task) {
 }
 
 function navigateToTask(task) {
-  router.push(`/projects/${task.project}/tasks/${task.id}`);
+  if (task.project) {
+    router.push({ name: "project-detail", params: { projectId: task.project }, query: { taskId: task.id } });
+  } else {
+    router.push({ name: "tasks", query: { taskId: task.id } });
+  }
 }
 
 const filteredTasks = computed(() => {

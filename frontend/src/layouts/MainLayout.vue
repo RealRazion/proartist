@@ -605,5 +605,4 @@ onBeforeUnmount(() => {
 }
 .chat-menu .menu-item:hover {
   background: rgba(15, 23, 42, 0.05);
-}
-
+}</style>

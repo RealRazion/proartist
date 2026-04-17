@@ -63,7 +63,9 @@ if _cors_origins:
     CORS_ALLOW_ALL_ORIGINS = False
     CSRF_TRUSTED_ORIGINS = _cors_origins
 else:
-    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOWED_ORIGINS = ["https://proartist.pages.dev"]
+    CORS_ALLOW_ALL_ORIGINS = False
+    CSRF_TRUSTED_ORIGINS = ["https://proartist.pages.dev"]
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"

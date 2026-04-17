@@ -11,6 +11,7 @@ from core.views import (
     ChatMessageViewSet,
     ChatThreadViewSet,
     ContractViewSet,
+    DailyExpenseViewSet,
     DebtViewSet,
     EventViewSet,
     ExampleViewSet,

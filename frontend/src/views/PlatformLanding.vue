@@ -219,6 +219,7 @@ const platforms = [
     roles: ["TEAM"],
     comingSoon: false,
   },
+];
 
 const activeRole = computed(() => {
   if (viewMode.value !== "default") return viewMode.value;

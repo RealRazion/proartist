@@ -23,6 +23,7 @@ import PluginGuides from "../views/PluginGuides.vue";
 import ReviewQueue from "../views/ReviewQueue.vue";
 import Points from "../views/Points.vue";
 import ApiCenter from "../views/ApiCenter.vue";
+import PlatformLanding from "../views/PlatformLanding.vue";
 import AdminPlatform from "../views/AdminPlatform.vue";
 import ContestLanding from "../views/ContestLanding.vue";
 import MusicLanding from "../views/MusicLanding.vue";

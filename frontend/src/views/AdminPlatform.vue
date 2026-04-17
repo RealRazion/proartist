@@ -21,36 +21,6 @@
       </div>
     </section>
 
-    <!-- Quick Actions -->
-    <section class="quick-actions">
-      <div class="actions-grid">
-        <button class="action-card" @click="openTool('users')">
-          <div class="action-icon">👥</div>
-          <span>Nutzer verwalten</span>
-        </button>
-        <button class="action-card" @click="openTool('platforms')">
-          <div class="action-icon">🌐</div>
-          <span>Plattformen steuern</span>
-        </button>
-        <button class="action-card" @click="openTool('analytics')">
-          <div class="action-icon">📊</div>
-          <span>Analytics überwachen</span>
-        </button>
-        <button class="action-card" @click="openTool('security')">
-          <div class="action-icon">🔒</div>
-          <span>Sicherheit & Zugriffe</span>
-        </button>
-        <button class="action-card" @click="openTool('requests')">
-          <div class="action-icon">📝</div>
-          <span>Anfragen bearbeiten</span>
-        </button>
-        <button class="action-card" @click="openTool('system')">
-          <div class="action-icon">⚙️</div>
-          <span>Systemeinstellungen</span>
-        </button>
-      </div>
-    </section>
-
     <!-- Admin Tools Grid -->
     <section class="tools-section">
       <div class="section-header">
@@ -309,50 +279,6 @@ onMounted(async () => {
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-20px); }
-}
-
-/* Quick Actions */
-.quick-actions {
-  padding: 40px 20px;
-  background: var(--bg-alt);
-}
-
-.actions-grid {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.action-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.action-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  border-color: var(--brand);
-}
-
-.action-icon {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-
-.action-card span {
-  font-weight: 600;
-  color: var(--text);
 }
 
 /* Tools Section */

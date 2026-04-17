@@ -21,36 +21,6 @@
       </div>
     </section>
 
-    <!-- Quick Actions -->
-    <section class="quick-actions">
-      <div class="actions-grid">
-        <button class="action-card" @click="openPlatform('dashboard')">
-          <div class="action-icon">🏠</div>
-          <span>Dashboard</span>
-        </button>
-        <button class="action-card" @click="openPlatform('contests')" v-if="isVisible('contests')">
-          <div class="action-icon">🏆</div>
-          <span>Contests</span>
-        </button>
-        <button class="action-card" @click="openPlatform('music')" v-if="isVisible('music')">
-          <div class="action-icon">🎵</div>
-          <span>Music</span>
-        </button>
-        <button class="action-card" @click="openPlatform('locations')" v-if="isVisible('locations')">
-          <div class="action-icon">📍</div>
-          <span>Locations</span>
-        </button>
-        <button class="action-card" @click="openPlatform('finance')" v-if="isVisible('finance')">
-          <div class="action-icon">💰</div>
-          <span>Finance</span>
-        </button>
-        <button class="action-card" @click="openPlatform('fitness')" v-if="isVisible('fitness')">
-          <div class="action-icon">🏋️</div>
-          <span>Fitness</span>
-        </button>
-      </div>
-    </section>
-
     <!-- Platforms Grid -->
     <section class="platforms-section">
       <div class="section-header">
@@ -233,11 +203,6 @@ const visiblePlatforms = computed(() => {
   return platforms.filter((platform) => platform.roles.includes(currentRole));
 });
 
-function isVisible(platformKey) {
-  const platform = platforms.find(p => p.key === platformKey);
-  return platform && platform.roles.includes(activeRole.value);
-}
-
 function openPlatform(platform) {
   const mapping = {
     dashboard: "/app/dashboard",
@@ -364,47 +329,6 @@ onMounted(async () => {
   25% { transform: translateY(-20px) rotate(5deg); }
   50% { transform: translateY(-10px) rotate(-5deg); }
   75% { transform: translateY(-25px) rotate(3deg); }
-}
-
-/* Quick Actions */
-.quick-actions {
-  padding: 40px 20px;
-  background: var(--bg-soft);
-}
-
-.actions-grid {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 20px;
-}
-
-.action-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-soft);
-}
-
-.action-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-strong);
-  border-color: var(--brand);
-}
-
-.action-icon {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-
-.action-card span {
-  font-weight: 600;
-  color: var(--text);
 }
 
 /* Platforms Section */
@@ -616,21 +540,12 @@ onMounted(async () => {
   .platforms-grid {
     grid-template-columns: 1fr;
   }
-
-  .actions-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 480px) {
-  .actions-grid {
-    grid-template-columns: 1fr;
-  }
-
   .stats-grid {
     grid-template-columns: 1fr;
   }

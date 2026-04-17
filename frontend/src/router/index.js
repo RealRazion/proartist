@@ -23,7 +23,7 @@ import PluginGuides from "../views/PluginGuides.vue";
 import ReviewQueue from "../views/ReviewQueue.vue";
 import Points from "../views/Points.vue";
 import ApiCenter from "../views/ApiCenter.vue";
-import PlatformLanding from "../views/PlatformLanding.vue";
+import AdminPlatform from "../views/AdminPlatform.vue";
 import ContestLanding from "../views/ContestLanding.vue";
 import MusicLanding from "../views/MusicLanding.vue";
 import LocationsLanding from "../views/LocationsLanding.vue";
@@ -89,6 +89,7 @@ const routes = [
       { path: "finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
       { path: "fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },
       { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
+      { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },
     ],
   },
   { path: "/:pathMatch(.*)*", redirect: "/" },

@@ -117,6 +117,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import api from "../api";
 
 const router = useRouter();
 const { showToast } = useToast();
@@ -124,11 +125,18 @@ const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 
 const viewMode = ref("default");
 
-// Mock data for stats
-const totalUsers = ref(42);
-const activeProjects = ref(8);
-const pendingTasks = ref(15);
-const upcomingEvents = ref(3);
+// Real stats from API
+const stats = ref({
+  totalUsers: 0,
+  activeProjects: 0,
+  pendingTasks: 0,
+  upcomingEvents: 0,
+});
+
+const totalUsers = computed(() => stats.value.totalUsers);
+const activeProjects = computed(() => stats.value.activeProjects);
+const pendingTasks = computed(() => stats.value.pendingTasks);
+const upcomingEvents = computed(() => stats.value.upcomingEvents);
 
 const platforms = [
   {
@@ -200,7 +208,17 @@ const platforms = [
     roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC"],
     comingSoon: false,
   },
-];
+  {
+    key: "admin",
+    title: "Admin Control Hub",
+    category: "Verwaltung",
+    description: "Zentrales Verwaltungszentrum für alle UNYQ-Plattformen und Nutzer.",
+    buttonLabel: "Verwalten",
+    icon: "🔧",
+    features: ["Nutzer", "Plattformen", "Sicherheit"],
+    roles: ["TEAM"],
+    comingSoon: false,
+  },
 
 const activeRole = computed(() => {
   if (viewMode.value !== "default") return viewMode.value;
@@ -227,6 +245,7 @@ function openPlatform(platform) {
     locations: "/platforms/locations",
     finance: "/platforms/finance",
     fitness: "/platforms/fitness",
+    admin: "/platforms/admin",
   };
   const path = mapping[platform];
   if (path) {
@@ -236,8 +255,30 @@ function openPlatform(platform) {
   showToast("Diese Plattform wird bald verfügbar sein", "info");
 }
 
+async function loadStats() {
+  if (!isTeam.value) return;
+  try {
+    const [adminRes, tasksRes, eventsRes] = await Promise.all([
+      api.get("admin/overview/"),
+      api.get("tasks/", { params: { status: "OPEN,IN_PROGRESS,REVIEW" } }),
+      api.get("events/", { params: { upcoming: true, limit: 10 } }),
+    ]);
+    stats.value = {
+      totalUsers: adminRes.data.total_users || 0,
+      activeProjects: adminRes.data.active_projects || 0,
+      pendingTasks: tasksRes.data.length || 0,
+      upcomingEvents: eventsRes.data.length || 0,
+    };
+  } catch (err) {
+    console.error("Stats konnten nicht geladen werden", err);
+    // Fallback to zeros
+    stats.value = { totalUsers: 0, activeProjects: 0, pendingTasks: 0, upcomingEvents: 0 };
+  }
+}
+
 onMounted(async () => {
   await fetchProfile();
+  await loadStats();
 });
 </script>
 

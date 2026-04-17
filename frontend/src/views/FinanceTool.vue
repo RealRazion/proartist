@@ -20,14 +20,10 @@
         </div>
 
         <div class="topbar-actions">
-          <div class="project-select">
-            <label>Projekt wechseln</label>
-            <select class="input" :value="selectedProjectId || ''" @change="handleProjectChange">
-              <option v-for="item in projects" :key="item.id" :value="item.id">{{ item.title }}</option>
-            </select>
-          </div>
           <div class="topbar-buttons">
             <button class="btn ghost" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
+            <button class="btn ghost" type="button" @click="openForecastModal" :disabled="loading">Prognose</button>
+            <button class="btn ghost" type="button" @click="openCompareModal" :disabled="loading">Vergleich</button>
             <button class="btn" type="button" @click="exportOverview">Exportieren</button>
           </div>
         </div>
@@ -168,11 +164,11 @@
                   </div>
 
                   <div class="chart-container">
-                    <div class="chart-bar income" :style="{ height: `${Math.min(100, (overview.monthly_income / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
+                    <div class="chart-bar income" :style="{ height: `${incomeBarHeight}%` }">
                       <span>Einnahmen</span>
                       <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
                     </div>
-                    <div class="chart-bar expense" :style="{ height: `${Math.min(100, (overview.monthly_outflow / Math.max(overview.monthly_income, overview.monthly_outflow)) * 100)}%` }">
+                    <div class="chart-bar expense" :style="{ height: `${expenseBarHeight}%` }">
                       <span>Ausgaben</span>
                       <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
                     </div>
@@ -197,6 +193,7 @@
                         {{ option.label }}
                       </button>
                     </div>
+                    <button class="btn" type="button" @click="openCreateEntryModal">Neuer Posten</button>
                   </div>
 
                   <div v-if="filteredEntries.length" class="entry-list">
@@ -291,6 +288,59 @@
                       <strong>{{ currency }}</strong>
                     </div>
                   </div>
+
+                  <div class="member-summary">
+                    <div class="panel-head panel-head-space">
+                      <h3>Personen</h3>
+                      <button class="btn ghost sm" type="button" @click="membersPanelOpen = !membersPanelOpen">
+                        {{ membersPanelOpen ? "Schliessen" : "Verwalten" }}
+                      </button>
+                    </div>
+                    <div class="member-preview">
+                      <span v-for="member in memberPreview" :key="member.id" class="member-pill">{{ member.name }}</span>
+                      <span v-if="members.length > 4" class="member-pill">+{{ members.length - 4 }}</span>
+                    </div>
+                    <div v-if="membersPanelOpen" class="member-manager">
+                      <form class="stack-form" @submit.prevent="createMember">
+                        <div class="grid two">
+                          <label>
+                            Name
+                            <input v-model.trim="memberForm.name" class="input" required placeholder="z. B. Alex" />
+                          </label>
+                          <label>
+                            Rolle
+                            <select v-model="memberForm.role" class="input">
+                              <option v-for="(label, key) in memberRoleLabels" :key="key" :value="key">{{ label }}</option>
+                            </select>
+                          </label>
+                        </div>
+                        <label>
+                          Notiz
+                          <input v-model.trim="memberForm.notes" class="input" placeholder="optional" />
+                        </label>
+                        <button class="btn" type="submit" :disabled="savingMember || !memberForm.name.trim()">
+                          {{ savingMember ? "Speichere..." : "Person hinzufuegen" }}
+                        </button>
+                      </form>
+                      <ul class="member-list">
+                        <li v-for="member in members" :key="member.id">
+                          <div>
+                            <strong>{{ member.name }}</strong>
+                            <p class="muted small">{{ memberRoleLabels[member.role] || member.role }}</p>
+                          </div>
+                          <button
+                            class="btn ghost sm danger"
+                            type="button"
+                            @click="removeMember(member)"
+                            :disabled="members.length <= 1"
+                            :title="members.length <= 1 ? 'Mindestens eine Person muss bestehen bleiben.' : null"
+                          >
+                            Entfernen
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
                 </article>
               </div>
             </section>
@@ -306,7 +356,7 @@
                     Monat
                     <input v-model="dailyMonth" type="month" class="input" @change="loadDailyExpenses" />
                   </label>
-                  <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Neue Ausgabe</button>
+                  <button class="btn" type="button" @click="openCreateDailyExpenseModal">Neue Ausgabe</button>
                 </div>
               </div>
 
@@ -347,7 +397,7 @@
 
               <div v-else class="empty-state">
                 <p class="muted">Noch keine täglichen Ausgaben für {{ dailyMonthLabel }}.</p>
-                <button class="btn" type="button" @click="showDailyExpenseModal = true; resetDailyExpenseForm()">Erste Ausgabe hinzufügen</button>
+                <button class="btn" type="button" @click="openCreateDailyExpenseModal">Erste Ausgabe hinzufügen</button>
               </div>
             </section>
 
@@ -383,11 +433,11 @@
     </template>
 
     <!-- Forecast Modal -->
-      <div v-if="showForecastModal" class="modal-overlay" @click="showForecastModal = false">
+      <div v-if="showForecastModal" class="modal-overlay" @click="closeForecastModal">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
             <h3>Monatsprognose</h3>
-            <button class="modal-close" @click="showForecastModal = false">&times;</button>
+            <button class="modal-close" @click="closeForecastModal">&times;</button>
           </div>
           <div class="modal-body">
             <label>
@@ -439,11 +489,11 @@
       </div>
 
       <!-- Compare Modal -->
-      <div v-if="showCompareModal" class="modal-overlay" @click="showCompareModal = false">
+      <div v-if="showCompareModal" class="modal-overlay" @click="closeCompareModal">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
             <h3>Monate vergleichen</h3>
-            <button class="modal-close" @click="showCompareModal = false">&times;</button>
+            <button class="modal-close" @click="closeCompareModal">&times;</button>
           </div>
           <div class="modal-body">
             <div class="grid two">
@@ -497,11 +547,11 @@
       </div>
 
       <!-- Entry Modal -->
-      <div v-if="showEntryModal" class="modal-overlay" @click="showEntryModal = false">
+      <div v-if="showEntryModal" class="modal-overlay" @click="closeEntryModal">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
             <h3>{{ editingEntryId ? "Posten bearbeiten" : "Neuer Posten" }}</h3>
-            <button class="modal-close" @click="showEntryModal = false">&times;</button>
+            <button class="modal-close" @click="closeEntryModal">&times;</button>
           </div>
           <div class="modal-body">
             <form class="stack-form" @submit.prevent="saveEntry">
@@ -583,7 +633,7 @@
               </div>
 
               <div class="modal-actions">
-                <button class="btn ghost" type="button" @click="showEntryModal = false">Abbrechen</button>
+                <button class="btn ghost" type="button" @click="closeEntryModal">Abbrechen</button>
                 <button class="btn" type="submit" :disabled="savingEntry">
                   {{ savingEntry ? "Speichere..." : editingEntryId ? "Posten speichern" : "Posten anlegen" }}
                 </button>
@@ -594,11 +644,11 @@
       </div>
 
       <!-- Daily Expense Modal -->
-      <div v-if="showDailyExpenseModal" class="modal-overlay" @click="showDailyExpenseModal = false">
+      <div v-if="showDailyExpenseModal" class="modal-overlay" @click="closeDailyExpenseModal">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
             <h3>{{ editingDailyExpenseId ? "Ausgabe bearbeiten" : "Neue tägliche Ausgabe" }}</h3>
-            <button class="modal-close" @click="showDailyExpenseModal = false">&times;</button>
+            <button class="modal-close" @click="closeDailyExpenseModal">&times;</button>
           </div>
           <div class="modal-body">
             <form class="stack-form" @submit.prevent="saveDailyExpense">
@@ -638,7 +688,7 @@
               </label>
 
               <div class="modal-actions">
-                <button class="btn ghost" type="button" @click="showDailyExpenseModal = false">Abbrechen</button>
+                <button class="btn ghost" type="button" @click="closeDailyExpenseModal">Abbrechen</button>
                 <button class="btn" type="submit" :disabled="savingDailyExpense">
                   {{ savingDailyExpense ? "Speichere..." : editingDailyExpenseId ? "Ausgabe speichern" : "Ausgabe hinzufügen" }}
                 </button>
@@ -796,8 +846,13 @@ const entries = computed(() => project.value?.entries || []);
 const currency = computed(() => project.value?.currency || "EUR");
 const currentMonthLabel = computed(() => new Date().toISOString().slice(0, 7));
 const memberPreview = computed(() => members.value.slice(0, 4));
+
+function isValidMonth(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}$/.test(value);
+}
+
 const dailyMonthLabel = computed(() => {
-  if (!dailyMonth.value) return currentMonthLabel.value;
+  if (!isValidMonth(dailyMonth.value)) return currentMonthLabel.value;
   return dailyMonth.value;
 });
 const dailyExpensesTotal = computed(() => {
@@ -805,7 +860,8 @@ const dailyExpensesTotal = computed(() => {
 });
 const dailyExpensesAverage = computed(() => {
   if (!dailyExpenses.value.length) return 0;
-  const daysInMonth = new Date(dailyMonth.value.slice(0, 4), dailyMonth.value.slice(5, 7), 0).getDate();
+  const monthValue = dailyMonthLabel.value;
+  const daysInMonth = new Date(monthValue.slice(0, 4), monthValue.slice(5, 7), 0).getDate();
   return dailyExpensesTotal.value / daysInMonth;
 });
 
@@ -815,6 +871,21 @@ const filteredEntries = computed(() => {
   }
   return entries.value.filter((entry) => entry.entry_type === activeEntryFilter.value);
 });
+
+function percentOfMax(value, maxValue) {
+  if (!maxValue) return 0;
+  const safeValue = Number(value || 0);
+  return Math.max(0, Math.min(100, (safeValue / maxValue) * 100));
+}
+
+const chartScaleMax = computed(() => {
+  const income = Number(overview.value.monthly_income || 0);
+  const outflow = Number(overview.value.monthly_outflow || 0);
+  return Math.max(income, outflow, 0);
+});
+
+const incomeBarHeight = computed(() => percentOfMax(overview.value.monthly_income, chartScaleMax.value));
+const expenseBarHeight = computed(() => percentOfMax(overview.value.monthly_outflow, chartScaleMax.value));
 
 function toAmount(value) {
   const parsed = Number.parseFloat(value);
@@ -910,7 +981,16 @@ async function loadProjectDetail(projectId) {
     selectedProjectId.value = data.id;
     projectForm.value = buildProjectForm(data);
     membersPanelOpen.value = false;
+    showForecastModal.value = false;
+    showCompareModal.value = false;
+    closeEntryModal();
+    closeDailyExpenseModal();
+    forecast.value = null;
+    comparison.value = null;
     clearFeedback();
+    if (activeTab.value === "daily") {
+      await loadDailyExpenses();
+    }
   } catch (error) {
     project.value = null;
     setError(getApiErrorMessage(error, "Finanzprojekt konnte nicht geladen werden."));
@@ -1001,6 +1081,37 @@ async function removeMember(member) {
   }
 }
 
+function openForecastModal() {
+  showForecastModal.value = true;
+  forecast.value = null;
+  forecastMonth.value = currentMonthLabel.value;
+}
+
+function closeForecastModal() {
+  showForecastModal.value = false;
+}
+
+function openCompareModal() {
+  showCompareModal.value = true;
+  comparison.value = null;
+  compareMonth1.value = currentMonthLabel.value;
+  compareMonth2.value = currentMonthLabel.value;
+}
+
+function closeCompareModal() {
+  showCompareModal.value = false;
+}
+
+function openCreateEntryModal() {
+  resetEntryForm();
+  showEntryModal.value = true;
+}
+
+function closeEntryModal() {
+  showEntryModal.value = false;
+  resetEntryForm();
+}
+
 function editEntry(entry) {
   editingEntryId.value = entry.id;
   entryForm.value = buildEntryForm(entry);
@@ -1036,8 +1147,7 @@ async function saveEntry() {
     } else {
       await api.post("finance-entries/", payload);
     }
-    resetEntryForm();
-    showEntryModal.value = false;
+    closeEntryModal();
     await refreshCurrent();
     setSuccess(wasEditing ? "Posten gespeichert." : "Posten angelegt.");
   } catch (error) {
@@ -1075,10 +1185,10 @@ async function removeEntry(entry) {
 
 // Daily Expense functions
 async function loadDailyExpenses() {
-  if (!selectedProjectId.value || !dailyMonth.value) return;
+  if (!selectedProjectId.value || !isValidMonth(dailyMonth.value)) return;
   try {
     const { data } = await api.get(`daily-expenses/?project=${selectedProjectId.value}&month=${dailyMonth.value}`);
-    dailyExpenses.value = data;
+    dailyExpenses.value = Array.isArray(data) ? data : data?.results || [];
   } catch (error) {
     dailyExpenses.value = [];
     setError(getApiErrorMessage(error, "Tägliche Ausgaben konnten nicht geladen werden."));
@@ -1094,6 +1204,16 @@ function editDailyExpense(expense) {
 function resetDailyExpenseForm() {
   editingDailyExpenseId.value = null;
   dailyExpenseForm.value = buildDailyExpenseForm();
+}
+
+function openCreateDailyExpenseModal() {
+  resetDailyExpenseForm();
+  showDailyExpenseModal.value = true;
+}
+
+function closeDailyExpenseModal() {
+  showDailyExpenseModal.value = false;
+  resetDailyExpenseForm();
 }
 
 async function saveDailyExpense() {
@@ -1115,8 +1235,7 @@ async function saveDailyExpense() {
     } else {
       await api.post("daily-expenses/", payload);
     }
-    resetDailyExpenseForm();
-    showDailyExpenseModal.value = false;
+    closeDailyExpenseModal();
     await loadDailyExpenses();
     await refreshCurrent(); // Update overview
     setSuccess(wasEditing ? "Ausgabe gespeichert." : "Ausgabe hinzugefügt.");
@@ -1142,12 +1261,6 @@ async function removeDailyExpense(expense) {
   } catch (error) {
     setError(getApiErrorMessage(error, "Ausgabe konnte nicht gelöscht werden."));
   }
-}
-
-async function handleProjectChange(event) {
-  const nextId = Number(event.target.value);
-  if (!nextId) return;
-  await router.push({ name: "finance", params: { projectId: nextId } });
 }
 
 watch(
@@ -2101,20 +2214,6 @@ onMounted(syncProjectSelection);
   gap: 16px;
   min-width: 240px;
   width: 100%;
-}
-
-.project-select label {
-  display: grid;
-  gap: 8px;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-}
-
-.project-select .input {
-  width: 100%;
-  min-width: 220px;
 }
 
 .topbar-buttons {

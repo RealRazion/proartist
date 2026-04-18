@@ -63,6 +63,10 @@
             <span class="metric-pill small">{{ overview.active_entry_count || 0 }} aktive Posten</span>
           </div>
           <div class="metric-breakdown">
+            <p class="metric-breakdown-row current-balance-row">
+              <span>Aktueller Kontostand:</span>
+              <strong>{{ formatCurrency(currentBalance) }}</strong>
+            </p>
             <p class="metric-breakdown-row">
               <span>Saldo ohne Dispo:</span>
               <strong>{{ formatCurrency(projectedBalanceWithoutDispo) }}</strong>
@@ -890,6 +894,7 @@ const overview = computed(() => project.value?.overview || {});
 const members = computed(() => project.value?.members || []);
 const entries = computed(() => project.value?.entries || []);
 const currency = computed(() => project.value?.currency || "EUR");
+const currentBalance = computed(() => Number(project.value?.current_balance ?? overview.value?.current_balance ?? 0));
 const currentMonthLabel = computed(() => new Date().toISOString().slice(0, 7));
 const plannerMonthLabel = computed(() => {
   if (!isValidMonth(plannerMonth.value)) return currentMonthLabel.value;

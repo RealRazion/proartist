@@ -3,8 +3,8 @@
     <section v-if="actionableDebts.length" class="card due-section">
       <div class="section-head compact">
         <div>
-          <h2>Jetzt pruefen</h2>
-          <p class="muted">Faellige und ueberfaellige {{ currentEntityPlural }} brauchen eine Rueckmeldung.</p>
+          <h2>Jetzt prÜfen</h2>
+          <p class="muted">FÄllige und ÜberfÄllige {{ currentEntityPlural }} brauchen eine RÜckmeldung.</p>
         </div>
         <span class="urgency-pill">{{ actionableDebts.length }} offen</span>
       </div>
@@ -29,7 +29,7 @@
         <div>
           <h2>{{ currentEntityHeadline }}</h2>
           <p class="muted">
-            Einfacher Ueberblick mit Restschuld, naechster Faelligkeit und klarer Aktion.
+            Einfacher Überblick mit Restschuld, nÄchster FÄlligkeit und klarer Aktion.
           </p>
         </div>
         <div class="section-actions">
@@ -60,7 +60,7 @@
           <strong>{{ activeDebtCount }}</strong>
         </article>
         <article class="highlight-card warning">
-          <span class="highlight-label">Dringend faellig</span>
+          <span class="highlight-label">Dringend fÄllig</span>
           <strong>{{ actionableDebts.length }}</strong>
         </article>
         <article class="highlight-card">
@@ -163,7 +163,7 @@
       </div>
       <div v-else class="empty-state">
         <p class="muted empty-hint">Noch keine {{ currentEntityPlural }} eingetragen.</p>
-        <button class="btn" type="button" @click="openAddDebtModal">Ersten Eintrag hinzufuegen</button>
+        <button class="btn" type="button" @click="openAddDebtModal">Ersten Eintrag hinzufÜgen</button>
       </div>
     </section>
 
@@ -171,7 +171,7 @@
       <div class="section-head compact">
         <div>
           <h2>Monatsprognose</h2>
-          <p class="muted">Die Prognose zieht jede faellige Rate von der Restschuld ab.</p>
+          <p class="muted">Die Prognose zieht jede fÄllige Rate von der Restschuld ab.</p>
         </div>
       </div>
 
@@ -180,7 +180,7 @@
           <h4>{{ formatMonthLabel(month.month) }}</h4>
           <template v-if="month.entries.length">
             <p class="month-kpi">
-              <span>Faellig in dem Monat</span>
+              <span>FÄllig in dem Monat</span>
               <strong>{{ formatCurrency(month.amount_due_total) }}</strong>
             </p>
             <p class="month-kpi">
@@ -192,7 +192,7 @@
               <li v-for="entry in month.entries" :key="entry.entry_id" class="month-entry">
                 <div>
                   <span>{{ entry.name }}</span>
-                  <p class="muted tiny">Faellig: {{ formatDate(entry.due_date) }}</p>
+                  <p class="muted tiny">FÄllig: {{ formatDate(entry.due_date) }}</p>
                 </div>
                 <div class="month-entry-values">
                   <strong>{{ formatCurrency(entry.amount) }}</strong>
@@ -209,7 +209,7 @@
     <div v-if="showAddDebtModal" class="modal-overlay" @click="closeAddDebtModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>{{ editingDebtId ? `${currentEntitySingle} bearbeiten` : `Neuen ${currentEntitySingle} hinzufuegen` }}</h2>
+          <h2>{{ editingDebtId ? `${currentEntitySingle} bearbeiten` : `Neuen ${currentEntitySingle} hinzufÜgen` }}</h2>
           <button class="btn close-btn" type="button" @click="closeAddDebtModal">x</button>
         </div>
 
@@ -278,7 +278,7 @@
           </div>
 
           <p v-else class="muted small">
-            Ein Fixbetrag ist komplett ab seinem Faelligkeitstermin offen.
+            Ein Fixbetrag ist komplett ab seinem FÄlligkeitstermin offen.
           </p>
 
           <div class="grid two">
@@ -308,7 +308,7 @@
 
           <div class="modal-actions">
             <button class="btn" type="submit" :disabled="savingDebt">
-              {{ savingDebt ? 'Speichere...' : editingDebtId ? 'Speichern' : 'Hinzufuegen' }}
+              {{ savingDebt ? 'Speichere...' : editingDebtId ? 'Speichern' : 'HinzufÜgen' }}
             </button>
             <button class="btn ghost" type="button" @click="closeAddDebtModal">Abbrechen</button>
           </div>
@@ -319,18 +319,18 @@
     <div v-if="showPaymentRecordingModal" class="modal-overlay" @click="closePaymentModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>Faelligkeit pruefen: {{ selectedDebtForPayment?.name }}</h2>
+          <h2>FÄlligkeit prÜfen: {{ selectedDebtForPayment?.name }}</h2>
           <button class="btn close-btn" type="button" @click="closePaymentModal">x</button>
         </div>
 
         <form class="modal-form" @submit.prevent="recordPayment">
           <div v-if="selectedDebtForPayment" class="decision-summary">
             <p class="decision-kpi">
-              <span>Aktuell faellig</span>
+              <span>Aktuell fÄllig</span>
               <strong>{{ formatCurrency(selectedDebtForPayment.scheduled_payment_amount) }}</strong>
             </p>
             <p class="decision-kpi">
-              <span>Faelligkeit</span>
+              <span>FÄlligkeit</span>
               <strong>{{ formatDate(getNextDueDate(selectedDebtForPayment)) }}</strong>
             </p>
           </div>
@@ -362,17 +362,17 @@
               </label>
             </div>
             <p class="muted small">
-              Wenn der Betrag die aktuelle Faelligkeit komplett deckt, springt die naechste Rate automatisch weiter.
+              Wenn der Betrag die aktuelle FÄlligkeit komplett deckt, springt die nÄchste Rate automatisch weiter.
             </p>
           </template>
 
           <template v-else>
             <label>
-              Neuer Faelligkeitstermin (optional)
+              Neuer FÄlligkeitstermin (optional)
               <input v-model="paymentForm.reschedule_date" class="input" type="date" />
             </label>
             <p class="muted small">
-              Leer lassen, wenn die Schuld sichtbar ueberfaellig bleiben soll.
+              Leer lassen, wenn die Schuld sichtbar ÜberfÄllig bleiben soll.
             </p>
           </template>
 
@@ -399,7 +399,7 @@
         </div>
 
         <div class="klarna-quick-entry">
-          <p class="muted small">Schnelle Erfassung fuer mehrere Raten-{{ currentEntityPlural }}.</p>
+          <p class="muted small">Schnelle Erfassung fÜr mehrere Raten-{{ currentEntityPlural }}.</p>
 
           <div class="quick-entry-form">
             <input
@@ -434,12 +434,12 @@
               @keyup.enter="addKlarnaEntry"
             />
             <button class="btn" type="button" @click="addKlarnaEntry" :disabled="savingKlarna">
-              {{ savingKlarna ? '...' : 'Hinzufuegen' }}
+              {{ savingKlarna ? '...' : 'HinzufÜgen' }}
             </button>
           </div>
 
           <div v-if="klarnaEntries.length" class="klarna-entries-list">
-            <h4>Uebersicht</h4>
+            <h4>Übersicht</h4>
             <table class="klarna-table">
               <thead>
                 <tr>
@@ -477,7 +477,7 @@
             </div>
 
             <button class="btn primary" type="button" @click="saveAllKlarnaEntries">
-              Alle hinzufuegen
+              Alle hinzufÜgen
             </button>
           </div>
         </div>
@@ -696,7 +696,7 @@ const totalRemainingAmount = computed(() =>
 const currentEntitySingle = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredit' : 'Schuld'));
 const currentEntityPlural = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredite' : 'Schulden'));
 const currentEntityHeadline = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredite verwalten' : 'Schulden verwalten'));
-const currentAddLabel = computed(() => (selectedDebtKind.value === 'CREDIT' ? '+ Kredit hinzufuegen' : '+ Schuld hinzufuegen'));
+const currentAddLabel = computed(() => (selectedDebtKind.value === 'CREDIT' ? '+ Kredit hinzufÜgen' : '+ Schuld hinzufÜgen'));
 const currentCalculatorLabel = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kreditrechner' : 'Schuldenrechner'));
 const currentTotalLabel = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Gesamtkredite' : 'Gesamtschuld'));
 
@@ -800,13 +800,13 @@ function formatPaymentType(paymentType) {
 }
 
 function paymentAmountLabel(debt) {
-  return debt.payment_type === 'INSTALLMENT' ? 'Aktuelle Rate' : 'Aktuell faellig';
+  return debt.payment_type === 'INSTALLMENT' ? 'Aktuelle Rate' : 'Aktuell fÄllig';
 }
 
 function getDueLabel(debt) {
   const labels = {
-    OVERDUE: 'Ueberfaellig',
-    DUE_TODAY: 'Heute faellig',
+    OVERDUE: 'ÜberfÄllig',
+    DUE_TODAY: 'Heute fÄllig',
     UPCOMING: 'Geplant',
     PAID_OFF: 'Erledigt',
     PAUSED: 'Pausiert',
@@ -826,15 +826,15 @@ function getDueHeadline(debt) {
     return 'Diese Schuld ist pausiert.';
   }
   if (!nextDueDate) {
-    return 'Noch kein Faelligkeitstermin gesetzt.';
+    return 'Noch kein FÄlligkeitstermin gesetzt.';
   }
   if (state === 'OVERDUE') {
-    return `Seit ${formatDate(nextDueDate)} ueberfaellig.`;
+    return `Seit ${formatDate(nextDueDate)} ÜberfÄllig.`;
   }
   if (state === 'DUE_TODAY') {
-    return 'Heute ist die Zahlung faellig.';
+    return 'Heute ist die Zahlung fÄllig.';
   }
-  return `Naechste Faelligkeit: ${formatDate(nextDueDate)}`;
+  return `NÄchste FÄlligkeit: ${formatDate(nextDueDate)}`;
 }
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -871,7 +871,7 @@ async function loadDebts() {
     debts.value = list.map((debt) => ({ ...debt, debt_kind: normalizeDebtKind(debt) }));
   } catch (error) {
     debts.value = [];
-    alert(getApiErrorMessage(error, 'Eintraege konnten nicht geladen werden.'));
+    alert(getApiErrorMessage(error, 'EintrÄge konnten nicht geladen werden.'));
   } finally {
     loading.value = false;
   }
@@ -969,14 +969,14 @@ function buildPaymentNote(debt) {
   if (paymentForm.value.decision === 'paid') {
     const paidAmount = parseAmount(paymentForm.value.amount).toFixed(2);
     const detail = paymentForm.value.notes ? ` ${paymentForm.value.notes}` : '';
-    return `${paymentForm.value.date}: Faelligkeit bezahlt (${paidAmount} EUR).${detail}`;
+    return `${paymentForm.value.date}: FÄlligkeit bezahlt (${paidAmount} EUR).${detail}`;
   }
 
   const rescheduleText = paymentForm.value.reschedule_date
     ? ` Verschoben auf ${paymentForm.value.reschedule_date}.`
-    : ' Bleibt ueberfaellig.';
+    : ' Bleibt ÜberfÄllig.';
   const detail = paymentForm.value.notes ? ` ${paymentForm.value.notes}` : '';
-  return `${todayIso()}: Faelligkeit fuer ${debt.name} nicht bezahlt.${rescheduleText}${detail}`;
+  return `${todayIso()}: FÄlligkeit fÜr ${debt.name} nicht bezahlt.${rescheduleText}${detail}`;
 }
 
 async function recordPayment() {
@@ -1029,7 +1029,7 @@ async function recordPayment() {
     closePaymentModal();
     await loadDebts();
   } catch (error) {
-    alert(getApiErrorMessage(error, 'Faelligkeit konnte nicht aktualisiert werden.'));
+    alert(getApiErrorMessage(error, 'FÄlligkeit konnte nicht aktualisiert werden.'));
   } finally {
     savingPayment.value = false;
   }
@@ -1064,7 +1064,7 @@ function removeKlarnaEntry(index) {
 
 async function saveAllKlarnaEntries() {
   if (!klarnaEntries.value.length) {
-    alert('Keine Eintraege zum Speichern.');
+    alert('Keine EintrÄge zum Speichern.');
     return;
   }
 
@@ -1084,7 +1084,7 @@ async function saveAllKlarnaEntries() {
     closeKlarnaCalculator();
     await loadDebts();
   } catch (error) {
-    alert(getApiErrorMessage(error, 'Klarna-Eintraege konnten nicht gespeichert werden.'));
+    alert(getApiErrorMessage(error, 'Klarna-EintrÄge konnten nicht gespeichert werden.'));
   } finally {
     savingKlarna.value = false;
   }

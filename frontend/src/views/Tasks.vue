@@ -663,7 +663,7 @@ const recurrenceOptions = ["NONE", "DAILY", "WEEKLY", "MONTHLY"];
 const recurrenceLabels = {
   NONE: "Keine",
   DAILY: "Taeglich",
-  WEEKLY: "Woechentlich",
+  WEEKLY: "WÖchentlich",
   MONTHLY: "Monatlich",
 };
 const boardTypeOptions = ["ALL", ...taskTypeOptions];

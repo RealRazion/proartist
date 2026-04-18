@@ -289,8 +289,8 @@ const statusLabels = {
 const participantTaskAccessOptions = ["NONE", "COMMENT", "EDIT"];
 const participantTaskAccessLabels = {
   NONE: "Nur Team bearbeitet Tasks",
-  COMMENT: "Teilnehmer duerfen kommentieren",
-  EDIT: "Teilnehmer duerfen Tasks bearbeiten",
+  COMMENT: "Teilnehmer dÜrfen kommentieren",
+  EDIT: "Teilnehmer dÜrfen Tasks bearbeiten",
 };
 
 const statusChipOptions = ["ALL", ...statusOptions];

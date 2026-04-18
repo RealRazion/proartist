@@ -19,11 +19,11 @@
         </label>
         <label>
           Inhalt
-          <textarea class="input textarea" v-model.trim="form.body" placeholder="Infos fÃ¼r alle Nutzer"></textarea>
+          <textarea class="input textarea" v-model.trim="form.body" placeholder="Infos für alle Nutzer"></textarea>
         </label>
         <label class="toggle">
           <input type="checkbox" v-model="form.is_published" />
-          Sofort verÃ¶ffentlichen
+          Sofort veröffentlichen
         </label>
         <label class="file-picker">
           <input type="file" accept="image/*" @change="onImageSelect" />
@@ -74,10 +74,10 @@
           <p>{{ post.body }}</p>
           <div v-if="isTeam" class="actions">
             <button class="btn ghost tiny" type="button" @click="togglePublish(post)" :disabled="savingIds.has(post.id)">
-              {{ post.is_published ? "Auf Entwurf setzen" : "VerÃ¶ffentlichen" }}
+              {{ post.is_published ? "Auf Entwurf setzen" : "Veröffentlichen" }}
             </button>
             <button class="btn ghost danger tiny" type="button" @click="removePost(post)" :disabled="savingIds.has(post.id)">
-              LÃ¶schen
+              Löschen
             </button>
           </div>
         </li>
@@ -313,14 +313,14 @@ async function togglePublish(post) {
 }
 
 async function removePost(post) {
-  if (!confirm(`Post "${post.title}" wirklich lÃ¶schen?`)) return;
+  if (!confirm(`Post "${post.title}" wirklich löschen?`)) return;
   savingIds.value.add(post.id);
   try {
     await api.delete(`news/${post.id}/`);
     await loadNews();
   } catch (err) {
-    console.error("Post konnte nicht gelÃ¶scht werden", err);
-    showToast("Post konnte nicht gelÃ¶scht werden", "error");
+    console.error("Post konnte nicht gelöscht werden", err);
+    showToast("Post konnte nicht gelöscht werden", "error");
   } finally {
     savingIds.value.delete(post.id);
   }

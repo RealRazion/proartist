@@ -98,7 +98,7 @@
               <strong>{{ formatCurrency(monthlyCreditOutflow) }}</strong>
             </p>
             <p class="metric-breakdown-row">
-              <span>davon regelmaessig geplant:</span>
+              <span>davon regelmäßig geplant:</span>
               <strong>{{ formatCurrency(monthlyPlannedOutflow) }}</strong>
             </p>
             <p class="metric-breakdown-row">
@@ -108,10 +108,15 @@
           </div>
         </article>
 
-        <article class="metric-card">
-          <span class="metric-label">Verbleibende Schulden</span>
-          <strong>{{ formatCurrency(overview.total_debt) }}</strong>
-          <p class="metric-note">Aktueller Schuldenstand aller laufenden Verbindlichkeiten.</p>
+        <article class="metric-card due-metric-card">
+          <span class="metric-label">Fälligkeiten</span>
+          <ul class="due-metric-list">
+            <li v-if="!dueSoonPreview.length" class="muted small">Keine baldigen Fälligkeiten vorhanden.</li>
+            <li v-for="item in dueSoonPreview" :key="item.id" class="due-metric-item">
+              <span>{{ item.title }}</span>
+              <strong :class="dueAmountClass(item)">{{ dueAmountText(item) }}</strong>
+            </li>
+          </ul>
         </article>
       </section>
 
@@ -253,7 +258,7 @@
                   <h2>Top-Kategorien</h2>
                 </div>
                 <ul class="compact-list">
-                  <li v-if="!overview.top_categories?.length" class="empty-text">Keine Kategoriendaten verfuegbar.</li>
+                  <li v-if="!overview.top_categories?.length" class="empty-text">Keine Kategoriendaten verfügbar.</li>
                   <li v-for="item in overview.top_categories" :key="item.category">
                     <span>{{ item.category }}</span>
                     <strong>{{ formatCurrency(item.amount) }}</strong>
@@ -402,7 +407,7 @@
                   <input v-model.trim="projectForm.title" class="input" />
                 </label>
                 <label>
-                  Waehrung
+                  Währung
                   <select v-model="projectForm.currency" class="input">
                     <option value="EUR">EUR</option>
                     <option value="USD">USD</option>
@@ -414,7 +419,7 @@
                   <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
                 </label>
                 <label>
-                  Dispo verfuegbar
+                  Dispo verfügbar
                   <input v-model="projectForm.dispo_limit" class="input" type="number" step="0.01" min="0" />
                 </label>
                 <label>
@@ -626,12 +631,12 @@
               </div>
 
               <label>
-                Datum für einmalig/jährlich/wöchentlich
-                <input v-model="entryForm.due_date" class="input" type="date" :disabled="entryForm.frequency === 'MONTHLY'" />
+                {{ entryDateFieldLabel }}
+                <input v-model="entryForm.due_date" class="input" type="date" :disabled="entryDateFieldDisabled" />
               </label>
 
               <p class="muted small form-hint">
-                Monatliche Posten duerfen auch ohne Faelligkeitstag gespeichert werden. Schulden pflegst du unten separat.
+                Monatliche Posten dürfen auch ohne Fälligkeitstag gespeichert werden. Schulden pflegst du unten separat.
               </p>
 
               <label>
@@ -780,7 +785,7 @@ const tabLabels = {
 const tipTypeLabels = {
   CASHBACK: "Cashback",
   DISCOUNT: "Rabattaktion",
-  REFERRAL: "Empfehlungspraemie",
+  REFERRAL: "Empfehlungsprämie",
   OTHER: "Sonstiges",
 };
 
@@ -945,6 +950,17 @@ const filteredEntries = computed(() => {
   return entries.value.filter((entry) => entry.entry_type === activeEntryFilter.value);
 });
 
+const entryDateFieldDisabled = computed(() =>
+  entryForm.value.frequency === "MONTHLY" && entryForm.value.entry_type !== "INCOME"
+);
+
+const entryDateFieldLabel = computed(() => {
+  if (entryForm.value.entry_type === "INCOME" && entryForm.value.frequency === "MONTHLY") {
+    return "Startdatum für regelmäßige Einnahmen";
+  }
+  return "Datum für einmalig/jährlich/wöchentlich";
+});
+
 const plannerIncomeEntries = computed(() =>
   entries.value.filter((entry) => entry.entry_type === "INCOME" && entry.is_active !== false)
 );
@@ -1012,7 +1028,7 @@ function maybeStoreCategory(categoryValue) {
   if (!category) return;
   const exists = categorySuggestions.value.some((item) => categoryKey(item) === categoryKey(category));
   if (exists) return;
-  const shouldStore = window.confirm(`Moechtest du "${category}" als Kategorie fuer spaetere Transaktionen speichern?`);
+  const shouldStore = window.confirm(`Möchtest du "${category}" als Kategorie für spätere Transaktionen speichern?`);
   if (!shouldStore) return;
   localStoredCategories.value = dedupeCategories([...localStoredCategories.value, category]);
   persistStoredCategories();
@@ -1087,9 +1103,9 @@ const plannerHasMonthData = computed(() => {
 const plannerMonthIsPast = computed(() => plannerMonthLabel.value < currentMonthLabel.value);
 const plannerEmptyMessage = computed(() => {
   if (plannerMonthIsPast.value && !plannerHasMonthData.value) {
-    return `Fuer ${plannerMonthLabel.value} liegen keine Datensaetze vor.`;
+    return `Für ${plannerMonthLabel.value} liegen keine Datensätze vor.`;
   }
-  return `Noch keine Einnahmen oder Ausgaben fuer ${plannerMonthLabel.value} hinterlegt.`;
+  return `Noch keine Einnahmen oder Ausgaben für ${plannerMonthLabel.value} hinterlegt.`;
 });
 
 function toAmount(value) {
@@ -1127,6 +1143,20 @@ function dueLabel(entry) {
     return formatDate(entry.due_date);
   }
   return "Ohne Fälligkeit";
+}
+
+function dueAmountDirection(item) {
+  return item?.entry_type === "INCOME" ? "plus" : "minus";
+}
+
+function dueAmountText(item) {
+  const direction = dueAmountDirection(item);
+  const amount = formatCurrency(Math.abs(Number(item?.monthly_amount || 0)));
+  return direction === "plus" ? `+ ${amount}` : `- ${amount}`;
+}
+
+function dueAmountClass(item) {
+  return dueAmountDirection(item) === "plus" ? "due-plus" : "due-minus";
 }
 
 function setError(message) {
@@ -1400,7 +1430,7 @@ async function toggleEntry(entry) {
     await refreshCurrent();
     setSuccess(entry.is_active ? "Posten pausiert." : "Posten aktiviert.");
   } catch (error) {
-    setError(getApiErrorMessage(error, "Postenstatus konnte nicht geaendert werden."));
+    setError(getApiErrorMessage(error, "Postenstatus konnte nicht geändert werden."));
   }
 }
 
@@ -1414,9 +1444,9 @@ async function removeEntry(entry) {
       resetEntryForm();
     }
     await refreshCurrent();
-    setSuccess(`Posten "${entry.title}" geloescht.`);
+    setSuccess(`Posten "${entry.title}" gelöscht.`);
   } catch (error) {
-    setError(getApiErrorMessage(error, "Posten konnte nicht geloescht werden."));
+    setError(getApiErrorMessage(error, "Posten konnte nicht gelöscht werden."));
   }
 }
 
@@ -1553,12 +1583,12 @@ watch(
 );
 
 watch(
-  () => entryForm.value.frequency,
-  (frequency) => {
+  () => [entryForm.value.frequency, entryForm.value.entry_type],
+  ([frequency, entryType]) => {
     if (frequency !== "MONTHLY") {
       entryForm.value.due_day = "";
     }
-    if (frequency === "MONTHLY") {
+    if (frequency === "MONTHLY" && entryType !== "INCOME") {
       entryForm.value.due_date = "";
     }
   }
@@ -2718,6 +2748,33 @@ onMounted(async () => {
   opacity: 0.84;
 }
 
+.due-metric-card {
+  align-content: start;
+}
+
+.due-metric-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.due-metric-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.due-plus {
+  color: #047857;
+}
+
+.due-minus {
+  color: #b91c1c;
+}
+
 .tab-panel {
   margin-top: 28px;
 }
@@ -3150,5 +3207,6 @@ onMounted(async () => {
   }
 }
 </style>
+
 
 

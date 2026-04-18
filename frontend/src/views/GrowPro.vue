@@ -113,7 +113,7 @@
             <div>
               <p class="muted small">
                 {{ goal.profile?.name || goal.profile?.username || "Unbekannt" }}
-                <span v-if="isTeam"> Â· Team: {{ formatUser(goal.assigned_team) }}</span>
+                <span v-if="isTeam"> · Team: {{ formatUser(goal.assigned_team) }}</span>
               </p>
               <h3>{{ goal.title }}</h3>
             </div>
@@ -566,9 +566,9 @@ async function deleteGoal(goal) {
   try {
     await api.delete(`growpro/${goal.id}/`);
     await loadGoals();
-    showToast("Ziel geloescht", "success");
+    showToast("Ziel gelÖscht", "success");
   } catch (err) {
-    console.error("Ziel konnte nicht geloescht werden", err);
+    console.error("Ziel konnte nicht gelÖscht werden", err);
     showToast("Löschen fehlgeschlagen", "error");
   }
 }

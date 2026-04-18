@@ -190,13 +190,13 @@ const staleGrowproCount = computed(() => growpro.value.filter(isGrowproStale).le
 
 const heroText = computed(() => {
   if (!isTeam.value) return "Halte dein Profil, Projekte und GrowPro-Ziele zentral im Blick.";
-  if (overdueCount.value > 0) return `${overdueCount.value} Tasks sind ueberfaellig. Bitte zuerst kritische Punkte stabilisieren.`;
+  if (overdueCount.value > 0) return `${overdueCount.value} Tasks sind ÜberfÄllig. Bitte zuerst kritische Punkte stabilisieren.`;
   if (pendingReviews.value.length > 0) return `${pendingReviews.value.length} abgeschlossene Tasks warten auf Review.`;
   return "Operations-Fokus: Prioritaet, Reviews, Fristen, Requests und Aktivitaetsfeed.";
 });
 
 const kpis = computed(() => [
-  { key: "tasks", label: "Offene Tasks", value: tasks.value.length, hint: `${overdueCount.value} ueberfaellig · ${soonCount.value} zeitnah`, tone: overdueCount.value ? "danger" : soonCount.value ? "warning" : "ok" },
+  { key: "tasks", label: "Offene Tasks", value: tasks.value.length, hint: `${overdueCount.value} ÜberfÄllig · ${soonCount.value} zeitnah`, tone: overdueCount.value ? "danger" : soonCount.value ? "warning" : "ok" },
   { key: "reviews", label: "Review Queue", value: reviewTasks.value.length + pendingReviews.value.length, hint: `${reviewTasks.value.length} REVIEW · ${pendingReviews.value.length} nicht geprueft`, tone: pendingReviews.value.length ? "warning" : "ok" },
   { key: "projects", label: "Aktive Projekte", value: projectSummary.value.active, hint: `Gesamt ${projectSummary.value.total} · Archiviert ${projectSummary.value.archived}`, tone: "info" },
   { key: "requests", label: "Offene Requests", value: requests.value.length, hint: "Schnelle Entscheidungen", tone: requests.value.length ? "warning" : "ok" },
@@ -390,8 +390,8 @@ function dueState(value) {
 function dueLabel(value) {
   if (!value) return "Kein Termin";
   const state = dueState(value);
-  if (state === "overdue") return "Ueberfaellig";
-  if (state === "soon") return "Faellig bald";
+  if (state === "overdue") return "ÜberfÄllig";
+  if (state === "soon") return "FÄllig bald";
   return "Geplant";
 }
 

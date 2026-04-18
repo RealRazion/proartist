@@ -1,7 +1,7 @@
 <template>
   <div class="project-detail">
     <header class="card hero">
-      <button class="btn ghost tiny" type="button" @click="goBack">ZurÃ¼ck zu Projekten</button>
+      <button class="btn ghost tiny" type="button" @click="goBack">Zurück zu Projekten</button>
       <div class="hero-main">
         <p class="eyebrow">Projekt</p>
         <h1>{{ project?.title || "Projekt" }}</h1>
@@ -40,7 +40,7 @@
       <div class="card overview">
         <div class="section-head">
           <div>
-            <h2>Ãœberblick</h2>
+            <h2>Überblick</h2>
             <p class="muted small">Status, Team und Kontext auf einen Blick.</p>
           </div>
           <div class="stats">
@@ -97,7 +97,7 @@
         <div class="section-head">
           <div>
             <h2>Project Health</h2>
-            <p class="muted small">Offene Punkte, Reviews und naechste Deadline kompakt.</p>
+            <p class="muted small">Offene Punkte, Reviews und nächste Deadline kompakt.</p>
           </div>
           <span class="muted small" v-if="loadingHealth">Aktualisiere...</span>
         </div>
@@ -111,21 +111,21 @@
             <strong>{{ projectHealth.review_tasks }}</strong>
           </div>
           <div>
-            <span class="label">Ueberfaellig</span>
+            <span class="label">Überfällig</span>
             <strong>{{ projectHealth.overdue_tasks }}</strong>
           </div>
         </div>
         <p v-if="projectHealth.next_due_task" class="muted small">
-          Naechste Frist: {{ projectHealth.next_due_task.title }} am {{ formatDate(projectHealth.next_due_task.due_date) }}
+          Nächste Frist: {{ projectHealth.next_due_task.title }} am {{ formatDate(projectHealth.next_due_task.due_date) }}
         </p>
-        <p v-else class="muted small">Keine naechste Deadline vorhanden.</p>
+        <p v-else class="muted small">Keine nächste Deadline vorhanden.</p>
       </div>
 
       <form v-if="isTeam && editMode" class="card edit" @submit.prevent="saveProject">
         <div class="section-head">
           <h2>Projekt bearbeiten</h2>
           <button class="btn ghost tiny" type="button" @click="resetProjectDraft" :disabled="savingProject">
-            ZurÃ¼cksetzen
+            Zurücksetzen
           </button>
         </div>
         <label>
@@ -157,7 +157,7 @@
           <select class="input" v-model="projectDraft.participant_ids" multiple size="7">
             <option v-for="profile in profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
           </select>
-          <small class="hint muted">Mehrfachauswahl mit Strg/Command mÃ¶glich.</small>
+          <small class="hint muted">Mehrfachauswahl mit Strg/Command möglich.</small>
         </label>
         <label>
           Verantwortliche Teammitglieder
@@ -168,19 +168,19 @@
           </select>
         </label>
         <div class="danger-zone">
-          <p class="muted">Projekt archivieren oder endgÃ¼ltig lÃ¶schen.</p>
+          <p class="muted">Projekt archivieren oder endgültig löschen.</p>
           <div class="danger-actions">
             <button class="btn ghost danger" type="button" @click="archiveProject" :disabled="savingProject">
               Archivieren
             </button>
             <button class="btn danger" type="button" @click="deleteProject" :disabled="savingProject">
-              LÃ¶schen
+              Löschen
             </button>
           </div>
         </div>
         <div class="form-actions">
           <button class="btn ghost" type="button" @click="resetProjectDraft" :disabled="savingProject">
-            Ã„nderungen verwerfen
+            Änderungen verwerfen
           </button>
           <button class="btn" type="submit" :disabled="savingProject || !hasProjectChanges">
             {{ savingProject ? "Speichere..." : "Speichern" }}
@@ -204,12 +204,12 @@
           <button class="btn ghost" type="button" @click="loadTasks" :disabled="loadingTasks">
             {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
           </button>
-          <button v-if="canManageTasks" class="btn" type="button" @click="openTaskModal">Task hinzufÃ¼gen</button>
+          <button v-if="canManageTasks" class="btn" type="button" @click="openTaskModal">Task hinzufügen</button>
         </div>
       </div>
 
       <div v-if="!canViewTasks" class="muted">
-        Fuer dieses Projekt hast du keinen Task-Zugriff.
+        Für dieses Projekt hast du keinen Task-Zugriff.
       </div>
       <template v-else>
         <div class="task-filters">
@@ -243,7 +243,7 @@
               <div>
                 <strong>{{ task.title }}</strong>
                 <p class="muted small">
-                  {{ task.due_date ? `FÃ¤llig ${formatDate(task.due_date)}` : "Kein Termin" }}
+                  {{ task.due_date ? `Fällig ${formatDate(task.due_date)}` : "Kein Termin" }}
                   - {{ taskPriorityLabels[task.priority] }}
                   <span v-if="task.recurrence_pattern && task.recurrence_pattern !== 'NONE'" class="review-pill">
                     {{ recurrenceLabel(task) }}
@@ -259,7 +259,7 @@
                 <p class="muted small">Verantwortlich: {{ formatAssignees(task) }}</p>
                 <p v-if="task.created_by || task.updated_by" class="muted tiny">
                   Erstellt: {{ formatUser(task.created_by) }}
-                  <span v-if="task.updated_by">Â· Update: {{ formatUser(task.updated_by) }}</span>
+                  <span v-if="task.updated_by">· Update: {{ formatUser(task.updated_by) }}</span>
                 </p>
               </div>
               <div class="task-actions">
@@ -293,7 +293,7 @@
             </div>
           </li>
         </ul>
-        <p v-else class="muted empty">Keine Tasks fÃ¼r dieses Projekt.</p>
+        <p v-else class="muted empty">Keine Tasks für dieses Projekt.</p>
         <button v-if="hasMoreTasks" class="btn ghost tiny" type="button" @click="loadMoreTasks" :disabled="loadingMoreTasks">
           {{ loadingMoreTasks ? "Lade..." : "Mehr laden" }}
         </button>
@@ -304,7 +304,7 @@
       <AttachmentPanel
         entity-type="project"
         :entity-id="projectId"
-        title="DateianhÃ¤nge"
+        title="Dateianhänge"
         description="Teile Briefings, Referenzen oder Ergebnisse."
       />
     </section>
@@ -312,7 +312,7 @@
     <section class="card songs">
       <div class="section-head">
         <div>
-          <h2>VerknÃ¼pfte Songs</h2>
+          <h2>Verknüpfte Songs</h2>
           <p class="muted small" v-if="songsPagination.count">
             {{ songs.length }} von {{ songsPagination.count }} geladen
           </p>
@@ -333,7 +333,7 @@
           <span class="muted small">{{ formatDate(song.created_at) }}</span>
         </li>
       </ul>
-      <p v-else class="muted empty">Noch keine Songs mit diesem Projekt verknÃ¼pft.</p>
+      <p v-else class="muted empty">Noch keine Songs mit diesem Projekt verknüpft.</p>
       <button v-if="hasMoreSongs" class="btn ghost tiny" type="button" @click="loadMoreSongs" :disabled="loadingMoreSongs">
         {{ loadingMoreSongs ? "Lade..." : "Mehr laden" }}
       </button>
@@ -342,7 +342,7 @@
     <section v-if="isTeam" class="card activity">
       <div class="section-head">
         <div>
-          <h2>Letzte AktivitÃ¤ten</h2>
+          <h2>Letzte Aktivitäten</h2>
           <p class="muted small">Projektbezogene Events und Updates.</p>
         </div>
         <button class="btn ghost" type="button" @click="loadActivity" :disabled="loadingActivity">
@@ -359,15 +359,15 @@
           <span class="muted small">{{ formatDateTime(item.created_at) }}</span>
         </li>
       </ul>
-      <p v-else class="muted empty">Keine AktivitÃ¤ten vorhanden.</p>
+      <p v-else class="muted empty">Keine Aktivitäten vorhanden.</p>
     </section>
 
     <div v-if="taskModalVisible" class="modal-backdrop" @click.self="closeTaskModal">
       <div class="modal card wide task-modal">
         <div class="modal-head">
-          <h3>{{ taskModalMode === "create" ? "Task hinzufÃ¼gen" : "Task bearbeiten" }}</h3>
+          <h3>{{ taskModalMode === "create" ? "Task hinzufügen" : "Task bearbeiten" }}</h3>
           <button class="btn ghost tiny" type="button" @click="closeTaskModal" :disabled="taskSaving">
-            SchlieÃŸen
+            Schließen
           </button>
         </div>
         <form class="form form-grid" @submit.prevent="submitTaskForm">
@@ -382,7 +382,7 @@
             </select>
           </label>
           <label>
-            PrioritÃ¤t
+            Priorität
             <select class="input" v-model="taskForm.priority">
               <option v-for="opt in taskPriorityOptions" :key="opt" :value="opt">{{ taskPriorityLabels[opt] }}</option>
             </select>
@@ -410,7 +410,7 @@
             </select>
           </label>
           <label>
-            FÃ¤llig am
+            Fällig am
             <input class="input" type="date" v-model="taskForm.due_date" />
           </label>
           <label>
@@ -437,14 +437,14 @@
       <div class="modal card review-modal">
         <div class="modal-head">
           <h3>Review abgeschlossen?</h3>
-          <button class="btn ghost tiny" type="button" @click="cancelReviewDecision">SchlieÃŸen</button>
+          <button class="btn ghost tiny" type="button" @click="cancelReviewDecision">Schließen</button>
         </div>
         <div class="modal-body">
           <div v-if="reviewTarget" class="review-summary">
             <strong>{{ reviewTarget.title }}</strong>
             <p class="muted small">
               {{ reviewTarget.project_title || project?.title || "Kein Projekt" }}
-              <span class="dot">Â·</span>
+              <span class="dot">·</span>
               {{ reviewTarget.due_date ? formatDate(reviewTarget.due_date) : "Kein Termin" }}
             </p>
             <p class="muted small">Verantwortlich: {{ formatAssignees(reviewTarget) }}</p>
@@ -531,8 +531,8 @@ const projectStatusLabels = {
 const participantTaskAccessOptions = ["NONE", "COMMENT", "EDIT"];
 const participantTaskAccessLabels = {
   NONE: "Nur Team bearbeitet Tasks",
-  COMMENT: "Teilnehmer duerfen kommentieren",
-  EDIT: "Teilnehmer duerfen Tasks bearbeiten",
+  COMMENT: "Teilnehmer dÜrfen kommentieren",
+  EDIT: "Teilnehmer dÜrfen Tasks bearbeiten",
 };
 
 const taskStatusOptions = ["OPEN", "IN_PROGRESS", "REVIEW", "DONE"];
@@ -564,7 +564,7 @@ const recurrenceOptions = ["NONE", "DAILY", "WEEKLY", "MONTHLY"];
 const recurrenceLabels = {
   NONE: "Keine",
   DAILY: "Taeglich",
-  WEEKLY: "Woechentlich",
+  WEEKLY: "WÖchentlich",
   MONTHLY: "Monatlich",
 };
 
@@ -674,7 +674,7 @@ function resetProjectDraft() {
 async function loadProject() {
   projectError.value = "";
   if (!projectId.value) {
-    projectError.value = "UngÃ¼ltige Projekt-ID.";
+    projectError.value = "Ungültige Projekt-ID.";
     project.value = null;
     return;
   }
@@ -779,7 +779,7 @@ async function archiveProject() {
 
 async function deleteProject() {
   if (!project.value) return;
-  if (!confirm(`Projekt "${project.value.title}" endgÃ¼ltig lÃ¶schen?`)) return;
+  if (!confirm(`Projekt "${project.value.title}" endgültig löschen?`)) return;
   savingProject.value = true;
   try {
     try {
@@ -787,11 +787,11 @@ async function deleteProject() {
     } catch (err) {
       await api.delete(`projects/${projectId.value}/`);
     }
-    showToast("Projekt gelÃ¶scht", "success");
+    showToast("Projekt gelöscht", "success");
     router.push({ name: "projects" });
   } catch (err) {
-    console.error("Projekt konnte nicht gelÃ¶scht werden", err);
-    showToast("Projekt konnte nicht gelÃ¶scht werden", "error");
+    console.error("Projekt konnte nicht gelöscht werden", err);
+    showToast("Projekt konnte nicht gelöscht werden", "error");
   } finally {
     savingProject.value = false;
   }

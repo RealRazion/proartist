@@ -319,8 +319,8 @@ async function removeGuide(guide) {
     await api.delete(`plugin-guides/${guide.id}/`);
     await loadGuides();
   } catch (err) {
-    console.error("Guide konnte nicht geloescht werden", err);
-    showToast("Guide konnte nicht geloescht werden", "error");
+    console.error("Guide konnte nicht gelÖscht werden", err);
+    showToast("Guide konnte nicht gelÖscht werden", "error");
   } finally {
     savingIds.value.delete(guide.id);
   }

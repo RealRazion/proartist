@@ -3,7 +3,7 @@
     <header class="card studio-header">
       <div>
         <h1>Content Studio</h1>
-        <p class="muted">Zentrale Plattform fuer Tipps, News und Plugin Tutorials.</p>
+        <p class="muted">Zentrale Plattform fÜr Tipps, News und Plugin Tutorials.</p>
       </div>
       <button class="btn ghost" type="button" @click="loadItems" :disabled="loading">
         {{ loading ? "Lade..." : "Aktualisieren" }}
@@ -61,14 +61,14 @@
       </form>
     </section>
     <section v-else class="card access-note">
-      <h2>Nur fuer Admins</h2>
-      <p class="muted">Erstellen, Aendern und Loeschen ist nur fuer TEAM/Admin freigeschaltet.</p>
+      <h2>Nur fÜr Admins</h2>
+      <p class="muted">Erstellen, Aendern und Loeschen ist nur fÜr TEAM/Admin freigeschaltet.</p>
     </section>
 
     <section class="card list-section">
       <div class="section-head">
         <h2>{{ selectedTypeLabel }}</h2>
-        <span class="badge">{{ items.length }} Eintraege</span>
+        <span class="badge">{{ items.length }} EintrÄge</span>
       </div>
       <div v-if="loading" class="skeleton-list">
         <div class="skeleton-card" v-for="n in 3" :key="`sk-${n}`"></div>
@@ -100,7 +100,7 @@
           </div>
         </li>
       </ul>
-      <p v-if="!loading && !items.length" class="muted empty">Noch keine Eintraege fuer diesen Typ.</p>
+      <p v-if="!loading && !items.length" class="muted empty">Noch keine EintrÄge fÜr diesen Typ.</p>
     </section>
   </div>
 </template>
@@ -123,7 +123,7 @@ const contentOptions = [
 const tipTypeOptions = [
   { value: "CASHBACK", label: "Cashback" },
   { value: "DISCOUNT", label: "Rabattaktion" },
-  { value: "REFERRAL", label: "Empfehlungspraemie" },
+  { value: "REFERRAL", label: "EmpfehlungsprÄmie" },
   { value: "OTHER", label: "Sonstiges" },
 ];
 
@@ -140,7 +140,7 @@ const saving = ref(false);
 const savingIds = ref(new Set());
 const form = ref(buildForm());
 
-const selectedTypeLabel = computed(() => typeConfig[selectedType.value]?.title || "Eintraege");
+const selectedTypeLabel = computed(() => typeConfig[selectedType.value]?.title || "EintrÄge");
 
 function buildForm() {
   return {
@@ -243,8 +243,8 @@ async function removeItem(item) {
     await api.delete(`${endpointFor()}${item.id}/`);
     await loadItems();
   } catch (err) {
-    console.error("Eintrag konnte nicht geloescht werden", err);
-    showToast("Eintrag konnte nicht geloescht werden", "error");
+    console.error("Eintrag konnte nicht gelÖscht werden", err);
+    showToast("Eintrag konnte nicht gelÖscht werden", "error");
   } finally {
     savingIds.value.delete(item.id);
   }

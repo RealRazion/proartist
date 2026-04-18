@@ -68,6 +68,7 @@ const pageMeta = {
   "platform-locations": { title: "Locations", kicker: "Orte, Events und Buchungen" },
   "platform-finance": { title: "Finance", kicker: "Finanzprojekt anlegen" },
   finance: { title: "Finanzplaner", kicker: "Budget, Schulden und Monatsbild" },
+  "platform-content-studio": { title: "Content Studio", kicker: "Tipps, News und Tutorials" },
   "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },
   fitness: { title: "Fitness Tracker", kicker: "Kalorien und Tagesprofil" },
 };

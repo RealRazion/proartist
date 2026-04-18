@@ -4,8 +4,9 @@
       <div class="section-head compact">
         <div>
           <h2>Jetzt pruefen</h2>
-          <p class="muted">Faellige und ueberfaellige Schulden brauchen eine Rueckmeldung.</p>
+          <p class="muted">Faellige und ueberfaellige {{ currentEntityPlural }} brauchen eine Rueckmeldung.</p>
         </div>
+        <span class="urgency-pill">{{ actionableDebts.length }} offen</span>
       </div>
 
       <div class="due-list">
@@ -26,30 +27,68 @@
     <section class="card debts-section">
       <div class="section-head">
         <div>
-          <h2>Schulden verwalten</h2>
+          <h2>{{ currentEntityHeadline }}</h2>
           <p class="muted">
             Einfacher Ueberblick mit Restschuld, naechster Faelligkeit und klarer Aktion.
           </p>
         </div>
         <div class="section-actions">
+          <div class="entity-switch">
+            <button
+              v-for="tab in debtKindTabs"
+              :key="tab.value"
+              type="button"
+              class="entity-btn"
+              :class="{ active: selectedDebtKind === tab.value }"
+              @click="selectedDebtKind = tab.value"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
           <button class="btn ghost" type="button" @click="showKlarnaCalculator = true">
-            Schuldenrechner
+            {{ currentCalculatorLabel }}
           </button>
-          <button class="btn" type="button" @click="showAddDebtModal = true">
-            + Schuld hinzufuegen
+          <button class="btn" type="button" @click="openAddDebtModal">
+            {{ currentAddLabel }}
           </button>
         </div>
       </div>
 
-      <div v-if="debts.length" class="debts-grid">
+      <div class="tracker-highlights">
+        <article class="highlight-card">
+          <span class="highlight-label">Aktive {{ currentEntityPlural }}</span>
+          <strong>{{ activeDebtCount }}</strong>
+        </article>
+        <article class="highlight-card warning">
+          <span class="highlight-label">Dringend faellig</span>
+          <strong>{{ actionableDebts.length }}</strong>
+        </article>
+        <article class="highlight-card">
+          <span class="highlight-label">Offener Betrag</span>
+          <strong>{{ formatCurrency(totalRemainingAmount) }}</strong>
+        </article>
+      </div>
+
+      <div v-if="loading" class="loading-state">
+        <p class="muted">{{ currentEntityPlural }} werden geladen...</p>
+      </div>
+
+      <div v-else-if="filteredDebts.length" class="debts-grid">
         <article
-          v-for="debt in debts"
+          v-for="debt in filteredDebts"
           :key="debt.id"
           :class="['debt-card', `debt-${getDueState(debt).toLowerCase()}`]"
         >
           <div class="debt-header">
             <div>
-              <h3>{{ debt.name }}</h3>
+              <div class="debt-title-row">
+                <span
+                  v-if="getSignalState(debt) !== 'none'"
+                  :class="['signal-dot', `signal-${getSignalState(debt)}`]"
+                  aria-hidden="true"
+                ></span>
+                <h3>{{ debt.name }}</h3>
+              </div>
               <p class="muted small">Gestartet: {{ formatDate(debt.start_date) }}</p>
               <p class="muted small">{{ formatPaymentType(debt.payment_type) }}</p>
             </div>
@@ -122,10 +161,13 @@
           </div>
         </article>
       </div>
-      <p v-else class="muted empty-hint">Noch keine Schulden eingetragen.</p>
+      <div v-else class="empty-state">
+        <p class="muted empty-hint">Noch keine {{ currentEntityPlural }} eingetragen.</p>
+        <button class="btn" type="button" @click="openAddDebtModal">Ersten Eintrag hinzufuegen</button>
+      </div>
     </section>
 
-    <section v-if="debts.length" class="card monthly-section">
+    <section v-if="filteredDebts.length" class="card monthly-section">
       <div class="section-head compact">
         <div>
           <h2>Monatsprognose</h2>
@@ -167,11 +209,19 @@
     <div v-if="showAddDebtModal" class="modal-overlay" @click="closeAddDebtModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>{{ editingDebtId ? 'Schuld bearbeiten' : 'Neue Schuld hinzufuegen' }}</h2>
+          <h2>{{ editingDebtId ? `${currentEntitySingle} bearbeiten` : `Neuen ${currentEntitySingle} hinzufuegen` }}</h2>
           <button class="btn close-btn" type="button" @click="closeAddDebtModal">x</button>
         </div>
 
         <form class="modal-form" @submit.prevent="saveDebt">
+          <label>
+            Bereich
+            <select v-model="debtForm.debt_kind" class="input">
+              <option value="DEBT">Schulden</option>
+              <option value="CREDIT">Kredite</option>
+            </select>
+          </label>
+
           <label>
             Name
             <input v-model.trim="debtForm.name" class="input" required />
@@ -344,12 +394,12 @@
     <div v-if="showKlarnaCalculator" class="modal-overlay" @click="closeKlarnaCalculator">
       <div class="modal-content klarna-calc" @click.stop>
         <div class="modal-header">
-          <h2>Schuldenrechner</h2>
+          <h2>{{ currentCalculatorLabel }}</h2>
           <button class="btn close-btn" type="button" @click="closeKlarnaCalculator">x</button>
         </div>
 
         <div class="klarna-quick-entry">
-          <p class="muted small">Schnelle Erfassung fuer mehrere Raten-Schulden.</p>
+          <p class="muted small">Schnelle Erfassung fuer mehrere Raten-{{ currentEntityPlural }}.</p>
 
           <div class="quick-entry-form">
             <input
@@ -417,7 +467,7 @@
 
             <div class="klarna-totals">
               <p>
-                <strong>Gesamtschuld:</strong>
+                <strong>{{ currentTotalLabel }}:</strong>
                 {{ formatCurrency(klarnaEntries.reduce((sum, entry) => sum + Number(entry.total_amount || 0), 0)) }}
               </p>
               <p>
@@ -458,6 +508,12 @@ const showPaymentRecordingModal = ref(false);
 const showKlarnaCalculator = ref(false);
 const editingDebtId = ref(null);
 const selectedDebtForPayment = ref(null);
+const selectedDebtKind = ref('DEBT');
+
+const debtKindTabs = [
+  { value: 'DEBT', label: 'Schulden' },
+  { value: 'CREDIT', label: 'Kredite' },
+];
 
 const debtForm = ref(buildDebtForm());
 const paymentForm = ref(buildPaymentForm());
@@ -476,6 +532,7 @@ function dateToIsoLocal(dateValue) {
 function buildDebtForm(data = {}) {
   return {
     name: data.name || '',
+    debt_kind: data.debt_kind || selectedDebtKind.value,
     payment_type: data.payment_type || 'INSTALLMENT',
     total_amount: data.total_amount ?? '',
     amount_paid: data.amount_paid ?? 0,
@@ -501,6 +558,7 @@ function buildPaymentForm(debt = null) {
 function buildKlarnaQuickEntry() {
   return {
     name: '',
+    debt_kind: selectedDebtKind.value,
     payment_type: 'INSTALLMENT',
     total_amount: '',
     monthly_payment: '',
@@ -582,16 +640,72 @@ function getDueState(debt) {
   return 'UPCOMING';
 }
 
-const actionableDebts = computed(() =>
-  debts.value.filter((debt) => ['OVERDUE', 'DUE_TODAY'].includes(getDueState(debt)))
+function parseIsoDate(value) {
+  if (!value || typeof value !== 'string') return null;
+  const [year, month, day] = value.split('-').map((part) => Number.parseInt(part, 10));
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function daysUntil(dateValue) {
+  const target = parseIsoDate(dateValue);
+  const today = parseIsoDate(todayIso());
+  if (!target || !today) return null;
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
+
+function getSignalState(debt) {
+  if (!debt) return 'none';
+  if (debt.is_fully_paid || debt.status === 'PAID_OFF') {
+    return 'paid';
+  }
+  const nextDueDate = getNextDueDate(debt);
+  if (!nextDueDate) {
+    return 'none';
+  }
+  if (nextDueDate < todayIso()) {
+    return 'overdue';
+  }
+  const remainingDays = daysUntil(nextDueDate);
+  if (remainingDays !== null && remainingDays >= 0 && remainingDays <= 2) {
+    return 'due-soon';
+  }
+  return 'none';
+}
+
+function normalizeDebtKind(debt) {
+  return debt?.debt_kind === 'CREDIT' ? 'CREDIT' : 'DEBT';
+}
+
+const filteredDebts = computed(() =>
+  debts.value.filter((debt) => normalizeDebtKind(debt) === selectedDebtKind.value)
 );
+
+const actionableDebts = computed(() =>
+  filteredDebts.value.filter((debt) => ['OVERDUE', 'DUE_TODAY'].includes(getDueState(debt)))
+);
+
+const activeDebtCount = computed(() =>
+  filteredDebts.value.filter((debt) => debt.status === 'ACTIVE' && !debt.is_fully_paid).length
+);
+
+const totalRemainingAmount = computed(() =>
+  filteredDebts.value.reduce((sum, debt) => sum + parseAmount(debt.remaining_amount), 0)
+);
+
+const currentEntitySingle = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredit' : 'Schuld'));
+const currentEntityPlural = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredite' : 'Schulden'));
+const currentEntityHeadline = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredite verwalten' : 'Schulden verwalten'));
+const currentAddLabel = computed(() => (selectedDebtKind.value === 'CREDIT' ? '+ Kredit hinzufuegen' : '+ Schuld hinzufuegen'));
+const currentCalculatorLabel = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kreditrechner' : 'Schuldenrechner'));
+const currentTotalLabel = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Gesamtkredite' : 'Gesamtschuld'));
 
 const nextMonthsBreakdown = computed(() => {
   const months = [];
   const cursor = new Date(todayIso());
   cursor.setDate(1);
 
-  const simulatedDebts = debts.value
+  const simulatedDebts = filteredDebts.value
     .filter((debt) => debt.status === 'ACTIVE' && !debt.is_fully_paid)
     .map((debt) => ({
       id: debt.id,
@@ -753,25 +867,33 @@ async function loadDebts() {
   loading.value = true;
   try {
     const { data } = await api.get(`debts/?project=${props.projectId}`);
-    debts.value = Array.isArray(data) ? data : data.results || [];
+    const list = Array.isArray(data) ? data : data.results || [];
+    debts.value = list.map((debt) => ({ ...debt, debt_kind: normalizeDebtKind(debt) }));
   } catch (error) {
     debts.value = [];
-    alert(getApiErrorMessage(error, 'Schulden konnten nicht geladen werden.'));
+    alert(getApiErrorMessage(error, 'Eintraege konnten nicht geladen werden.'));
   } finally {
     loading.value = false;
   }
 }
 
 function editDebt(debt) {
+  selectedDebtKind.value = normalizeDebtKind(debt);
   editingDebtId.value = debt.id;
   debtForm.value = buildDebtForm(debt);
+  showAddDebtModal.value = true;
+}
+
+function openAddDebtModal() {
+  editingDebtId.value = null;
+  debtForm.value = buildDebtForm({ debt_kind: selectedDebtKind.value });
   showAddDebtModal.value = true;
 }
 
 function closeAddDebtModal() {
   showAddDebtModal.value = false;
   editingDebtId.value = null;
-  debtForm.value = buildDebtForm();
+  debtForm.value = buildDebtForm({ debt_kind: selectedDebtKind.value });
 }
 
 async function saveDebt() {
@@ -790,6 +912,7 @@ async function saveDebt() {
   try {
     const payload = {
       ...debtForm.value,
+      debt_kind: normalizeDebtKind(debtForm.value),
       project: props.projectId,
       total_amount: parseAmount(debtForm.value.total_amount),
       amount_paid: parseAmount(debtForm.value.amount_paid),
@@ -806,14 +929,15 @@ async function saveDebt() {
     closeAddDebtModal();
     await loadDebts();
   } catch (error) {
-    alert(getApiErrorMessage(error, 'Schuld konnte nicht gespeichert werden.'));
+    alert(getApiErrorMessage(error, 'Eintrag konnte nicht gespeichert werden.'));
   } finally {
     savingDebt.value = false;
   }
 }
 
 async function removeDebt(debt) {
-  if (!window.confirm(`Schuld "${debt.name}" wirklich loeschen?`)) {
+  const entityLabel = normalizeDebtKind(debt) === 'CREDIT' ? 'Kredit' : 'Schuld';
+  if (!window.confirm(`${entityLabel} "${debt.name}" wirklich loeschen?`)) {
     return;
   }
 
@@ -926,6 +1050,7 @@ function addKlarnaEntry() {
 
   klarnaEntries.value.push({
     ...entry,
+    debt_kind: normalizeDebtKind(entry),
     total_amount: parseAmount(entry.total_amount),
     monthly_payment: parseAmount(entry.monthly_payment),
     due_day: Number.parseInt(entry.due_day, 10),
@@ -948,6 +1073,7 @@ async function saveAllKlarnaEntries() {
     for (const entry of klarnaEntries.value) {
       await api.post('debts/', {
         ...entry,
+        debt_kind: normalizeDebtKind(entry),
         project: props.projectId,
         status: 'ACTIVE',
         start_date: todayIso(),
@@ -965,6 +1091,18 @@ async function saveAllKlarnaEntries() {
 }
 
 watch(
+  () => selectedDebtKind.value,
+  (kind) => {
+    if (!editingDebtId.value) {
+      debtForm.value.debt_kind = kind;
+    }
+    if (!klarnaEntries.value.length) {
+      klarnaQuickEntry.value.debt_kind = kind;
+    }
+  }
+);
+
+watch(
   () => props.projectId,
   (projectId) => {
     if (!projectId) {
@@ -980,20 +1118,20 @@ watch(
 <style scoped>
 .debt-tracker {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .due-section,
 .debts-section,
 .monthly-section {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .section-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 18px;
 }
 
@@ -1005,6 +1143,81 @@ watch(
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.entity-switch {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(47, 99, 255, 0.04);
+}
+
+.entity-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.entity-btn.active {
+  background: var(--brand);
+  color: #fff;
+}
+
+.urgency-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tracker-highlights {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.highlight-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(47, 99, 255, 0.07), rgba(47, 99, 255, 0.03));
+}
+
+.highlight-card.warning {
+  background: linear-gradient(180deg, rgba(217, 119, 6, 0.14), rgba(217, 119, 6, 0.04));
+  border-color: rgba(217, 119, 6, 0.26);
+}
+
+.highlight-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.highlight-card strong {
+  font-size: 18px;
+}
+
+.loading-state {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  background: rgba(47, 99, 255, 0.03);
 }
 
 .due-list {
@@ -1020,16 +1233,25 @@ watch(
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  border-left-width: 4px;
+  background: linear-gradient(145deg, rgba(47, 99, 255, 0.05), var(--surface));
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.due-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .due-item.due-overdue {
-  border-color: rgba(220, 38, 38, 0.28);
+  border-color: rgba(220, 38, 38, 0.34);
+  border-left-color: #dc2626;
   background: rgba(220, 38, 38, 0.08);
 }
 
 .due-item.due-due_today {
-  border-color: rgba(217, 119, 6, 0.28);
+  border-color: rgba(217, 119, 6, 0.34);
+  border-left-color: #d97706;
   background: rgba(217, 119, 6, 0.08);
 }
 
@@ -1044,26 +1266,34 @@ watch(
 
 .debts-grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
 }
 
 .debt-card {
   display: grid;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 16px;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), var(--surface));
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.debt-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.1);
 }
 
 .debt-card.debt-overdue {
-  border-color: rgba(220, 38, 38, 0.32);
-  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.34);
+  background: linear-gradient(160deg, rgba(220, 38, 38, 0.08), var(--surface) 42%);
 }
 
 .debt-card.debt-due_today {
-  border-color: rgba(217, 119, 6, 0.32);
+  border-color: rgba(217, 119, 6, 0.34);
+  background: linear-gradient(160deg, rgba(217, 119, 6, 0.08), var(--surface) 42%);
 }
 
 .debt-header {
@@ -1075,7 +1305,34 @@ watch(
 
 .debt-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 17px;
+}
+
+.debt-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signal-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+  flex: 0 0 10px;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
+}
+
+.signal-dot.signal-overdue {
+  background: #dc2626;
+}
+
+.signal-dot.signal-paid {
+  background: #16a34a;
+}
+
+.signal-dot.signal-due-soon {
+  background: #f59e0b;
 }
 
 .debt-badges {
@@ -1089,8 +1346,9 @@ watch(
 .due-badge {
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .status-badge {
@@ -1142,6 +1400,7 @@ watch(
 .debt-progress {
   display: grid;
   gap: 8px;
+  margin-top: 2px;
 }
 
 .progress-info {
@@ -1160,7 +1419,7 @@ watch(
 }
 
 .progress-bar {
-  height: 12px;
+  height: 10px;
   border-radius: 999px;
   background: rgba(47, 99, 255, 0.1);
   overflow: hidden;
@@ -1176,16 +1435,20 @@ watch(
 
 .debt-stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(47, 99, 255, 0.14);
   background: rgba(47, 99, 255, 0.04);
 }
 
 .stat {
   display: grid;
   gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .stat-label {
@@ -1196,7 +1459,7 @@ watch(
 }
 
 .stat strong {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .stat strong.paid-off,
@@ -1206,7 +1469,9 @@ watch(
 
 .debt-meta {
   display: grid;
-  gap: 4px;
+  gap: 5px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.38);
 }
 
 .debt-meta p {
@@ -1221,33 +1486,43 @@ watch(
 
 .debt-actions .btn {
   flex: 1;
-  min-width: 104px;
+  min-width: 118px;
+  justify-content: center;
+}
+
+.empty-state {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+  padding: 24px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--border);
+  background: rgba(47, 99, 255, 0.03);
 }
 
 .empty-hint {
-  text-align: center;
-  padding: 20px;
   margin: 0;
 }
 
 .month-breakdown {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .month-card {
-  padding: 14px;
+  padding: 16px;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(47, 99, 255, 0.04), var(--surface));
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .month-card h4 {
   margin: 0;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .month-kpi {
@@ -1274,7 +1549,7 @@ watch(
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 8px;
+  padding-top: 10px;
   border-top: 1px solid var(--border);
 }
 
@@ -1486,7 +1761,13 @@ watch(
     flex-direction: column;
   }
 
+  .entity-switch {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .debts-grid,
+  .tracker-highlights,
   .month-breakdown,
   .grid.two {
     grid-template-columns: 1fr;
@@ -1499,6 +1780,25 @@ watch(
   .modal-content {
     max-width: 100%;
   }
+
+  .debt-actions .btn {
+    width: 100%;
+  }
+}
+
+:global(.dark) .debt-tracker .highlight-card,
+:global(.dark) .debt-tracker .loading-state,
+:global(.dark) .debt-tracker .empty-state {
+  background: rgba(148, 163, 184, 0.08);
+}
+
+:global(.dark) .debt-tracker .debt-card,
+:global(.dark) .debt-tracker .month-card {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+:global(.dark) .debt-tracker .stat {
+  background: rgba(15, 23, 42, 0.46);
 }
 
 :global(.dark) .debt-tracker .input,

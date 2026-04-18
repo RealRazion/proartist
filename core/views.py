@@ -38,6 +38,7 @@ from .models import (
     FinanceEntry,
     FinanceMember,
     FinanceProject,
+    FinanceTip,
     GrowProGoal,
     GrowProUpdate,
     NewsPost,
@@ -82,6 +83,7 @@ from .serializers import (
     FinanceMemberSerializer,
     FinanceProjectListSerializer,
     FinanceProjectSerializer,
+    FinanceTipSerializer,
     GrowProGoalSerializer,
     GrowProUpdateSerializer,
     NewsPostSerializer,
@@ -1995,6 +1997,35 @@ class NewsPostViewSet(viewsets.ModelViewSet):
         publish = _bool_param(request.data.get("publish"), True)
         post.is_published = publish
         post.save(update_fields=["is_published"])
+        return Response({"is_published": publish})
+
+
+class FinanceTipViewSet(viewsets.ModelViewSet):
+    queryset = FinanceTip.objects.select_related("author__user").order_by("-created_at")
+    serializer_class = FinanceTipSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        me = getattr(self.request.user, "profile", None)
+        if not me or not me.roles.filter(key="TEAM").exists():
+            qs = qs.filter(is_published=True)
+        return qs
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsTeam()]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user.profile)
+
+    @action(detail=True, methods=["POST"], permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def publish(self, request, pk=None):
+        tip = self.get_object()
+        publish = _bool_param(request.data.get("publish"), True)
+        tip.is_published = publish
+        tip.save(update_fields=["is_published"])
         return Response({"is_published": publish})
 
 

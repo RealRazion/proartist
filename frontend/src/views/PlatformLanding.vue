@@ -168,6 +168,17 @@ const platforms = [
     comingSoon: false,
   },
   {
+    key: "content-studio",
+    title: "Content Studio",
+    category: "Content",
+    description: "Erstelle zentral Tipps, News und Plugin Tutorials fuer alle Nutzerbereiche.",
+    buttonLabel: "Erstellen",
+    icon: "📝",
+    features: ["Tipps", "News", "Tutorials"],
+    roles: ["TEAM"],
+    comingSoon: false,
+  },
+  {
     key: "fitness",
     title: "Fitness Tracker",
     category: "Health",
@@ -210,6 +221,7 @@ function openPlatform(platform) {
     music: "/platforms/music",
     locations: "/platforms/locations",
     finance: "/platforms/finance",
+    "content-studio": "/platforms/content-studio",
     fitness: "/platforms/fitness",
     admin: "/platforms/admin",
   };

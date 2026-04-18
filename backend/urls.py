@@ -18,6 +18,7 @@ from core.views import (
     FinanceEntryViewSet,
     FinanceMemberViewSet,
     FinanceProjectViewSet,
+    FinanceTipViewSet,
     GrowProGoalViewSet,
     NewsPostViewSet,
     NotificationViewSet,
@@ -81,6 +82,7 @@ router.register(r"releases", ReleaseViewSet)
 router.register(r"events", EventViewSet)
 router.register(r"bookings", BookingViewSet)
 router.register(r"news", NewsPostViewSet)
+router.register(r"finance-tips", FinanceTipViewSet, basename="finance-tips")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

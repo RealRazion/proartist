@@ -212,6 +212,8 @@ class FinanceProject(models.Model):
     description = models.TextField(blank=True)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default="EUR")
     current_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    dispo_limit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    dispo_used = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     monthly_savings_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     emergency_buffer_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     savings_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Prozent vom Rest zur Seite legen (0-100)")
@@ -301,9 +303,14 @@ class Debt(models.Model):
         ("INSTALLMENT", "Ratenzahlung"),
         ("FIXED_AMOUNT", "Fixbetrag"),
     ]
+    DEBT_KINDS = [
+        ("DEBT", "Schuld"),
+        ("CREDIT", "Kredit"),
+    ]
     
     project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="debts")
     name = models.CharField(max_length=200, help_text="z.B. Klarna, Darlehen, etc.")
+    debt_kind = models.CharField(max_length=10, choices=DEBT_KINDS, default="DEBT")
     payment_type = models.CharField(max_length=20, choices=PAYMENT_TYPES, default="INSTALLMENT")
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Gesamtbetrag der Schulden")
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Bisheriger bezahlter Betrag")
@@ -538,6 +545,27 @@ class NewsPost(models.Model):
     author = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, related_name="news_posts")
     title = models.CharField(max_length=200)
     body = models.TextField()
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self): return self.title
+
+class FinanceTip(models.Model):
+    TIP_TYPES = [
+        ("CASHBACK", "Cashback"),
+        ("DISCOUNT", "Rabattaktion"),
+        ("REFERRAL", "Empfehlungspraemie"),
+        ("OTHER", "Sonstiges"),
+    ]
+
+    author = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, related_name="finance_tips")
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    tip_type = models.CharField(max_length=20, choices=TIP_TYPES, default="OTHER")
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

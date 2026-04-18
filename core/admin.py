@@ -7,6 +7,7 @@ from .models import (
     FinanceEntry,
     FinanceMember,
     FinanceProject,
+    FinanceTip,
     NewsPost,
     Notification,
     PluginGuide,
@@ -34,6 +35,7 @@ admin.site.register(ActivityEntry)
 admin.site.register(AutomationRule)
 admin.site.register(Notification)
 admin.site.register(NewsPost)
+admin.site.register(FinanceTip)
 admin.site.register(PluginGuide)
 admin.site.register(RegistrationRequest)
 admin.site.register(SystemIntegration)
@@ -46,4 +48,3 @@ admin.site.register(Song)
 admin.site.register(SongVersion)
 admin.site.register(GrowProGoal)
 admin.site.register(GrowProUpdate)
-

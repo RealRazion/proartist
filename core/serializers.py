@@ -19,6 +19,7 @@ from .models import (
     FinanceEntry,
     FinanceMember,
     FinanceProject,
+    FinanceTip,
     GrowProGoal,
     GrowProUpdate,
     NewsPost,
@@ -46,6 +47,20 @@ DECIMAL_2 = Decimal("0.01")
 
 def _money(value):
     return Decimal(value or 0).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
+
+
+def _resolve_reference_date(context):
+    request = (context or {}).get("request")
+    raw_month = ""
+    if request:
+        raw_month = (request.query_params.get("month") or "").strip()
+    if raw_month:
+        try:
+            year, month_value = map(int, raw_month.split("-"))
+            return date(year, month_value, 1)
+        except (TypeError, ValueError):
+            pass
+    return timezone.now().date()
 
 
 def _safe_date(year, month, day):
@@ -815,10 +830,12 @@ class FinanceEntrySerializer(serializers.ModelSerializer):
         return obj.member.name if obj.member else None
 
     def get_monthly_amount(self, obj):
-        return _to_float(_monthly_amount(obj, timezone.now().date()))
+        reference_date = _resolve_reference_date(self.context)
+        return _to_float(_monthly_amount(obj, reference_date))
 
     def get_next_due_date(self, obj):
-        next_due = _next_due_date(obj, timezone.now().date())
+        reference_date = _resolve_reference_date(self.context)
+        next_due = _next_due_date(obj, reference_date)
         return next_due.isoformat() if next_due else None
 
 
@@ -877,6 +894,8 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "description",
             "currency",
             "current_balance",
+            "dispo_limit",
+            "dispo_used",
             "monthly_savings_target",
             "emergency_buffer_target",
             "savings_percentage",
@@ -912,15 +931,26 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
         )
         return project
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = getattr(self, "instance", None)
+        dispo_limit = _money(attrs.get("dispo_limit", getattr(instance, "dispo_limit", 0)))
+        dispo_used = _money(attrs.get("dispo_used", getattr(instance, "dispo_used", 0)))
+        if dispo_used < Decimal("0.00"):
+            raise serializers.ValidationError({"dispo_used": "Dispo genutzt darf nicht negativ sein."})
+        if dispo_used > dispo_limit:
+            raise serializers.ValidationError({"dispo_used": "Dispo genutzt darf nicht groesser als Dispo verfuegbar sein."})
+        return attrs
+
     def get_overview(self, obj):
-        today = timezone.now().date()
+        today = _resolve_reference_date(self.context)
         active_entries = list(obj.entries.filter(is_active=True).select_related("member"))
         debts = list(obj.debts.all())
-        # Get daily expenses for current month
+        # Get daily expenses for selected month
         current_month_start = today.replace(day=1)
-        next_month = (current_month_start + timedelta(days=32)).replace(day=1)
-        daily_expenses = list(obj.daily_expenses.filter(date__gte=current_month_start, date__lt=next_month))
-        
+        next_month_start = _add_months(current_month_start, 1)
+        daily_expenses = list(obj.daily_expenses.filter(date__gte=current_month_start, date__lt=next_month_start))
+
         totals = {
             "INCOME": Decimal("0.00"),
             "FIXED": Decimal("0.00"),
@@ -931,6 +961,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
         category_totals = {}
         member_totals = {}
         due_items = []
+        month_entry_count = 0
 
         for member in obj.members.all():
             member_totals[member.id] = {
@@ -950,6 +981,8 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
 
         for entry in active_entries:
             monthly_amount = _monthly_amount(entry, today)
+            if monthly_amount > 0:
+                month_entry_count += 1
             totals[entry.entry_type] = totals.get(entry.entry_type, Decimal("0.00")) + monthly_amount
             if entry.category:
                 category_totals[entry.category] = category_totals.get(entry.category, Decimal("0.00")) + monthly_amount
@@ -979,13 +1012,23 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
                 )
 
         total_remaining_debt = Decimal("0.00")
+        total_remaining_credit = Decimal("0.00")
+        monthly_credit_total = Decimal("0.00")
+        month_debt_count = 0
         for debt in debts:
             if debt.status == "ACTIVE" and not debt.is_fully_paid:
-                total_remaining_debt += debt.remaining_amount
+                if debt.debt_kind == "CREDIT":
+                    total_remaining_credit += debt.remaining_amount
+                else:
+                    total_remaining_debt += debt.remaining_amount
             monthly_amount = _debt_monthly_amount(debt, today)
             if monthly_amount > 0:
+                month_debt_count += 1
                 totals["DEBT"] += monthly_amount
-                category_totals["Schulden"] = category_totals.get("Schulden", Decimal("0.00")) + monthly_amount
+                category_label = "Kredite" if debt.debt_kind == "CREDIT" else "Schulden"
+                category_totals[category_label] = category_totals.get(category_label, Decimal("0.00")) + monthly_amount
+                if debt.debt_kind == "CREDIT":
+                    monthly_credit_total += monthly_amount
                 shared_bucket["outflow"] += monthly_amount
                 shared_bucket["net"] -= monthly_amount
 
@@ -999,7 +1042,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
                         "amount": _to_float(debt.scheduled_payment_amount),
                         "monthly_amount": _to_float(monthly_amount),
                         "due_date": next_due.isoformat(),
-                        "member_name": "Schulden",
+                        "member_name": "Kredite" if debt.debt_kind == "CREDIT" else "Schulden",
                         "frequency": debt.payment_type,
                     }
                 )
@@ -1016,9 +1059,15 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
                 bucket["outflow"] += expense.amount
                 bucket["net"] -= expense.amount
 
+        month_daily_expense_count = len(daily_expenses)
+        has_month_data = bool(month_entry_count or month_debt_count or month_daily_expense_count)
         monthly_outflow = totals["FIXED"] + totals["VARIABLE"] + totals["DEBT"] + totals["SAVING"] + daily_expense_total
         monthly_left = totals["INCOME"] - monthly_outflow
         projected_balance = _money(obj.current_balance) + monthly_left
+        dispo_limit = _money(obj.dispo_limit)
+        dispo_used = _money(getattr(obj, "dispo_used", 0))
+        dispo_remaining = max(Decimal("0.00"), dispo_limit - dispo_used)
+        projected_balance_with_dispo = projected_balance + dispo_remaining
         buffer_gap = max(Decimal("0.00"), _money(obj.emergency_buffer_target) - _money(obj.current_balance))
 
         member_rows = list(member_totals.values())
@@ -1029,18 +1078,29 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "snapshot_month": today.strftime("%Y-%m"),
             "people_count": obj.members.count(),
             "active_entry_count": len(active_entries),
+            "month_entry_count": month_entry_count,
+            "month_debt_count": month_debt_count,
+            "month_daily_expense_count": month_daily_expense_count,
+            "has_month_data": has_month_data,
             "monthly_income": _to_float(totals["INCOME"]),
             "monthly_fixed_costs": _to_float(totals["FIXED"]),
             "monthly_variable_costs": _to_float(totals["VARIABLE"]),
             "monthly_debt": _to_float(totals["DEBT"]),
+            "monthly_credit": _to_float(monthly_credit_total),
             "monthly_savings": _to_float(totals["SAVING"]),
             "monthly_daily_expenses": _to_float(daily_expense_total),
             "monthly_outflow": _to_float(monthly_outflow),
             "monthly_left": _to_float(monthly_left),
             "total_remaining_debt": _to_float(total_remaining_debt),
             "total_debt": _to_float(total_remaining_debt),
+            "total_remaining_credit": _to_float(total_remaining_credit),
+            "total_credit": _to_float(total_remaining_credit),
             "current_balance": _to_float(obj.current_balance),
+            "dispo_limit": _to_float(dispo_limit),
+            "dispo_used": _to_float(dispo_used),
+            "dispo_remaining": _to_float(dispo_remaining),
             "projected_balance": _to_float(projected_balance),
+            "projected_balance_with_dispo": _to_float(projected_balance_with_dispo),
             "monthly_savings_target": _to_float(obj.monthly_savings_target),
             "emergency_buffer_target": _to_float(obj.emergency_buffer_target),
             "buffer_gap": _to_float(buffer_gap),
@@ -1070,6 +1130,7 @@ class FinanceProjectSerializer(FinanceProjectListSerializer):
 
 
 class DebtSerializer(serializers.ModelSerializer):
+    debt_kind = serializers.ChoiceField(choices=Debt.DEBT_KINDS, required=False)
     payment_type = serializers.ChoiceField(choices=Debt.PAYMENT_TYPES, required=False)
     monthly_payment = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
     due_day = serializers.IntegerField(required=False, allow_null=True)
@@ -1088,6 +1149,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "id",
             "project",
             "name",
+            "debt_kind",
             "payment_type",
             "total_amount",
             "amount_paid",
@@ -1313,6 +1375,15 @@ class NewsPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewsPost
         fields = ["id", "title", "body", "author", "is_published", "created_at", "updated_at"]
+        read_only_fields = ["author", "created_at", "updated_at"]
+
+
+class FinanceTipSerializer(serializers.ModelSerializer):
+    author = ProfileMiniSerializer(read_only=True)
+
+    class Meta:
+        model = FinanceTip
+        fields = ["id", "title", "body", "tip_type", "author", "is_published", "created_at", "updated_at"]
         read_only_fields = ["author", "created_at", "updated_at"]
 
 

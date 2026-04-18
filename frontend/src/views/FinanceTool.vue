@@ -13,18 +13,20 @@
 
     <template v-else>
       <header class="topbar-card">
-        <div class="topbar-meta">
-          <p class="eyebrow">Finanzplaner</p>
-          <h1>{{ project?.title || "Finanzprojekt" }}</h1>
-          <p class="muted">Dein eigenes Monats-Dashboard mit klaren Kennzahlen, Prioritäten und sofort ersichtlichen Risiken.</p>
-        </div>
+        <div class="topbar-main">
+          <div class="topbar-meta">
+            <p class="eyebrow">Finanzplaner</p>
+            <h1>{{ project?.title || "Finanzprojekt" }}</h1>
+          </div>
 
-        <div class="topbar-actions">
-          <div class="topbar-buttons">
-            <button class="btn ghost" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
-            <button class="btn ghost" type="button" @click="openForecastModal" :disabled="loading">Prognose</button>
-            <button class="btn ghost" type="button" @click="openCompareModal" :disabled="loading">Vergleich</button>
-            <button class="btn" type="button" @click="exportOverview">Exportieren</button>
+          <div class="topbar-actions">
+            <div class="topbar-buttons">
+              <button class="btn ghost" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
+              <button class="btn ghost" type="button" @click="showProjectSettingsModal = true">Projektbasis</button>
+              <button class="btn ghost" type="button" @click="openForecastModal" :disabled="loading">Prognose</button>
+              <button class="btn ghost" type="button" @click="openCompareModal" :disabled="loading">Vergleich</button>
+              <button class="btn" type="button" @click="exportOverview">Exportieren</button>
+            </div>
           </div>
         </div>
       </header>
@@ -33,6 +35,18 @@
         <div v-if="errorMessage" class="feedback-pill error">{{ errorMessage }}</div>
         <div v-if="successMessage" class="feedback-pill success">{{ successMessage }}</div>
       </section>
+
+      <div class="tab-nav">
+        <button
+          v-for="tab in tabs"
+          :key="tab"
+          class="tab-pill"
+          :class="{ active: activeTab === tab }"
+          @click="activeTab = tab"
+        >
+          {{ tabLabels[tab] }}
+        </button>
+      </div>
 
       <section class="summary-band">
         <article class="metric-card balance-card">
@@ -48,6 +62,20 @@
             <span class="metric-pill small">{{ overview.people_count }} Personen</span>
             <span class="metric-pill small">{{ overview.active_entry_count || 0 }} aktive Posten</span>
           </div>
+          <div class="metric-breakdown">
+            <p class="metric-breakdown-row">
+              <span>Saldo ohne Dispo:</span>
+              <strong>{{ formatCurrency(projectedBalanceWithoutDispo) }}</strong>
+            </p>
+            <p class="metric-breakdown-row">
+              <span>Saldo mit Dispo:</span>
+              <strong>{{ formatCurrency(projectedBalanceWithDispo) }}</strong>
+            </p>
+            <p class="metric-breakdown-row">
+              <span>Dispo genutzt:</span>
+              <strong>{{ formatCurrency(dispoUsed) }}</strong>
+            </p>
+          </div>
         </article>
 
         <article class="metric-card">
@@ -59,7 +87,25 @@
         <article class="metric-card">
           <span class="metric-label">Monatliche Ausgaben</span>
           <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
-          <p class="metric-note">Gesamter Mittelabfluss inklusive Sparen und Schulden.</p>
+          <p class="metric-note">Gesamter Mittelabfluss inklusive Sparen, Schulden und laufender Kosten.</p>
+          <div class="metric-breakdown">
+            <p class="metric-breakdown-row">
+              <span>davon Abos:</span>
+              <strong>{{ formatCurrency(monthlySubscriptions) }}</strong>
+            </p>
+            <p class="metric-breakdown-row">
+              <span>davon Kredite:</span>
+              <strong>{{ formatCurrency(monthlyCreditOutflow) }}</strong>
+            </p>
+            <p class="metric-breakdown-row">
+              <span>davon regelmaessig geplant:</span>
+              <strong>{{ formatCurrency(monthlyPlannedOutflow) }}</strong>
+            </p>
+            <p class="metric-breakdown-row">
+              <span>davon variabel/einmalig:</span>
+              <strong>{{ formatCurrency(monthlyUnplannedOutflow) }}</strong>
+            </p>
+          </div>
         </article>
 
         <article class="metric-card">
@@ -70,82 +116,23 @@
       </section>
 
       <section class="tab-panel">
-        <div class="tab-nav">
-          <button
-            v-for="tab in tabs"
-            :key="tab"
-            class="tab-pill"
-            :class="{ active: activeTab === tab }"
-            @click="activeTab = tab"
-          >
-            {{ tabLabels[tab] }}
-          </button>
-        </div>
-
         <div class="workspace-shell">
-          <aside class="workspace-aside">
-            <article class="panel info-panel">
-              <div class="panel-head">
-                <div>
-                  <h2>Aktuelle Signale</h2>
-                  <p class="muted">Wichtige Kennzahlen auf einen Blick.</p>
-                </div>
-                <span class="badge">Live</span>
-              </div>
-
-              <div class="info-row">
-                <div>
-                  <span class="info-label">Saldo</span>
-                  <strong>{{ overview.monthly_left >= 0 ? 'Positiv' : 'Defizit' }}</strong>
-                </div>
-                <div>
-                  <span class="info-label">Fälligkeiten</span>
-                  <strong>{{ overview.due_soon?.length || 0 }}</strong>
-                </div>
-                <div>
-                  <span class="info-label">Personen</span>
-                  <strong>{{ members.length }}</strong>
-                </div>
-              </div>
-            </article>
-
-            <article class="panel list-panel">
-              <div class="panel-head">
-                <h2>Top-Kategorien</h2>
-              </div>
-              <ul class="compact-list">
-                <li v-if="!overview.top_categories?.length" class="empty-text">Keine Kategoriendaten verfügbar.</li>
-                <li v-for="item in overview.top_categories" :key="item.category">
-                  <span>{{ item.category }}</span>
-                  <strong>{{ formatCurrency(item.amount) }}</strong>
-                </li>
-              </ul>
-            </article>
-
-            <article class="panel list-panel">
-              <div class="panel-head">
-                <h2>Nächste Fälligkeiten</h2>
-              </div>
-              <ul class="compact-list">
-                <li v-if="!overview.due_soon?.length" class="empty-text">Kein Eintrag in den nächsten 14 Tagen.</li>
-                <li v-for="item in overview.due_soon" :key="item.id">
-                  <span>{{ item.title }}</span>
-                  <strong>{{ formatCurrency(item.monthly_amount) }}</strong>
-                </li>
-              </ul>
-            </article>
-          </aside>
-
           <main class="workspace-main">
             <section v-show="activeTab === 'planner'" class="planner-page">
               <div class="planner-grid">
                 <article class="panel chart-panel">
-                  <div class="panel-head">
+                  <div class="panel-head planner-head">
                     <div>
                       <h2>Monatliche Struktur</h2>
                       <p class="muted">Übersicht über Einnahmen, Ausgaben und Nettoergebnis.</p>
                     </div>
-                    <span class="badge">{{ overview.snapshot_month }}</span>
+                    <div class="planner-head-controls">
+                      <label class="planner-month-control">
+                        Monat
+                        <input v-model="plannerMonth" type="month" class="input" />
+                      </label>
+                      <span class="badge">{{ overview.snapshot_month }}</span>
+                    </div>
                   </div>
 
                   <div class="performance-cards">
@@ -163,186 +150,116 @@
                     </div>
                   </div>
 
-                  <div class="chart-container">
-                    <div class="chart-bar income" :style="{ height: `${incomeBarHeight}%` }">
+                  <div v-if="chartScaleMax > 0" class="chart-container">
+                    <div class="chart-bar income" :style="{ '--bar-height': `${incomeBarHeight}%` }">
                       <span>Einnahmen</span>
                       <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
                     </div>
-                    <div class="chart-bar expense" :style="{ height: `${expenseBarHeight}%` }">
+                    <div class="chart-bar expense" :style="{ '--bar-height': `${expenseBarHeight}%` }">
                       <span>Ausgaben</span>
                       <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
                     </div>
                   </div>
+                  <div v-else class="chart-empty-state">
+                    <p class="muted">{{ plannerEmptyMessage }}</p>
+                  </div>
                 </article>
 
-                <article class="panel entries-panel">
+                <article class="panel summary-split-panel">
                   <div class="panel-head panel-head-space">
                     <div>
-                      <h2>Posten</h2>
-                      <p class="muted">Wähle einen Filter, um dein Monatsbild zu schärfen.</p>
+                      <h2>Einnahmen und Ausgaben</h2>
+                      <p class="muted">Beide Bereiche kompakt im selben Fenster.</p>
                     </div>
-                    <div class="filter-row">
-                      <button
-                        v-for="option in entryFilters"
-                        :key="option.value"
-                        type="button"
-                        class="chip"
-                        :class="{ active: activeEntryFilter === option.value }"
-                        @click="activeEntryFilter = option.value"
-                      >
-                        {{ option.label }}
-                      </button>
-                    </div>
-                    <button class="btn" type="button" @click="openCreateEntryModal">Neuer Posten</button>
+                    <button class="btn" type="button" @click="openCreateEntryModal">Posten hinzufügen</button>
                   </div>
 
-                  <div v-if="filteredEntries.length" class="entry-list">
-                    <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="{ inactive: !entry.is_active }">
-                      <div class="entry-main">
-                        <div class="entry-title-line">
-                          <strong>{{ entry.title }}</strong>
-                          <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
-                        </div>
-                        <p class="muted small">
-                          {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
-                          {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
-                        </p>
-                        <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
-                      </div>
-                      <div class="entry-side">
-                        <strong>{{ formatCurrency(entry.amount) }}</strong>
-                        <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
-                        <span class="muted small">{{ dueLabel(entry) }}</span>
-                        <div class="entry-actions">
-                          <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
-                          <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
-                          <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
-                        </div>
-                      </div>
-                    </article>
-                  </div>
-                  <p v-else class="muted empty-hint">Kein Posten im aktuellen Filter.</p>
-                </article>
-              </div>
-
-              <div class="settings-row">
-                <article class="panel settings-panel">
-                  <div class="panel-head">
-                    <div>
-                      <h2>Projektbasis</h2>
-                      <p class="muted">Die Werte, die deinen Monatsverlauf steuern.</p>
-                    </div>
-                    <button class="btn" type="button" @click="saveProject" :disabled="savingProject">{{ savingProject ? "Speichere..." : "Basis speichern" }}</button>
-                  </div>
-                  <div class="settings-grid">
-                    <label>
-                      Titel
-                      <input v-model.trim="projectForm.title" class="input" />
-                    </label>
-                    <label>
-                      Währung
-                      <select v-model="projectForm.currency" class="input">
-                        <option value="EUR">EUR</option>
-                        <option value="USD">USD</option>
-                        <option value="CHF">CHF</option>
-                      </select>
-                    </label>
-                    <label>
-                      Aktuelles Guthaben
-                      <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
-                    </label>
-                    <label>
-                      Sparziel pro Monat
-                      <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
-                    </label>
-                    <label>
-                      Notgroschen-Ziel
-                      <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
-                    </label>
-                    <label class="full">
-                      Notiz
-                      <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
-                    </label>
-                  </div>
-                </article>
-
-                <article class="panel status-panel">
-                  <div class="panel-head">
-                    <h2>Projektstatus</h2>
-                  </div>
-                  <div class="status-grid">
-                    <div>
-                      <span class="info-label">Personen</span>
-                      <strong>{{ members.length }}</strong>
-                    </div>
-                    <div>
-                      <span class="info-label">Aktive Posten</span>
-                      <strong>{{ overview.active_entry_count || 0 }}</strong>
-                    </div>
-                    <div>
-                      <span class="info-label">Bald fällig</span>
-                      <strong>{{ overview.due_soon?.length || 0 }}</strong>
-                    </div>
-                    <div>
-                      <span class="info-label">Währung</span>
-                      <strong>{{ currency }}</strong>
-                    </div>
-                  </div>
-
-                  <div class="member-summary">
-                    <div class="panel-head panel-head-space">
-                      <h3>Personen</h3>
-                      <button class="btn ghost sm" type="button" @click="membersPanelOpen = !membersPanelOpen">
-                        {{ membersPanelOpen ? "Schliessen" : "Verwalten" }}
-                      </button>
-                    </div>
-                    <div class="member-preview">
-                      <span v-for="member in memberPreview" :key="member.id" class="member-pill">{{ member.name }}</span>
-                      <span v-if="members.length > 4" class="member-pill">+{{ members.length - 4 }}</span>
-                    </div>
-                    <div v-if="membersPanelOpen" class="member-manager">
-                      <form class="stack-form" @submit.prevent="createMember">
-                        <div class="grid two">
-                          <label>
-                            Name
-                            <input v-model.trim="memberForm.name" class="input" required placeholder="z. B. Alex" />
-                          </label>
-                          <label>
-                            Rolle
-                            <select v-model="memberForm.role" class="input">
-                              <option v-for="(label, key) in memberRoleLabels" :key="key" :value="key">{{ label }}</option>
-                            </select>
-                          </label>
-                        </div>
-                        <label>
-                          Notiz
-                          <input v-model.trim="memberForm.notes" class="input" placeholder="optional" />
-                        </label>
-                        <button class="btn" type="submit" :disabled="savingMember || !memberForm.name.trim()">
-                          {{ savingMember ? "Speichere..." : "Person hinzufuegen" }}
-                        </button>
-                      </form>
-                      <ul class="member-list">
-                        <li v-for="member in members" :key="member.id">
-                          <div>
-                            <strong>{{ member.name }}</strong>
-                            <p class="muted small">{{ memberRoleLabels[member.role] || member.role }}</p>
-                          </div>
-                          <button
-                            class="btn ghost sm danger"
-                            type="button"
-                            @click="removeMember(member)"
-                            :disabled="members.length <= 1"
-                            :title="members.length <= 1 ? 'Mindestens eine Person muss bestehen bleiben.' : null"
-                          >
-                            Entfernen
-                          </button>
+                  <div class="summary-split-grid">
+                    <section class="summary-column">
+                      <h3>Einnahmen</h3>
+                      <ul v-if="plannerIncomeEntries.length" class="summary-sublist">
+                        <li v-for="entry in plannerIncomeEntries" :key="entry.id" class="summary-subitem">
+                          <span>{{ entry.title }}</span>
+                          <strong>{{ formatCurrency(entry.monthly_amount || entry.amount) }}</strong>
                         </li>
                       </ul>
-                    </div>
+                      <p v-else class="muted small">Keine Einnahmen hinterlegt.</p>
+                    </section>
+
+                    <section class="summary-column">
+                      <h3>Ausgaben</h3>
+                      <ul v-if="plannerExpenseEntries.length" class="summary-sublist">
+                        <li v-for="entry in plannerExpenseEntries" :key="entry.id" class="summary-subitem">
+                          <span>{{ entry.title }}</span>
+                          <strong>{{ formatCurrency(entry.monthly_amount || entry.amount) }}</strong>
+                        </li>
+                      </ul>
+                      <p v-else class="muted small">Keine Ausgaben hinterlegt.</p>
+                    </section>
                   </div>
                 </article>
               </div>
+
+              <article class="panel entries-panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>Posten</h2>
+                    <p class="muted">Wähle einen Filter, um die Auflistung direkt einzuordnen.</p>
+                  </div>
+                  <div class="filter-row">
+                    <button
+                      v-for="option in entryFilters"
+                      :key="option.value"
+                      type="button"
+                      class="chip"
+                      :class="{ active: activeEntryFilter === option.value }"
+                      @click="activeEntryFilter = option.value"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="filteredEntries.length" class="entry-list">
+                  <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="{ inactive: !entry.is_active }">
+                    <div class="entry-main">
+                      <div class="entry-title-line">
+                        <strong>{{ entry.title }}</strong>
+                        <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
+                      </div>
+                      <p class="muted small">
+                        {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
+                        {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
+                      </p>
+                      <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
+                    </div>
+                    <div class="entry-side">
+                      <strong>{{ formatCurrency(entry.amount) }}</strong>
+                      <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
+                      <span class="muted small">{{ dueLabel(entry) }}</span>
+                      <div class="entry-actions">
+                        <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
+                        <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
+                        <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+                <p v-else class="muted empty-hint">Kein Posten im aktuellen Filter.</p>
+              </article>
+
+              <article class="panel list-panel top-categories-panel">
+                <div class="panel-head">
+                  <h2>Top-Kategorien</h2>
+                </div>
+                <ul class="compact-list">
+                  <li v-if="!overview.top_categories?.length" class="empty-text">Keine Kategoriendaten verfuegbar.</li>
+                  <li v-for="item in overview.top_categories" :key="item.category">
+                    <span>{{ item.category }}</span>
+                    <strong>{{ formatCurrency(item.amount) }}</strong>
+                  </li>
+                </ul>
+              </article>
             </section>
 
             <section v-show="activeTab === 'daily'" class="daily-page">
@@ -415,6 +332,10 @@
                     <strong>{{ formatCurrency(overview.total_debt) }}</strong>
                   </div>
                   <div>
+                    <span class="info-label">Kredite offen</span>
+                    <strong>{{ formatCurrency(overview.total_credit || 0) }}</strong>
+                  </div>
+                  <div>
                     <span class="info-label">Monatlich</span>
                     <strong>{{ formatCurrency(overview.monthly_debt) }}</strong>
                   </div>
@@ -427,10 +348,102 @@
 
               <DebtTracker :projectId="selectedProjectId" />
             </section>
+
+            <section v-show="activeTab === 'tips'" class="tips-page">
+              <article class="panel tips-panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>Tipps und Einnahmequellen</h2>
+                    <p class="muted">Cashback, Rabattaktionen und Empfehlungsprogramme direkt im Planer.</p>
+                  </div>
+                  <button class="btn ghost" type="button" @click="router.push({ name: 'platform-content-studio' })">
+                    Zum Content Studio
+                  </button>
+                </div>
+
+                <div v-if="loadingFinanceTips" class="skeleton-list">
+                  <div class="skeleton-card" v-for="n in 3" :key="`tip-sk-${n}`"></div>
+                </div>
+                <ul v-else-if="financeTips.length" class="tip-list">
+                  <li v-for="tip in financeTips" :key="tip.id" class="tip-card">
+                    <div class="tip-head">
+                      <h3>{{ tip.title }}</h3>
+                      <span class="badge badge-soft">{{ tipTypeLabel(tip.tip_type) }}</span>
+                    </div>
+                    <p class="muted small">{{ formatDate(tip.created_at) }} von {{ tip.author?.name || tip.author?.username || "Team" }}</p>
+                    <p class="tip-body">{{ tip.body }}</p>
+                  </li>
+                </ul>
+                <div v-else class="empty-state">
+                  <p class="muted">Noch keine Tipps und Einnahmequellen vorhanden.</p>
+                  <button class="btn" type="button" @click="router.push({ name: 'platform-content-studio' })">
+                    Inhalte ansehen
+                  </button>
+                </div>
+              </article>
+            </section>
           </main>
         </div>
       </section>
     </template>
+
+    <!-- Project Settings Modal -->
+      <div v-if="showProjectSettingsModal" class="modal-overlay" @click="showProjectSettingsModal = false">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>Projektbasis</h3>
+            <button class="modal-close" @click="showProjectSettingsModal = false">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form class="stack-form" @submit.prevent="saveProjectFromModal">
+              <div class="settings-grid">
+                <label>
+                  Titel
+                  <input v-model.trim="projectForm.title" class="input" />
+                </label>
+                <label>
+                  Waehrung
+                  <select v-model="projectForm.currency" class="input">
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </label>
+                <label>
+                  Aktuelles Guthaben
+                  <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
+                </label>
+                <label>
+                  Dispo verfuegbar
+                  <input v-model="projectForm.dispo_limit" class="input" type="number" step="0.01" min="0" />
+                </label>
+                <label>
+                  Dispo genutzt
+                  <input v-model="projectForm.dispo_used" class="input" type="number" step="0.01" min="0" />
+                </label>
+                <label>
+                  Sparziel pro Monat
+                  <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
+                </label>
+                <label>
+                  Notgroschen-Ziel
+                  <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
+                </label>
+                <label class="full">
+                  Notiz
+                  <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
+                </label>
+              </div>
+              <div class="modal-actions">
+                <button class="btn ghost" type="button" @click="showProjectSettingsModal = false">Abbrechen</button>
+                <button class="btn" type="submit" :disabled="savingProject">
+                  {{ savingProject ? "Speichere..." : "Basis speichern" }}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 
     <!-- Forecast Modal -->
       <div v-if="showForecastModal" class="modal-overlay" @click="closeForecastModal">
@@ -581,7 +594,12 @@
                 </label>
                 <label>
                   Kategorie
-                  <input v-model.trim="entryForm.category" class="input" placeholder="z. B. Wohnen" />
+                  <input
+                    v-model.trim="entryForm.category"
+                    class="input"
+                    placeholder="z. B. Wohnen"
+                    list="finance-category-suggestions"
+                  />
                 </label>
               </div>
 
@@ -671,7 +689,12 @@
               <div class="grid two">
                 <label>
                   Kategorie
-                  <input v-model.trim="dailyExpenseForm.category" class="input" placeholder="z. B. Lebensmittel" />
+                  <input
+                    v-model.trim="dailyExpenseForm.category"
+                    class="input"
+                    placeholder="z. B. Lebensmittel"
+                    list="finance-category-suggestions"
+                  />
                 </label>
                 <label>
                   Zugeordnet an
@@ -697,6 +720,10 @@
           </div>
         </div>
       </div>
+
+      <datalist id="finance-category-suggestions">
+        <option v-for="category in categorySuggestions" :key="category" :value="category"></option>
+      </datalist>
     </div>
   </template>
 
@@ -731,18 +758,30 @@ const compareMonth1 = ref(new Date().toISOString().slice(0, 7));
 const compareMonth2 = ref(new Date().toISOString().slice(0, 7));
 const comparison = ref(null);
 const calculatingComparison = ref(false);
+const showProjectSettingsModal = ref(false);
 const showEntryModal = ref(false);
 const showDailyExpenseModal = ref(false);
 const dailyMonth = ref(new Date().toISOString().slice(0, 7));
+const plannerMonth = ref(new Date().toISOString().slice(0, 7));
 const dailyExpenses = ref([]);
+const financeTips = ref([]);
+const loadingFinanceTips = ref(false);
 const editingDailyExpenseId = ref(null);
 const savingDailyExpense = ref(false);
+const localStoredCategories = ref(loadStoredCategories());
 
-const tabs = ["planner", "daily", "debts"];
+const tabs = ["planner", "daily", "debts", "tips"];
 const tabLabels = {
   planner: "Planer",
   daily: "Tägliche Ausgaben",
   debts: "Schulden",
+  tips: "Tipps und Einnahmequellen",
+};
+const tipTypeLabels = {
+  CASHBACK: "Cashback",
+  DISCOUNT: "Rabattaktion",
+  REFERRAL: "Empfehlungspraemie",
+  OTHER: "Sonstiges",
 };
 
 const memberRoleLabels = {
@@ -800,6 +839,8 @@ function buildProjectForm(data = {}) {
     description: data.description || "",
     currency: data.currency || "EUR",
     current_balance: data.current_balance ?? 0,
+    dispo_limit: data.dispo_limit ?? 0,
+    dispo_used: data.dispo_used ?? 0,
     monthly_savings_target: data.monthly_savings_target ?? 0,
     emergency_buffer_target: data.emergency_buffer_target ?? 0,
   };
@@ -845,7 +886,39 @@ const members = computed(() => project.value?.members || []);
 const entries = computed(() => project.value?.entries || []);
 const currency = computed(() => project.value?.currency || "EUR");
 const currentMonthLabel = computed(() => new Date().toISOString().slice(0, 7));
+const plannerMonthLabel = computed(() => {
+  if (!isValidMonth(plannerMonth.value)) return currentMonthLabel.value;
+  return plannerMonth.value;
+});
 const memberPreview = computed(() => members.value.slice(0, 4));
+const dueSoonPreview = computed(() => {
+  const source = Array.isArray(overview.value?.due_soon) ? overview.value.due_soon : [];
+  return source.slice(0, 5);
+});
+const monthlyCreditOutflow = computed(() => Number(overview.value.monthly_credit || 0));
+const projectedBalanceWithoutDispo = computed(() => Number(overview.value.projected_balance || 0));
+const projectedBalanceWithDispo = computed(() => {
+  const fromOverview = overview.value.projected_balance_with_dispo;
+  if (fromOverview !== undefined && fromOverview !== null) {
+    return Number(fromOverview || 0);
+  }
+  const dispoLimit = Math.max(0, Number(overview.value.dispo_limit || 0));
+  const dispoUsedValue = Math.max(0, Number(overview.value.dispo_used || 0));
+  const dispoRemaining = Math.max(0, dispoLimit - dispoUsedValue);
+  return projectedBalanceWithoutDispo.value + dispoRemaining;
+});
+const dispoUsed = computed(() => {
+  const manualUsed = overview.value.dispo_used;
+  if (manualUsed !== undefined && manualUsed !== null) {
+    return Math.max(0, Number(manualUsed || 0));
+  }
+  const dispoLimit = Math.max(0, Number(overview.value.dispo_limit || 0));
+  if (dispoLimit <= 0) {
+    return 0;
+  }
+  const deficitWithoutDispo = Math.max(0, -projectedBalanceWithoutDispo.value);
+  return Math.min(dispoLimit, deficitWithoutDispo);
+});
 
 function isValidMonth(value) {
   return typeof value === "string" && /^\d{4}-\d{2}$/.test(value);
@@ -872,6 +945,119 @@ const filteredEntries = computed(() => {
   return entries.value.filter((entry) => entry.entry_type === activeEntryFilter.value);
 });
 
+const plannerIncomeEntries = computed(() =>
+  entries.value.filter((entry) => entry.entry_type === "INCOME" && entry.is_active !== false)
+);
+
+const plannerExpenseEntries = computed(() =>
+  entries.value.filter((entry) => entry.entry_type !== "INCOME" && entry.is_active !== false)
+);
+
+function normalizeCategory(value) {
+  return String(value || "").trim();
+}
+
+function categoryKey(value) {
+  return normalizeCategory(value).toLocaleLowerCase("de-DE");
+}
+
+function dedupeCategories(values) {
+  const seen = new Set();
+  const result = [];
+  for (const value of values) {
+    const normalized = normalizeCategory(value);
+    if (!normalized) continue;
+    const key = categoryKey(normalized);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function loadStoredCategories() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem("finance.categorySuggestions");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return dedupeCategories(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function persistStoredCategories() {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("finance.categorySuggestions", JSON.stringify(localStoredCategories.value));
+}
+
+const knownCategoriesFromData = computed(() => {
+  const fromEntries = entries.value
+    .filter((entry) => entry.entry_type !== "INCOME")
+    .map((entry) => entry.category);
+  const fromDailyExpenses = dailyExpenses.value.map((expense) => expense.category);
+  return dedupeCategories([...fromEntries, ...fromDailyExpenses]);
+});
+
+const categorySuggestions = computed(() =>
+  dedupeCategories([...knownCategoriesFromData.value, ...localStoredCategories.value]).sort((a, b) =>
+    a.localeCompare(b, "de-DE")
+  )
+);
+
+function maybeStoreCategory(categoryValue) {
+  const category = normalizeCategory(categoryValue);
+  if (!category) return;
+  const exists = categorySuggestions.value.some((item) => categoryKey(item) === categoryKey(category));
+  if (exists) return;
+  const shouldStore = window.confirm(`Moechtest du "${category}" als Kategorie fuer spaetere Transaktionen speichern?`);
+  if (!shouldStore) return;
+  localStoredCategories.value = dedupeCategories([...localStoredCategories.value, category]);
+  persistStoredCategories();
+}
+
+function normalizeText(value) {
+  return String(value || "").toLowerCase();
+}
+
+function isActiveExpense(entry) {
+  if (!entry || entry.entry_type === "INCOME") return false;
+  return entry.is_active !== false;
+}
+
+function isSubscriptionEntry(entry) {
+  const haystack = [entry?.category, entry?.title, entry?.notes].map(normalizeText).join(" ");
+  const keywords = ["abo", "abonnement", "subscription", "mitgliedschaft", "mitgliedsbeitrag", "streaming"];
+  return keywords.some((keyword) => haystack.includes(keyword));
+}
+
+const monthlyPlannedOutflow = computed(() =>
+  {
+    const monthlyEntryOutflow = entries.value
+      .filter((entry) => isActiveExpense(entry) && entry.frequency === "MONTHLY")
+      .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
+    const monthlyDebtFromEntries = entries.value
+      .filter((entry) => isActiveExpense(entry) && entry.entry_type === "DEBT")
+      .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
+    const monthlyDebtTotal = Number(overview.value.monthly_debt || 0);
+    const debtDelta = Math.max(0, monthlyDebtTotal - monthlyDebtFromEntries);
+    return monthlyEntryOutflow + debtDelta;
+  }
+);
+
+const monthlySubscriptions = computed(() =>
+  entries.value
+    .filter((entry) => isActiveExpense(entry) && isSubscriptionEntry(entry))
+    .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0)
+);
+
+const monthlyUnplannedOutflow = computed(() => {
+  const totalOutflow = Number(overview.value.monthly_outflow || 0);
+  return Math.max(0, totalOutflow - monthlyPlannedOutflow.value);
+});
+
 function percentOfMax(value, maxValue) {
   if (!maxValue) return 0;
   const safeValue = Number(value || 0);
@@ -886,6 +1072,25 @@ const chartScaleMax = computed(() => {
 
 const incomeBarHeight = computed(() => percentOfMax(overview.value.monthly_income, chartScaleMax.value));
 const expenseBarHeight = computed(() => percentOfMax(overview.value.monthly_outflow, chartScaleMax.value));
+const plannerHasMonthData = computed(() => {
+  if (typeof overview.value?.has_month_data === "boolean") {
+    return overview.value.has_month_data;
+  }
+  const monthEntryCount = Number(overview.value?.month_entry_count || 0);
+  const monthDebtCount = Number(overview.value?.month_debt_count || 0);
+  const monthDailyExpenseCount = Number(overview.value?.month_daily_expense_count || 0);
+  if (monthEntryCount || monthDebtCount || monthDailyExpenseCount) {
+    return true;
+  }
+  return Number(overview.value?.monthly_income || 0) > 0 || Number(overview.value?.monthly_outflow || 0) > 0;
+});
+const plannerMonthIsPast = computed(() => plannerMonthLabel.value < currentMonthLabel.value);
+const plannerEmptyMessage = computed(() => {
+  if (plannerMonthIsPast.value && !plannerHasMonthData.value) {
+    return `Fuer ${plannerMonthLabel.value} liegen keine Datensaetze vor.`;
+  }
+  return `Noch keine Einnahmen oder Ausgaben fuer ${plannerMonthLabel.value} hinterlegt.`;
+});
 
 function toAmount(value) {
   const parsed = Number.parseFloat(value);
@@ -961,6 +1166,16 @@ function getApiErrorMessage(error, fallbackMessage) {
   return fallbackMessage;
 }
 
+function tipTypeLabel(value) {
+  return tipTypeLabels[value] || tipTypeLabels.OTHER;
+}
+
+function normalizeList(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
+}
+
 async function loadProjects() {
   try {
     const { data } = await api.get("finance-projects/");
@@ -976,13 +1191,20 @@ async function loadProjectDetail(projectId) {
   if (!projectId) return;
   loading.value = true;
   try {
-    const { data } = await api.get(`finance-projects/${projectId}/`);
+    const { data } = await api.get(`finance-projects/${projectId}/`, {
+      params: { month: plannerMonthLabel.value },
+    });
     project.value = data;
     selectedProjectId.value = data.id;
+    const snapshotMonth = data?.overview?.snapshot_month;
+    if (isValidMonth(snapshotMonth) && snapshotMonth !== plannerMonth.value) {
+      plannerMonth.value = snapshotMonth;
+    }
     projectForm.value = buildProjectForm(data);
     membersPanelOpen.value = false;
     showForecastModal.value = false;
     showCompareModal.value = false;
+    showProjectSettingsModal.value = false;
     closeEntryModal();
     closeDailyExpenseModal();
     forecast.value = null;
@@ -1025,6 +1247,9 @@ async function syncProjectSelection() {
 
 async function refreshCurrent() {
   await syncProjectSelection();
+  if (activeTab.value === "tips") {
+    await loadFinanceTips();
+  }
 }
 
 async function saveProject() {
@@ -1034,6 +1259,8 @@ async function saveProject() {
     await api.patch(`finance-projects/${selectedProjectId.value}/`, {
       ...projectForm.value,
       current_balance: toAmount(projectForm.value.current_balance),
+      dispo_limit: toAmount(projectForm.value.dispo_limit),
+      dispo_used: toAmount(projectForm.value.dispo_used),
       monthly_savings_target: toAmount(projectForm.value.monthly_savings_target),
       emergency_buffer_target: toAmount(projectForm.value.emergency_buffer_target),
     });
@@ -1043,6 +1270,13 @@ async function saveProject() {
     setError(getApiErrorMessage(error, "Projektbasis konnte nicht gespeichert werden."));
   } finally {
     savingProject.value = false;
+  }
+}
+
+async function saveProjectFromModal() {
+  await saveProject();
+  if (!errorMessage.value) {
+    showProjectSettingsModal.value = false;
   }
 }
 
@@ -1084,7 +1318,7 @@ async function removeMember(member) {
 function openForecastModal() {
   showForecastModal.value = true;
   forecast.value = null;
-  forecastMonth.value = currentMonthLabel.value;
+  forecastMonth.value = plannerMonthLabel.value;
 }
 
 function closeForecastModal() {
@@ -1094,8 +1328,8 @@ function closeForecastModal() {
 function openCompareModal() {
   showCompareModal.value = true;
   comparison.value = null;
-  compareMonth1.value = currentMonthLabel.value;
-  compareMonth2.value = currentMonthLabel.value;
+  compareMonth1.value = plannerMonthLabel.value;
+  compareMonth2.value = plannerMonthLabel.value;
 }
 
 function closeCompareModal() {
@@ -1128,6 +1362,9 @@ async function saveEntry() {
   savingEntry.value = true;
   try {
     const wasEditing = Boolean(editingEntryId.value);
+    if (entryForm.value.entry_type !== "INCOME") {
+      maybeStoreCategory(entryForm.value.category);
+    }
     const payload = {
       project: selectedProjectId.value,
       member: entryForm.value.member || null,
@@ -1221,6 +1458,7 @@ async function saveDailyExpense() {
   savingDailyExpense.value = true;
   try {
     const wasEditing = Boolean(editingDailyExpenseId.value);
+    maybeStoreCategory(dailyExpenseForm.value.category);
     const payload = {
       project: selectedProjectId.value,
       member: dailyExpenseForm.value.member || null,
@@ -1263,6 +1501,19 @@ async function removeDailyExpense(expense) {
   }
 }
 
+async function loadFinanceTips() {
+  loadingFinanceTips.value = true;
+  try {
+    const { data } = await api.get("finance-tips/");
+    financeTips.value = normalizeList(data);
+  } catch (error) {
+    financeTips.value = [];
+    console.error("Tipps konnten nicht geladen werden", error);
+  } finally {
+    loadingFinanceTips.value = false;
+  }
+}
+
 watch(
   () => route.params.projectId,
   async (projectId, previousProjectId) => {
@@ -1285,6 +1536,23 @@ watch(
 );
 
 watch(
+  () => plannerMonth.value,
+  async (nextMonth, previousMonth) => {
+    if (nextMonth === previousMonth || !selectedProjectId.value) {
+      return;
+    }
+    if (!isValidMonth(nextMonth)) {
+      return;
+    }
+    try {
+      await loadProjectDetail(selectedProjectId.value);
+    } catch {
+      // Error state is already handled in loadProjectDetail.
+    }
+  }
+);
+
+watch(
   () => entryForm.value.frequency,
   (frequency) => {
     if (frequency !== "MONTHLY") {
@@ -1301,6 +1569,10 @@ watch(
   async (newTab) => {
     if (newTab === 'daily' && selectedProjectId.value) {
       await loadDailyExpenses();
+      return;
+    }
+    if (newTab === "tips") {
+      await loadFinanceTips();
     }
   }
 );
@@ -1343,7 +1615,7 @@ watch(
   () => activeTab.value,
   async (newTab) => {
     if (newTab === 'planner' && selectedProjectId.value) {
-      forecastMonth.value = new Date().toISOString().slice(0, 7);
+      forecastMonth.value = plannerMonthLabel.value;
       await calculateForecast();
     }
   }
@@ -1353,12 +1625,13 @@ async function exportOverview() {
   if (!selectedProjectId.value) return;
   try {
     const response = await api.get(`finance-projects/${selectedProjectId.value}/export-overview/`, {
-      responseType: 'blob'
+      responseType: 'blob',
+      params: { month: plannerMonthLabel.value },
     });
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `finance_overview.csv`);
+    link.setAttribute('download', `finance_overview_${plannerMonthLabel.value}.csv`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1368,7 +1641,9 @@ async function exportOverview() {
   }
 }
 
-onMounted(syncProjectSelection);
+onMounted(async () => {
+  await Promise.all([syncProjectSelection(), loadFinanceTips()]);
+});
 </script>
 
 <style scoped>
@@ -2160,6 +2435,43 @@ onMounted(syncProjectSelection);
   border-radius: 16px;
 }
 
+.tips-panel {
+  align-content: start;
+}
+
+.tip-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.tip-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  display: grid;
+  gap: 8px;
+}
+
+.tip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.tip-head h3 {
+  margin: 0;
+}
+
+.tip-body {
+  margin: 0;
+  white-space: pre-line;
+}
+
 @media (max-width: 760px) {
   .daily-header {
     flex-direction: column;
@@ -2179,24 +2491,32 @@ onMounted(syncProjectSelection);
     justify-items: start;
     text-align: left;
   }
+
+  .tip-head {
+    flex-direction: column;
+  }
 }
 
 /* New Finance Dashboard Design */
 .topbar-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
+  display: grid;
+  gap: 18px;
   padding: 28px;
   border-radius: 24px;
   background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
   color: white;
 }
 
+.topbar-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
 .topbar-meta {
   display: grid;
   gap: 12px;
-  max-width: 640px;
 }
 
 .topbar-meta h1 {
@@ -2212,14 +2532,63 @@ onMounted(syncProjectSelection);
 .topbar-actions {
   display: grid;
   gap: 16px;
-  min-width: 240px;
-  width: 100%;
+  justify-items: end;
 }
 
 .topbar-buttons {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 12px;
+}
+
+.topbar-insights {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.topbar-insight {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.topbar-insight-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-insight-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.topbar-due-list strong {
+  color: #f8fafc;
+}
+
+.topbar-due-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.topbar-due-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.38);
 }
 
 .feedback-bar {
@@ -2268,6 +2637,28 @@ onMounted(syncProjectSelection);
   box-shadow: 0 28px 74px rgba(15, 118, 110, 0.18);
 }
 
+.balance-card .metric-label {
+  color: rgba(236, 253, 245, 0.9);
+}
+
+.balance-card .metric-note {
+  color: rgba(236, 253, 245, 0.92);
+}
+
+.balance-card .metric-breakdown-row {
+  color: rgba(236, 253, 245, 0.9);
+}
+
+.balance-card .metric-breakdown-row strong {
+  color: #ffffff;
+}
+
+.balance-card .metric-pill {
+  background: rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+}
+
 .metric-top {
   display: flex;
   justify-content: space-between;
@@ -2286,6 +2677,26 @@ onMounted(syncProjectSelection);
   font-size: 14px;
   line-height: 1.6;
   color: var(--muted);
+}
+
+.metric-breakdown {
+  display: grid;
+  gap: 6px;
+}
+
+.metric-breakdown-row {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.metric-breakdown-row strong {
+  color: var(--text);
+  font-size: 14px;
 }
 
 .metric-progress {
@@ -2340,14 +2751,15 @@ onMounted(syncProjectSelection);
 
 .workspace-shell {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   margin-top: 22px;
 }
 
-.workspace-aside {
+.workspace-main {
   display: grid;
-  gap: 20px;
+  align-content: start;
+  gap: 22px;
 }
 
 .panel {
@@ -2379,15 +2791,43 @@ onMounted(syncProjectSelection);
   color: var(--brand);
 }
 
+.badge.badge-soft {
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--text);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  font-weight: 600;
+}
+
+.settings-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.setting-note {
+  margin: 6px 0 0;
+}
+
 .info-row,
 .status-grid {
   display: grid;
   gap: 14px;
 }
 
+.info-row {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
 .info-row > div,
 .status-grid > div {
-  background: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(160deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.03));
+  border: 1px solid rgba(59, 130, 246, 0.16);
   padding: 16px;
   border-radius: 18px;
 }
@@ -2468,21 +2908,87 @@ onMounted(syncProjectSelection);
   gap: 10px;
 }
 
+.planner-head {
+  align-items: flex-end;
+}
+
+.planner-head-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.planner-month-control {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.planner-month-control .input {
+  min-width: 170px;
+}
+
 .planner-grid {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 
+.summary-split-panel {
+  align-content: start;
+}
+
+.summary-split-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.summary-column {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px;
+  background: var(--surface);
+}
+
+.summary-column h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.summary-sublist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.summary-subitem {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.settings-panel,
 .status-panel {
-  align-self: start;
+  align-content: start;
 }
 
 .settings-row {
   display: grid;
-  grid-template-columns: 1.5fr 0.9fr;
+  grid-template-columns: repeat(2, minmax(340px, 1fr));
   gap: 20px;
   margin-top: 22px;
+  align-items: start;
 }
 
 .settings-grid {
@@ -2493,6 +2999,22 @@ onMounted(syncProjectSelection);
 
 .settings-grid label.full {
   grid-column: span 2;
+}
+
+.member-panel {
+  margin-top: 22px;
+}
+
+.top-categories-panel {
+  margin-top: 22px;
+}
+
+.member-summary {
+  display: grid;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
 }
 
 .daily-header {
@@ -2519,6 +3041,23 @@ onMounted(syncProjectSelection);
   background: var(--surface);
   border-radius: 20px;
   border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.chart-empty-state {
+  min-height: 210px;
+  border-radius: 20px;
+  border: 1px dashed var(--border);
+  background: rgba(59, 130, 246, 0.04);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px;
+}
+
+.chart-empty-state p {
+  margin: 0;
+  max-width: 48ch;
 }
 
 .chart-bar {
@@ -2531,7 +3070,9 @@ onMounted(syncProjectSelection);
   border-radius: 18px;
   color: white;
   text-align: center;
-  min-height: 60px;
+  box-sizing: border-box;
+  height: clamp(68px, var(--bar-height), 100%);
+  overflow: hidden;
 }
 
 .chart-bar.income {
@@ -2554,26 +3095,29 @@ onMounted(syncProjectSelection);
   grid-column: 1 / -1;
 }
 
-@media (max-width: 1024px) {
-  .workspace-shell,
+@media (max-width: 1200px) {
   .planner-grid,
   .settings-row {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-main,
+  .topbar-insights {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
+  .summary-split-grid {
+    grid-template-columns: 1fr;
+  }
+
   .summary-band {
     grid-template-columns: 1fr;
   }
 
-  .topbar-card {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
   .topbar-actions {
-    align-items: stretch;
+    justify-items: start;
   }
 
   .topbar-buttons {
@@ -2590,5 +3134,21 @@ onMounted(syncProjectSelection);
     flex-direction: column;
     align-items: stretch;
   }
+
+  .planner-head-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .planner-month-control .input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .settings-meta {
+    justify-content: flex-start;
+  }
 }
 </style>
+
+

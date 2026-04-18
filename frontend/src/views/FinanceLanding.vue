@@ -5,93 +5,126 @@
         <p class="eyebrow">Finance</p>
         <h1>Ein Finanzprojekt statt zehn Einzelseiten.</h1>
         <p class="muted lead">
-          Lege euer Haushalts- oder Finanzprojekt an, trage Personen ein und arbeite danach in einer klaren Monatsübersicht
-          mit Einnahmen, Fixkosten, Schulden, Sparen und den nächsten Fälligkeiten.
+          Lege euer Haushalts- oder Finanzprojekt an, trage Personen ein und arbeite danach in einer klaren Monatsuebersicht
+          mit Einnahmen, Fixkosten, Schulden, Sparen und den naechsten Faelligkeiten.
         </p>
         <div class="hero-points">
-          <span>Ein Konto für mehrere Personen</span>
+          <span>Ein Konto fuer mehrere Personen</span>
           <span>Monatsbild statt zerstreuter Tabs</span>
-          <span>Schnell genug für den Alltag</span>
+          <span>Schnell genug fuer den Alltag</span>
         </div>
       </div>
 
-      <form class="create-panel" @submit.prevent="createProject">
+      <div class="action-panel">
         <div class="panel-head">
-          <h2>Finanzprojekt anlegen</h2>
-          <button class="btn ghost" type="button" @click="goBack">Zur Plattformübersicht</button>
+          <h2>Projekte</h2>
+          <button class="btn ghost" type="button" @click="goBack">Zur Plattformuebersicht</button>
         </div>
-
-        <label>
-          Titel
-          <input v-model.trim="form.title" class="input" placeholder="z. B. Haushalt Samir & Aylin" required />
-        </label>
-
-        <label>
-          Kurze Notiz
-          <textarea
-            v-model.trim="form.description"
-            class="input textarea"
-            rows="3"
-            placeholder="Wofür nutzt ihr das Projekt?"
-          ></textarea>
-        </label>
-
-        <div class="grid two">
-          <label>
-            Währung
-            <select v-model="form.currency" class="input">
-              <option value="EUR">EUR</option>
-              <option value="USD">USD</option>
-              <option value="CHF">CHF</option>
-            </select>
-          </label>
-          <label>
-            Startguthaben
-            <input v-model="form.current_balance" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
-          </label>
-        </div>
-
-        <div class="grid two">
-          <label>
-            Sparziel pro Monat
-            <input
-              v-model="form.monthly_savings_target"
-              class="input"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-            />
-          </label>
-          <label>
-            Notgroschen-Ziel
-            <input
-              v-model="form.emergency_buffer_target"
-              class="input"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-            />
-          </label>
-        </div>
-
-        <label>
-          Personen im Projekt
-          <textarea
-            v-model.trim="form.members"
-            class="input textarea"
-            rows="3"
-            placeholder="z. B. Samir, Aylin"
-          ></textarea>
-          <small class="muted hint">Kommagetrennt oder Zeile für Zeile. So könnt ihr direkt 2 Personen unter einem Account führen.</small>
-        </label>
-
-        <button class="btn" type="submit" :disabled="saving">
-          {{ saving ? "Lege an..." : "Projekt erstellen" }}
+        <p class="muted">
+          Projekt oeffnen oder neues Projekt starten. Die Projektbasis wird direkt im Popup gesetzt.
+        </p>
+        <button class="btn" type="button" @click="openProjectBasisModal">
+          Projekt erstellen
         </button>
-      </form>
+      </div>
     </section>
+
+    <div v-if="showProjectBasisModal" class="modal-overlay" @click="showProjectBasisModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Projektbasis</h3>
+          <button class="modal-close" type="button" @click="showProjectBasisModal = false">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form class="create-panel modal-form" @submit.prevent="createProject">
+            <label>
+              Titel
+              <input v-model.trim="form.title" class="input" placeholder="z. B. Haushalt Samir & Aylin" required />
+            </label>
+
+            <label>
+              Personen im Projekt
+              <textarea
+                v-model.trim="form.members"
+                class="input textarea"
+                rows="3"
+                placeholder="z. B. Samir, Aylin"
+              ></textarea>
+              <small class="muted hint">Kommagetrennt oder Zeile fuer Zeile. So koennt ihr direkt 2 Personen unter einem Account fuehren.</small>
+            </label>
+
+            <label>
+              Kurze Notiz
+              <textarea
+                v-model.trim="form.description"
+                class="input textarea"
+                rows="3"
+                placeholder="Wofuer nutzt ihr das Projekt?"
+              ></textarea>
+            </label>
+
+            <div class="grid two">
+              <label>
+                Waehrung
+                <select v-model="form.currency" class="input">
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="CHF">CHF</option>
+                </select>
+              </label>
+              <label>
+                Startguthaben
+                <input v-model="form.current_balance" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
+              </label>
+            </div>
+
+            <div class="grid two">
+              <label>
+                Dispo verfuegbar
+                <input v-model="form.dispo_limit" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
+              </label>
+              <label>
+                Dispo genutzt
+                <input v-model="form.dispo_used" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
+              </label>
+            </div>
+
+            <div class="grid two">
+              <label>
+                Sparziel pro Monat
+                <input
+                  v-model="form.monthly_savings_target"
+                  class="input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                />
+              </label>
+            </div>
+
+            <label>
+              Notgroschen-Ziel
+              <input
+                v-model="form.emergency_buffer_target"
+                class="input"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+              />
+            </label>
+
+            <div class="modal-actions">
+              <button class="btn ghost" type="button" @click="showProjectBasisModal = false">Zurueck</button>
+              <button class="btn" type="submit" :disabled="saving">
+                {{ saving ? "Lege an..." : "Projekt erstellen" }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <section v-if="errorMessage || successMessage" class="feedback-stack">
       <div v-if="errorMessage" class="feedback-card error">{{ errorMessage }}</div>
@@ -102,7 +135,7 @@
       <div class="section-head">
         <div>
           <h2>Bestehende Finanzprojekte</h2>
-          <p class="muted">Öffne direkt das passende Monatsbild.</p>
+          <p class="muted">Oeffne direkt das passende Monatsbild.</p>
         </div>
         <button class="btn ghost" type="button" @click="loadProjects" :disabled="loading">
           {{ loading ? "Lade..." : "Aktualisieren" }}
@@ -116,7 +149,7 @@
               <h3>{{ project.title }}</h3>
               <p class="muted small">{{ project.members?.map((member) => member.name).join(", ") || "Ohne Personen" }}</p>
             </div>
-            <button class="btn ghost sm" type="button" @click="openProject(project.id)">Öffnen</button>
+            <button class="btn ghost sm" type="button" @click="openProject(project.id)">Oeffnen</button>
           </div>
 
           <div class="stats-grid">
@@ -129,7 +162,7 @@
               <strong>{{ formatCurrency(project.overview?.monthly_income, project.currency) }}</strong>
             </div>
             <div>
-              <span class="label">Ausgänge</span>
+              <span class="label">Ausgaenge</span>
               <strong>{{ formatCurrency(project.overview?.monthly_outflow, project.currency) }}</strong>
             </div>
             <div>
@@ -153,6 +186,7 @@ const router = useRouter();
 const loading = ref(false);
 const saving = ref(false);
 const projects = ref([]);
+const showProjectBasisModal = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
 const form = ref({
@@ -160,6 +194,8 @@ const form = ref({
   description: "",
   currency: "EUR",
   current_balance: "",
+  dispo_limit: "",
+  dispo_used: "",
   monthly_savings_target: "",
   emergency_buffer_target: "",
   members: "Ich",
@@ -225,7 +261,17 @@ async function loadProjects() {
   }
 }
 
+function openProjectBasisModal() {
+  errorMessage.value = "";
+  successMessage.value = "";
+  showProjectBasisModal.value = true;
+}
+
 async function createProject() {
+  if (!form.value.title.trim()) {
+    setError("Bitte einen Titel fuer das Finanzprojekt eintragen.");
+    return;
+  }
   saving.value = true;
   try {
     const payload = {
@@ -233,11 +279,14 @@ async function createProject() {
       description: form.value.description,
       currency: form.value.currency,
       current_balance: toAmount(form.value.current_balance),
+      dispo_limit: toAmount(form.value.dispo_limit),
+      dispo_used: toAmount(form.value.dispo_used),
       monthly_savings_target: toAmount(form.value.monthly_savings_target),
       emergency_buffer_target: toAmount(form.value.emergency_buffer_target),
       initial_members: parseMembers(form.value.members),
     };
     const { data } = await api.post("finance-projects/", payload);
+    showProjectBasisModal.value = false;
     await loadProjects();
     setSuccess("Finanzprojekt erstellt.");
     router.push({ name: "finance", params: { projectId: data.id } });
@@ -343,6 +392,15 @@ onMounted(loadProjects);
   border: 1px solid var(--border);
 }
 
+.action-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
 .panel-head,
 .section-head,
 .project-top {
@@ -409,6 +467,62 @@ onMounted(loadProjects);
   font-size: 14px;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--modal-overlay, rgba(15, 23, 42, 0.45));
+  z-index: 50;
+  padding: 16px;
+}
+
+.modal-content {
+  width: min(680px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-close {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 16px;
+}
+
+.modal-form {
+  padding: 0;
+  border: 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 :global(.dark) .finance-entry .feedback-card.error {
   color: #fecaca;
   background: rgba(127, 29, 29, 0.4);
@@ -418,31 +532,23 @@ onMounted(loadProjects);
 :global(.dark) .finance-entry .feedback-card.success {
   color: #bbf7d0;
   background: rgba(20, 83, 45, 0.42);
-  border-color: rgba(74, 222, 128, 0.24);
+  border-color: rgba(34, 197, 94, 0.28);
 }
 
-@media (max-width: 920px) {
+@media (max-width: 960px) {
   .hero {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 680px) {
   .grid.two,
   .stats-grid {
     grid-template-columns: 1fr;
   }
 
-  .panel-head,
-  .section-head,
-  .project-top {
+  .modal-actions {
     flex-direction: column;
   }
-}
-
-:global(.dark) .finance-entry .hero {
-  background:
-    radial-gradient(circle at top right, rgba(47, 99, 255, 0.2), transparent 42%),
-    linear-gradient(145deg, rgba(13, 25, 53, 0.96), rgba(10, 20, 45, 0.94));
 }
 </style>

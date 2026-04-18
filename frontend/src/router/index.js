@@ -32,6 +32,7 @@ import FinanceLanding from "../views/FinanceLanding.vue";
 import FinanceTool from "../views/FinanceTool.vue";
 import FitnessLanding from "../views/FitnessLanding.vue";
 import FitnessTool from "../views/FitnessTool.vue";
+import ContentStudio from "../views/ContentStudio.vue";
 import SearchView from "../views/SearchView.vue";
 import MainLayout from "../layouts/MainLayout.vue";
 import PlatformLayout from "../layouts/PlatformLayout.vue";
@@ -88,6 +89,7 @@ const routes = [
       { path: "locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
       { path: "finance", name: "platform-finance", component: FinanceLanding, meta: { requiresAuth: true } },
       { path: "finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
+      { path: "content-studio", name: "platform-content-studio", component: ContentStudio, meta: { requiresAuth: true } },
       { path: "fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },
       { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },

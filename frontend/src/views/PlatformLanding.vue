@@ -36,9 +36,7 @@
           @click="openPlatform(platform.key)"
         >
           <div class="platform-header">
-            <div class="platform-icon">
-              <img :src="platform.iconPath" :alt="platform.title" class="icon-image"/>
-            </div>
+            <div class="platform-icon">{{ platform.icon }}</div>
             <div class="platform-meta">
               <h3>{{ platform.title }}</h3>
               <span class="platform-tag">{{ platform.category }}</span>
@@ -120,7 +118,7 @@ const platforms = [
     category: "Übersicht",
     description: "Dein persönliches Dashboard mit allen wichtigen Informationen und Schnellzugriffen.",
     buttonLabel: "Öffnen",
-    iconPath: "/src/assets/icons/dashboard.svg",
+    icon: "📊",
     features: ["Übersicht", "Schnellzugriffe", "Benachrichtigungen"],
     roles: ["TEAM", "ARTIST", "PRODUCER", "LOCATION"],
     comingSoon: false,
@@ -131,7 +129,7 @@ const platforms = [
     category: "Wettbewerbe",
     description: "Beteilige dich an Contests, Challenges und gewinne Preise für deine Kunst.",
     buttonLabel: "Entdecken",
-    iconPath: "/src/assets/icons/contests.svg",
+    icon: "🏆",
     features: ["Contests", "Challenges", "Preise"],
     roles: ["TEAM", "ARTIST", "PRODUCER"],
     comingSoon: true,
@@ -142,7 +140,7 @@ const platforms = [
     category: "Musik",
     description: "Verwalte deine Songs, Alben und Releases in einem professionellen Music Manager.",
     buttonLabel: "Verwalten",
-    iconPath: "/src/assets/icons/music.svg",
+    icon: "🎵",
     features: ["Songs", "Releases", "Analytics"],
     roles: ["TEAM", "ARTIST", "PRODUCER"],
     comingSoon: false,
@@ -153,7 +151,7 @@ const platforms = [
     category: "Events",
     description: "Finde und verwalte Locations für deine Events und Auftritte.",
     buttonLabel: "Suchen",
-    iconPath: "/src/assets/icons/locations.svg",
+    icon: "📍",
     features: ["Locations", "Events", "Buchungen"],
     roles: ["TEAM", "LOCATION", "PRODUCER"],
     comingSoon: true,
@@ -164,7 +162,7 @@ const platforms = [
     category: "Finanzen",
     description: "Plane dein Budget, verwalte Einnahmen und Ausgaben, tilge Schulden effizient.",
     buttonLabel: "Planen",
-    iconPath: "/src/assets/icons/finance.svg",
+    icon: "💰",
     features: ["Budget", "Schulden", "Einnahmen"],
     roles: ["TEAM"],
     comingSoon: false,
@@ -175,7 +173,7 @@ const platforms = [
     category: "Content",
     description: "Erstelle zentral Tipps, News und Plugin Tutorials fÜr alle Nutzerbereiche.",
     buttonLabel: "Erstellen",
-    iconPath: "/src/assets/icons/content-studio.svg",
+    icon: "📝",
     features: ["Tipps", "News", "Tutorials"],
     roles: ["TEAM"],
     comingSoon: false,
@@ -186,7 +184,7 @@ const platforms = [
     category: "Health",
     description: "Tracke Kalorien, schaetze deinen Tagesverbrauch und finde einfache Essensideen fÜr jede Mahlzeit.",
     buttonLabel: "Starten",
-    iconPath: "/src/assets/icons/fitness.svg",
+    icon: "🏋️",
     features: ["Kcal", "Verbrauch", "Essensideen"],
     roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC"],
     comingSoon: false,
@@ -197,7 +195,7 @@ const platforms = [
     category: "Verwaltung",
     description: "Zentrales Verwaltungszentrum für alle UNYQ-Plattformen und Nutzer.",
     buttonLabel: "Verwalten",
-    iconPath: "/src/assets/icons/admin.svg",
+    icon: "🔧",
     features: ["Nutzer", "Plattformen", "Sicherheit"],
     roles: ["TEAM"],
     comingSoon: false,
@@ -289,26 +287,12 @@ onMounted(async () => {
   background-size: 1200px 600px;
   background-position: 0 0;
   opacity: 0.8;
-  animation: stripes-flow 6s ease-in-out infinite;
-  background-repeat: repeat;
 }
 
 @keyframes stripes-flow {
   0%, 100% {
     background-position: 0 0;
     opacity: 0.8;
-  }
-  25% {
-    background-position: 0 -20px;
-    opacity: 0.85;
-  }
-  50% {
-    background-position: 0 -40px;
-    opacity: 0.8;
-  }
-  75% {
-    background-position: 0 -20px;
-    opacity: 0.85;
   }
 }
 
@@ -449,15 +433,8 @@ onMounted(async () => {
   border-radius: 16px;
   display: grid;
   place-items: center;
+  font-size: 1.5rem;
   box-shadow: var(--shadow-soft);
-  flex-shrink: 0;
-}
-
-.icon-image {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-  filter: brightness(0) invert(1);
 }
 
 .platform-meta h3 {

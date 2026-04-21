@@ -84,9 +84,18 @@ def _monthly_amount(entry, today):
     if entry.frequency == "MONTHLY":
         if getattr(entry, "due_date", None) and entry.due_date > month_end:
             return Decimal("0.00")
+        # Also check if due_day is set and the next due date is after month end
+        if entry.due_day:
+            next_due = _next_due_date(entry, today)
+            if next_due and next_due > month_end:
+                return Decimal("0.00")
         return amount
     if entry.frequency == "WEEKLY":
         if getattr(entry, "due_date", None) and entry.due_date > month_end:
+            return Decimal("0.00")
+        # Also check next due date for weekly entries
+        next_due = _next_due_date(entry, today)
+        if next_due and next_due > month_end:
             return Decimal("0.00")
         return (amount * Decimal("52") / Decimal("12")).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
     if entry.frequency == "YEARLY":
@@ -94,6 +103,11 @@ def _monthly_amount(entry, today):
             if entry.due_date.year > today.year or (
                 entry.due_date.year == today.year and entry.due_date.month > today.month
             ):
+                return Decimal("0.00")
+        # Also check if due_day is set and the next due date is after current month
+        if entry.due_day:
+            next_due = _next_due_date(entry, today)
+            if next_due and (next_due.year > today.year or (next_due.year == today.year and next_due.month > today.month)):
                 return Decimal("0.00")
         return (amount / Decimal("12")).quantize(DECIMAL_2, rounding=ROUND_HALF_UP)
     if entry.frequency == "ONCE" and entry.due_date and entry.due_date.year == today.year and entry.due_date.month == today.month:

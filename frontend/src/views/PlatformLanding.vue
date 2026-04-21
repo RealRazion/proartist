@@ -283,8 +283,31 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
-  opacity: 0.3;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><defs><filter id="blur"><feGaussianBlur in="SourceGraphic" stdDeviation="2"/></filter></defs><path d="M0,100 Q300,50 600,100 T1200,100 L1200,0 L0,0 Z" fill="%233b82f6" opacity="0.15" filter="url(%23blur)"/><path d="M0,150 Q300,80 600,150 T1200,150 L1200,100 Q600,50 0,100 Z" fill="%235b6ef2" opacity="0.12" filter="url(%23blur)"/><path d="M0,200 Q300,120 600,200 T1200,200 L1200,150 Q600,80 0,150 Z" fill="%237c61eb" opacity="0.12" filter="url(%23blur)"/><path d="M0,250 Q300,160 600,250 T1200,250 L1200,200 Q600,120 0,200 Z" fill="%239333ea" opacity="0.12" filter="url(%23blur)"/><path d="M0,300 Q300,200 600,300 T1200,300 L1200,250 Q600,160 0,250 Z" fill="%23a855f7" opacity="0.12" filter="url(%23blur)"/><path d="M0,350 Q300,240 600,350 T1200,350 L1200,300 Q600,200 0,300 Z" fill="%23c084fc" opacity="0.12" filter="url(%23blur)"/><path d="M0,400 Q300,280 600,400 T1200,400 L1200,350 Q600,240 0,350 Z" fill="%23e879f9" opacity="0.12" filter="url(%23blur)"/></svg>');
+  background-size: 1200px 600px;
+  background-position: 0 0;
+  opacity: 0.8;
+  animation: stripes-flow 6s ease-in-out infinite;
+  background-repeat: repeat;
+}
+
+@keyframes stripes-flow {
+  0%, 100% {
+    background-position: 0 0;
+    opacity: 0.8;
+  }
+  25% {
+    background-position: 40px -20px;
+    opacity: 0.85;
+  }
+  50% {
+    background-position: 80px -40px;
+    opacity: 0.8;
+  }
+  75% {
+    background-position: 40px -20px;
+    opacity: 0.85;
+  }
 }
 
 .hero-content {

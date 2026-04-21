@@ -297,15 +297,15 @@ onMounted(async () => {
     opacity: 0.8;
   }
   25% {
-    background-position: 40px -20px;
+    background-position: 140px -20px;
     opacity: 0.85;
   }
   50% {
-    background-position: 80px -40px;
+    background-position: 280px -40px;
     opacity: 0.8;
   }
   75% {
-    background-position: 40px -20px;
+    background-position: 420px -20px;
     opacity: 0.85;
   }
 }

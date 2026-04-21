@@ -1095,20 +1095,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             run_automation_rules_for_task(task, "TASK_DUE", actor=actor)
         if prev_status != "DONE" and task.status == "DONE":
             _generate_recurring_task(task, actor=actor)
-
-        notify_profiles(
-            mentions,
-            f"Erwaehnung in {comment.task.title}",
-            f"{comment.author.name or comment.author.user.username} hat dich in einem Kommentar erwaehnt.",
-            notification_type="task_mentioned",
-            actor=comment.author,
-            severity="INFO",
-            project=comment.task.project,
-            task=comment.task,
-            metadata={"comment_id": comment.id},
-            preference_key="task_mentioned",
-        )
-
     def perform_destroy(self, instance):
         actor = getattr(self.request.user, "profile", None)
         self._ensure_project_task_access(instance.project)

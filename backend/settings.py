@@ -52,7 +52,7 @@ if DEBUG and ENVIRONMENT != 'development':
 
 ALLOWED_HOSTS = get_env(
     'ALLOWED_HOSTS',
-    '127.0.0.1,localhost',
+    '127.0.0.1,localhost,proartist.onrender.com',
     cast_type=list
 )
 

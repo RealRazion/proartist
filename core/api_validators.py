@@ -5,7 +5,6 @@ Zentrale Business-Logic Validierung auf Serializer Level
 
 from rest_framework import serializers
 from django.core.exceptions import ValidationError as DjangoValidationError
-from .models import TASK_STATUS_CHOICES, PRIORITY_CHOICES
 
 
 class TaskStatusValidator:

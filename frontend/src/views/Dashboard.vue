@@ -157,7 +157,20 @@ const examples = ref([]);
 const reviewSaving = ref({});
 
 // Widget configuration
-const widgetOrder = ref(JSON.parse(localStorage.getItem('dashboardWidgets') || '["priorities", "reviews", "deadlines", "requests"]'));
+const VALID_WIDGET_IDS = new Set(['priorities', 'reviews', 'deadlines', 'requests', 'onboarding', 'projects']);
+const DEFAULT_WIDGETS = ['priorities', 'reviews', 'deadlines', 'requests'];
+function loadWidgetOrder() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('dashboardWidgets'));
+    if (Array.isArray(stored) && stored.length > 0 && stored.every(id => VALID_WIDGET_IDS.has(id))) {
+      return stored;
+    }
+  } catch {
+    // ignore invalid JSON
+  }
+  return DEFAULT_WIDGETS;
+}
+const widgetOrder = ref(loadWidgetOrder());
 
 const taskModalOpen = ref(false);
 const taskSaving = ref(false);

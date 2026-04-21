@@ -33,13 +33,13 @@
     </section>
 
     <section v-if="isTeam" class="grid">
-      <article v-for="widgetId in widgetOrder" :key="widgetId" class="card panel">
+      <article v-for="widget in currentWidgets" :key="widget.id" class="card panel">
         <div class="panel-head">
-          <h2>{{ widgetConfigs[widgetId]?.title }}</h2>
-          <button v-if="widgetConfigs[widgetId]?.cta" class="btn ghost tiny" type="button" @click="widgetConfigs[widgetId].cta.action()">{{ widgetConfigs[widgetId].cta.text }}</button>
+          <h2>{{ widget.title }}</h2>
+          <button v-if="widget.cta" class="btn ghost tiny" type="button" @click="widget.cta.action()">{{ widget.cta.text }}</button>
         </div>
-        <ul v-if="widgetConfigs[widgetId]?.content" class="list">
-          <li v-for="(item, index) in widgetConfigs[widgetId].content" :key="index">
+        <ul v-if="widget.content" class="list">
+          <li v-for="(item, index) in widget.content" :key="index">
             <div>
               <strong>{{ item.title }}</strong>
               <p class="muted">{{ item.subtitle }}</p>
@@ -54,7 +54,7 @@
             </div>
           </li>
         </ul>
-        <p v-else class="muted">{{ widgetConfigs[widgetId]?.emptyText }}</p>
+        <p v-else class="muted">{{ widget.emptyText }}</p>
       </article>
     </section>
     <section v-else class="grid artist-grid">
@@ -312,6 +312,11 @@ const currentWidgets = computed(() => {
   }
 });
 
+onMounted(() => {
+  localStorage.setItem('dashboardWidgets', JSON.stringify(widgetOrder.value));
+  refresh();
+});
+
 const urgentTasks = computed(() =>
   [...tasks.value]
     .filter((task) => dueState(task.due_date) !== "ok" || task.priority === "CRITICAL")
@@ -557,7 +562,6 @@ function copyInviteLink() {
   showToast("Link kopiert", "success");
 }
 
-onMounted(refresh);
 </script>
 
 <style scoped>

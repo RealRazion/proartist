@@ -36,15 +36,17 @@ def get_env(key, default=None, required=False, cast_type=str):
     
     return value
 
-# Kritische Variablen validieren
-try:
-    SECRET_KEY = get_env('SECRET_KEY', required=True)
-except ValueError as e:
-    logger.error(str(e))
-    raise
-
 DEBUG = get_env('DEBUG', 'False', cast_type=bool)
 ENVIRONMENT = get_env('ENVIRONMENT', 'development')
+
+# Kritische Variablen validieren
+SECRET_KEY = get_env('SECRET_KEY')
+if not SECRET_KEY:
+    is_production = ENVIRONMENT.lower() in ('production', 'prod') and not DEBUG
+    if is_production:
+        raise ValueError("FEHLER: Erforderliche Environment Variable 'SECRET_KEY' nicht gesetzt!")
+    SECRET_KEY = 'dev-insecure-secret-key-change-me'
+    logger.warning("SECRET_KEY fehlt. Unsicherer Fallback wird nur fuer nicht-Production verwendet.")
 
 # Warnung wenn DEBUG in Production
 if DEBUG and ENVIRONMENT != 'development':

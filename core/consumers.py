@@ -4,6 +4,10 @@ from channels.db import database_sync_to_async
 from .serializers import ChatMessageSerializer
 from .models import ChatMessage, Profile
 
+# Constants
+MAX_CHAT_MESSAGE_LENGTH = 1200
+MAX_TYPING_FREQUENCY = 1  # max 1 typing event per second
+
 @database_sync_to_async
 def _save_msg(thread_id, sender_profile, text):
     m = ChatMessage.objects.create(
@@ -37,6 +41,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.thread_id = self.scope["url_route"]["kwargs"]["thread_id"]
         self.group = f"chat_{self.thread_id}"
         self.user = self.scope.get("user")
+        self.last_typing_time = 0  # Rate limiting für typing events
+        
         if not self.user or not self.user.is_authenticated:
             await self.close(); return
         profile = await _resolve_profile(self.user)
@@ -57,6 +63,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.profile = profile
 
         if action == "typing":
+            # Rate limiting für typing events
+            import time
+            current_time = time.time()
+            if current_time - self.last_typing_time < MAX_TYPING_FREQUENCY:
+                return
+            self.last_typing_time = current_time
+            
             is_typing = bool(data.get("is_typing"))
             await self.channel_layer.group_send(
                 self.group,
@@ -74,8 +87,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         text = (data.get("text") or "").strip()
+        
+        # Validierung: Länge prüfen
         if not text:
             return
+        if len(text) > MAX_CHAT_MESSAGE_LENGTH:
+            await self.send(text_data=json.dumps({
+                "event": "error",
+                "error": f"Nachricht zu lang. Maximum: {MAX_CHAT_MESSAGE_LENGTH} Zeichen"
+            }))
+            return
+        
         msg = await _save_msg(self.thread_id, profile, text)
         await self.channel_layer.group_send(self.group, {"type": "chat.message", "message": msg})
 

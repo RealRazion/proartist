@@ -33,10 +33,12 @@
           v-for="platform in visiblePlatforms"
           :key="platform.key"
           class="platform-card"
+          role="article"
+          :aria-label="`${platform.title} - ${platform.category}`"
           @click="openPlatform(platform.key)"
         >
           <div class="platform-header">
-            <div class="platform-icon">{{ platform.icon }}</div>
+            <div class="platform-icon" aria-hidden="true">{{ platform.icon }}</div>
             <div class="platform-meta">
               <h3>{{ platform.title }}</h3>
               <span class="platform-tag">{{ platform.category }}</span>
@@ -48,9 +50,13 @@
               {{ feature }}
             </span>
           </div>
-          <button class="platform-btn">
+          <button 
+            class="platform-btn"
+            :aria-label="`${platform.buttonLabel}: ${platform.title}`"
+            :title="`${platform.buttonLabel}: ${platform.description}`"
+          >
             {{ platform.buttonLabel }}
-            <svg class="arrow-icon" viewBox="0 0 24 24">
+            <svg class="arrow-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </button>
@@ -547,28 +553,147 @@ onMounted(async () => {
   font-size: 0.9rem;
 }
 
-/* Responsive */
+/* Responsive - Tablet & Mobile */
+@media (max-width: 1024px) {
+  .platforms-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+
+  .section-header h2 {
+    font-size: 1.8rem;
+  }
+
+  .hero-title {
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
+  }
+}
+
 @media (max-width: 768px) {
+  .hero-section {
+    padding: 40px 16px;
+  }
+
   .hero-content {
     grid-template-columns: 1fr;
     text-align: center;
+    gap: 24px;
   }
 
   .hero-visual {
-    display: none;
+    height: 200px;
+    opacity: 0.5;
+  }
+
+  .icon-float {
+    font-size: 2rem;
+    animation: float 8s ease-in-out infinite;
+  }
+
+  .platforms-section {
+    padding: 40px 16px;
   }
 
   .platforms-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
+
+  .platform-card {
+    padding: 20px;
+  }
+
+  .section-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .section-header p {
+    font-size: 1rem;
+  }
+
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-number {
+    font-size: 2rem;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 }
 
 @media (max-width: 480px) {
+  .hero-section {
+    padding: 24px 12px;
+  }
+
+  .hero-title {
+    font-size: 1.5rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+
+  .platform-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .platform-header {
+    gap: 12px;
+  }
+
+  .platform-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.2rem;
+  }
+
+  .platform-meta h3 {
+    font-size: 1.1rem;
+  }
+
+  .platform-btn {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
+
+  .stat-number {
+    font-size: 1.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+  }
+
+  .floating-icons {
+    display: none;
+  }
+
+  .section-header h2 {
+    font-size: 1.3rem;
+  }
 }
+
+/* Touch devices */
+@media (hover: none) {
+  .platform-card:active {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-strong);
+  }
+
+  .platform-btn {
+    padding: 14px 20px;
+  }
+}
+</style>
 </style>

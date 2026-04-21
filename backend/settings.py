@@ -1,13 +1,65 @@
 from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 import os
+import logging
 from dotenv import load_dotenv
+
 load_dotenv()
+logger = logging.getLogger(__name__)
 
+# Environment Variable Validation
+def get_env(key, default=None, required=False, cast_type=str):
+    """
+    Sichere Environment Variable Loader mit Validierung
+    
+    Args:
+        key: Environment Variable Name
+        default: Fallback Wert
+        required: Wenn True, wirft Fehler wenn nicht vorhanden
+        cast_type: Type Casting (str, bool, int, list)
+    """
+    value = os.getenv(key, default)
+    
+    if required and value is None:
+        raise ValueError(f"FEHLER: Erforderliche Environment Variable '{key}' nicht gesetzt!")
+    
+    if value is None:
+        return default
+    
+    # Type Casting
+    if cast_type == bool:
+        return value.lower() in ('true', '1', 'yes', 'on')
+    elif cast_type == int:
+        return int(value)
+    elif cast_type == list:
+        return [item.strip() for item in value.split(',') if item.strip()]
+    
+    return value
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-key")
-DEBUG = os.getenv("DEBUG", "False") == "True"
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost,proartist.onrender.com").split(",") if host.strip()]
+# Kritische Variablen validieren
+try:
+    SECRET_KEY = get_env('SECRET_KEY', required=True)
+except ValueError as e:
+    logger.error(str(e))
+    raise
+
+DEBUG = get_env('DEBUG', 'False', cast_type=bool)
+ENVIRONMENT = get_env('ENVIRONMENT', 'development')
+
+# Warnung wenn DEBUG in Production
+if DEBUG and ENVIRONMENT != 'development':
+    logger.warning('⚠️  DEBUG=True in PRODUCTION Environment! Dies ist ein Sicherheitsrisiko.')
+
+ALLOWED_HOSTS = get_env(
+    'ALLOWED_HOSTS',
+    '127.0.0.1,localhost',
+    cast_type=list
+)
+
+# Logging Konfiguration für Startup
+logger.info(f"✓ Django Settings geladen (ENVIRONMENT={ENVIRONMENT}, DEBUG={DEBUG})")
+logger.info(f"✓ ALLOWED_HOSTS: {ALLOWED_HOSTS}")
+
 
 INSTALLED_APPS = [
     "daphne",

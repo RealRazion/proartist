@@ -26,6 +26,7 @@ from .models import (
     Notification,
     Payment,
     Profile,
+    PluginGuideImage,
     ProjectAttachment,
     PluginGuide,
     Project,
@@ -1390,6 +1391,7 @@ class FinanceTipSerializer(serializers.ModelSerializer):
 class PluginGuideSerializer(serializers.ModelSerializer):
     author = ProfileMiniSerializer(read_only=True)
     image_url = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     class Meta:
         model = PluginGuide
@@ -1400,16 +1402,33 @@ class PluginGuideSerializer(serializers.ModelSerializer):
             "author",
             "image",
             "image_url",
+            "images",
             "is_published",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["author", "created_at", "updated_at", "image_url"]
+        read_only_fields = ["author", "created_at", "updated_at", "image_url", "images"]
 
     def get_image_url(self, obj):
         if not obj.image:
             return None
         return obj.image.url
+
+    def get_images(self, obj):
+        request = self.context.get("request") if hasattr(self, "context") else None
+        rows = []
+        for image in obj.images.all():
+            url = image.image.url if image.image else None
+            if url and request and hasattr(request, "build_absolute_uri"):
+                url = request.build_absolute_uri(url)
+            rows.append(
+                {
+                    "id": image.id,
+                    "image_url": url,
+                    "sort_order": image.sort_order,
+                }
+            )
+        return rows
 
 
 class AutomationRuleSerializer(serializers.ModelSerializer):

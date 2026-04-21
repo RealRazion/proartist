@@ -589,6 +589,19 @@ class PluginGuide(models.Model):
 
     def __str__(self): return self.title
 
+
+class PluginGuideImage(models.Model):
+    guide = models.ForeignKey(PluginGuide, on_delete=models.CASCADE, related_name="images")
+    image = models.FileField(upload_to="plugin_guides/gallery/")
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "created_at"]
+
+    def __str__(self):
+        return f"{self.guide_id}#{self.id}"
+
 class AutomationRule(models.Model):
     TRIGGER_CHOICES = [
         ("TASK_STATUS", "Task Status"),

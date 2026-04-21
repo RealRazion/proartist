@@ -2,7 +2,8 @@ import csv
 import io
 import os
 from calendar import monthrange
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from decimal import Decimal
 import re
 
 from django.contrib.auth.models import User
@@ -45,6 +46,7 @@ from .models import (
     Notification,
     Payment,
     PluginGuide,
+    PluginGuideImage,
     Profile,
     Project,
     ProjectAttachment,
@@ -1674,6 +1676,26 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user.profile)
 
+    def _calc_month_net(self, active_entries, debts, forecast_date):
+        """Calculate net income for a single month (after savings deduction)."""
+        income = Decimal("0.00")
+        expenses = Decimal("0.00")
+        debt_payments = Decimal("0.00")
+        for entry in active_entries:
+            monthly_amt = _monthly_amount(entry, forecast_date)
+            if entry.entry_type == "INCOME":
+                income += monthly_amt
+            else:
+                expenses += monthly_amt
+        for debt in debts:
+            monthly_amt = _debt_monthly_amount(debt, forecast_date)
+            debt_payments += monthly_amt
+        total_expenses = expenses + debt_payments
+        net = income - total_expenses
+        if getattr(self, '_savings_pct', Decimal("0")) > 0 and net > 0:
+            net -= net * (self._savings_pct / 100)
+        return net
+
     @action(detail=True, methods=["GET"], url_path="monthly-forecast")
     def monthly_forecast(self, request, pk=None):
         project = self.get_object()
@@ -1716,6 +1738,21 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
             savings_amount = net_income * (project.savings_percentage / 100)
             net_income -= savings_amount
 
+        # --- Carryover: kumulierter Übertrag ab Projekterstellung ---
+        # Summiere das Netto jedes Monats von Projekterstellung bis zum Vormonat
+        carryover = Decimal("0.00")
+        start = date(project.created_at.year, project.created_at.month, 1)
+        self._savings_pct = project.savings_percentage
+        cur = start
+        while cur < forecast_date:
+            carryover += self._calc_month_net(active_entries, debts, cur)
+            # Advance one month
+            if cur.month == 12:
+                cur = date(cur.year + 1, 1, 1)
+            else:
+                cur = date(cur.year, cur.month + 1, 1)
+        cumulative_balance = carryover + net_income
+
         return Response({
             "month": month,
             "income": float(income),
@@ -1726,6 +1763,9 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
             "net_income": float(net_income),
             "savings_amount": float(savings_amount),
             "savings_percentage": float(project.savings_percentage),
+            "carryover": float(carryover),
+            "cumulative_balance": float(cumulative_balance),
+            "project_start_month": start.strftime("%Y-%m"),
         })
 
     @action(detail=True, methods=["GET"], url_path="export-overview")
@@ -1873,7 +1913,7 @@ class BookingViewSet(viewsets.ModelViewSet):
 
 
 class PluginGuideViewSet(viewsets.ModelViewSet):
-    queryset = PluginGuide.objects.select_related("author__user").order_by("-created_at")
+    queryset = PluginGuide.objects.select_related("author__user").prefetch_related("images").order_by("-created_at")
     serializer_class = PluginGuideSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -1900,6 +1940,31 @@ class PluginGuideViewSet(viewsets.ModelViewSet):
         guide.is_published = publish
         guide.save(update_fields=["is_published"])
         return Response({"is_published": publish})
+
+    @action(detail=True, methods=["POST"], url_path="upload-images", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def upload_images(self, request, pk=None):
+        guide = self.get_object()
+        files = request.FILES.getlist("images")
+        if not files:
+            return Response({"detail": "Keine Bilder uebergeben."}, status=status.HTTP_400_BAD_REQUEST)
+
+        current_count = guide.images.count()
+        created = []
+        for idx, file in enumerate(files):
+            image = PluginGuideImage.objects.create(
+                guide=guide,
+                image=file,
+                sort_order=current_count + idx,
+            )
+            created.append({"id": image.id, "image_url": image.image.url, "sort_order": image.sort_order})
+        return Response({"created": created}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["DELETE"], url_path=r"images/(?P<image_id>[^/.]+)", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def delete_image(self, request, pk=None, image_id=None):
+        guide = self.get_object()
+        image = get_object_or_404(PluginGuideImage, id=image_id, guide=guide)
+        image.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class AutomationRuleViewSet(viewsets.ModelViewSet):

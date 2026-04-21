@@ -28,6 +28,13 @@
   --status-overdue: #ef4444;
   --status-soon: #f59e0b;
   --status-ok: #22c55e;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
 }
 
 :root.dark {
@@ -113,6 +120,17 @@ textarea {
   background: var(--input-bg-focus);
 }
 
+.input:focus-visible,
+.btn:focus-visible,
+.iconbtn:focus-visible,
+.nav-link:focus-visible,
+.chip:focus-visible,
+.menu-item:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
 select.input,
 select {
   appearance: none;
@@ -157,6 +175,7 @@ select:disabled {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  min-height: 42px;
   padding: 10px 16px;
   border: none;
   border-radius: 12px;
@@ -197,7 +216,7 @@ select:disabled {
   border-radius: 20px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
-  padding: 18px;
+  padding: var(--space-4);
 }
 
 .modal-overlay,
@@ -212,6 +231,21 @@ select:disabled {
   background: var(--modal-bg);
   border: 1px solid var(--border);
   box-shadow: var(--modal-shadow);
+  width: min(860px, calc(100vw - 28px));
+  max-height: min(88vh, 860px);
+  overflow: auto;
+}
+
+.modal-header,
+.modal-actions,
+.section-head,
+.panel-head {
+  align-items: center;
+}
+
+.modal-actions .btn,
+.actions .btn {
+  min-width: 136px;
 }
 
 .muted {
@@ -576,7 +610,7 @@ select:disabled {
 
 .content {
   flex: 1;
-  padding: 20px;
+  padding: var(--space-5);
   display: block;
   min-height: 0;
   width: 100%;
@@ -610,11 +644,72 @@ select:disabled {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .wide .card {
   width: 100%;
+}
+
+.grid {
+  align-items: stretch;
+}
+
+.grid > .card,
+.artist-grid > .card,
+.kpis > .card {
+  height: 100%;
+}
+
+.panel-head,
+.section-head {
+  min-height: 44px;
+}
+
+.skeleton,
+.skeleton-card {
+  background: linear-gradient(110deg, rgba(148, 163, 184, 0.12) 25%, rgba(148, 163, 184, 0.24) 37%, rgba(148, 163, 184, 0.12) 63%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 760px) {
+  .table-stack thead {
+    display: none;
+  }
+
+  .table-stack tr {
+    display: grid;
+    gap: var(--space-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: var(--space-3);
+    margin-bottom: var(--space-2);
+    background: var(--surface);
+  }
+
+  .table-stack td {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .table-stack td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-weight: 600;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -666,7 +761,7 @@ select:disabled {
 
 @media (max-width: 720px) {
   .content {
-    padding: 16px;
+    padding: var(--space-4);
   }
 
   .hero {
@@ -692,7 +787,7 @@ select:disabled {
   }
 
   .card {
-    padding: 16px;
+    padding: var(--space-4);
   }
 
   .panel-head {
@@ -718,12 +813,22 @@ select:disabled {
     max-width: calc(100vw - 32px);
   }
 
+  .modal-content,
+  .modal {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 24px);
+  }
+
   .form {
     gap: 12px;
   }
 
   .input, .btn {
     width: 100%;
+  }
+
+  .btn {
+    min-height: 44px;
   }
 
   .search-controls form {

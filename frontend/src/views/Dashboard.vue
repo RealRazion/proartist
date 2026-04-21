@@ -162,8 +162,9 @@ const DEFAULT_WIDGETS = ['priorities', 'reviews', 'deadlines', 'requests'];
 function loadWidgetOrder() {
   try {
     const stored = JSON.parse(localStorage.getItem('dashboardWidgets'));
-    if (Array.isArray(stored) && stored.length > 0 && stored.every(id => VALID_WIDGET_IDS.has(id))) {
-      return stored;
+    if (Array.isArray(stored) && stored.length > 0) {
+      const normalized = [...new Set(stored.filter((id) => VALID_WIDGET_IDS.has(id)))];
+      if (normalized.length) return normalized;
     }
   } catch {
     // ignore invalid JSON

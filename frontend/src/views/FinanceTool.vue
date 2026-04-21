@@ -471,6 +471,9 @@
             </button>
             <div v-if="forecast" class="forecast-result">
               <h4>Prognose für {{ forecast.month }}</h4>
+              <p v-if="forecast.project_start_month" class="muted small">
+                Kumulierung ab {{ forecast.project_start_month }} (Projekterstellung)
+              </p>
               <div class="forecast-grid">
                 <div>
                   <span>Einnahmen</span>
@@ -493,16 +496,24 @@
                   <strong>{{ formatCurrency(forecast.remaining_debt) }}</strong>
                 </div>
                 <div>
-                  <span>Netto-Einkommen</span>
+                  <span>Netto diesen Monat</span>
                   <strong>{{ formatCurrency(forecast.net_income) }}</strong>
                 </div>
                 <div v-if="forecast.savings_percentage > 0">
                   <span>Sparen ({{ forecast.savings_percentage }}%)</span>
                   <strong>{{ formatCurrency(forecast.savings_amount) }}</strong>
                 </div>
-                <div>
-                  <span>Übrig nach Sparen</span>
-                  <strong>{{ formatCurrency(forecast.net_income - forecast.savings_amount) }}</strong>
+                <div v-if="forecast.carryover !== 0" class="forecast-carryover">
+                  <span>Übertrag Vormonate</span>
+                  <strong :class="forecast.carryover >= 0 ? 'positive' : 'negative'">
+                    {{ formatCurrency(forecast.carryover) }}
+                  </strong>
+                </div>
+                <div class="forecast-cumulative">
+                  <span>Kumulierter Saldo</span>
+                  <strong :class="forecast.cumulative_balance >= 0 ? 'positive' : 'negative'">
+                    {{ formatCurrency(forecast.cumulative_balance) }}
+                  </strong>
                 </div>
               </div>
             </div>
@@ -533,7 +544,8 @@
             </button>
             <div v-if="comparison" class="comparison-result">
               <h4>Vergleich</h4>
-              <table class="comparison-table">
+              <div class="table-responsive">
+              <table class="comparison-table table-stack">
                 <thead>
                   <tr>
                     <th>Kategorie</th>
@@ -544,25 +556,26 @@
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Einnahmen</td>
-                    <td>{{ formatCurrency(comparison.forecast1.income) }}</td>
-                    <td>{{ formatCurrency(comparison.forecast2.income) }}</td>
-                    <td>{{ formatCurrency(comparison.forecast2.income - comparison.forecast1.income) }}</td>
+                    <td data-label="Kategorie">Einnahmen</td>
+                    <td :data-label="comparison.month1">{{ formatCurrency(comparison.forecast1.income) }}</td>
+                    <td :data-label="comparison.month2">{{ formatCurrency(comparison.forecast2.income) }}</td>
+                    <td data-label="Differenz">{{ formatCurrency(comparison.forecast2.income - comparison.forecast1.income) }}</td>
                   </tr>
                   <tr>
-                    <td>Ausgaben</td>
-                    <td>{{ formatCurrency(comparison.forecast1.expenses) }}</td>
-                    <td>{{ formatCurrency(comparison.forecast2.expenses) }}</td>
-                    <td>{{ formatCurrency(comparison.forecast2.expenses - comparison.forecast1.expenses) }}</td>
+                    <td data-label="Kategorie">Ausgaben</td>
+                    <td :data-label="comparison.month1">{{ formatCurrency(comparison.forecast1.expenses) }}</td>
+                    <td :data-label="comparison.month2">{{ formatCurrency(comparison.forecast2.expenses) }}</td>
+                    <td data-label="Differenz">{{ formatCurrency(comparison.forecast2.expenses - comparison.forecast1.expenses) }}</td>
                   </tr>
                   <tr>
-                    <td>Netto-Einkommen</td>
-                    <td>{{ formatCurrency(comparison.forecast1.net_income) }}</td>
-                    <td>{{ formatCurrency(comparison.forecast2.net_income) }}</td>
-                    <td>{{ formatCurrency(comparison.forecast2.net_income - comparison.forecast1.net_income) }}</td>
+                    <td data-label="Kategorie">Netto-Einkommen</td>
+                    <td :data-label="comparison.month1">{{ formatCurrency(comparison.forecast1.net_income) }}</td>
+                    <td :data-label="comparison.month2">{{ formatCurrency(comparison.forecast2.net_income) }}</td>
+                    <td data-label="Differenz">{{ formatCurrency(comparison.forecast2.net_income - comparison.forecast1.net_income) }}</td>
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </div>
@@ -2279,6 +2292,20 @@ onMounted(async () => {
   border-radius: 8px;
   border: 1px solid var(--border);
 }
+
+.forecast-carryover {
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  background: rgba(59, 130, 246, 0.07) !important;
+}
+
+.forecast-cumulative {
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  background: rgba(34, 197, 94, 0.08) !important;
+  font-weight: 600;
+}
+
+.forecast-grid .positive { color: var(--status-ok, #22c55e); }
+.forecast-grid .negative { color: var(--status-overdue, #f87171); }
 
 /* Category Breakdown */
 .category-breakdown {

@@ -696,4 +696,3 @@ onMounted(async () => {
   }
 }
 </style>
-</style>

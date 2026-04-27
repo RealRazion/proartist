@@ -185,6 +185,17 @@ const platforms = [
     comingSoon: false,
   },
   {
+    key: "content-schedule",
+    title: "Content Schedule",
+    category: "Planung",
+    description: "Plane deinen Content von Montag bis Sonntag. Lege Content-Serien mit Header, Parts und Links per Drag & Drop an.",
+    buttonLabel: "Planen",
+    icon: "📅",
+    features: ["Wochenplan", "Drag & Drop", "Content-Serien"],
+    roles: ["TEAM", "ARTIST", "PRODUCER"],
+    comingSoon: false,
+  },
+  {
     key: "fitness",
     title: "Fitness Tracker",
     category: "Health",
@@ -228,6 +239,7 @@ function openPlatform(platform) {
     locations: "/platforms/locations",
     finance: "/platforms/finance",
     "content-studio": "/platforms/content-studio",
+    "content-schedule": "/platforms/content-schedule",
     fitness: "/platforms/fitness",
     admin: "/platforms/admin",
   };

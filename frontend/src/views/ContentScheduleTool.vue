@@ -4,189 +4,158 @@
     <header class="card topbar">
       <div class="topbar-left">
         <p class="eyebrow">Content Schedule</p>
-        <h1>Wochenplaner</h1>
+        <h1 class="week-label">{{ weekLabel }}</h1>
       </div>
       <div class="topbar-actions">
-        <button class="btn ghost" type="button" @click="clearAll">Alles löschen</button>
-        <button class="btn ghost" type="button" @click="router.push({ name: 'platform-content-schedule' })">Landingpage</button>
+        <div class="week-nav">
+          <button class="btn ghost icon-btn" type="button" @click="prevWeek" aria-label="Vorherige Woche">‹</button>
+          <button class="btn ghost" type="button" @click="goToCurrentWeek">Diese Woche</button>
+          <button class="btn ghost icon-btn" type="button" @click="nextWeek" aria-label="Nächste Woche">›</button>
+        </div>
+        <button class="btn ghost" type="button" @click="router.push({ name: 'platform-content-schedule' })">Übersicht</button>
       </div>
     </header>
 
-    <div class="workspace">
-      <!-- Left palette -->
-      <aside class="palette card">
-        <h2 class="palette-title">Bausteine</h2>
-        <p class="muted palette-hint">Ziehe einen Block in einen Wochentag.</p>
+    <!-- Stats row -->
+    <div class="stats-row">
+      <div class="stat-chip">
+        <span class="stat-val">{{ weekPostCount }}</span>
+        <span class="stat-label">Posts diese Woche</span>
+      </div>
+      <div class="stat-chip" v-for="s in statusStats" :key="s.key">
+        <span class="stat-dot" :data-status="s.key"></span>
+        <span class="stat-val">{{ s.count }}</span>
+        <span class="stat-label">{{ s.label }}</span>
+      </div>
+    </div>
 
-        <draggable
-          :list="palette"
-          :group="{ name: 'blocks', pull: 'clone', put: false }"
-          :sort="false"
-          item-key="type"
-          class="palette-list"
-        >
-          <template #item="{ element }">
-            <div class="palette-item" :data-btype="element.type">
-              <span class="palette-icon">{{ element.icon }}</span>
-              <div>
-                <strong>{{ element.label }}</strong>
-                <p class="muted">{{ element.hint }}</p>
-              </div>
-            </div>
-          </template>
-        </draggable>
+    <!-- Day tabs (mobile) -->
+    <div class="day-tabs" role="tablist">
+      <button
+        v-for="day in days"
+        :key="day.dateKey"
+        class="day-tab"
+        :class="{ active: activeDay === day.dateKey, today: day.isToday }"
+        role="tab"
+        :aria-selected="activeDay === day.dateKey"
+        type="button"
+        :aria-label="`${day.label}, ${day.dateStr}`"
+        @click="activeDay = day.dateKey"
+      >
+        <span class="tab-short">{{ day.short }}</span>
+        <span class="tab-date">{{ day.dateNum }}</span>
+        <span v-if="postsForDay(day.dateKey).length" class="tab-badge">{{ postsForDay(day.dateKey).length }}</span>
+      </button>
+    </div>
 
-        <!-- Legend -->
-        <div class="palette-legend">
-          <div class="legend-item" v-for="p in palette" :key="p.type" :data-btype="p.type">
-            <span class="dot"></span>{{ p.label }}
+    <!-- Week grid -->
+    <div class="week-grid">
+      <div
+        v-for="day in days"
+        :key="day.dateKey"
+        class="day-column card"
+        :class="{ 'day-today': day.isToday, 'day-hidden': activeDay !== day.dateKey }"
+        role="tabpanel"
+      >
+        <div class="day-header">
+          <div class="day-meta">
+            <span class="day-name" :class="{ 'is-today': day.isToday }">{{ day.label }}</span>
+            <span class="day-date muted">{{ day.dateStr }}</span>
           </div>
+          <button class="add-btn" type="button" @click="openAdd(day.dateKey)" aria-label="Post hinzufügen">+</button>
         </div>
-      </aside>
 
-      <!-- Weekly grid -->
-      <div class="week-grid">
-        <div
-          v-for="day in days"
-          :key="day.key"
-          class="day-column card"
-        >
-          <div class="day-header">
-            <span class="day-name">{{ day.label }}</span>
-            <span class="day-count" v-if="schedule[day.key].length">{{ schedule[day.key].length }}</span>
+        <div class="post-list">
+          <div
+            v-for="post in postsForDay(day.dateKey)"
+            :key="post.id"
+            class="post-card"
+            :data-status="post.status"
+            @click="openEdit(day.dateKey, post)"
+          >
+            <div class="post-top">
+              <span class="post-platform-icon" :title="platformLabel(post.platform)">{{ platformIcon(post.platform) }}</span>
+              <span class="post-title">{{ post.title || "Kein Titel" }}</span>
+              <button class="post-del" type="button" @click.stop="deletePost(day.dateKey, post.id)" aria-label="Post löschen">×</button>
+            </div>
+            <p v-if="post.note" class="post-note muted">{{ post.note }}</p>
+            <div class="post-footer">
+              <span class="platform-badge" :data-platform="post.platform">{{ platformLabel(post.platform) }}</span>
+              <span class="status-badge" :data-status="post.status">{{ statusLabel(post.status) }}</span>
+            </div>
           </div>
 
-          <!-- Drop zone for headers into this day -->
-          <draggable
-            v-model="schedule[day.key]"
-            group="blocks"
-            item-key="id"
-            class="day-drop"
-            ghost-class="ghost-block"
-            :animation="150"
-            @add="onAdd($event, day.key)"
-          >
-            <template #item="{ element: block, index: bi }">
-              <!-- HEADER block -->
-              <div v-if="block.type === 'header'" class="block header-block" :style="{ borderColor: block.color }">
-                <div class="block-row">
-                  <span class="block-icon">📌</span>
-                  <input
-                    v-if="block.editing"
-                    v-model="block.label"
-                    class="block-input"
-                    placeholder="Serienname…"
-                    @blur="block.editing = false"
-                    @keydown.enter="block.editing = false"
-                    autofocus
-                  />
-                  <span v-else class="block-label" @dblclick="block.editing = true" :title="'Doppelklick zum Bearbeiten'">
-                    {{ block.label || "Neue Reihe" }}
-                  </span>
-                  <button class="block-del" type="button" @click="removeBlock(schedule[day.key], bi)" aria-label="Block entfernen">×</button>
-                </div>
-
-                <!-- Parts inside this header -->
-                <draggable
-                  v-model="block.parts"
-                  group="blocks"
-                  item-key="id"
-                  class="parts-drop"
-                  ghost-class="ghost-block"
-                  :animation="150"
-                  @add="onAddPart($event, block)"
-                >
-                  <template #item="{ element: part, index: pi }">
-                    <!-- PART block -->
-                    <div v-if="part.type === 'part'" class="block part-block">
-                      <div class="block-row">
-                        <span class="block-icon">📄</span>
-                        <input
-                          v-if="part.editing"
-                          v-model="part.label"
-                          class="block-input"
-                          placeholder="Part-Name…"
-                          @blur="part.editing = false"
-                          @keydown.enter="part.editing = false"
-                          autofocus
-                        />
-                        <span v-else class="block-label" @dblclick="part.editing = true" :title="'Doppelklick zum Bearbeiten'">
-                          {{ part.label || "Neuer Part" }}
-                        </span>
-                        <button class="block-del" type="button" @click="removeBlock(block.parts, pi)" aria-label="Part entfernen">×</button>
-                      </div>
-
-                      <!-- Links inside this part -->
-                      <draggable
-                        v-model="part.links"
-                        group="blocks"
-                        item-key="id"
-                        class="links-drop"
-                        ghost-class="ghost-block"
-                        :animation="150"
-                        @add="onAddLink($event, part)"
-                      >
-                        <template #item="{ element: link, index: li }">
-                          <!-- LINK block -->
-                          <div v-if="link.type === 'link'" class="block link-block">
-                            <div class="block-row">
-                              <span class="block-icon">🔗</span>
-                              <input
-                                v-model="link.label"
-                                class="block-input"
-                                placeholder="Beschreibung…"
-                              />
-                              <button class="block-del" type="button" @click="removeBlock(part.links, li)" aria-label="Link entfernen">×</button>
-                            </div>
-                            <input
-                              v-model="link.url"
-                              class="block-input url-input"
-                              placeholder="https://…"
-                              type="url"
-                            />
-                          </div>
-                          <!-- Wrong block type dropped into links zone -->
-                          <div v-else class="block wrong-block">
-                            <span class="muted">Hier nur 🔗 Links platzieren</span>
-                            <button class="block-del" type="button" @click="removeBlock(part.links, li)">×</button>
-                          </div>
-                        </template>
-                      </draggable>
-
-                      <div class="add-hint muted" v-if="!part.links.length">← 🔗 Link hier fallen lassen</div>
-                    </div>
-                    <!-- Wrong block type dropped into parts zone -->
-                    <div v-else class="block wrong-block">
-                      <span class="muted">Hier nur 📄 Parts oder 🔗 Links platzieren</span>
-                      <button class="block-del" type="button" @click="removeBlock(block.parts, pi)">×</button>
-                    </div>
-                  </template>
-                </draggable>
-
-                <div class="add-hint muted" v-if="!block.parts.length">← 📄 Part hier fallen lassen</div>
-              </div>
-
-              <!-- Wrong block type dropped at day level (not header) -->
-              <div v-else class="block wrong-block">
-                <span class="muted">Hier zuerst einen 📌 Header platzieren</span>
-                <button class="block-del" type="button" @click="removeBlock(schedule[day.key], bi)">×</button>
-              </div>
-            </template>
-          </draggable>
-
-          <div class="drop-hint muted" v-if="!schedule[day.key].length">📌 Header hier ablegen</div>
+          <button class="add-post-btn" type="button" @click="openAdd(day.dateKey)">
+            <span class="plus">+</span> Post planen
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Confirm clear dialog -->
-    <div v-if="showClearConfirm" class="overlay" @click.self="showClearConfirm = false">
-      <div class="modal card">
-        <h2>Plan löschen?</h2>
-        <p class="muted">Alle Blöcke werden unwiderruflich entfernt. Fortfahren?</p>
+    <!-- Add / Edit Modal -->
+    <div v-if="modal.open" class="overlay" @click.self="modal.open = false">
+      <div class="modal card" role="dialog" aria-modal="true" :aria-label="modal.isEdit ? 'Post bearbeiten' : 'Neuen Post planen'">
+        <h2>{{ modal.isEdit ? "Post bearbeiten" : "Neuen Post planen" }}</h2>
+
+        <label class="field-label">
+          Plattform
+          <div class="platform-grid">
+            <button
+              v-for="p in platforms"
+              :key="p.key"
+              class="platform-option"
+              :class="{ selected: modal.form.platform === p.key }"
+              :data-platform="p.key"
+              type="button"
+              @click="modal.form.platform = p.key"
+            >
+              <span class="platform-opt-icon">{{ p.icon }}</span>
+              <span class="platform-opt-label">{{ p.label }}</span>
+            </button>
+          </div>
+        </label>
+
+        <label class="field-label">
+          Titel / Thema
+          <input
+            v-model="modal.form.title"
+            class="input"
+            placeholder="z.B. Monday Motivation, Behind the Scenes…"
+            type="text"
+            maxlength="120"
+          />
+        </label>
+
+        <label class="field-label">
+          Status
+          <div class="status-options">
+            <button
+              v-for="s in statuses"
+              :key="s.key"
+              class="status-option"
+              :class="{ selected: modal.form.status === s.key }"
+              :data-status="s.key"
+              type="button"
+              @click="modal.form.status = s.key"
+            >{{ s.label }}</button>
+          </div>
+        </label>
+
+        <label class="field-label">
+          Notiz (optional)
+          <textarea
+            v-model="modal.form.note"
+            class="input textarea"
+            placeholder="Kurze Notiz, Hashtags, Uhrzeit…"
+            rows="3"
+            maxlength="400"
+          ></textarea>
+        </label>
+
         <div class="modal-actions">
-          <button class="btn ghost" type="button" @click="showClearConfirm = false">Abbrechen</button>
-          <button class="btn danger" type="button" @click="confirmClear">Löschen</button>
+          <button class="btn ghost" type="button" @click="modal.open = false">Abbrechen</button>
+          <button v-if="modal.isEdit" class="btn danger" type="button" @click="deleteAndClose">Löschen</button>
+          <button class="btn" type="button" @click="savePost">{{ modal.isEdit ? "Speichern" : "Hinzufügen" }}</button>
         </div>
       </div>
     </div>
@@ -194,37 +163,100 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { VueDraggableNext as draggable } from "vue-draggable-next";
 
 const router = useRouter();
-const STORAGE_KEY = "content_schedule_v1";
-const showClearConfirm = ref(false);
+const STORAGE_KEY = "content_schedule_v2";
 
-// --------------- palette ---------------
-const palette = [
-  { type: "header", icon: "📌", label: "Header", hint: "Neue Content-Reihe anlegen" },
-  { type: "part",   icon: "📄", label: "Part",   hint: "Inhaltsteil (z.B. Review)" },
-  { type: "link",   icon: "🔗", label: "Link",   hint: "Verlinkung / URL hinzufügen" },
+// --------------- platforms ---------------
+const platforms = [
+  { key: "youtube",   icon: "🎬", label: "YouTube" },
+  { key: "instagram", icon: "📸", label: "Instagram" },
+  { key: "tiktok",    icon: "🎵", label: "TikTok" },
+  { key: "twitter",   icon: "🐦", label: "X / Twitter" },
+  { key: "podcast",   icon: "🎙️", label: "Podcast" },
+  { key: "blog",      icon: "✍️", label: "Blog" },
+  { key: "other",     icon: "📢", label: "Sonstiges" },
 ];
 
-// --------------- days ---------------
-const days = [
-  { key: "mon", label: "Montag" },
-  { key: "tue", label: "Dienstag" },
-  { key: "wed", label: "Mittwoch" },
-  { key: "thu", label: "Donnerstag" },
-  { key: "fri", label: "Freitag" },
-  { key: "sat", label: "Samstag" },
-  { key: "sun", label: "Sonntag" },
-];
-
-// --------------- schedule ---------------
-function emptySchedule() {
-  return Object.fromEntries(days.map((d) => [d.key, []]));
+function platformIcon(key) {
+  return platforms.find((p) => p.key === key)?.icon ?? "📢";
+}
+function platformLabel(key) {
+  return platforms.find((p) => p.key === key)?.label ?? key;
 }
 
+// --------------- statuses ---------------
+const statuses = [
+  { key: "draft",  label: "Entwurf" },
+  { key: "ready",  label: "Bereit" },
+  { key: "posted", label: "Gepostet" },
+];
+
+function statusLabel(key) {
+  return statuses.find((s) => s.key === key)?.label ?? key;
+}
+
+// --------------- week navigation ---------------
+const weekOffset = ref(0);
+const todayDate = new Date();
+todayDate.setHours(0, 0, 0, 0);
+
+function getWeekStart(offset) {
+  const d = new Date(todayDate);
+  const dow = d.getDay(); // 0=Sun
+  const diff = dow === 0 ? -6 : 1 - dow; // shift to Monday
+  d.setDate(d.getDate() + diff + offset * 7);
+  return d;
+}
+
+const DAY_NAMES  = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+const DAY_SHORTS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
+
+const days = computed(() => {
+  const start = getWeekStart(weekOffset.value);
+  return DAY_NAMES.map((label, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    const isToday = d.getTime() === todayDate.getTime();
+    const dateKey = d.toISOString().slice(0, 10);
+    return {
+      label,
+      short: DAY_SHORTS[i],
+      isToday,
+      dateKey,
+      dateStr: d.toLocaleDateString("de-DE", { day: "numeric", month: "short" }),
+      dateNum: d.getDate(),
+    };
+  });
+});
+
+const weekLabel = computed(() => {
+  const first = days.value[0];
+  const last  = days.value[6];
+  const y = new Date(first.dateKey).getFullYear();
+  return `${first.dateStr} – ${last.dateStr} ${y}`;
+});
+
+function prevWeek() { weekOffset.value--; }
+function nextWeek() { weekOffset.value++; }
+function goToCurrentWeek() { weekOffset.value = 0; }
+
+// Active day for mobile tab navigation (default = today or Monday of the current week)
+const todayKey = days.value.find((d) => d.isToday)?.dateKey;
+const activeDay = ref(todayKey ?? days.value[0]?.dateKey ?? "");
+
+// Keep activeDay in sync when week changes
+watch(days, (newDays) => {
+  const current = newDays.find((d) => d.dateKey === activeDay.value);
+  if (!current) {
+    const today = newDays.find((d) => d.isToday);
+    activeDay.value = today ? today.dateKey : newDays[0].dateKey;
+  }
+});
+
+// --------------- schedule (keyed by YYYY-MM-DD) ---------------
 function loadSchedule() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -232,7 +264,7 @@ function loadSchedule() {
   } catch {
     // ignore
   }
-  return emptySchedule();
+  return {};
 }
 
 const schedule = ref(loadSchedule());
@@ -245,91 +277,94 @@ watch(schedule, (val) => {
   }
 }, { deep: true });
 
-// --------------- id helper ---------------
+function postsForDay(dateKey) {
+  return schedule.value[dateKey] ?? [];
+}
+
+// --------------- stats ---------------
+const weekPostCount = computed(() =>
+  days.value.reduce((sum, d) => sum + postsForDay(d.dateKey).length, 0)
+);
+
+const statusStats = computed(() =>
+  statuses.map((s) => ({
+    key: s.key,
+    label: s.label,
+    count: days.value.reduce(
+      (sum, d) => sum + postsForDay(d.dateKey).filter((p) => p.status === s.key).length,
+      0
+    ),
+  })).filter((s) => s.count > 0)
+);
+
+// --------------- uid ---------------
+let _uidCounter = 0;
 function uid() {
-  return crypto.randomUUID ? crypto.randomUUID() : `b${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : `p${Date.now()}-${++_uidCounter}-${Math.random().toString(36).slice(2)}`;
 }
 
-// --------------- block factories ---------------
-function makeHeader() {
-  return { id: uid(), type: "header", label: "", color: randomColor(), editing: true, parts: [] };
+// --------------- modal ---------------
+const modal = ref({
+  open: false,
+  isEdit: false,
+  dateKey: null,
+  editId: null,
+  form: { platform: "youtube", title: "", status: "draft", note: "" },
+});
+
+function freshForm() {
+  return { platform: "youtube", title: "", status: "draft", note: "" };
 }
 
-function makePart() {
-  return { id: uid(), type: "part", label: "", editing: true, links: [] };
+function openAdd(dateKey) {
+  modal.value = { open: true, isEdit: false, dateKey, editId: null, form: freshForm() };
 }
 
-function makeLink() {
-  return { id: uid(), type: "link", label: "", url: "" };
+function openEdit(dateKey, post) {
+  modal.value = {
+    open: true,
+    isEdit: true,
+    dateKey,
+    editId: post.id,
+    form: { platform: post.platform, title: post.title, status: post.status, note: post.note ?? "" },
+  };
 }
 
-const COLORS = ["#2f63ff", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#a855f7", "#ec4899"];
-let _colorIdx = 0;
-function randomColor() {
-  return COLORS[_colorIdx++ % COLORS.length];
-}
+function savePost() {
+  const { dateKey, isEdit, editId, form } = modal.value;
+  if (!schedule.value[dateKey]) schedule.value[dateKey] = [];
 
-// --------------- drop handlers ---------------
-// When a block is dropped into a day column (top-level)
-function onAdd(evt, dayKey) {
-  const added = schedule.value[dayKey][evt.newIndex];
-  if (!added) return;
-  // Always replace the dropped item with a fresh header instance
-  // (palette items lack parts/id; moved blocks already have them)
-  if (!Array.isArray(added.parts)) {
-    const fresh = makeHeader();
-    schedule.value[dayKey].splice(evt.newIndex, 1, fresh);
+  if (isEdit) {
+    const idx = schedule.value[dateKey].findIndex((p) => p.id === editId);
+    if (idx !== -1) {
+      schedule.value[dateKey].splice(idx, 1, { ...schedule.value[dateKey][idx], ...form });
+    }
+  } else {
+    schedule.value[dateKey].push({ id: uid(), ...form });
   }
+
+  modal.value.open = false;
 }
 
-// When a block is dropped into a header's parts zone
-function onAddPart(evt, header) {
-  const added = header.parts[evt.newIndex];
-  if (!added) return;
-  if (added.type === "part" && !Array.isArray(added.links)) {
-    // came from palette – replace with fresh part
-    const fresh = makePart();
-    header.parts.splice(evt.newIndex, 1, fresh);
-  } else if (added.type !== "part" && added.type !== "link") {
-    // wrong type – remove
-    header.parts.splice(evt.newIndex, 1);
-  }
+function deletePost(dateKey, postId) {
+  if (!schedule.value[dateKey]) return;
+  schedule.value[dateKey] = schedule.value[dateKey].filter((p) => p.id !== postId);
 }
 
-// When a block is dropped into a part's links zone
-function onAddLink(evt, part) {
-  const added = part.links[evt.newIndex];
-  if (!added) return;
-  if (added.type === "link" && !added.url && !added.label && !added.id) {
-    // came from palette – replace with fresh link
-    const fresh = makeLink();
-    part.links.splice(evt.newIndex, 1, fresh);
-  } else if (added.type !== "link") {
-    part.links.splice(evt.newIndex, 1);
-  }
-}
-
-// --------------- remove helpers ---------------
-function removeBlock(arr, idx) {
-  arr.splice(idx, 1);
-}
-
-// --------------- clear ---------------
-function clearAll() {
-  showClearConfirm.value = true;
-}
-
-function confirmClear() {
-  schedule.value = emptySchedule();
-  showClearConfirm.value = false;
+function deleteAndClose() {
+  deletePost(modal.value.dateKey, modal.value.editId);
+  modal.value.open = false;
 }
 </script>
 
 <style scoped>
+/* ---- Shell ---- */
 .cs-tool {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   padding: 20px;
   min-height: 100vh;
 }
@@ -339,132 +374,150 @@ function confirmClear() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 28px;
+  padding: 18px 24px;
   flex-shrink: 0;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .topbar-left .eyebrow {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--brand);
-  margin: 0 0 4px;
+  margin: 0 0 2px;
 }
 
-.topbar-left h1 {
-  font-size: 1.4rem;
+.week-label {
+  font-size: 1.15rem;
   font-weight: 800;
   margin: 0;
 }
 
 .topbar-actions {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-btn {
+  font-size: 1.2rem;
+  padding: 6px 12px;
+  min-width: 36px;
+}
+
+/* ---- Stats row ---- */
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-/* ---- Workspace ---- */
-.workspace {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 20px;
-  align-items: start;
-  min-height: 0;
-}
-
-/* ---- Palette ---- */
-.palette {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  position: sticky;
-  top: 20px;
-}
-
-.palette-title {
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0;
-}
-
-.palette-hint {
-  font-size: 0.82rem;
-  margin: 0;
-}
-
-.palette-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.palette-item {
+.stat-chip {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1.5px dashed var(--border);
-  cursor: grab;
-  background: var(--bg-soft);
-  transition: border-color 0.2s, background 0.2s;
-  user-select: none;
-}
-
-.palette-item:active {
-  cursor: grabbing;
-}
-
-.palette-item[data-btype="header"] { border-color: #2f63ff; }
-.palette-item[data-btype="part"]   { border-color: #10b981; }
-.palette-item[data-btype="link"]   { border-color: #a855f7; }
-
-.palette-item:hover {
-  background: var(--card);
-}
-
-.palette-icon {
-  font-size: 1.4rem;
-  flex-shrink: 0;
-}
-
-.palette-item strong {
-  font-size: 0.9rem;
-  display: block;
-}
-
-.palette-item p {
-  margin: 2px 0 0;
-  font-size: 0.78rem;
-}
-
-.palette-legend {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
   gap: 6px;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
   font-size: 0.82rem;
+  box-shadow: var(--shadow-soft);
 }
 
-.legend-item .dot {
-  width: 10px;
-  height: 10px;
+.stat-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
+.stat-dot[data-status="draft"]  { background: #94a3b8; }
+.stat-dot[data-status="ready"]  { background: #f59e0b; }
+.stat-dot[data-status="posted"] { background: #10b981; }
 
-.legend-item[data-btype="header"] .dot { background: #2f63ff; }
-.legend-item[data-btype="part"]   .dot { background: #10b981; }
-.legend-item[data-btype="link"]   .dot { background: #a855f7; }
+.stat-val {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stat-label {
+  color: var(--muted);
+}
+
+/* ---- Day tabs (shown on mobile, hidden on desktop) ---- */
+.day-tabs {
+  display: none;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.day-tabs::-webkit-scrollbar { display: none; }
+
+.day-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 48px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.day-tab.active {
+  border-color: var(--brand);
+  background: rgba(47, 99, 255, 0.08);
+}
+
+.day-tab.today .tab-short {
+  color: var(--brand);
+  font-weight: 800;
+}
+
+.tab-short {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tab-date {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
 
 /* ---- Week grid ---- */
 .week-grid {
@@ -474,199 +527,214 @@ function confirmClear() {
   align-items: start;
 }
 
+/* On mobile, .day-hidden hides non-active days.
+   On desktop this class has no effect (overridden below). */
+.day-hidden {
+  display: none;
+}
+
 .day-column {
-  padding: 14px 10px;
-  min-height: 300px;
+  padding: 14px 12px;
+  min-height: 260px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+.day-today {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand), var(--shadow-soft);
 }
 
 .day-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 4px;
+  gap: 6px;
+}
+
+.day-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .day-name {
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  color: var(--muted);
+}
+
+.day-name.is-today {
   color: var(--brand);
 }
 
-.day-count {
-  background: var(--brand);
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 10px;
+.day-date {
+  font-size: 0.72rem;
 }
 
-.day-drop {
+.add-btn {
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.add-btn:hover { opacity: 0.85; }
+
+/* ---- Post list ---- */
+.post-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 80px;
   flex: 1;
 }
 
-/* ---- Generic block ---- */
-.block {
+/* ---- Post card ---- */
+.post-card {
   border-radius: 10px;
   border: 1.5px solid var(--border);
   background: var(--card);
-  padding: 10px 10px 8px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s;
   box-shadow: var(--shadow-soft);
-  transition: box-shadow 0.2s;
 }
 
-.block:hover {
+.post-card:hover {
   box-shadow: var(--shadow-strong);
 }
 
-.block-row {
+.post-card[data-status="posted"] {
+  opacity: 0.7;
+}
+
+.post-top {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.block-icon {
+.post-platform-icon {
   font-size: 1rem;
   flex-shrink: 0;
 }
 
-.block-label {
+.post-title {
   flex: 1;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
+  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: text;
-}
-
-.block-input {
-  flex: 1;
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 0.85rem;
   color: var(--text);
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s;
-  min-width: 0;
 }
 
-.block-input:focus {
-  border-color: var(--brand);
-  background: var(--input-bg-focus);
-}
-
-.url-input {
-  width: 100%;
-}
-
-.block-del {
+.post-del {
   background: none;
   border: none;
   color: var(--muted);
   font-size: 1rem;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 2px;
   line-height: 1;
   flex-shrink: 0;
   border-radius: 4px;
-  transition: color 0.2s, background 0.2s;
+  transition: color 0.15s, background 0.15s;
 }
 
-.block-del:hover {
+.post-del:hover {
   color: #ef4444;
   background: rgba(239, 68, 68, 0.1);
 }
 
-/* ---- Header block ---- */
-.header-block {
-  border-left: 4px solid var(--brand);
-}
-
-/* ---- Parts drop zone ---- */
-.parts-drop {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px 0 2px 8px;
-  min-height: 32px;
-}
-
-/* ---- Part block ---- */
-.part-block {
-  background: var(--bg-soft);
-  border-color: #10b981;
-}
-
-/* ---- Links drop zone ---- */
-.links-drop {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 0 2px 8px;
-  min-height: 24px;
-}
-
-/* ---- Link block ---- */
-.link-block {
-  background: var(--surface);
-  border-color: #a855f7;
-  gap: 4px;
-}
-
-/* ---- Wrong block ---- */
-.wrong-block {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.05);
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  padding: 8px 10px;
-}
-
-/* ---- Hints ---- */
-.add-hint,
-.drop-hint {
+.post-note {
   font-size: 0.75rem;
-  text-align: center;
-  padding: 6px;
-  border: 1.5px dashed var(--border);
-  border-radius: 8px;
-  user-select: none;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.drop-hint {
-  flex: 1;
+.post-footer {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.platform-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(47, 99, 255, 0.1);
+  color: var(--brand);
+}
+
+.platform-badge[data-platform="youtube"]   { background: rgba(255, 0, 0, 0.1);   color: #dc2626; }
+.platform-badge[data-platform="instagram"] { background: rgba(168, 85, 247, 0.12); color: #9333ea; }
+.platform-badge[data-platform="tiktok"]    { background: rgba(15, 23, 42, 0.1);   color: var(--text); }
+.platform-badge[data-platform="twitter"]   { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
+.platform-badge[data-platform="podcast"]   { background: rgba(249, 115, 22, 0.12); color: #ea580c; }
+.platform-badge[data-platform="blog"]      { background: rgba(100, 116, 139, 0.12); color: #64748b; }
+
+.status-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.status-badge[data-status="draft"]  { background: rgba(148, 163, 184, 0.2); color: #64748b; }
+.status-badge[data-status="ready"]  { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.status-badge[data-status="posted"] { background: rgba(16, 185, 129, 0.15); color: #059669; }
+
+/* ---- Add post button ---- */
+.add-post-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  margin-top: auto;
 }
 
-/* ---- Ghost (drag preview) ---- */
-.ghost-block {
-  opacity: 0.4;
-  background: rgba(47, 99, 255, 0.08);
-  border: 1.5px dashed var(--brand) !important;
+.add-post-btn:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: rgba(47, 99, 255, 0.05);
 }
 
-/* ---- Modal / Confirm ---- */
+.plus {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* ---- Modal ---- */
 .overlay {
   position: fixed;
   inset: 0;
@@ -675,82 +743,224 @@ function confirmClear() {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 16px;
 }
 
 .modal {
-  padding: 36px;
-  max-width: 420px;
-  width: 90%;
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90dvh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .modal h2 {
   margin: 0;
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
 }
 
-.modal p {
-  margin: 0;
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted);
 }
+
+.input {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--brand);
+  background: var(--input-bg-focus);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+/* ---- Platform grid ---- */
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.platform-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-soft);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.platform-option.selected {
+  border-color: var(--brand);
+  background: rgba(47, 99, 255, 0.08);
+}
+
+.platform-opt-icon {
+  font-size: 1.3rem;
+}
+
+.platform-opt-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+
+/* ---- Status options ---- */
+.status-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-option {
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-soft);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 600;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  color: var(--muted);
+}
+
+.status-option.selected[data-status="draft"]  { border-color: #94a3b8; background: rgba(148,163,184,0.15); color: var(--text); }
+.status-option.selected[data-status="ready"]  { border-color: #f59e0b; background: rgba(245,158,11,0.12); color: #d97706; }
+.status-option.selected[data-status="posted"] { border-color: #10b981; background: rgba(16,185,129,0.12); color: #059669; }
 
 .modal-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
-/* ---- Responsive ---- */
-@media (max-width: 1280px) {
+/* ---- Global button helpers ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn:hover { opacity: 0.88; }
+
+.btn.ghost {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+}
+
+.btn.ghost:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: rgba(47, 99, 255, 0.06);
+  opacity: 1;
+}
+
+.btn.danger {
+  background: #ef4444;
+}
+
+/* ---- Desktop: show all 7 columns, hide tabs ---- */
+@media (min-width: 701px) {
+  .day-tabs { display: none; }
+
+  /* Override the mobile-only hide */
+  .day-hidden { display: flex !important; }
+}
+
+/* ---- Large desktop layout ---- */
+@media (min-width: 701px) and (max-width: 1100px) {
   .week-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 900px) {
-  .workspace {
-    grid-template-columns: 1fr;
-  }
-
-  .palette {
-    position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .palette-title,
-  .palette-hint,
-  .palette-legend {
-    flex-basis: 100%;
-  }
-
-  .palette-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
+@media (min-width: 1101px) {
   .week-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 600px) {
+/* ---- Mobile ---- */
+@media (max-width: 700px) {
   .cs-tool {
     padding: 12px;
+    gap: 12px;
   }
 
   .topbar {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
-    padding: 16px;
+    padding: 14px 16px;
+    gap: 10px;
   }
 
+  .week-label {
+    font-size: 0.95rem;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* Show day tabs */
+  .day-tabs {
+    display: flex;
+  }
+
+  /* Week grid: single column, one panel visible at a time */
   .week-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+  }
+
+  .day-column {
+    min-height: 200px;
+  }
+
+  .platform-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 </style>

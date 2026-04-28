@@ -3,22 +3,22 @@
     <section class="hero card">
       <div class="hero-copy">
         <p class="eyebrow">Content Schedule</p>
-        <h1>Plane deinen Content von Montag bis Sonntag – strukturiert & visuell.</h1>
+        <h1>Deine Posts. Deine Woche. Immer im Blick.</h1>
         <p class="muted lead">
-          Erstelle Content-Serien mit Header, Parts und Verlinkungen. Ziehe Blöcke per Drag &amp; Drop in
-          die Woche und behalte jederzeit den Überblick über Deadlines und Format-Rhythmen.
+          Plane YouTube-Videos, Instagram-Reels, TikToks und mehr – direkt in einer übersichtlichen Wochenansicht.
+          Kein Drag &amp; Drop-Chaos, keine verschachtelten Blöcke – einfach Post planen, Status setzen, fertig.
         </p>
         <div class="hero-points">
-          <span>Wochenplanung</span>
-          <span>Drag &amp; Drop</span>
-          <span>Header · Part · Link</span>
+          <span>📅 Wochennavigation</span>
+          <span>🎬 YouTube · 📸 Instagram · 🎵 TikTok</span>
+          <span>✅ Status-Tracking</span>
         </div>
       </div>
 
       <div class="launch card">
         <h2>Planer öffnen</h2>
         <p class="muted">
-          Lege Content-Serien an, ordne Parts zu und verknüpfe deine Beiträge – alles in einer übersichtlichen Wochenansicht.
+          Trag deinen Content für die Woche ein – mit Plattform, Titel, Status und optionaler Notiz. Alles wird lokal gespeichert.
         </p>
         <div class="launch-actions">
           <button class="btn" type="button" @click="goToPlanner">Zum Content Planer</button>
@@ -27,44 +27,53 @@
       </div>
     </section>
 
-    <section class="grid cards">
+    <section class="cards">
       <article class="card feature-card">
-        <div class="feature-icon">📌</div>
-        <h3>Header – Dein Projekt</h3>
-        <p class="muted">Ein Header steht für eine Content-Reihe wie „Fix yourself" oder „Top 5". Er spannt sich über beliebige Wochentage.</p>
+        <div class="feature-icon">📋</div>
+        <h3>Post planen</h3>
+        <p class="muted">Füge für jeden Tag Beiträge hinzu – mit Plattform, Titel und einer kurzen Notiz. Kein kompliziertes Drag &amp; Drop.</p>
       </article>
       <article class="card feature-card">
-        <div class="feature-icon">📄</div>
-        <h3>Part – Der Inhalt</h3>
-        <p class="muted">Parts sind einzelne Inhalte innerhalb einer Reihe, z.&nbsp;B. „Zwischenstand" oder „Review". Du benennst sie selbst.</p>
+        <div class="feature-icon">🏷️</div>
+        <h3>Status setzen</h3>
+        <p class="muted">Drei klare Stufen: <strong>Entwurf</strong>, <strong>Bereit</strong> und <strong>Gepostet</strong>. Du siehst sofort, was noch offen ist.</p>
       </article>
       <article class="card feature-card">
-        <div class="feature-icon">🔗</div>
-        <h3>Link – Die Verlinkung</h3>
-        <p class="muted">Links sind Referenzen oder URLs, die du einem Part anfügst – z.&nbsp;B. das fertige Video oder ein Script.</p>
+        <div class="feature-icon">📅</div>
+        <h3>Wochen navigieren</h3>
+        <p class="muted">Spring zwischen Wochen hin und her. Der heutige Tag ist immer markiert, damit du schnell weißt, wo du stehst.</p>
       </article>
     </section>
 
-    <section class="card sample">
+    <section class="card steps">
       <div class="section-head">
-        <div>
-          <h2>So funktioniert der Planer</h2>
-          <p class="muted">Drei Schritte, um deine Woche zu strukturieren.</p>
-        </div>
+        <h2>So planst du in 3 Schritten</h2>
+        <p class="muted">Schnell starten, kein Onboarding nötig.</p>
       </div>
 
-      <div class="sample-grid">
-        <div class="sample-step">
-          <strong>1. Header ziehen</strong>
-          <p class="muted">Ziehe einen Header-Block aus der Palette in den gewünschten Wochentag, um eine neue Content-Reihe anzulegen.</p>
+      <div class="step-list">
+        <div class="step">
+          <span class="step-num">1</span>
+          <div>
+            <strong>Tag auswählen</strong>
+            <p class="muted">Klicke auf den „+" Button bei einem Wochentag deiner Wahl.</p>
+          </div>
         </div>
-        <div class="sample-step">
-          <strong>2. Parts zuweisen</strong>
-          <p class="muted">Ziehe Parts in den Header-Block des passenden Tages und benenne sie frei, z.&nbsp;B. „Zielankündigung" oder „Review".</p>
+        <div class="step-sep"></div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <div>
+            <strong>Post ausfüllen</strong>
+            <p class="muted">Wähle Plattform, gib Titel und Status an – optional noch eine kurze Notiz.</p>
+          </div>
         </div>
-        <div class="sample-step">
-          <strong>3. Links hinzufügen</strong>
-          <p class="muted">Füge zu jedem Part beliebig viele Links hinzu – der Block wächst automatisch, um alle Links anzuzeigen.</p>
+        <div class="step-sep"></div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <div>
+            <strong>Status aktualisieren</strong>
+            <p class="muted">Klicke auf eine Karte, um den Status zu ändern – von Entwurf zu Gepostet, wenn's live ist.</p>
+          </div>
         </div>
       </div>
     </section>
@@ -97,74 +106,75 @@ function goBack() {
 
 .hero {
   display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 32px;
+  grid-template-columns: 1fr 320px;
+  gap: 28px;
   align-items: start;
-  padding: 40px;
+  padding: 36px;
 }
 
 .eyebrow {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--brand);
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 
 .hero-copy h1 {
-  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
   font-weight: 800;
-  margin: 0 0 16px;
+  margin: 0 0 14px;
   line-height: 1.25;
 }
 
 .lead {
-  font-size: 1.05rem;
+  font-size: 1rem;
   line-height: 1.7;
-  margin: 0 0 24px;
+  margin: 0 0 20px;
 }
 
 .hero-points {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .hero-points span {
   background: rgba(47, 99, 255, 0.1);
   color: var(--brand);
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 20px;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
 .launch {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 28px;
+  gap: 14px;
+  padding: 24px;
 }
 
 .launch h2 {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin: 0;
 }
 
 .launch p {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   line-height: 1.6;
 }
 
 .launch-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
+/* ---- Feature cards ---- */
 .cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -175,69 +185,126 @@ function goBack() {
   padding: 28px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .feature-icon {
-  font-size: 2rem;
+  font-size: 1.8rem;
 }
 
 .feature-card h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
 }
 
 .feature-card p {
   margin: 0;
   line-height: 1.6;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
-.sample {
-  padding: 36px;
+/* ---- Steps ---- */
+.steps {
+  padding: 32px;
 }
 
 .section-head {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .section-head h2 {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
 }
 
 .section-head p {
   margin: 0;
 }
 
-.sample-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
-.sample-step {
+.step-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 20px;
-  background: var(--bg-soft);
-  border-radius: 12px;
+  gap: 0;
 }
 
-.sample-step strong {
-  font-size: 1rem;
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(47, 99, 255, 0.12);
+  color: var(--brand);
+  font-size: 0.9rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.step strong {
+  font-size: 0.95rem;
   font-weight: 700;
 }
 
-.sample-step p {
+.step p {
   margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
+.step-sep {
+  height: 1px;
+  background: var(--border);
+  margin-left: 48px;
+}
+
+/* ---- Global button helpers ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 20px;
+  border-radius: 10px;
+  border: none;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn:hover { opacity: 0.88; }
+
+.btn.ghost {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+}
+
+.btn.ghost:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  opacity: 1;
+}
+
+/* ---- Responsive ---- */
 @media (max-width: 900px) {
   .hero {
     grid-template-columns: 1fr;
@@ -247,22 +314,19 @@ function goBack() {
   .cards {
     grid-template-columns: 1fr;
   }
-
-  .sample-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 600px) {
   .cs-entry {
-    padding: 16px;
+    padding: 14px;
+    gap: 14px;
   }
 
   .hero {
-    padding: 20px;
+    padding: 18px;
   }
 
-  .sample {
+  .steps {
     padding: 20px;
   }
 }

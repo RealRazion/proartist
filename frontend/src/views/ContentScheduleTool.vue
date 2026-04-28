@@ -39,6 +39,7 @@
         role="tab"
         :aria-selected="activeDay === day.dateKey"
         type="button"
+        :aria-label="`${day.label}, ${day.dateStr}`"
         @click="activeDay = day.dateKey"
       >
         <span class="tab-short">{{ day.short }}</span>
@@ -242,10 +243,9 @@ function prevWeek() { weekOffset.value--; }
 function nextWeek() { weekOffset.value++; }
 function goToCurrentWeek() { weekOffset.value = 0; }
 
-// Active day for mobile tab navigation (default = today or Monday)
-const activeDay = ref(
-  days.value.find((d) => d.isToday)?.dateKey ?? days.value[0].dateKey
-);
+// Active day for mobile tab navigation (default = today or Monday of the current week)
+const todayKey = days.value.find((d) => d.isToday)?.dateKey;
+const activeDay = ref(todayKey ?? days.value[0]?.dateKey ?? "");
 
 // Keep activeDay in sync when week changes
 watch(days, (newDays) => {
@@ -298,10 +298,11 @@ const statusStats = computed(() =>
 );
 
 // --------------- uid ---------------
+let _uidCounter = 0;
 function uid() {
   return crypto.randomUUID
     ? crypto.randomUUID()
-    : `p${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    : `p${Date.now()}-${++_uidCounter}-${Math.random().toString(36).slice(2)}`;
 }
 
 // --------------- modal ---------------
@@ -338,7 +339,7 @@ function savePost() {
   if (isEdit) {
     const idx = schedule.value[dateKey].findIndex((p) => p.id === editId);
     if (idx !== -1) {
-      schedule.value[dateKey][idx] = { ...schedule.value[dateKey][idx], ...form };
+      schedule.value[dateKey].splice(idx, 1, { ...schedule.value[dateKey][idx], ...form });
     }
   } else {
     schedule.value[dateKey].push({ id: uid(), ...form });

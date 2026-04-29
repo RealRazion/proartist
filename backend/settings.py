@@ -119,13 +119,18 @@ if _cors_origins:
 else:
     CORS_ALLOWED_ORIGINS = [
         "https://proartist.pages.dev",
+        "https://localhost",
+        "capacitor://localhost",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]
     CORS_ALLOW_ALL_ORIGINS = False
-    CSRF_TRUSTED_ORIGINS = ["https://proartist.pages.dev"]
+    CSRF_TRUSTED_ORIGINS = [
+        "https://proartist.pages.dev",
+        "https://localhost",
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [

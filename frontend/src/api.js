@@ -1,10 +1,11 @@
 import axios from "axios";
+import { Capacitor } from "@capacitor/core";
 import { useToast } from "./composables/useToast";
 import { apiErrorHandler } from "./services/errorHandler";
 
 function normalizeBaseUrl(value) {
   let url = (value || "").trim();
-  if (!url) return "http://127.0.0.1:8000/api/";
+  if (!url) return "";
   if (!/\/api(\/|$)/i.test(url)) {
     url = url.replace(/\/+$/, "");
     url = `${url}/api/`;
@@ -14,7 +15,19 @@ function normalizeBaseUrl(value) {
   return url;
 }
 
-const baseURL = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
+function resolveBaseUrl() {
+  const configured = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
+  if (configured) return configured;
+
+  // Native builds cannot use localhost/127.0.0.1 to reach a remote backend.
+  if (Capacitor.isNativePlatform()) {
+    return normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL_MOBILE || "https://proartist.onrender.com");
+  }
+
+  return "http://127.0.0.1:8000/api/";
+}
+
+const baseURL = resolveBaseUrl();
 
 const api = axios.create({ baseURL });
 const { showToast } = useToast();

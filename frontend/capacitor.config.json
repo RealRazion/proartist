@@ -1,0 +1,15 @@
+{
+  "appId": "com.proartist.app",
+  "appName": "ProArtist",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}

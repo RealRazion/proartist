@@ -40,6 +40,11 @@ from .models import (
     Task,
     TaskAttachment,
     TaskComment,
+    Tournament,
+    TournamentApplication,
+    TournamentBattle,
+    TournamentSubmission,
+    TournamentVote,
 )
 
 
@@ -1305,6 +1310,138 @@ class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = "__all__"
+
+
+class TournamentSerializer(serializers.ModelSerializer):
+    created_by = ProfileMiniSerializer(read_only=True)
+    applications_count = serializers.IntegerField(read_only=True)
+    submissions_count = serializers.IntegerField(read_only=True)
+    battles_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Tournament
+        fields = [
+            "id",
+            "created_by",
+            "title",
+            "description",
+            "has_application_phase",
+            "application_deadline",
+            "submission_deadline",
+            "status",
+            "require_phone_vote_verification",
+            "applications_count",
+            "submissions_count",
+            "battles_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+
+class TournamentApplicationSerializer(serializers.ModelSerializer):
+    profile = ProfileMiniSerializer(read_only=True)
+    decided_by = ProfileMiniSerializer(read_only=True)
+    tournament_title = serializers.CharField(source="tournament.title", read_only=True)
+
+    class Meta:
+        model = TournamentApplication
+        fields = [
+            "id",
+            "tournament",
+            "tournament_title",
+            "profile",
+            "message",
+            "status",
+            "decided_by",
+            "decided_at",
+            "created_at",
+        ]
+        read_only_fields = ["id", "profile", "status", "decided_by", "decided_at", "created_at", "tournament_title"]
+
+
+class TournamentSubmissionSerializer(serializers.ModelSerializer):
+    profile = ProfileMiniSerializer(read_only=True)
+    tournament_title = serializers.CharField(source="tournament.title", read_only=True)
+
+    class Meta:
+        model = TournamentSubmission
+        fields = [
+            "id",
+            "tournament",
+            "tournament_title",
+            "profile",
+            "round_number",
+            "title",
+            "media_url",
+            "notes",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "profile", "status", "created_at", "tournament_title"]
+
+
+class TournamentBattleSerializer(serializers.ModelSerializer):
+    left_submission_title = serializers.CharField(source="left_submission.title", read_only=True)
+    right_submission_title = serializers.CharField(source="right_submission.title", read_only=True)
+    left_profile_name = serializers.SerializerMethodField()
+    right_profile_name = serializers.SerializerMethodField()
+    votes_left = serializers.SerializerMethodField()
+    votes_right = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TournamentBattle
+        fields = [
+            "id",
+            "tournament",
+            "round_number",
+            "left_submission",
+            "right_submission",
+            "left_submission_title",
+            "right_submission_title",
+            "left_profile_name",
+            "right_profile_name",
+            "votes_left",
+            "votes_right",
+            "starts_at",
+            "ends_at",
+            "status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "votes_left", "votes_right", "created_at", "left_profile_name", "right_profile_name", "left_submission_title", "right_submission_title"]
+
+    def get_left_profile_name(self, obj):
+        profile = getattr(getattr(obj.left_submission, "profile", None), "name", "")
+        username = getattr(getattr(getattr(obj.left_submission, "profile", None), "user", None), "username", "")
+        return profile or username
+
+    def get_right_profile_name(self, obj):
+        profile = getattr(getattr(obj.right_submission, "profile", None), "name", "")
+        username = getattr(getattr(getattr(obj.right_submission, "profile", None), "user", None), "username", "")
+        return profile or username
+
+    def get_votes_left(self, obj):
+        return obj.votes.filter(selected_submission=obj.left_submission).count()
+
+    def get_votes_right(self, obj):
+        return obj.votes.filter(selected_submission=obj.right_submission).count()
+
+
+class TournamentVoteSerializer(serializers.ModelSerializer):
+    voter = ProfileMiniSerializer(read_only=True)
+
+    class Meta:
+        model = TournamentVote
+        fields = [
+            "id",
+            "battle",
+            "voter",
+            "selected_submission",
+            "phone_number",
+            "verification_status",
+            "created_at",
+        ]
+        read_only_fields = ["id", "voter", "verification_status", "created_at"]
 
 
 class ActivityEntrySerializer(serializers.ModelSerializer):

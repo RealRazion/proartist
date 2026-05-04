@@ -37,6 +37,11 @@ from core.views import (
     TaskAttachmentViewSet,
     TaskCommentViewSet,
     TaskViewSet,
+    TournamentApplicationViewSet,
+    TournamentBattleViewSet,
+    TournamentSubmissionViewSet,
+    TournamentViewSet,
+    TournamentVoteViewSet,
     SearchView,
     analytics_summary,
     admin_overview,
@@ -83,6 +88,11 @@ router.register(r"events", EventViewSet)
 router.register(r"bookings", BookingViewSet)
 router.register(r"news", NewsPostViewSet)
 router.register(r"finance-tips", FinanceTipViewSet, basename="finance-tips")
+router.register(r"tournaments", TournamentViewSet, basename="tournaments")
+router.register(r"tournament-applications", TournamentApplicationViewSet, basename="tournament-applications")
+router.register(r"tournament-submissions", TournamentSubmissionViewSet, basename="tournament-submissions")
+router.register(r"tournament-battles", TournamentBattleViewSet, basename="tournament-battles")
+router.register(r"tournament-votes", TournamentVoteViewSet, basename="tournament-votes")
 
 urlpatterns = [
     path("admin/", admin.site.urls),

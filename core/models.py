@@ -418,6 +418,138 @@ class Booking(models.Model):
     payout_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     status = models.CharField(max_length=12, choices=STATUS, default="APPLIED")
 
+
+class Tournament(models.Model):
+    STATUS_CHOICES = [
+        ("DRAFT", "Entwurf"),
+        ("APPLICATION_OPEN", "Bewerbung offen"),
+        ("SUBMISSION_OPEN", "Einreichung offen"),
+        ("BATTLES", "Battles laufen"),
+        ("CLOSED", "Geschlossen"),
+    ]
+
+    created_by = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="created_tournaments")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    has_application_phase = models.BooleanField(default=True)
+    application_deadline = models.DateTimeField(null=True, blank=True)
+    submission_deadline = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
+    require_phone_vote_verification = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
+
+
+class TournamentApplication(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING", "Offen"),
+        ("APPROVED", "Bestätigt"),
+        ("REJECTED", "Abgelehnt"),
+    ]
+
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="applications")
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="tournament_applications")
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
+    decided_by = models.ForeignKey(
+        Profile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decided_tournament_applications",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ["tournament", "profile"]
+
+    def __str__(self):
+        return f"{self.profile} -> {self.tournament}"
+
+
+class TournamentSubmission(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING", "Eingereicht"),
+        ("APPROVED", "Freigegeben"),
+        ("REJECTED", "Abgelehnt"),
+    ]
+
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="submissions")
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="tournament_submissions")
+    round_number = models.PositiveIntegerField(default=1)
+    title = models.CharField(max_length=200, blank=True)
+    media_url = models.URLField(blank=True)
+    notes = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.tournament} Runde {self.round_number}: {self.profile}"
+
+
+class TournamentBattle(models.Model):
+    STATUS_CHOICES = [
+        ("SCHEDULED", "Geplant"),
+        ("LIVE", "Live"),
+        ("CLOSED", "Abgeschlossen"),
+    ]
+
+    tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name="battles")
+    round_number = models.PositiveIntegerField(default=1)
+    left_submission = models.ForeignKey(
+        TournamentSubmission,
+        on_delete=models.CASCADE,
+        related_name="battles_as_left",
+    )
+    right_submission = models.ForeignKey(
+        TournamentSubmission,
+        on_delete=models.CASCADE,
+        related_name="battles_as_right",
+    )
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="SCHEDULED")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-round_number", "-created_at"]
+
+    def __str__(self):
+        return f"{self.tournament} Battle R{self.round_number}"
+
+
+class TournamentVote(models.Model):
+    VERIFICATION_CHOICES = [
+        ("NONE", "Nicht erforderlich"),
+        ("PENDING_PHONE", "Telefonnummer offen"),
+        ("VERIFIED", "Telefonnummer verifiziert"),
+    ]
+
+    battle = models.ForeignKey(TournamentBattle, on_delete=models.CASCADE, related_name="votes")
+    voter = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="tournament_votes")
+    selected_submission = models.ForeignKey(TournamentSubmission, on_delete=models.CASCADE, related_name="votes")
+    phone_number = models.CharField(max_length=32, blank=True)
+    verification_status = models.CharField(max_length=14, choices=VERIFICATION_CHOICES, default="NONE")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        unique_together = ["battle", "voter"]
+
+    def __str__(self):
+        return f"Vote {self.voter} -> {self.battle_id}"
+
 class Song(models.Model):
     STATUS = [
         ("ACTIVE", "Aktiv"),

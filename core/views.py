@@ -58,6 +58,11 @@ from .models import (
     Task,
     TaskAttachment,
     TaskComment,
+    Tournament,
+    TournamentApplication,
+    TournamentBattle,
+    TournamentSubmission,
+    TournamentVote,
     Song,
     SongVersion,
 )
@@ -105,6 +110,11 @@ from .serializers import (
     TaskAttachmentSerializer,
     TaskCommentSerializer,
     TaskSerializer,
+    TournamentApplicationSerializer,
+    TournamentBattleSerializer,
+    TournamentSerializer,
+    TournamentSubmissionSerializer,
+    TournamentVoteSerializer,
 )
 from .assignment import assign_task_for_review, build_team_points_breakdown, build_team_points_daily, rebalance_growpro_assignments
 from .utils import log_activity
@@ -1910,6 +1920,191 @@ class EventViewSet(viewsets.ModelViewSet):
 
 class BookingViewSet(viewsets.ModelViewSet):
     queryset=Booking.objects.all(); serializer_class=BookingSerializer; permission_classes=[permissions.IsAuthenticated]
+
+
+class TournamentViewSet(viewsets.ModelViewSet):
+    serializer_class = TournamentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsTeam()]
+
+    def get_queryset(self):
+        qs = (
+            Tournament.objects.select_related("created_by__user")
+            .annotate(
+                applications_count=Count("applications", distinct=True),
+                submissions_count=Count("submissions", distinct=True),
+                battles_count=Count("battles", distinct=True),
+            )
+            .order_by("-created_at")
+        )
+        status_filter = (self.request.query_params.get("status") or "").strip().upper()
+        if status_filter and status_filter != "ALL":
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user.profile)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path=r"applications/(?P<application_id>[^/.]+)/decision",
+        permission_classes=[permissions.IsAuthenticated, IsTeam],
+    )
+    def decide_application(self, request, pk=None, application_id=None):
+        tournament = self.get_object()
+        application = get_object_or_404(TournamentApplication, id=application_id, tournament=tournament)
+        decision = (request.data.get("decision") or "").strip().upper()
+        if decision not in {"APPROVED", "REJECTED"}:
+            return Response({"detail": "decision muss APPROVED oder REJECTED sein."}, status=status.HTTP_400_BAD_REQUEST)
+        application.status = decision
+        application.decided_by = request.user.profile
+        application.decided_at = timezone.now()
+        application.save(update_fields=["status", "decided_by", "decided_at"])
+        return Response(TournamentApplicationSerializer(application).data)
+
+
+class TournamentApplicationViewSet(viewsets.ModelViewSet):
+    serializer_class = TournamentApplicationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = TournamentApplication.objects.select_related(
+            "tournament",
+            "profile__user",
+            "decided_by__user",
+        ).order_by("-created_at")
+        me = self.request.user.profile
+        if is_team_profile(me):
+            tournament_id = self.request.query_params.get("tournament")
+            if tournament_id:
+                qs = qs.filter(tournament_id=tournament_id)
+            return qs
+        return qs.filter(profile=me)
+
+    def perform_create(self, serializer):
+        me = self.request.user.profile
+        tournament = serializer.validated_data["tournament"]
+        if not tournament.has_application_phase:
+            raise PermissionDenied("Dieses Turnier hat keine Bewerbungsphase.")
+        now = timezone.now()
+        if tournament.application_deadline and tournament.application_deadline < now:
+            raise PermissionDenied("Die Bewerbungsphase ist bereits beendet.")
+        if tournament.status not in {"APPLICATION_OPEN", "SUBMISSION_OPEN", "BATTLES"}:
+            raise PermissionDenied("Bewerbungen sind für dieses Turnier aktuell nicht möglich.")
+        serializer.save(profile=me)
+
+
+class TournamentSubmissionViewSet(viewsets.ModelViewSet):
+    serializer_class = TournamentSubmissionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = TournamentSubmission.objects.select_related("tournament", "profile__user").order_by("-created_at")
+        tournament_id = self.request.query_params.get("tournament")
+        if tournament_id:
+            qs = qs.filter(tournament_id=tournament_id)
+        me = self.request.user.profile
+        if is_team_profile(me):
+            return qs
+        return qs.filter(profile=me)
+
+    def perform_create(self, serializer):
+        me = self.request.user.profile
+        tournament = serializer.validated_data["tournament"]
+        if tournament.status not in {"SUBMISSION_OPEN", "BATTLES"}:
+            raise PermissionDenied("Einreichungen sind für dieses Turnier aktuell nicht möglich.")
+        now = timezone.now()
+        if tournament.submission_deadline and tournament.submission_deadline < now:
+            raise PermissionDenied("Die Einreichungsphase ist bereits beendet.")
+        if tournament.has_application_phase:
+            application = TournamentApplication.objects.filter(tournament=tournament, profile=me).first()
+            if not application or application.status != "APPROVED":
+                raise PermissionDenied("Du brauchst eine bestätigte Bewerbung für dieses Turnier.")
+        serializer.save(profile=me)
+
+
+class TournamentBattleViewSet(viewsets.ModelViewSet):
+    serializer_class = TournamentBattleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsTeam()]
+
+    def get_queryset(self):
+        qs = TournamentBattle.objects.select_related(
+            "tournament",
+            "left_submission__profile__user",
+            "right_submission__profile__user",
+        ).order_by("-round_number", "-created_at")
+        tournament_id = self.request.query_params.get("tournament")
+        if tournament_id:
+            qs = qs.filter(tournament_id=tournament_id)
+        return qs
+
+    def perform_create(self, serializer):
+        left_submission = serializer.validated_data["left_submission"]
+        right_submission = serializer.validated_data["right_submission"]
+        tournament = serializer.validated_data["tournament"]
+        if left_submission.tournament_id != tournament.id or right_submission.tournament_id != tournament.id:
+            raise PermissionDenied("Beide Einreichungen müssen zum selben Turnier gehören.")
+        if left_submission.id == right_submission.id:
+            raise PermissionDenied("Eine Battle braucht zwei unterschiedliche Einreichungen.")
+        serializer.save()
+
+
+class TournamentVoteViewSet(viewsets.ModelViewSet):
+    serializer_class = TournamentVoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "head", "options"]
+
+    def get_queryset(self):
+        qs = TournamentVote.objects.select_related(
+            "battle__tournament",
+            "selected_submission",
+            "voter__user",
+        ).order_by("-created_at")
+        battle_id = self.request.query_params.get("battle")
+        if battle_id:
+            qs = qs.filter(battle_id=battle_id)
+        me = self.request.user.profile
+        if is_team_profile(me):
+            return qs
+        return qs.filter(voter=me)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        me = request.user.profile
+        battle = serializer.validated_data["battle"]
+        selected_submission = serializer.validated_data["selected_submission"]
+        phone_number = (serializer.validated_data.get("phone_number") or "").strip()
+
+        if selected_submission.id not in {battle.left_submission_id, battle.right_submission_id}:
+            return Response({"detail": "Ungültige Auswahl für diese Battle."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if battle.status == "CLOSED":
+            return Response({"detail": "Voting ist bereits geschlossen."}, status=status.HTTP_400_BAD_REQUEST)
+
+        verification_status = "PENDING_PHONE" if battle.tournament.require_phone_vote_verification else "NONE"
+        vote, created = TournamentVote.objects.update_or_create(
+            battle=battle,
+            voter=me,
+            defaults={
+                "selected_submission": selected_submission,
+                "phone_number": phone_number,
+                "verification_status": verification_status,
+            },
+        )
+        output = self.get_serializer(vote)
+        response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(output.data, status=response_status)
 
 
 class PluginGuideViewSet(viewsets.ModelViewSet):

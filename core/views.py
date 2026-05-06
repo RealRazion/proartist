@@ -305,12 +305,6 @@ def verify_registration(request):
     member_role, _ = Role.objects.get_or_create(key="MEMBER")
     profile.roles.add(member_role)
 
-    # Create RegistrationRequest record for team visibility
-    RegistrationRequest.objects.update_or_create(
-        email=email,
-        defaults={"description": verification.description, "status": "INVITED"},
-    )
-
     # Send invitation link to set password
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)

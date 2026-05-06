@@ -327,8 +327,14 @@ def verify_registration(request):
         <tr>
           <td style="padding:40px 40px 32px;">
             <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 12px;">Willkommen bei ProArtist!</h1>
+            <p style="color:#9ca3af;font-size:15px;line-height:1.6;margin:0 0 20px;">
+              Deine E-Mail-Adresse wurde erfolgreich bestätigt. Dein Benutzername lautet:
+            </p>
+            <div style="background:#0f0f13;border:2px solid #6366f1;border-radius:10px;padding:16px;text-align:center;margin:0 0 28px;">
+              <div style="font-size:18px;font-weight:700;color:#a855f7;font-family:monospace;">{username}</div>
+            </div>
             <p style="color:#9ca3af;font-size:15px;line-height:1.6;margin:0 0 28px;">
-              Deine E-Mail-Adresse wurde erfolgreich bestätigt. Setze jetzt dein Passwort, um dich einzuloggen.
+              Setze jetzt dein Passwort, um dich einzuloggen.
             </p>
             <div style="text-align:center;margin:0 0 28px;">
               <a href="{link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:15px;">
@@ -363,7 +369,7 @@ def verify_registration(request):
     except Exception:
         pass
 
-    return Response({"message": "verified", "set_password_link": link})
+    return Response({"message": "verified", "username": username, "set_password_link": link})
 
 def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
     role_keys = role_keys or []

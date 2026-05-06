@@ -76,8 +76,9 @@
       <template v-if="step === 3">
         <div class="success-state">
           <div class="success-icon">✅</div>
-          <h1>E-Mail bestätigt!</h1>
+          <h1>Account erstellt!</h1>
           <p class="subtitle">
+            Dein Benutzername ist <strong>{{ username }}</strong>.<br/>
             Wir haben dir einen Link geschickt, um dein Passwort zu setzen. Bitte prüfe dein Postfach.
           </p>
           <router-link class="btn" to="/login">Zum Login</router-link>
@@ -103,6 +104,7 @@ const loading = ref(false);
 const message = ref("");
 const messageType = ref("info");
 const code = ref("");
+const username = ref("");
 const resendCooldown = ref(0);
 let cooldownTimer = null;
 
@@ -190,10 +192,11 @@ async function submitCode() {
   loading.value = true;
   showMessage("");
   try {
-    await api.post("verify-registration/", {
+    const res = await api.post("verify-registration/", {
       email: form.value.email.trim(),
       code: code.value.trim(),
     });
+    username.value = res.data.username || "Nutzer";
     step.value = 3;
   } catch (err) {
     const detail = err?.response?.data?.detail || "Code ungültig oder abgelaufen.";

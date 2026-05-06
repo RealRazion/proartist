@@ -150,9 +150,77 @@ def send_test_email(request):
         return Response({"detail": str(e)}, status=500)
 
 # --- Auth/Register ---
+def _build_verification_email_html(code: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>UNYQ – E-Mail bestätigen</title>
+</head>
+<body style="margin:0;padding:0;background:#0f0f13;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f13;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="540" cellpadding="0" cellspacing="0" style="background:#18181f;border-radius:16px;overflow:hidden;border:1px solid #2a2a3a;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);padding:36px 40px 28px;text-align:center;">
+              <div style="font-size:13px;letter-spacing:4px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:10px;">UNYQ Platform</div>
+              <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:1px;">ProArtist</div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 12px;">E-Mail bestätigen</h1>
+              <p style="color:#9ca3af;font-size:15px;line-height:1.6;margin:0 0 28px;">
+                Gib diesen Code in der App ein, um deine E-Mail-Adresse zu bestätigen
+                und Zugang zu ProArtist zu erhalten.
+              </p>
+
+              <!-- Code Box -->
+              <div style="background:#0f0f13;border:2px solid #6366f1;border-radius:12px;padding:28px;text-align:center;margin:0 0 28px;">
+                <div style="font-size:42px;font-weight:800;letter-spacing:14px;color:#a855f7;font-variant-numeric:tabular-nums;">
+                  {code}
+                </div>
+              </div>
+
+              <p style="color:#6b7280;font-size:13px;line-height:1.5;margin:0;">
+                ⏱ Der Code ist <strong style="color:#9ca3af;">15 Minuten</strong> gültig.<br/>
+                Falls du diese E-Mail nicht angefordert hast, kannst du sie ignorieren.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#111118;padding:20px 40px;border-top:1px solid #2a2a3a;text-align:center;">
+              <p style="color:#4b5563;font-size:12px;margin:0;">
+                © 2026 UNYQ &nbsp;·&nbsp; ProArtist Platform &nbsp;·&nbsp; Alle Rechte vorbehalten
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
 def register(request):
+    import random
+    from django.utils import timezone
+    from datetime import timedelta
+    from django.core.mail import send_mail
+    from .models import EmailVerification
+
     email = (request.data.get("email") or "").strip().lower()
     description = (request.data.get("description") or "").strip()
     if not email:
@@ -161,16 +229,147 @@ def register(request):
         return Response({"detail": "description required"}, status=400)
     if User.objects.filter(email__iexact=email).exists():
         return Response({"detail": "email already exists"}, status=400)
-    existing = RegistrationRequest.objects.filter(email__iexact=email).first()
-    if existing:
-        if existing.status == "INVITED":
-            return Response({"detail": "invite already sent"}, status=400)
-        existing.description = description
-        existing.status = "OPEN"
-        existing.save(update_fields=["description", "status", "updated_at"])
-        return Response({"message": "request updated"})
-    RegistrationRequest.objects.create(email=email, description=description)
-    return Response({"message":"request submitted"})
+
+    # Generate 6-digit code
+    code = f"{random.randint(100000, 999999)}"
+    expires_at = timezone.now() + timedelta(minutes=15)
+
+    # Invalidate any previous unused codes for this email
+    EmailVerification.objects.filter(email__iexact=email, used=False).update(used=True)
+
+    EmailVerification.objects.create(
+        email=email,
+        code=code,
+        description=description,
+        expires_at=expires_at,
+    )
+
+    html_body = _build_verification_email_html(code)
+    try:
+        send_mail(
+            subject="ProArtist – Dein Bestätigungscode",
+            message=f"Dein Bestätigungscode lautet: {code}\n\nEr ist 15 Minuten gültig.",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            html_message=html_body,
+            fail_silently=False,
+        )
+    except Exception as e:
+        return Response({"detail": f"E-Mail konnte nicht gesendet werden: {e}"}, status=500)
+
+    return Response({"message": "code_sent"})
+
+
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def verify_registration(request):
+    from django.utils import timezone
+    from .models import EmailVerification
+
+    email = (request.data.get("email") or "").strip().lower()
+    code = (request.data.get("code") or "").strip()
+    if not email or not code:
+        return Response({"detail": "email and code required"}, status=400)
+
+    verification = (
+        EmailVerification.objects
+        .filter(email__iexact=email, code=code, used=False)
+        .order_by("-created_at")
+        .first()
+    )
+    if not verification:
+        return Response({"detail": "Ungültiger Code."}, status=400)
+    if verification.expires_at < timezone.now():
+        return Response({"detail": "Code abgelaufen. Bitte erneut registrieren."}, status=400)
+
+    verification.used = True
+    verification.save(update_fields=["used"])
+
+    if User.objects.filter(email__iexact=email).exists():
+        return Response({"detail": "email already exists"}, status=400)
+
+    # Create user
+    base_username = email.split("@")[0]
+    username = base_username
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        counter += 1
+        username = f"{base_username}{counter}"
+    user = User.objects.create_user(username=username, email=email)
+    user.set_unusable_password()
+    user.save()
+
+    # Create profile with MEMBER role
+    from .models import Profile, Role
+    profile, _ = Profile.objects.get_or_create(user=user, defaults={"name": username})
+    member_role, _ = Role.objects.get_or_create(key="MEMBER")
+    profile.roles.add(member_role)
+
+    # Create RegistrationRequest record for team visibility
+    RegistrationRequest.objects.update_or_create(
+        email=email,
+        defaults={"description": verification.description, "status": "INVITED"},
+    )
+
+    # Send invitation link to set password
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    link = f"{frontend_url}/set-password?uid={uid}&token={token}"
+
+    html_welcome = f"""<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#0f0f13;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f13;padding:40px 0;">
+    <tr><td align="center">
+      <table width="540" cellpadding="0" cellspacing="0" style="background:#18181f;border-radius:16px;overflow:hidden;border:1px solid #2a2a3a;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);padding:36px 40px 28px;text-align:center;">
+            <div style="font-size:13px;letter-spacing:4px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:10px;">UNYQ Platform</div>
+            <div style="font-size:28px;font-weight:800;color:#fff;letter-spacing:1px;">ProArtist</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 40px 32px;">
+            <h1 style="color:#fff;font-size:22px;font-weight:700;margin:0 0 12px;">Willkommen bei ProArtist!</h1>
+            <p style="color:#9ca3af;font-size:15px;line-height:1.6;margin:0 0 28px;">
+              Deine E-Mail-Adresse wurde erfolgreich bestätigt. Setze jetzt dein Passwort, um dich einzuloggen.
+            </p>
+            <div style="text-align:center;margin:0 0 28px;">
+              <a href="{link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:15px;">
+                Passwort setzen →
+              </a>
+            </div>
+            <p style="color:#6b7280;font-size:13px;margin:0;">Falls der Button nicht funktioniert:<br/>
+              <a href="{link}" style="color:#8b5cf6;word-break:break-all;">{link}</a>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#111118;padding:20px 40px;border-top:1px solid #2a2a3a;text-align:center;">
+            <p style="color:#4b5563;font-size:12px;margin:0;">© 2026 UNYQ · ProArtist Platform</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+    try:
+        send_mail(
+            subject="ProArtist – Passwort setzen",
+            message=f"Setze dein Passwort: {link}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            html_message=html_welcome,
+            fail_silently=True,
+        )
+    except Exception:
+        pass
+
+    return Response({"message": "verified", "set_password_link": link})
 
 def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
     role_keys = role_keys or []

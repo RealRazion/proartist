@@ -49,6 +49,7 @@ from core.views import (
     calendar_export,
     invite_user,
     register,
+    verify_registration,
     run_task_reminders,
     set_password,
     stats,
@@ -98,6 +99,7 @@ router.register(r"tournament-votes", TournamentVoteViewSet, basename="tournament
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/register/", register),
+    path("api/verify-registration/", verify_registration),
     path("api/invite/", invite_user),
     path("api/set-password/", set_password),
     path("api/stats/", stats),

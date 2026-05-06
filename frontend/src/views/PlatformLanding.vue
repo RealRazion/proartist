@@ -170,7 +170,7 @@ const platforms = [
     buttonLabel: "Planen",
     icon: "💰",
     features: ["Budget", "Schulden", "Einnahmen"],
-    roles: ["TEAM"],
+    roles: ["TEAM", "MEMBER"],
     comingSoon: false,
   },
   {
@@ -181,7 +181,7 @@ const platforms = [
     buttonLabel: "Erstellen",
     icon: "📝",
     features: ["Tipps", "News", "Tutorials"],
-    roles: ["TEAM"],
+    roles: ["TEAM", "ARTIST", "PRODUCER", "MEMBER"],
     comingSoon: false,
   },
   {
@@ -192,7 +192,7 @@ const platforms = [
     buttonLabel: "Planen",
     icon: "📅",
     features: ["Wochenplan", "Drag & Drop", "Content-Serien"],
-    roles: ["TEAM", "ARTIST", "PRODUCER"],
+    roles: ["TEAM", "ARTIST", "PRODUCER", "MEMBER"],
     comingSoon: false,
   },
   {
@@ -203,7 +203,7 @@ const platforms = [
     buttonLabel: "Starten",
     icon: "🏋️",
     features: ["Kcal", "Verbrauch", "Essensideen"],
-    roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC"],
+    roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC", "MEMBER"],
     comingSoon: false,
   },
   {

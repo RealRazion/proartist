@@ -11,6 +11,7 @@ ROLE_CHOICES = [
     ("MERCH","Merchandiser"),
     ("MKT","Vermarktung/Managing"),
     ("LOC","Location"),
+    ("MEMBER","Selbst registriertes Mitglied"),
 ]
 
 def _generate_system_api_key():
@@ -48,6 +49,19 @@ class RegistrationRequest(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self): return self.email
+
+class EmailVerification(models.Model):
+    email = models.EmailField()
+    code = models.CharField(max_length=6)
+    description = models.TextField(blank=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self): return f"{self.email} ({self.code})"
 
 class Example(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="examples")

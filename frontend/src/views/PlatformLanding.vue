@@ -217,6 +217,17 @@ const platforms = [
     roles: ["TEAM"],
     comingSoon: false,
   },
+  {
+    key: "testing",
+    title: "TESTING",
+    category: "Intern",
+    description: "Interne Tests für Backend-Funktionen wie E-Mail, Notifications und mehr.",
+    buttonLabel: "Testen",
+    icon: "🧪",
+    features: ["E-Mail", "Backend", "Debug"],
+    roles: ["TEAM"],
+    comingSoon: false,
+  },
 ];
 
 const activeRole = computed(() => {
@@ -242,6 +253,7 @@ function openPlatform(platform) {
     "content-schedule": "/platforms/content-schedule",
     fitness: "/platforms/fitness",
     admin: "/platforms/admin",
+    testing: "/app/testing",
   };
   const path = mapping[platform];
   if (path) {

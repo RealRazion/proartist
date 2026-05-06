@@ -54,6 +54,7 @@ from core.views import (
     stats,
     TeamPointsView,
     api_center_status,
+    send_test_email,
 )
 
 router = routers.DefaultRouter()
@@ -105,6 +106,7 @@ urlpatterns = [
     path("api/analytics/summary/", analytics_summary),
     path("api/api-center/status/", api_center_status),
     path("api/automation/task-reminders/", run_task_reminders),
+    path("api/testing/send-email/", send_test_email),
     path("api/search/", SearchView.as_view(), name="search"),
     path("api/activity-feed/", ActivityFeedView.as_view(), name="activity-feed"),
     path("api/activity/", ActivityFeedView.as_view(), name="activity-legacy"),

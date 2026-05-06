@@ -37,6 +37,7 @@ const ContentStudio = () => import("../views/ContentStudio.vue");
 const ContentScheduleLanding = () => import("../views/ContentScheduleLanding.vue");
 const ContentScheduleTool = () => import("../views/ContentScheduleTool.vue");
 const SearchView = () => import("../views/SearchView.vue");
+const Testing = () => import("../views/Testing.vue");
 const MainLayout = () => import("../layouts/MainLayout.vue");
 const PlatformLayout = () => import("../layouts/PlatformLayout.vue");
 
@@ -79,6 +80,7 @@ const routes = [
       { path: "chats", name: "chats", component: Chats, alias: "/chats", meta: { requiresAuth: true } },
       { path: "search", name: "search", component: SearchView, alias: "/search", meta: { requiresAuth: true } },
       { path: "me", name: "me", component: MyProfile, alias: "/me", meta: { requiresAuth: true } },
+      { path: "testing", name: "testing", component: Testing, alias: "/testing", meta: { requiresAuth: true } },
     ],
   },
   {

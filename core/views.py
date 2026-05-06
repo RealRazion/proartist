@@ -129,6 +129,26 @@ API_CENTER_OFFLINE = getattr(settings, "API_CENTER_OFFLINE", True)
 def api_center_status(request):
     return Response({"offline": API_CENTER_OFFLINE})
 
+# --- Testing ---
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsTeam])
+def send_test_email(request):
+    from django.core.mail import send_mail
+    recipient = request.user.email
+    if not recipient:
+        return Response({"detail": "Kein E-Mail beim Nutzer hinterlegt."}, status=400)
+    try:
+        send_mail(
+            subject="ProArtist Test-Email",
+            message="Diese E-Mail wurde erfolgreich über ProArtist versendet. SMTP funktioniert!",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient],
+            fail_silently=False,
+        )
+        return Response({"message": f"Test-Email an {recipient} gesendet."})
+    except Exception as e:
+        return Response({"detail": str(e)}, status=500)
+
 # --- Auth/Register ---
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])

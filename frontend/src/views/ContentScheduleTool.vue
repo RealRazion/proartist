@@ -440,8 +440,8 @@ function deleteAndClose() {
   flex-shrink: 0;
 }
 .stat-dot[data-status="draft"]  { background: #94a3b8; }
-.stat-dot[data-status="ready"]  { background: #f59e0b; }
-.stat-dot[data-status="posted"] { background: #10b981; }
+.stat-dot[data-status="ready"]  { background: var(--status-open); }
+.stat-dot[data-status="posted"] { background: var(--status-done); }
 
 .stat-val {
   font-weight: 700;
@@ -481,7 +481,7 @@ function deleteAndClose() {
 
 .day-tab.active {
   border-color: var(--brand);
-  background: rgba(47, 99, 255, 0.08);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .day-tab.today .tab-short {
@@ -577,7 +577,7 @@ function deleteAndClose() {
 
 .add-btn {
   background: var(--brand);
-  color: #fff;
+  color: #ffffff;
   border: none;
   width: 26px;
   height: 26px;
@@ -660,8 +660,8 @@ function deleteAndClose() {
 }
 
 .post-del:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  color: var(--status-overdue);
+  background: color-mix(in srgb, var(--status-overdue) 12%, transparent);
 }
 
 .post-note {
@@ -687,11 +687,11 @@ function deleteAndClose() {
   color: var(--brand);
 }
 
-.platform-badge[data-platform="youtube"]   { background: rgba(255, 0, 0, 0.1);   color: #dc2626; }
-.platform-badge[data-platform="instagram"] { background: rgba(168, 85, 247, 0.12); color: #9333ea; }
+.platform-badge[data-platform="youtube"]   { background: color-mix(in srgb, var(--status-overdue) 12%, transparent);   color: var(--status-overdue); }
+.platform-badge[data-platform="instagram"] { background: color-mix(in srgb, var(--status-review) 14%, transparent); color: var(--status-review); }
 .platform-badge[data-platform="tiktok"]    { background: rgba(15, 23, 42, 0.1);   color: var(--text); }
-.platform-badge[data-platform="twitter"]   { background: rgba(14, 165, 233, 0.12); color: #0ea5e9; }
-.platform-badge[data-platform="podcast"]   { background: rgba(249, 115, 22, 0.12); color: #ea580c; }
+.platform-badge[data-platform="twitter"]   { background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); }
+.platform-badge[data-platform="podcast"]   { background: color-mix(in srgb, var(--status-soon) 14%, transparent); color: var(--status-soon); }
 .platform-badge[data-platform="blog"]      { background: rgba(100, 116, 139, 0.12); color: #64748b; }
 
 .status-badge {
@@ -701,8 +701,8 @@ function deleteAndClose() {
   border-radius: 6px;
 }
 .status-badge[data-status="draft"]  { background: rgba(148, 163, 184, 0.2); color: #64748b; }
-.status-badge[data-status="ready"]  { background: rgba(245, 158, 11, 0.15); color: #d97706; }
-.status-badge[data-status="posted"] { background: rgba(16, 185, 129, 0.15); color: #059669; }
+.status-badge[data-status="ready"]  { background: color-mix(in srgb, var(--status-open) 16%, transparent); color: var(--status-open); }
+.status-badge[data-status="posted"] { background: color-mix(in srgb, var(--status-done) 16%, transparent); color: var(--status-done); }
 
 /* ---- Add post button ---- */
 .add-post-btn {
@@ -726,7 +726,7 @@ function deleteAndClose() {
 .add-post-btn:hover {
   border-color: var(--brand);
   color: var(--brand);
-  background: rgba(47, 99, 255, 0.05);
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
 }
 
 .plus {
@@ -818,7 +818,7 @@ function deleteAndClose() {
 
 .platform-option.selected {
   border-color: var(--brand);
-  background: rgba(47, 99, 255, 0.08);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .platform-opt-icon {
@@ -853,8 +853,8 @@ function deleteAndClose() {
 }
 
 .status-option.selected[data-status="draft"]  { border-color: #94a3b8; background: rgba(148,163,184,0.15); color: var(--text); }
-.status-option.selected[data-status="ready"]  { border-color: #f59e0b; background: rgba(245,158,11,0.12); color: #d97706; }
-.status-option.selected[data-status="posted"] { border-color: #10b981; background: rgba(16,185,129,0.12); color: #059669; }
+.status-option.selected[data-status="ready"]  { border-color: var(--status-open); background: color-mix(in srgb, var(--status-open) 13%, transparent); color: var(--status-open); }
+.status-option.selected[data-status="posted"] { border-color: var(--status-done); background: color-mix(in srgb, var(--status-done) 13%, transparent); color: var(--status-done); }
 
 .modal-actions {
   display: flex;
@@ -898,7 +898,7 @@ function deleteAndClose() {
 }
 
 .btn.danger {
-  background: #ef4444;
+  background: var(--status-overdue);
 }
 
 /* ---- Desktop: show all 7 columns, hide tabs ---- */

@@ -547,7 +547,7 @@ function resetTracker() {
   padding: 22px;
   background:
     radial-gradient(circle at top right, rgba(16, 185, 129, 0.16), transparent 35%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(243, 255, 247, 0.93));
+    linear-gradient(145deg, var(--card), color-mix(in srgb, var(--status-done) 8%, var(--surface)));
 }
 
 .hero-copy {
@@ -561,7 +561,7 @@ function resetTracker() {
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #15803d;
+  color: var(--status-done);
   font-weight: 700;
 }
 
@@ -592,11 +592,11 @@ function resetTracker() {
 }
 
 .summary-card.positive {
-  background: linear-gradient(160deg, rgba(16, 185, 129, 0.12), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-done) 14%, transparent), var(--surface));
 }
 
 .summary-card.warning {
-  background: linear-gradient(160deg, rgba(239, 68, 68, 0.12), rgba(255, 255, 255, 0.94));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-overdue) 14%, transparent), var(--surface));
 }
 
 .label {
@@ -639,14 +639,14 @@ function resetTracker() {
   height: 12px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(16, 185, 129, 0.12);
+  background: color-mix(in srgb, var(--status-done) 14%, transparent);
 }
 
 .progress-bar span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: linear-gradient(135deg, var(--status-done), color-mix(in srgb, var(--status-done) 72%, white));
 }
 
 .meal-summary-grid {
@@ -698,7 +698,7 @@ function resetTracker() {
 }
 
 .danger {
-  color: #b91c1c;
+  color: var(--status-overdue);
 }
 
 .ideas-grid {
@@ -729,8 +729,8 @@ function resetTracker() {
   justify-self: start;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(245, 158, 11, 0.14);
-  color: #b45309;
+  background: color-mix(in srgb, var(--status-open) 14%, transparent);
+  color: var(--status-open);
   font-size: 12px;
   font-weight: 700;
 }
@@ -778,8 +778,8 @@ function resetTracker() {
 .day-balance {
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.08);
-  color: #15803d;
+  background: color-mix(in srgb, var(--status-done) 10%, transparent);
+  color: var(--status-done);
   font-weight: 700;
 }
 
@@ -794,11 +794,11 @@ function resetTracker() {
 }
 
 :global(.dark) .fitness-tool .summary-card.positive {
-  background: linear-gradient(160deg, rgba(16, 185, 129, 0.16), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-done) 18%, transparent), color-mix(in srgb, var(--surface) 94%, transparent));
 }
 
 :global(.dark) .fitness-tool .summary-card.warning {
-  background: linear-gradient(160deg, rgba(239, 68, 68, 0.16), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-overdue) 18%, transparent), color-mix(in srgb, var(--surface) 94%, transparent));
 }
 
 @media (max-width: 1120px) {

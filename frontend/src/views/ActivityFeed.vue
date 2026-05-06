@@ -177,7 +177,7 @@ ul {
   gap: 12px;
 }
 li {
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
   border-top-width: 4px;
@@ -200,20 +200,20 @@ li {
   background: rgba(148, 163, 184, 0.2);
 }
 .badge[data-severity="SUCCESS"] {
-  color: #16a34a;
-  background: rgba(34, 197, 94, 0.15);
+  color: var(--status-done);
+  background: color-mix(in srgb, var(--status-done) 16%, transparent);
 }
 .badge[data-severity="INFO"] {
-  color: #2563eb;
-  background: rgba(59, 130, 246, 0.15);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
 }
 .badge[data-severity="WARNING"] {
-  color: #c2410c;
-  background: rgba(249, 115, 22, 0.15);
+  color: var(--status-soon);
+  background: color-mix(in srgb, var(--status-soon) 16%, transparent);
 }
 .badge[data-severity="DANGER"] {
-  color: #b91c1c;
-  background: rgba(248, 113, 113, 0.2);
+  color: var(--status-overdue);
+  background: color-mix(in srgb, var(--status-overdue) 18%, transparent);
 }
 .meta {
   display: flex;

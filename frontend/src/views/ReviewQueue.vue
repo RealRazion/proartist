@@ -564,7 +564,7 @@ onMounted(() => {
   padding: 10px 12px;
   border: 1px dashed var(--border);
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.03);
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
 }
 .bulk-buttons {
   display: flex;
@@ -584,19 +584,19 @@ onMounted(() => {
   border-radius: 999px;
   font-size: 11px;
   border: 1px solid var(--border);
-  background: rgba(59, 130, 246, 0.15);
-  color: #1d4ed8;
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 .badge[data-status="soon"] {
-  background: rgba(245, 158, 11, 0.18);
-  color: #b45309;
+  background: color-mix(in srgb, var(--status-soon) 18%, transparent);
+  color: var(--status-soon);
 }
 .badge[data-status="overdue"],
 .badge.danger {
-  background: rgba(248, 113, 113, 0.2);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--status-overdue) 18%, transparent);
+  color: var(--status-overdue);
 }
 .pill.warning {
   background: rgba(248, 113, 113, 0.18);

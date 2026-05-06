@@ -1453,6 +1453,12 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  --task-status-open: #f59e0b;
+  --task-status-in-progress: #f97316;
+  --task-status-review: #a855f7;
+  --task-status-done: #10b981;
+  --task-surface-soft: rgba(15, 23, 42, 0.04);
+  --task-surface-strong: rgba(248, 250, 252, 0.78);
 }
 .card {
   border-radius: 22px;
@@ -1605,16 +1611,16 @@ onBeforeUnmount(() => {
   transition: width 0.25s ease;
 }
 .progress-track[data-status="OPEN"] .progress-fill {
-  background: var(--status-open);
+  background: var(--task-status-open);
 }
 .progress-track[data-status="IN_PROGRESS"] .progress-fill {
-  background: var(--status-in-progress);
+  background: var(--task-status-in-progress);
 }
 .progress-track[data-status="REVIEW"] .progress-fill {
-  background: var(--status-review);
+  background: var(--task-status-review);
 }
 .progress-track[data-status="DONE"] .progress-fill {
-  background: var(--status-done);
+  background: var(--task-status-done);
 }
 .dot {
   display: inline-block;
@@ -1624,16 +1630,16 @@ onBeforeUnmount(() => {
   margin-right: 4px;
 }
 .dot[data-status="OPEN"] {
-  background: var(--status-open);
+  background: var(--task-status-open);
 }
 .dot[data-status="IN_PROGRESS"] {
-  background: var(--status-in-progress);
+  background: var(--task-status-in-progress);
 }
 .dot[data-status="REVIEW"] {
-  background: var(--status-review);
+  background: var(--task-status-review);
 }
 .dot[data-status="DONE"] {
-  background: var(--status-done);
+  background: var(--task-status-done);
 }
 .columns {
   display: grid;
@@ -1678,16 +1684,16 @@ onBeforeUnmount(() => {
   background: rgba(148, 163, 184, 0.5);
 }
 .task-card[data-status="OPEN"]::before {
-  background: #f59e0b;
+  background: var(--task-status-open);
 }
 .task-card[data-status="IN_PROGRESS"]::before {
-  background: #3b82f6;
+  background: var(--task-status-in-progress);
 }
 .task-card[data-status="REVIEW"]::before {
-  background: #a855f7;
+  background: var(--task-status-review);
 }
 .task-card[data-status="DONE"]::before {
-  background: #10b981;
+  background: var(--task-status-done);
 }
 .task-card:hover {
   transform: translateY(-1px);
@@ -1834,16 +1840,20 @@ onBeforeUnmount(() => {
   letter-spacing: 0.05em;
 }
 .status-chip {
-  background: rgba(59, 130, 246, 0.15);
-  color: #1d4ed8;
+  background: color-mix(in srgb, var(--task-status-open) 18%, transparent);
+  color: var(--task-status-open);
 }
 .status-chip[data-status="IN_PROGRESS"] {
-  background: rgba(249, 115, 22, 0.16);
-  color: #ea580c;
+  background: color-mix(in srgb, var(--task-status-in-progress) 18%, transparent);
+  color: var(--task-status-in-progress);
+}
+.status-chip[data-status="REVIEW"] {
+  background: color-mix(in srgb, var(--task-status-review) 18%, transparent);
+  color: var(--task-status-review);
 }
 .status-chip[data-status="DONE"] {
-  background: rgba(16, 185, 129, 0.16);
-  color: #059669;
+  background: color-mix(in srgb, var(--task-status-done) 18%, transparent);
+  color: var(--task-status-done);
 }
 .priority-chip[data-priority="HIGH"],
 .priority-chip[data-priority="CRITICAL"] {
@@ -1867,12 +1877,12 @@ onBeforeUnmount(() => {
   color: #b91c1c;
 }
 .archive-chip {
-  background: rgba(15, 23, 42, 0.12);
-  color: #111827;
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text);
 }
 .review-chip {
-  background: rgba(15, 23, 42, 0.12);
-  color: #1f2937;
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text);
 }
 .review-chip[data-review="REVIEWED"] {
   background: rgba(16, 185, 129, 0.16);
@@ -1887,7 +1897,7 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   padding: 10px 12px;
   margin-bottom: 12px;
-  background: rgba(15, 23, 42, 0.04);
+  background: var(--task-surface-soft);
 }
 .review-summary .dot {
   margin: 0 6px;
@@ -1908,7 +1918,7 @@ onBeforeUnmount(() => {
   padding: 12px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 12px;
-  background: rgba(248, 250, 252, 0.7);
+  background: var(--task-surface-strong);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1968,6 +1978,7 @@ select[multiple] {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  background: var(--task-surface-soft);
 }
 .comment-list header {
   display: flex;
@@ -2112,8 +2123,12 @@ select[multiple] {
   box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55);
 }
 :global(.dark) .tasks .info-panel {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.72);
   border-color: var(--border);
+}
+:global(.dark) .tasks {
+  --task-surface-soft: rgba(15, 23, 42, 0.28);
+  --task-surface-strong: rgba(15, 23, 42, 0.72);
 }
 .modal-actions {
   display: flex;

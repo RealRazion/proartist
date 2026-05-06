@@ -1168,15 +1168,15 @@ watch(
 
 .entity-btn.active {
   background: var(--brand);
-  color: #fff;
+  color: #ffffff;
 }
 
 .urgency-pill {
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(220, 38, 38, 0.25);
-  background: rgba(220, 38, 38, 0.08);
-  color: #b91c1c;
+  border: 1px solid color-mix(in srgb, var(--status-overdue) 28%, transparent);
+  background: color-mix(in srgb, var(--status-overdue) 10%, transparent);
+  color: var(--status-overdue);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
@@ -1198,8 +1198,8 @@ watch(
 }
 
 .highlight-card.warning {
-  background: linear-gradient(180deg, rgba(217, 119, 6, 0.14), rgba(217, 119, 6, 0.04));
-  border-color: rgba(217, 119, 6, 0.26);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--status-open) 14%, transparent), color-mix(in srgb, var(--status-open) 4%, transparent));
+  border-color: color-mix(in srgb, var(--status-open) 28%, transparent);
 }
 
 .highlight-label {
@@ -1217,7 +1217,7 @@ watch(
   padding: 16px;
   border-radius: 12px;
   border: 1px dashed var(--border);
-  background: rgba(47, 99, 255, 0.03);
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
 }
 
 .due-list {
@@ -1234,7 +1234,7 @@ watch(
   border-radius: 14px;
   border: 1px solid var(--border);
   border-left-width: 4px;
-  background: linear-gradient(145deg, rgba(47, 99, 255, 0.05), var(--surface));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 7%, transparent), var(--surface));
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
@@ -1244,15 +1244,15 @@ watch(
 }
 
 .due-item.due-overdue {
-  border-color: rgba(220, 38, 38, 0.34);
-  border-left-color: #dc2626;
-  background: rgba(220, 38, 38, 0.08);
+  border-color: color-mix(in srgb, var(--status-overdue) 36%, transparent);
+  border-left-color: var(--status-overdue);
+  background: color-mix(in srgb, var(--status-overdue) 10%, transparent);
 }
 
 .due-item.due-due_today {
-  border-color: rgba(217, 119, 6, 0.34);
-  border-left-color: #d97706;
-  background: rgba(217, 119, 6, 0.08);
+  border-color: color-mix(in srgb, var(--status-open) 36%, transparent);
+  border-left-color: var(--status-open);
+  background: color-mix(in srgb, var(--status-open) 10%, transparent);
 }
 
 .due-copy {
@@ -1276,7 +1276,7 @@ watch(
   padding: 18px;
   border-radius: 18px;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), var(--surface));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--card) 86%, transparent), var(--surface));
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
@@ -1287,13 +1287,13 @@ watch(
 }
 
 .debt-card.debt-overdue {
-  border-color: rgba(220, 38, 38, 0.34);
-  background: linear-gradient(160deg, rgba(220, 38, 38, 0.08), var(--surface) 42%);
+  border-color: color-mix(in srgb, var(--status-overdue) 36%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-overdue) 10%, transparent), var(--surface) 42%);
 }
 
 .debt-card.debt-due_today {
-  border-color: rgba(217, 119, 6, 0.34);
-  background: linear-gradient(160deg, rgba(217, 119, 6, 0.08), var(--surface) 42%);
+  border-color: color-mix(in srgb, var(--status-open) 36%, transparent);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-open) 10%, transparent), var(--surface) 42%);
 }
 
 .debt-header {
@@ -1324,15 +1324,15 @@ watch(
 }
 
 .signal-dot.signal-overdue {
-  background: #dc2626;
+  background: var(--status-overdue);
 }
 
 .signal-dot.signal-paid {
-  background: #16a34a;
+  background: var(--status-done);
 }
 
 .signal-dot.signal-due-soon {
-  background: #f59e0b;
+  background: var(--status-open);
 }
 
 .debt-badges {
@@ -1357,28 +1357,28 @@ watch(
 }
 
 .status-badge.status-active {
-  background: rgba(16, 185, 129, 0.12);
-  color: #047857;
+  background: color-mix(in srgb, var(--status-done) 14%, transparent);
+  color: var(--status-done);
 }
 
 .status-badge.status-paid_off {
-  background: rgba(34, 197, 94, 0.12);
-  color: #166534;
+  background: color-mix(in srgb, var(--status-done) 14%, transparent);
+  color: var(--status-done);
 }
 
 .status-badge.status-paused {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
+  background: color-mix(in srgb, var(--status-open) 14%, transparent);
+  color: var(--status-open);
 }
 
 .due-badge.due-overdue {
-  background: rgba(220, 38, 38, 0.12);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--status-overdue) 14%, transparent);
+  color: var(--status-overdue);
 }
 
 .due-badge.due-due_today {
-  background: rgba(217, 119, 6, 0.14);
-  color: #b45309;
+  background: color-mix(in srgb, var(--status-open) 14%, transparent);
+  color: var(--status-open);
 }
 
 .due-badge.due-upcoming,
@@ -1388,8 +1388,8 @@ watch(
 }
 
 .due-badge.due-paid_off {
-  background: rgba(34, 197, 94, 0.12);
-  color: #166534;
+  background: color-mix(in srgb, var(--status-done) 14%, transparent);
+  color: var(--status-done);
 }
 
 .due-badge.due-paused {
@@ -1439,8 +1439,8 @@ watch(
   gap: 12px;
   padding: 14px;
   border-radius: 14px;
-  border: 1px solid rgba(47, 99, 255, 0.14);
-  background: rgba(47, 99, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--brand) 18%, transparent);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
 }
 
 .stat {
@@ -1448,7 +1448,7 @@ watch(
   gap: 4px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
 }
 
 .stat-label {
@@ -1464,7 +1464,7 @@ watch(
 
 .stat strong.paid-off,
 .success-text {
-  color: #16a34a;
+  color: var(--status-done);
 }
 
 .debt-meta {

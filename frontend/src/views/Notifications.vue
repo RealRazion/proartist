@@ -275,22 +275,22 @@ onMounted(loadNotifications);
   color: var(--muted);
 }
 .badge[data-tone="danger"] {
-  background: rgba(248, 113, 113, 0.2);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--status-overdue) 18%, transparent);
+  color: var(--status-overdue);
 }
 .badge[data-tone="warning"],
 .badge.warning {
-  background: rgba(245, 158, 11, 0.18);
-  color: #b45309;
+  background: color-mix(in srgb, var(--status-soon) 18%, transparent);
+  color: var(--status-soon);
 }
 .badge[data-tone="ok"] {
-  background: rgba(34, 197, 94, 0.18);
-  color: #15803d;
+  background: color-mix(in srgb, var(--status-done) 18%, transparent);
+  color: var(--status-done);
 }
 .badge[data-tone="info"],
 .badge {
-  background: rgba(59, 130, 246, 0.15);
-  color: #1d4ed8;
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  color: var(--brand);
 }
 @media (max-width: 720px) {
   .filters,

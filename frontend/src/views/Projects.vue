@@ -820,20 +820,20 @@ onBeforeUnmount(() => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: rgba(59, 130, 246, 0.15);
-  color: #1d4ed8;
+  background: color-mix(in srgb, var(--status-open) 16%, transparent);
+  color: var(--status-open);
 }
 .status[data-status="IN_PROGRESS"] {
-  background: rgba(249, 115, 22, 0.16);
-  color: #ea580c;
+  background: color-mix(in srgb, var(--status-in-progress) 16%, transparent);
+  color: var(--status-in-progress);
 }
 .status[data-status="DONE"] {
-  background: rgba(16, 185, 129, 0.16);
-  color: #059669;
+  background: color-mix(in srgb, var(--status-done) 16%, transparent);
+  color: var(--status-done);
 }
 .status[data-status="ON_HOLD"] {
-  background: rgba(148, 163, 184, 0.18);
-  color: #475569;
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+  color: var(--muted);
 }
 .meta-actions {
   display: flex;
@@ -858,7 +858,7 @@ onBeforeUnmount(() => {
 }
 .badge.archived {
   background: rgba(15, 23, 42, 0.1);
-  color: #1f2937;
+  color: var(--text);
   padding: 4px 10px;
   border-radius: 10px;
   font-size: 11px;
@@ -905,12 +905,12 @@ onBeforeUnmount(() => {
   letter-spacing: 0.08em;
 }
 .status-chips .chip.active {
-  border-color: #2563eb;
-  color: #2563eb;
+  border-color: var(--brand);
+  color: var(--brand);
 }
 .status-chips .chip.clear {
   border-color: transparent;
-  background: rgba(15, 23, 42, 0.05);
+  background: color-mix(in srgb, var(--text) 5%, var(--surface));
 }
 .visibility {
   display: flex;

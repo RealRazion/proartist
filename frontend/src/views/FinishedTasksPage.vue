@@ -333,11 +333,11 @@ function formatDate(dateStr) {
 
 .stat strong {
   font-size: 24px;
-  color: #3b82f6;
+  color: var(--status-in-progress);
 }
 
 .stat.warning strong {
-  color: #f97316;
+  color: var(--status-soon);
 }
 
 .task-list-shell {
@@ -401,16 +401,16 @@ function formatDate(dateStr) {
 .badge {
   display: inline-block;
   padding: 4px 10px;
-  background: rgba(248, 113, 113, 0.15);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--status-overdue) 16%, transparent);
+  color: var(--status-overdue);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
 }
 
 .badge-reviewed {
-  background: rgba(16, 185, 129, 0.15);
-  color: #059669;
+  background: color-mix(in srgb, var(--status-done) 16%, transparent);
+  color: var(--status-done);
 }
 
 .col-actions {

@@ -1428,9 +1428,9 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 .task-card.highlight {
-  border-color: #f97316;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
-  background: rgba(249, 115, 22, 0.08);
+  border-color: var(--status-soon);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-soon) 28%, transparent);
+  background: color-mix(in srgb, var(--status-soon) 12%, transparent);
 }
 .task-card.pulse {
   animation: taskPulse 1.2s ease-in-out 2;
@@ -1460,23 +1460,23 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
-  background: rgba(15, 23, 42, 0.12);
-  color: #1f2937;
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  color: var(--text);
 }
 .review-pill[data-review="REVIEWED"] {
-  background: rgba(16, 185, 129, 0.16);
-  color: #059669;
+  background: color-mix(in srgb, var(--status-done) 16%, transparent);
+  color: var(--status-done);
 }
 .review-pill[data-review="NOT_REVIEWED"] {
-  background: rgba(248, 113, 113, 0.2);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--status-overdue) 18%, transparent);
+  color: var(--status-overdue);
 }
 .review-summary {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
   margin-bottom: 12px;
-  background: rgba(15, 23, 42, 0.04);
+  background: color-mix(in srgb, var(--text) 4%, var(--surface));
 }
 .review-summary .dot {
   margin: 0 6px;

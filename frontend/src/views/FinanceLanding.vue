@@ -312,6 +312,14 @@ onMounted(loadProjects);
 .finance-entry {
   display: grid;
   gap: 18px;
+  --finance-info-bg: color-mix(in srgb, var(--brand) 10%, var(--surface));
+  --finance-info-border: color-mix(in srgb, var(--brand) 18%, var(--border));
+  --finance-success-bg: color-mix(in srgb, var(--status-done) 14%, var(--surface));
+  --finance-success-border: color-mix(in srgb, var(--status-done) 26%, var(--border));
+  --finance-success-text: color-mix(in srgb, var(--status-done) 72%, var(--text));
+  --finance-danger-bg: color-mix(in srgb, var(--status-overdue) 14%, var(--surface));
+  --finance-danger-border: color-mix(in srgb, var(--status-overdue) 26%, var(--border));
+  --finance-danger-text: color-mix(in srgb, var(--status-overdue) 72%, var(--text));
 }
 
 .feedback-stack {
@@ -328,15 +336,15 @@ onMounted(loadProjects);
 }
 
 .feedback-card.error {
-  border-color: rgba(239, 68, 68, 0.26);
-  background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
+  border-color: var(--finance-danger-border);
+  background: var(--finance-danger-bg);
+  color: var(--finance-danger-text);
 }
 
 .feedback-card.success {
-  border-color: rgba(16, 185, 129, 0.26);
-  background: rgba(16, 185, 129, 0.1);
-  color: #047857;
+  border-color: var(--finance-success-border);
+  background: var(--finance-success-bg);
+  color: var(--finance-success-text);
 }
 
 .hero {
@@ -377,8 +385,8 @@ onMounted(loadProjects);
 .hero-points span {
   padding: 9px 12px;
   border-radius: 999px;
-  background: rgba(47, 99, 255, 0.08);
-  border: 1px solid rgba(47, 99, 255, 0.12);
+  background: var(--finance-info-bg);
+  border: 1px solid var(--finance-info-border);
   font-size: 14px;
   font-weight: 600;
 }
@@ -524,15 +532,15 @@ onMounted(loadProjects);
 }
 
 :global(.dark) .finance-entry .feedback-card.error {
-  color: #fecaca;
-  background: rgba(127, 29, 29, 0.4);
-  border-color: rgba(248, 113, 113, 0.28);
+  color: var(--finance-danger-text);
+  background: var(--finance-danger-bg);
+  border-color: var(--finance-danger-border);
 }
 
 :global(.dark) .finance-entry .feedback-card.success {
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.42);
-  border-color: rgba(34, 197, 94, 0.28);
+  color: var(--finance-success-text);
+  background: var(--finance-success-bg);
+  border-color: var(--finance-success-border);
 }
 
 @media (max-width: 960px) {

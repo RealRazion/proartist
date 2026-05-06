@@ -1698,6 +1698,20 @@ onMounted(async () => {
 .finance-tool {
   display: grid;
   gap: 18px;
+  --finance-info-bg: color-mix(in srgb, var(--brand) 10%, var(--surface));
+  --finance-info-border: color-mix(in srgb, var(--brand) 18%, var(--border));
+  --finance-success-bg: color-mix(in srgb, var(--status-done) 14%, var(--surface));
+  --finance-success-border: color-mix(in srgb, var(--status-done) 26%, var(--border));
+  --finance-success-text: color-mix(in srgb, var(--status-done) 72%, var(--text));
+  --finance-warning-bg: color-mix(in srgb, var(--status-open) 14%, var(--surface));
+  --finance-warning-border: color-mix(in srgb, var(--status-open) 28%, var(--border));
+  --finance-warning-text: color-mix(in srgb, var(--status-open) 76%, var(--text));
+  --finance-danger-bg: color-mix(in srgb, var(--status-overdue) 14%, var(--surface));
+  --finance-danger-border: color-mix(in srgb, var(--status-overdue) 26%, var(--border));
+  --finance-danger-text: color-mix(in srgb, var(--status-overdue) 72%, var(--text));
+  --finance-purple-bg: color-mix(in srgb, var(--status-review) 14%, var(--surface));
+  --finance-purple-text: color-mix(in srgb, var(--status-review) 70%, var(--text));
+  --finance-soft-highlight: color-mix(in srgb, var(--brand) 6%, var(--surface));
 }
 
 .feedback-stack {
@@ -1714,15 +1728,15 @@ onMounted(async () => {
 }
 
 .feedback-card.error {
-  border-color: rgba(239, 68, 68, 0.26);
-  background: rgba(239, 68, 68, 0.08);
-  color: #b91c1c;
+  border-color: var(--finance-danger-border);
+  background: var(--finance-danger-bg);
+  color: var(--finance-danger-text);
 }
 
 .feedback-card.success {
-  border-color: rgba(16, 185, 129, 0.26);
-  background: rgba(16, 185, 129, 0.1);
-  color: #047857;
+  border-color: var(--finance-success-border);
+  background: var(--finance-success-bg);
+  color: var(--finance-success-text);
 }
 
 .hero {
@@ -1824,16 +1838,16 @@ onMounted(async () => {
 }
 
 .summary-card.positive {
-  background: linear-gradient(160deg, rgba(16, 185, 129, 0.12), rgba(255, 255, 255, 0.9));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-done) 14%, transparent), var(--surface));
 }
 
 .summary-card.warning {
-  background: linear-gradient(160deg, rgba(245, 158, 11, 0.12), rgba(255, 255, 255, 0.92));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-open) 14%, transparent), var(--surface));
 }
 
 .alert-card.warning {
-  background: linear-gradient(160deg, rgba(245, 158, 11, 0.15), rgba(255, 255, 255, 0.95));
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-open) 16%, transparent), var(--surface));
+  border: 1px solid var(--finance-warning-border);
 }
 
 .label {
@@ -1925,7 +1939,7 @@ onMounted(async () => {
   position: relative;
   height: 10px;
   border-radius: 999px;
-  background: rgba(47, 99, 255, 0.1);
+  background: var(--finance-info-bg);
   overflow: hidden;
 }
 
@@ -1937,17 +1951,17 @@ onMounted(async () => {
 }
 
 .progress-bar.alt {
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--finance-success-bg);
 }
 
 .progress-bar.alt span {
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: linear-gradient(135deg, var(--status-done), color-mix(in srgb, var(--status-done) 72%, white));
 }
 
 .snapshot {
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(47, 99, 255, 0.08);
+  background: var(--finance-info-bg);
   color: var(--brand);
   font-weight: 600;
 }
@@ -2016,32 +2030,33 @@ onMounted(async () => {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(47, 99, 255, 0.08);
+  background: var(--finance-info-bg);
+  color: var(--brand);
 }
 
 .type-badge[data-type="INCOME"] {
-  background: rgba(16, 185, 129, 0.12);
-  color: #047857;
+  background: var(--finance-success-bg);
+  color: var(--finance-success-text);
 }
 
 .type-badge[data-type="FIXED"] {
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
+  background: color-mix(in srgb, var(--brand) 14%, var(--surface));
+  color: var(--brand);
 }
 
 .type-badge[data-type="VARIABLE"] {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
+  background: var(--finance-warning-bg);
+  color: var(--finance-warning-text);
 }
 
 .type-badge[data-type="DEBT"] {
-  background: rgba(239, 68, 68, 0.12);
-  color: #b91c1c;
+  background: var(--finance-danger-bg);
+  color: var(--finance-danger-text);
 }
 
 .type-badge[data-type="SAVING"] {
-  background: rgba(139, 92, 246, 0.12);
-  color: #6d28d9;
+  background: var(--finance-purple-bg);
+  color: var(--finance-purple-text);
 }
 
 .entry-side {
@@ -2080,8 +2095,8 @@ onMounted(async () => {
   align-items: center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(47, 99, 255, 0.08);
-  border: 1px solid rgba(47, 99, 255, 0.12);
+  background: var(--finance-info-bg);
+  border: 1px solid var(--finance-info-border);
   font-size: 12px;
   font-weight: 600;
 }
@@ -2115,7 +2130,7 @@ onMounted(async () => {
 .chip.active {
   border-color: var(--brand);
   color: var(--brand);
-  background: rgba(47, 99, 255, 0.08);
+  background: var(--finance-info-bg);
 }
 
 .small {
@@ -2132,35 +2147,23 @@ onMounted(async () => {
 }
 
 .danger {
-  color: #b91c1c;
+  color: var(--finance-danger-text);
 }
 
 .empty-hint {
   margin: 0;
 }
 
-:global(.dark) .finance-tool .summary-card {
-  background: linear-gradient(160deg, rgba(47, 99, 255, 0.08), rgba(255, 255, 255, 0.02));
-}
-
-:global(.dark) .finance-tool .summary-card.positive {
-  background: linear-gradient(160deg, rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.02));
-}
-
-:global(.dark) .finance-tool .summary-card.warning {
-  background: linear-gradient(160deg, rgba(245, 158, 11, 0.1), rgba(255, 255, 255, 0.02));
-}
-
 :global(.dark) .finance-tool .feedback-card.error {
-  color: #fecaca;
-  background: rgba(127, 29, 29, 0.4);
-  border-color: rgba(248, 113, 113, 0.28);
+  color: var(--finance-danger-text);
+  background: var(--finance-danger-bg);
+  border-color: var(--finance-danger-border);
 }
 
 :global(.dark) .finance-tool .feedback-card.success {
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.42);
-  border-color: rgba(74, 222, 128, 0.24);
+  color: var(--finance-success-text);
+  background: var(--finance-success-bg);
+  border-color: var(--finance-success-border);
 }
 
 :global(.dark) .finance-tool .surface {
@@ -2168,11 +2171,11 @@ onMounted(async () => {
 }
 
 :global(.dark) .finance-tool .progress-bar {
-  background: rgba(47, 99, 255, 0.15);
+  background: var(--finance-info-bg);
 }
 
 :global(.dark) .finance-tool .progress-bar.alt {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--finance-success-bg);
 }
 
 /* Debt Section */
@@ -2294,13 +2297,13 @@ onMounted(async () => {
 }
 
 .forecast-carryover {
-  border-color: rgba(59, 130, 246, 0.35) !important;
-  background: rgba(59, 130, 246, 0.07) !important;
+  border-color: var(--finance-info-border) !important;
+  background: var(--finance-info-bg) !important;
 }
 
 .forecast-cumulative {
-  border-color: rgba(34, 197, 94, 0.4) !important;
-  background: rgba(34, 197, 94, 0.08) !important;
+  border-color: var(--finance-success-border) !important;
+  background: var(--finance-success-bg) !important;
   font-weight: 600;
 }
 
@@ -2351,11 +2354,11 @@ onMounted(async () => {
 }
 
 .chart-bar.income {
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: linear-gradient(135deg, var(--status-done), color-mix(in srgb, var(--status-done) 72%, white));
 }
 
 .chart-bar.expense {
-  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  background: linear-gradient(135deg, var(--status-open), color-mix(in srgb, var(--status-open) 68%, white));
 }
 
 .chart-bar span {
@@ -2473,8 +2476,8 @@ onMounted(async () => {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  background: rgba(139, 92, 246, 0.12);
-  color: #6d28d9;
+  background: var(--finance-purple-bg);
+  color: var(--finance-purple-text);
 }
 
 .daily-side {
@@ -2666,13 +2669,13 @@ onMounted(async () => {
 }
 
 .feedback-pill.error {
-  background: rgba(248, 113, 113, 0.16);
-  color: #7f1d1d;
+  background: var(--finance-danger-bg);
+  color: var(--finance-danger-text);
 }
 
 .feedback-pill.success {
-  background: rgba(20, 184, 166, 0.16);
-  color: #0f766e;
+  background: var(--finance-success-bg);
+  color: var(--finance-success-text);
 }
 
 .summary-band {
@@ -2771,7 +2774,9 @@ onMounted(async () => {
 .metric-pill {
   padding: 7px 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--finance-info-bg);
+  color: var(--text);
+  border: 1px solid var(--finance-info-border);
   font-size: 12px;
   line-height: 1;
 }
@@ -2800,11 +2805,11 @@ onMounted(async () => {
 }
 
 .due-plus {
-  color: #047857;
+  color: var(--finance-success-text);
 }
 
 .due-minus {
-  color: #b91c1c;
+  color: var(--finance-danger-text);
 }
 
 .tab-panel {
@@ -2876,14 +2881,14 @@ onMounted(async () => {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(59, 130, 246, 0.14);
+  background: color-mix(in srgb, var(--brand) 16%, var(--surface));
   color: var(--brand);
 }
 
 .badge.badge-soft {
-  background: rgba(59, 130, 246, 0.08);
+  background: var(--finance-soft-highlight);
   color: var(--text);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid var(--finance-info-border);
   font-weight: 600;
 }
 
@@ -2915,8 +2920,8 @@ onMounted(async () => {
 
 .info-row > div,
 .status-grid > div {
-  background: linear-gradient(160deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.03));
-  border: 1px solid rgba(59, 130, 246, 0.16);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--brand) 10%, transparent), var(--surface));
+  border: 1px solid var(--finance-info-border);
   padding: 16px;
   border-radius: 18px;
 }
@@ -2971,15 +2976,15 @@ onMounted(async () => {
 }
 
 .performance-item.income {
-  background: linear-gradient(135deg, #059669, #10b981);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--status-done) 76%, black), var(--status-done));
 }
 
 .performance-item.outcome {
-  background: linear-gradient(135deg, #c2410c, #f97316);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--status-open) 70%, black), var(--status-open));
 }
 
 .performance-item.balance {
-  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 72%, black), var(--brand));
 }
 
 .entries-panel .panel-head {
@@ -3137,7 +3142,7 @@ onMounted(async () => {
   min-height: 210px;
   border-radius: 20px;
   border: 1px dashed var(--border);
-  background: rgba(59, 130, 246, 0.04);
+  background: var(--finance-soft-highlight);
   display: grid;
   place-items: center;
   text-align: center;
@@ -3165,11 +3170,11 @@ onMounted(async () => {
 }
 
 .chart-bar.income {
-  background: linear-gradient(135deg, #22c55e, #4ade80);
+  background: linear-gradient(135deg, var(--status-done), color-mix(in srgb, var(--status-done) 72%, white));
 }
 
 .chart-bar.expense {
-  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  background: linear-gradient(135deg, var(--status-open), color-mix(in srgb, var(--status-open) 68%, white));
 }
 
 .chart-bar span {

@@ -227,7 +227,7 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px;
-  background: rgba(15, 23, 42, 0.03);
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
 }
 .grid {
   display: grid;
@@ -252,7 +252,7 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(15, 23, 42, 0.03);
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
 }
 .today-details {
   display: grid;
@@ -261,7 +261,7 @@ onMounted(() => {
   border: 1px dashed var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(15, 23, 42, 0.02);
+  background: color-mix(in srgb, var(--text) 2%, var(--surface));
 }
 .detail-list {
   list-style: none;
@@ -278,8 +278,8 @@ onMounted(() => {
   align-items: center;
 }
 .badge.danger {
-  background: rgba(248, 113, 113, 0.18);
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--status-overdue) 18%, transparent);
+  color: var(--status-overdue);
 }
 .performance .label {
   display: block;
@@ -334,8 +334,8 @@ onMounted(() => {
   padding: 2px 8px;
   font-size: 11px;
   border: 1px solid var(--border);
-  background: rgba(99, 102, 241, 0.12);
-  color: #4338ca;
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand);
 }
 @media (max-width: 720px) {
   .hero {

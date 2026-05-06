@@ -95,7 +95,7 @@ function goBack() {
   padding: 22px;
   background:
     radial-gradient(circle at top right, rgba(34, 197, 94, 0.16), transparent 38%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(241, 255, 246, 0.92));
+    linear-gradient(145deg, var(--card), color-mix(in srgb, var(--status-done) 8%, var(--surface)));
 }
 
 .hero-copy {
@@ -109,7 +109,7 @@ function goBack() {
   font-size: 12px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #15803d;
+  color: var(--status-done);
   font-weight: 700;
 }
 

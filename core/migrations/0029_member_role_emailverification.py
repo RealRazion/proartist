@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0022_add_savings_percentage'),
+        ('core', '0028_tournament_models'),
     ]
 
     operations = [

@@ -499,7 +499,11 @@ watch(
 onMounted(async () => {
   if (typeof window !== "undefined") {
     const storedTheme = localStorage.getItem("theme");
-    if (storedTheme) theme.value = storedTheme;
+    if (storedTheme === "dark" || storedTheme === "light") {
+      theme.value = storedTheme;
+    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      theme.value = "dark";
+    }
     collapsed.value = localStorage.getItem("layout:sidebar") === "collapsed";
   }
   applyTheme();
@@ -605,4 +609,9 @@ onBeforeUnmount(() => {
 }
 .chat-menu .menu-item:hover {
   background: rgba(15, 23, 42, 0.05);
-}</style>
+}
+
+:global(.dark) .chat-menu .menu-item:hover {
+  background: rgba(124, 161, 255, 0.16);
+}
+</style>

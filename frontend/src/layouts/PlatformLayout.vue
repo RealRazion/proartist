@@ -116,8 +116,10 @@ watch(
 onMounted(async () => {
   if (typeof window !== "undefined") {
     const storedTheme = localStorage.getItem("theme");
-    if (storedTheme) {
+    if (storedTheme === "dark" || storedTheme === "light") {
       theme.value = storedTheme;
+    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      theme.value = "dark";
     }
   }
   applyTheme();
@@ -243,26 +245,47 @@ onMounted(async () => {
 @media (max-width: 720px) {
   .platform-topbar {
     padding: 12px 16px;
-    flex-direction: column;
-    align-items: stretch;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   .topbar-left,
   .topbar-actions {
-    width: 100%;
+    width: auto;
   }
 
+  .topbar-left {
+    flex: 1 1 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .topbar-actions {
+    margin-left: auto;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .platform-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 560px) {
   .topbar-left {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .topbar-actions {
-    justify-content: flex-end;
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
-  .platform-content {
-    padding: 16px;
+  .nav-btn {
+    width: 100%;
   }
 }
 </style>

@@ -61,7 +61,7 @@
           <strong>{{ request.sender_name }}</strong>
           <span class="pill">{{ requestTypeLabel(request.req_type) }}</span>
         </div>
-        <p class="muted small">An {{ request.receiver_name }} · {{ statusLabelMap[request.status] }}</p>
+        <p class="muted small">An {{ request.receiver_name }} - {{ statusLabelMap[request.status] }}</p>
         <p class="message">{{ request.message || "Keine Nachricht hinterlegt." }}</p>
       </li>
     </ul>

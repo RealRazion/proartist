@@ -936,7 +936,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         notify_project_event(instance, "deleted")
         log_activity(
             "project_deleted",
-            f"Projekt gelÃ¶scht: {instance.title}",
+            f"Projekt gelöscht: {instance.title}",
             actor=actor,
             severity="DANGER",
             project=instance,
@@ -1174,7 +1174,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             log_activity(
                 "task_overdue",
                 f"Deadline verpasst: {task.title}",
-                description=f"FÃ¤llig am {task.due_date}",
+                description=f"Fällig am {task.due_date}",
                 severity="DANGER",
                 task=task,
                 project=task.project,
@@ -1310,7 +1310,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         if prev_priority != task.priority:
             log_activity(
                 "task_priority_updated",
-                f"PrioritÃ¤t geÃ¤ndert: {task.title}",
+                f"Priorität geändert: {task.title}",
                 description=f"{prev_priority} -> {task.priority}",
                 actor=actor,
                 severity="INFO",
@@ -1332,7 +1332,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         notify_task_event(instance, "deleted")
         log_activity(
             "task_deleted",
-            f"Task gelÃ¶scht: {instance.title}",
+            f"Task gelöscht: {instance.title}",
             actor=actor,
             severity="DANGER",
             task=instance,
@@ -1380,7 +1380,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             return
         send_notification_email(
             f"Neuer Task: {task.title}",
-            f"Dir wurde ein Task zugewiesen.\n\nTitel: {task.title}\nStatus: {task.status}\nFÃ¤llig: {task.due_date or 'Kein Termin'}",
+            f"Dir wurde ein Task zugewiesen.\n\nTitel: {task.title}\nStatus: {task.status}\nFällig: {task.due_date or 'Kein Termin'}",
             recipients,
         )
 
@@ -1612,8 +1612,8 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
         recipients = _profile_emails(mentions)
         if recipients:
             send_notification_email(
-                f"Neue ErwÃ¤hnung in {comment.task.title}",
-                f"{comment.author.name or comment.author.user.username} hat dich in einem Task-Kommentar erwÃ¤hnt.\n\nKommentar:\n{comment.body}",
+                f"Neue Erwähnung in {comment.task.title}",
+                f"{comment.author.name or comment.author.user.username} hat dich in einem Task-Kommentar erwähnt.\n\nKommentar:\n{comment.body}",
                 recipients,
             )
 
@@ -1690,7 +1690,7 @@ class SongViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         log_activity(
             "song_deleted",
-            f"Song gelÃ¶scht: {instance.title}",
+            f"Song gelöscht: {instance.title}",
             actor=getattr(self.request.user, "profile", None),
             severity="WARNING",
             project=instance.project,
@@ -1832,7 +1832,7 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
         try:
             value = float(request.data.get("value"))
         except (TypeError, ValueError):
-            return Response({"detail": "Wert fehlt oder ist ungÃ¼ltig"}, status=400)
+            return Response({"detail": "Wert fehlt oder ist ungültig"}, status=400)
         note = request.data.get("note", "")
         update = GrowProUpdate.objects.create(goal=goal, value=value, note=note, created_by=me)
         goal.current_value = value

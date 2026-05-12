@@ -9,4 +9,9 @@ app.mount("#app");
 
 // Theme init
 const saved = localStorage.getItem("theme");
-if (saved === "dark") document.documentElement.classList.add("dark");
+if (saved === "dark" || saved === "light") {
+	document.documentElement.classList.toggle("dark", saved === "dark");
+} else {
+	const prefersDark = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+	document.documentElement.classList.toggle("dark", prefersDark);
+}

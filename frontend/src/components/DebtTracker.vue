@@ -67,6 +67,14 @@
           <span class="highlight-label">Offener Betrag</span>
           <strong>{{ formatCurrency(totalRemainingAmount) }}</strong>
         </article>
+        <article class="highlight-card cool-progress">
+          <span class="highlight-label">Gesamt-Fortschritt</span>
+          <strong>{{ debtPortfolioProgress }}%</strong>
+          <div class="cool-progress-bar" role="progressbar" :aria-valuenow="debtPortfolioProgress" aria-valuemin="0" aria-valuemax="100">
+            <span :style="{ width: `${debtPortfolioProgress}%` }"></span>
+          </div>
+          <p class="muted tiny">{{ formatCurrency(totalDebtPaid) }} von {{ formatCurrency(totalDebtAmount) }} bezahlt</p>
+        </article>
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -165,6 +173,26 @@
         <p class="muted empty-hint">Noch keine {{ currentEntityPlural }} eingetragen.</p>
         <button class="btn" type="button" @click="openAddDebtModal">Ersten Eintrag hinzufÜgen</button>
       </div>
+    </section>
+
+    <section v-if="debtPayments.length" class="card payment-history-section">
+      <div class="section-head compact">
+        <div>
+          <h2>Getätigte Zahlungen</h2>
+          <p class="muted">Zuletzt markierte Zahlungen aus deinen Einträgen.</p>
+        </div>
+        <span class="history-pill">{{ debtPayments.length }} Einträge</span>
+      </div>
+
+      <ul class="payment-history-list">
+        <li v-for="payment in debtPayments" :key="payment.id" class="payment-history-item">
+          <div class="payment-history-main">
+            <strong>{{ payment.debtName }}</strong>
+            <p class="muted tiny">{{ formatDate(payment.date) }}{{ payment.note ? ` · ${payment.note}` : '' }}</p>
+          </div>
+          <strong class="payment-history-amount">{{ formatCurrency(payment.amount) }}</strong>
+        </li>
+      </ul>
     </section>
 
     <section v-if="filteredDebts.length" class="card monthly-section">
@@ -693,6 +721,56 @@ const totalRemainingAmount = computed(() =>
   filteredDebts.value.reduce((sum, debt) => sum + parseAmount(debt.remaining_amount), 0)
 );
 
+const totalDebtAmount = computed(() =>
+  filteredDebts.value.reduce((sum, debt) => sum + parseAmount(debt.total_amount), 0)
+);
+
+const totalDebtPaid = computed(() =>
+  filteredDebts.value.reduce((sum, debt) => sum + parseAmount(debt.amount_paid), 0)
+);
+
+const debtPortfolioProgress = computed(() => {
+  if (totalDebtAmount.value <= 0) return 0;
+  return Math.min(100, Math.max(0, Math.round((totalDebtPaid.value / totalDebtAmount.value) * 100)));
+});
+
+function parseEuroAmount(rawValue) {
+  const normalized = String(rawValue || '')
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^0-9.-]/g, '');
+  const amount = Number.parseFloat(normalized);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function parsePaidPaymentsFromNotes(notesText, debt) {
+  if (!notesText) return [];
+  return String(notesText)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, idx) => {
+      const match = line.match(/^(\d{4}-\d{2}-\d{2}):\s*.*bezahlt\s*\(([^)]+)\)\.?\s*(.*)$/i);
+      if (!match) return null;
+      const [, dateStr, amountRaw, note] = match;
+      return {
+        id: `${debt.id}-${dateStr}-${idx}`,
+        debtId: debt.id,
+        debtName: debt.name,
+        date: dateStr,
+        amount: parseEuroAmount(amountRaw),
+        note: note || '',
+      };
+    })
+    .filter(Boolean);
+}
+
+const debtPayments = computed(() =>
+  filteredDebts.value
+    .flatMap((debt) => parsePaidPaymentsFromNotes(debt.notes, debt))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+);
+
 const currentEntitySingle = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredit' : 'Schuld'));
 const currentEntityPlural = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredite' : 'Schulden'));
 const currentEntityHeadline = computed(() => (selectedDebtKind.value === 'CREDIT' ? 'Kredite verwalten' : 'Schulden verwalten'));
@@ -1185,7 +1263,7 @@ watch(
 .tracker-highlights {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .highlight-card {
@@ -1200,6 +1278,75 @@ watch(
 .highlight-card.warning {
   background: linear-gradient(180deg, color-mix(in srgb, var(--status-open) 14%, transparent), color-mix(in srgb, var(--status-open) 4%, transparent));
   border-color: color-mix(in srgb, var(--status-open) 28%, transparent);
+}
+
+.highlight-card.cool-progress {
+  background: linear-gradient(135deg, #1d1160, #4c1d95);
+  border-color: color-mix(in srgb, #a78bfa 40%, transparent);
+  color: #f8fafc;
+}
+
+.cool-progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+.cool-progress-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.history-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #a78bfa 28%, transparent);
+  background: color-mix(in srgb, #a78bfa 10%, transparent);
+  color: #7c3aed;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.payment-history-section {
+  display: grid;
+  gap: 14px;
+}
+
+.payment-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.payment-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: linear-gradient(145deg, color-mix(in srgb, #a78bfa 8%, transparent), var(--surface));
+}
+
+.payment-history-main {
+  display: grid;
+  gap: 3px;
+}
+
+.payment-history-main p {
+  margin: 0;
+}
+
+.payment-history-amount {
+  color: #7c3aed;
+  white-space: nowrap;
 }
 
 .highlight-label {

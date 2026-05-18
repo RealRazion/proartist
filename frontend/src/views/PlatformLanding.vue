@@ -24,33 +24,40 @@
     <!-- Platforms Grid -->
     <section class="platforms-section">
       <div class="section-header">
-        <h2>Plattformen</h2>
-        <p>Schnellzugriff auf deine wichtigsten Bereiche, ohne endloses Scrollen.</p>
-      </div>
-
-      <div class="platform-quick-jump" role="navigation" aria-label="Schnellzugriff Plattformen">
+        <div class="section-header-left">
+          <h2>Plattformen</h2>
+          <p>Klick zum Öffnen — ziehe Karten zum Umsortieren.</p>
+        </div>
         <button
-          v-for="platform in visiblePlatforms"
-          :key="`jump-${platform.key}`"
+          class="btn ghost edit-order-btn"
           type="button"
-          class="quick-jump-chip"
-          :aria-label="`Direkt öffnen: ${platform.title}`"
-          @click="openPlatform(platform.key)"
+          :class="{ active: editMode }"
+          @click="editMode = !editMode"
         >
-          <span class="chip-icon" aria-hidden="true">{{ platform.icon }}</span>
-          <span>{{ platform.title }}</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="sort-icon"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          {{ editMode ? 'Fertig' : 'Reihenfolge ändern' }}
         </button>
       </div>
 
       <div class="platforms-grid">
         <div
-          v-for="platform in displayedPlatforms"
+          v-for="platform in orderedPlatforms"
           :key="platform.key"
           class="platform-card"
           role="article"
           :aria-label="`${platform.title} - ${platform.category}`"
-          @click="openPlatform(platform.key)"
+          :draggable="editMode"
+          :class="{ 'is-dragging': draggedKey === platform.key, 'drag-over': dragOverKey === platform.key, 'edit-active': editMode }"
+          @dragstart="onDragStart($event, platform.key)"
+          @dragover="onDragOver($event, platform.key)"
+          @dragleave="dragOverKey = null"
+          @drop="onDrop($event, platform.key)"
+          @dragend="onDragEnd"
+          @click="!editMode && openPlatform(platform.key)"
         >
+          <div v-if="editMode" class="drag-handle" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>
+          </div>
           <div class="platform-header">
             <div class="platform-icon" aria-hidden="true">{{ platform.icon }}</div>
             <div class="platform-meta">
@@ -64,23 +71,19 @@
               {{ feature }}
             </span>
           </div>
-          <button 
+          <button
+            v-if="!editMode"
             class="platform-btn"
             :aria-label="`${platform.buttonLabel}: ${platform.title}`"
-            :title="`${platform.buttonLabel}: ${platform.description}`"
+            @click.stop="openPlatform(platform.key)"
           >
             {{ platform.buttonLabel }}
             <svg class="arrow-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </button>
+          <div v-else class="edit-hint">Ziehen zum Umsortieren</div>
         </div>
-      </div>
-
-      <div v-if="visiblePlatforms.length > initialPlatformCount" class="platforms-more-wrap">
-        <button class="btn ghost" type="button" @click="showAllPlatforms = !showAllPlatforms">
-          {{ showAllPlatforms ? "Weniger anzeigen" : `Weitere Plattformen anzeigen (${visiblePlatforms.length - initialPlatformCount})` }}
-        </button>
       </div>
     </section>
 
@@ -120,8 +123,19 @@ const { showToast } = useToast();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 
 const viewMode = ref("default");
-const showAllPlatforms = ref(false);
-const initialPlatformCount = 6;
+const editMode = ref(false);
+const draggedKey = ref(null);
+const dragOverKey = ref(null);
+
+function loadSavedOrder() {
+  try {
+    const raw = localStorage.getItem("unyq_platform_order");
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+const platformOrder = ref(loadSavedOrder());
 
 // Real stats from API
 const stats = ref({
@@ -259,36 +273,54 @@ const activeRole = computed(() => {
   return role?.key || "ARTIST";
 });
 
+const defaultOrder = [
+  "dashboard", "music", "contests", "content-schedule",
+  "content-studio", "finance", "fitness", "locations", "admin", "testing",
+];
+
 const visiblePlatforms = computed(() => {
   const currentRole = activeRole.value;
-  const roleFiltered = platforms.filter((platform) => platform.roles.includes(currentRole));
-
-  const preferredOrder = [
-    "dashboard",
-    "music",
-    "contests",
-    "content-schedule",
-    "content-studio",
-    "finance",
-    "fitness",
-    "locations",
-    "admin",
-    "testing",
-  ];
-
-  return [...roleFiltered].sort((a, b) => {
-    const aIdx = preferredOrder.indexOf(a.key);
-    const bIdx = preferredOrder.indexOf(b.key);
-    const aOrder = aIdx === -1 ? preferredOrder.length : aIdx;
-    const bOrder = bIdx === -1 ? preferredOrder.length : bIdx;
-    return aOrder - bOrder;
-  });
+  return platforms.filter((platform) => platform.roles.includes(currentRole));
 });
 
-const displayedPlatforms = computed(() => {
-  if (showAllPlatforms.value) return visiblePlatforms.value;
-  return visiblePlatforms.value.slice(0, initialPlatformCount);
+const orderedPlatforms = computed(() => {
+  const visible = visiblePlatforms.value;
+  const order = platformOrder.value.length ? platformOrder.value : defaultOrder;
+  const known = order.filter((key) => visible.some((p) => p.key === key));
+  const rest = visible.filter((p) => !known.includes(p.key));
+  return [...known.map((key) => visible.find((p) => p.key === key)).filter(Boolean), ...rest];
 });
+
+function onDragStart(event, key) {
+  draggedKey.value = key;
+  event.dataTransfer.effectAllowed = "move";
+}
+
+function onDragOver(event, key) {
+  event.preventDefault();
+  dragOverKey.value = key;
+  event.dataTransfer.dropEffect = "move";
+}
+
+function onDrop(event, targetKey) {
+  event.preventDefault();
+  if (!draggedKey.value || draggedKey.value === targetKey) { dragOverKey.value = null; return; }
+  const list = [...orderedPlatforms.value];
+  const fromIdx = list.findIndex((p) => p.key === draggedKey.value);
+  const toIdx = list.findIndex((p) => p.key === targetKey);
+  if (fromIdx === -1 || toIdx === -1) return;
+  const [moved] = list.splice(fromIdx, 1);
+  list.splice(toIdx, 0, moved);
+  platformOrder.value = list.map((p) => p.key);
+  localStorage.setItem("unyq_platform_order", JSON.stringify(platformOrder.value));
+  draggedKey.value = null;
+  dragOverKey.value = null;
+}
+
+function onDragEnd() {
+  draggedKey.value = null;
+  dragOverKey.value = null;
+}
 
 function openPlatform(platform) {
   const mapping = {
@@ -437,62 +469,53 @@ onMounted(async () => {
 }
 
 .section-header {
-  max-width: 1200px;
-  margin: 0 auto 24px;
-  text-align: center;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.section-header h2 {
-  font-size: clamp(1.6rem, 2.3vw, 2.1rem);
+.section-header-left h2 {
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
   font-weight: 700;
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   color: var(--text);
 }
 
-.section-header p {
-  font-size: 1rem;
+.section-header-left p {
+  font-size: 0.9rem;
   color: var(--muted);
   margin: 0;
 }
 
-.platform-quick-jump {
-  max-width: 1200px;
-  margin: 0 auto 24px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.quick-jump-chip {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 8px 14px;
+.edit-order-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  gap: 7px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.quick-jump-chip:hover {
+.edit-order-btn.active {
+  background: color-mix(in srgb, var(--brand) 14%, var(--surface) 86%);
   border-color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 12%, var(--card) 88%);
-  transform: translateY(-1px);
+  color: var(--brand);
 }
 
-.chip-icon {
-  font-size: 1rem;
-  line-height: 1;
+.sort-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .platforms-grid {
-  max-width: 1200px;
-  margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   gap: 18px;
 }
 
@@ -502,10 +525,56 @@ onMounted(async () => {
   border-radius: 16px;
   padding: 22px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   box-shadow: var(--shadow-soft);
   position: relative;
   overflow: hidden;
+}
+
+.platform-card.edit-active {
+  cursor: grab;
+}
+
+.platform-card.edit-active:active {
+  cursor: grabbing;
+}
+
+.platform-card.is-dragging {
+  opacity: 0.45;
+  transform: scale(0.97);
+}
+
+.platform-card.drag-over {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--ring);
+  transform: scale(1.01);
+}
+
+.drag-handle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  opacity: 0.4;
+  cursor: grab;
+}
+
+.drag-handle svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--text);
+}
+
+.edit-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px 0;
+  border-top: 1px dashed var(--border);
+  margin-top: 8px;
 }
 
 .platform-card::before {
@@ -620,13 +689,6 @@ onMounted(async () => {
   stroke-linejoin: round;
 }
 
-.platforms-more-wrap {
-  max-width: 1200px;
-  margin: 24px auto 0;
-  display: flex;
-  justify-content: center;
-}
-
 /* Stats Section */
 .stats-section {
   padding: 40px 20px;
@@ -634,8 +696,7 @@ onMounted(async () => {
 }
 
 .stats-grid {
-  max-width: 1200px;
-  margin: 0 auto;
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
@@ -668,12 +729,8 @@ onMounted(async () => {
 /* Responsive - Tablet & Mobile */
 @media (max-width: 1024px) {
   .platforms-grid {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-  }
-
-  .section-header h2 {
-    font-size: 1.8rem;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
   }
 
   .hero-title {
@@ -708,31 +765,17 @@ onMounted(async () => {
 
   .platforms-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
   }
 
   .platform-card {
     padding: 18px;
   }
 
-  .platform-quick-jump {
-    margin-bottom: 18px;
-    gap: 8px;
-  }
-
-  .quick-jump-chip {
-    width: calc(50% - 4px);
-    justify-content: center;
-    padding: 8px 10px;
-    font-size: 0.9rem;
-  }
-
-  .section-header h2 {
-    font-size: 1.5rem;
-  }
-
-  .section-header p {
-    font-size: 1rem;
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 
   .stat-card {
@@ -746,6 +789,12 @@ onMounted(async () => {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }
 
@@ -765,10 +814,6 @@ onMounted(async () => {
   .platform-card {
     padding: 16px;
     border-radius: 12px;
-  }
-
-  .quick-jump-chip {
-    width: 100%;
   }
 
   .platform-header {

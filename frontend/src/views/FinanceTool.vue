@@ -112,11 +112,36 @@
           </div>
         </article>
 
+        <!-- Sparplan-Widget -->
+        <article class="metric-card savings-gauge-card">
+          <span class="metric-label">Sparplan</span>
+          <div class="savings-ring-wrap">
+            <svg viewBox="0 0 80 80" class="savings-ring" aria-hidden="true">
+              <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="8"/>
+              <circle
+                cx="40" cy="40" r="32"
+                fill="none"
+                stroke="#fbbf24"
+                stroke-width="8"
+                stroke-linecap="round"
+                :stroke-dasharray="`${savingsGaugePercent * 2.01} 201`"
+                stroke-dashoffset="50"
+                transform="rotate(-90 40 40)"
+              />
+            </svg>
+            <span class="savings-ring-pct">{{ savingsGaugePercent }}%</span>
+          </div>
+          <p class="metric-note savings-note">
+            {{ formatCurrency(savingsActual) }} von
+            {{ formatCurrency(project?.monthly_savings_target || 0) }} Sparziel
+          </p>
+        </article>
+
         <article class="metric-card due-metric-card">
           <span class="metric-label">Fälligkeiten</span>
           <ul class="due-metric-list">
             <li v-if="!dueSoonPreview.length" class="muted small">Keine baldigen Fälligkeiten vorhanden.</li>
-            <li v-for="item in dueSoonPreview" :key="item.id" class="due-metric-item">
+            <li v-for="item in dueSoonPreview" :key="item.id" class="due-metric-item" :class="dueUrgencyClass(item)">
               <span>{{ item.title }}</span>
               <strong :class="dueAmountClass(item)">{{ dueAmountText(item) }}</strong>
             </li>
@@ -136,10 +161,12 @@
                       <p class="muted">Übersicht über Einnahmen, Ausgaben und Nettoergebnis.</p>
                     </div>
                     <div class="planner-head-controls">
-                      <label class="planner-month-control">
-                        Monat
-                        <input v-model="plannerMonth" type="month" class="input" />
-                      </label>
+                      <div class="month-nav">
+                        <button type="button" class="month-nav-btn" @click="shiftPlannerMonth(-1)" title="Vorheriger Monat">←</button>
+                        <span class="month-nav-label">{{ plannerMonthFormatted }}</span>
+                        <button type="button" class="month-nav-btn" @click="shiftPlannerMonth(1)" title="Nächster Monat">→</button>
+                      </div>
+                      <button type="button" class="btn ghost sm" @click="exportMonthCsv" title="Monats-CSV exportieren">↓ CSV</button>
                       <span class="badge">{{ overview.snapshot_month }}</span>
                     </div>
                   </div>
@@ -230,11 +257,12 @@
                 </div>
 
                 <div v-if="filteredEntries.length" class="entry-list">
-                  <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="{ inactive: !entry.is_active }">
+                  <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry)]">
                     <div class="entry-main">
                       <div class="entry-title-line">
                         <strong>{{ entry.title }}</strong>
                         <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
+                        <span v-if="dueUrgencyClass(entry)" class="urgency-dot" :class="dueUrgencyClass(entry)" :title="dueLabel(entry)"></span>
                       </div>
                       <p class="muted small">
                         {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
@@ -261,13 +289,52 @@
                 <div class="panel-head">
                   <h2>Top-Kategorien</h2>
                 </div>
-                <ul class="compact-list">
+                <!-- Donut chart -->
+                <div v-if="donutChartData.length" class="donut-wrap">
+                  <svg viewBox="0 0 100 100" class="donut-svg" aria-hidden="true">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="14" />
+                    <circle
+                      v-for="(seg, i) in donutChartData"
+                      :key="i"
+                      cx="50" cy="50" r="40"
+                      fill="none"
+                      :stroke="seg.color"
+                      stroke-width="14"
+                      :stroke-dasharray="`${seg.dash} ${seg.gap}`"
+                      :stroke-dashoffset="-seg.offset"
+                      stroke-linecap="round"
+                      transform="rotate(-90 50 50)"
+                    />
+                  </svg>
+                  <ul class="donut-legend">
+                    <li v-for="(seg, i) in donutChartData" :key="i" class="donut-legend-item">
+                      <span class="donut-dot" :style="{ background: seg.color }"></span>
+                      <span class="donut-label">{{ seg.label }}</span>
+                      <strong>{{ formatCurrency(seg.amount) }}</strong>
+                    </li>
+                  </ul>
+                </div>
+                <ul v-else class="compact-list">
                   <li v-if="!overview.top_categories?.length" class="empty-text">Keine Kategoriendaten verfügbar.</li>
                   <li v-for="item in overview.top_categories" :key="item.category">
                     <span>{{ item.category }}</span>
                     <strong>{{ formatCurrency(item.amount) }}</strong>
                   </li>
                 </ul>
+              </article>
+
+              <!-- Monthly note -->
+              <article class="panel monthly-note-panel">
+                <details>
+                  <summary class="note-summary">Monatsnotiz &mdash; {{ plannerMonthFormatted }}</summary>
+                  <textarea
+                    v-model="monthlyNote"
+                    class="input monthly-note-textarea"
+                    rows="4"
+                    placeholder="Persönliche Notizen zu diesem Monat... (automatisch gespeichert)"
+                    @blur="saveMonthlyNote"
+                  ></textarea>
+                </details>
               </article>
             </section>
 
@@ -278,10 +345,11 @@
                   <p class="muted">Verfolge alltägliche Ausgaben wie Einkäufe, Kaffee und Transport.</p>
                 </div>
                 <div class="daily-controls">
-                  <label>
-                    Monat
-                    <input v-model="dailyMonth" type="month" class="input" @change="loadDailyExpenses" />
-                  </label>
+                  <div class="month-nav">
+                    <button type="button" class="month-nav-btn" @click="shiftDailyMonth(-1)">←</button>
+                    <span class="month-nav-label">{{ dailyMonthFormatted }}</span>
+                    <button type="button" class="month-nav-btn" @click="shiftDailyMonth(1)">→</button>
+                  </div>
                   <button class="btn" type="button" @click="openCreateDailyExpenseModal">Neue Ausgabe</button>
                 </div>
               </div>
@@ -351,6 +419,22 @@
                   <div>
                     <span class="info-label">Fällig bald</span>
                     <strong>{{ overview.due_soon?.filter(item => item.entry_type === 'DEBT').length || 0 }}</strong>
+                  </div>
+                </div>
+                <!-- Debt progress bars -->
+                <div v-if="debtProgressEntries.length" class="debt-progress-list">
+                  <h3 class="debt-progress-title">Schuldenverlauf</h3>
+                  <div v-for="entry in debtProgressEntries" :key="entry.id" class="debt-progress-row">
+                    <div class="debt-progress-head">
+                      <span>{{ entry.title }}</span>
+                      <span class="muted small">{{ formatCurrency(entry.amount) }} &mdash; {{ formatCurrency(entry.monthly_amount || entry.amount) }}/Mon.</span>
+                    </div>
+                    <div class="debt-progress-bar">
+                      <div class="debt-progress-fill urgency-red-fill" :style="{ width: Math.min(100, (Number(entry.monthly_amount || entry.amount) / Math.max(Number(overview.monthly_debt || 1), 1)) * 100) + '%' }"></div>
+                    </div>
+                    <span v-if="dueUrgencyClass(entry)" :class="['debt-due-badge', dueUrgencyClass(entry)]">
+                      Fällig: {{ dueLabel(entry) }}
+                    </span>
                   </div>
                 </div>
               </article>
@@ -590,6 +674,20 @@
           </div>
           <div class="modal-body">
             <form class="stack-form" @submit.prevent="saveEntry">
+              <!-- Templates -->
+              <div v-if="entryTemplates.length" class="templates-bar">
+                <span class="templates-label">Vorlagen:</span>
+                <div class="templates-chips">
+                  <button
+                    v-for="(tpl, i) in entryTemplates"
+                    :key="i"
+                    type="button"
+                    class="chip"
+                    @click="applyTemplate(tpl)"
+                    :title="`${tpl.entry_type} · ${formatCurrency(tpl.amount)}`"
+                  >{{ tpl.title }}</button>
+                </div>
+              </div>
               <label>
                 Titel
                 <input v-model.trim="entryForm.title" class="input" placeholder="z. B. Miete" required />
@@ -674,6 +772,7 @@
 
               <div class="modal-actions">
                 <button class="btn ghost" type="button" @click="closeEntryModal">Abbrechen</button>
+                <button class="btn ghost" type="button" @click="saveEntryAsTemplate" title="Als Vorlage speichern">&#9733; Vorlage</button>
                 <button class="btn" type="submit" :disabled="savingEntry">
                   {{ savingEntry ? "Speichere..." : editingEntryId ? "Posten speichern" : "Posten anlegen" }}
                 </button>
@@ -746,6 +845,11 @@
       <datalist id="finance-category-suggestions">
         <option v-for="category in categorySuggestions" :key="category" :value="category"></option>
       </datalist>
+
+      <!-- FAB: Schnellbuchung -->
+      <button class="fab" type="button" @click="openCreateDailyExpenseModal" title="Schnellbuchung">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+      </button>
     </div>
   </template>
 
@@ -762,6 +866,9 @@ const loading = ref(false);
 const savingProject = ref(false);
 const savingMember = ref(false);
 const savingEntry = ref(false);
+const monthlyNote = ref("");
+const entryTemplates = ref(loadEntryTemplates());
+const showFab = ref(false);
 const projects = ref([]);
 const project = ref(null);
 const selectedProjectId = ref(null);
@@ -1126,6 +1233,136 @@ const plannerEmptyMessage = computed(() => {
   return `Noch keine Einnahmen oder Ausgaben für ${plannerMonthLabel.value} hinterlegt.`;
 });
 
+// --- Month navigation helpers ---
+function shiftPlannerMonth(delta) {
+  const [y, m] = plannerMonth.value.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  plannerMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function shiftDailyMonth(delta) {
+  const [y, m] = dailyMonth.value.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  dailyMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+const plannerMonthFormatted = computed(() => {
+  if (!isValidMonth(plannerMonth.value)) return plannerMonth.value;
+  const [y, m] = plannerMonth.value.split("-");
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+});
+const dailyMonthFormatted = computed(() => {
+  if (!isValidMonth(dailyMonth.value)) return dailyMonth.value;
+  const [y, m] = dailyMonth.value.split("-");
+  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+});
+
+// --- Due urgency (Ampel) ---
+function daysUntilDue(entry) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (entry.next_due_date) {
+    const diff = new Date(entry.next_due_date) - today;
+    return Math.ceil(diff / 86400000);
+  }
+  if (entry.frequency === "MONTHLY" && entry.due_day) {
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth(), Number(entry.due_day));
+    if (target < today) target.setMonth(target.getMonth() + 1);
+    return Math.ceil((target - today) / 86400000);
+  }
+  if (entry.due_date) {
+    return Math.ceil((new Date(entry.due_date) - today) / 86400000);
+  }
+  return null;
+}
+function dueUrgencyClass(entry) {
+  if (entry.entry_type === "INCOME") return "";
+  const days = daysUntilDue(entry);
+  if (days === null) return "";
+  if (days <= 3) return "urgency-red";
+  if (days <= 7) return "urgency-yellow";
+  return "urgency-green";
+}
+
+// --- Savings gauge ---
+const savingsGaugePercent = computed(() => {
+  const target = Number(project.value?.monthly_savings_target || 0);
+  if (!target) return 0;
+  const savingEntries = entries.value.filter((e) => e.entry_type === "SAVING" && e.is_active !== false);
+  const actual = savingEntries.reduce((s, e) => s + Number(e.monthly_amount || e.amount || 0), 0);
+  return Math.min(100, Math.round((actual / target) * 100));
+});
+const savingsActual = computed(() => {
+  return entries.value
+    .filter((e) => e.entry_type === "SAVING" && e.is_active !== false)
+    .reduce((s, e) => s + Number(e.monthly_amount || e.amount || 0), 0);
+});
+
+// --- Donut chart ---
+const donutColors = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16"];
+const donutChartData = computed(() => {
+  const cats = overview.value?.top_categories || [];
+  const total = cats.reduce((s, c) => s + Number(c.amount || 0), 0);
+  if (!total) return [];
+  let offset = 0;
+  const r = 40, circ = 2 * Math.PI * r;
+  return cats.map((c, i) => {
+    const pct = Number(c.amount) / total;
+    const dash = pct * circ;
+    const item = { label: c.category, amount: c.amount, color: donutColors[i % donutColors.length], dash, gap: circ - dash, offset };
+    offset += dash;
+    return item;
+  });
+});
+
+// --- Debt progress ---
+const debtProgressEntries = computed(() => {
+  return entries.value.filter((e) => e.entry_type === "DEBT" && e.is_active !== false);
+});
+
+// --- Monthly notes ---
+function monthlyNoteKey() {
+  return `finance.note.${selectedProjectId.value}.${plannerMonthLabel.value}`;
+}
+function loadMonthlyNote() {
+  try { monthlyNote.value = localStorage.getItem(monthlyNoteKey()) || ""; } catch { monthlyNote.value = ""; }
+}
+function saveMonthlyNote() {
+  try { localStorage.setItem(monthlyNoteKey(), monthlyNote.value); } catch {}
+}
+
+// --- Entry templates ---
+function loadEntryTemplates() {
+  try {
+    const raw = localStorage.getItem("finance.entryTemplates");
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+function persistEntryTemplates() {
+  try { localStorage.setItem("finance.entryTemplates", JSON.stringify(entryTemplates.value)); } catch {}
+}
+function saveEntryAsTemplate() {
+  const f = entryForm.value;
+  if (!f.title.trim()) return;
+  const template = { title: f.title, category: f.category, entry_type: f.entry_type, amount: f.amount, frequency: f.frequency, notes: f.notes };
+  const idx = entryTemplates.value.findIndex((t) => t.title.toLowerCase() === f.title.toLowerCase());
+  if (idx >= 0) entryTemplates.value[idx] = template;
+  else entryTemplates.value.push(template);
+  persistEntryTemplates();
+  setSuccess(`Vorlage "${f.title}" gespeichert.`);
+}
+function applyTemplate(template) {
+  entryForm.value = { ...buildEntryForm(template), is_active: true, is_shared: false, member: null, due_day: "", due_date: "" };
+}
+function deleteTemplate(idx) {
+  entryTemplates.value.splice(idx, 1);
+  persistEntryTemplates();
+}
+
+// --- CSV export per month ---
+async function exportMonthCsv() {
+  await exportOverview();
+}
+
 function toAmount(value) {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -1244,6 +1481,7 @@ async function loadProjectDetail(projectId) {
     });
     project.value = data;
     selectedProjectId.value = data.id;
+    loadMonthlyNote();
     const snapshotMonth = data?.overview?.snapshot_month;
     if (isValidMonth(snapshotMonth) && snapshotMonth !== plannerMonth.value) {
       plannerMonth.value = snapshotMonth;
@@ -2680,7 +2918,7 @@ onMounted(async () => {
 
 .summary-band {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px;
   margin-top: 20px;
 }
@@ -3242,6 +3480,290 @@ onMounted(async () => {
   .settings-meta {
     justify-content: flex-start;
   }
+}
+
+/* ===== NEW FEATURES ===== */
+
+/* Month navigation arrows */
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.month-nav-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--brand);
+  padding: 0 6px;
+  line-height: 1;
+  transition: opacity 0.15s;
+}
+
+.month-nav-btn:hover { opacity: 0.7; }
+
+.month-nav-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  min-width: 130px;
+  text-align: center;
+}
+
+/* Donut chart */
+.donut-wrap {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.donut-svg {
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+}
+
+.donut-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  flex: 1;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.donut-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.donut-label {
+  flex: 1;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Urgency dot (Fälligkeits-Ampel) */
+.urgency-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.urgency-red .urgency-dot, .urgency-dot.urgency-red { background: #ef4444; }
+.urgency-yellow .urgency-dot, .urgency-dot.urgency-yellow { background: #f59e0b; }
+.urgency-green .urgency-dot, .urgency-dot.urgency-green { background: #10b981; }
+
+.due-metric-item.urgency-red { color: #ef4444; }
+.due-metric-item.urgency-yellow { color: #f59e0b; }
+.due-metric-item.urgency-green { color: #10b981; }
+
+/* Savings gauge */
+.savings-gauge-card {
+  background: linear-gradient(135deg, #1d1160, #4c1d95);
+  color: #f8fafc;
+}
+
+.savings-ring-wrap {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  margin: 0 auto;
+}
+
+.savings-ring {
+  width: 90px;
+  height: 90px;
+}
+
+.savings-ring-pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.savings-note {
+  text-align: center;
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.7);
+  margin: 0;
+}
+
+/* Debt progress bars */
+.debt-progress-list {
+  margin-top: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.debt-progress-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.debt-progress-row {
+  display: grid;
+  gap: 6px;
+}
+
+.debt-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.88rem;
+}
+
+.debt-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #ef4444 12%, var(--surface) 88%);
+  overflow: hidden;
+}
+
+.debt-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  transition: width 0.4s ease;
+}
+
+.debt-due-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.debt-due-badge.urgency-red { background: color-mix(in srgb, #ef4444 14%, var(--surface)); color: #ef4444; }
+.debt-due-badge.urgency-yellow { background: color-mix(in srgb, #f59e0b 14%, var(--surface)); color: #f59e0b; }
+.debt-due-badge.urgency-green { background: color-mix(in srgb, #10b981 14%, var(--surface)); color: #10b981; }
+
+/* Monthly note */
+.monthly-note-panel {
+  padding: 14px 20px;
+}
+
+.note-summary {
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--muted);
+  list-style: none;
+  user-select: none;
+}
+
+.note-summary::marker, .note-summary::-webkit-details-marker { display: none; }
+.note-summary::before { content: "\25B6  "; font-size: 0.7rem; }
+details[open] .note-summary::before { content: "\25BC  "; }
+
+.monthly-note-textarea {
+  margin-top: 10px;
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+}
+
+/* FAB */
+.fab {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: white;
+  border: none;
+  box-shadow: 0 8px 24px rgba(59,130,246,0.40);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 12px 32px rgba(59,130,246,0.50);
+}
+
+.fab svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+}
+
+/* Entry templates bar */
+.templates-bar {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  background: var(--finance-info-bg);
+  border: 1px solid var(--finance-info-border);
+  border-radius: 12px;
+}
+
+.templates-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+.templates-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 1300px) {
+  .summary-band { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 580px) {
+  .summary-band { grid-template-columns: 1fr; }
+  .fab { bottom: 16px; right: 16px; }
 }
 </style>
 

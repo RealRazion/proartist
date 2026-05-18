@@ -162,10 +162,20 @@ def _next_due_date(entry, today):
 def _debt_monthly_amount(debt, today):
     if debt.status != "ACTIVE" or debt.is_fully_paid:
         return Decimal("0.00")
+
+    month_end = _safe_date(today.year, today.month, monthrange(today.year, today.month)[1])
+
+    # For installments, we budget one scheduled rate for the selected month as long as
+    # the debt is active in that month. This prevents the monthly outflow from dropping
+    # artificially after a due is marked as paid and next_due_date is moved forward.
+    if debt.payment_type == "INSTALLMENT":
+        if debt.start_date and debt.start_date > month_end:
+            return Decimal("0.00")
+        return _money(debt.scheduled_payment_amount)
+
     next_due = _debt_next_due_date(debt, today)
     if not next_due:
         return Decimal("0.00")
-    month_end = _safe_date(today.year, today.month, monthrange(today.year, today.month)[1])
     if next_due > month_end:
         return Decimal("0.00")
     return _money(debt.scheduled_payment_amount)

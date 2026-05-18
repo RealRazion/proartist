@@ -442,6 +442,57 @@
               <DebtTracker :projectId="selectedProjectId" />
             </section>
 
+            <section v-show="activeTab === 'all-entries'" class="all-entries-page">
+              <article class="panel entries-panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>Alle Posten</h2>
+                    <p class="muted">Komplette Liste über alle Monate hinweg.</p>
+                  </div>
+                  <div class="filter-row">
+                    <button
+                      v-for="option in entryFilters"
+                      :key="`all-${option.value}`"
+                      type="button"
+                      class="chip"
+                      :class="{ active: activeEntryFilter === option.value }"
+                      @click="activeEntryFilter = option.value"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="allEntriesFiltered.length" class="entry-list">
+                  <article v-for="entry in allEntriesFiltered" :key="`all-${entry.id}`" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry)]">
+                    <div class="entry-main">
+                      <div class="entry-title-line">
+                        <strong>{{ entry.title }}</strong>
+                        <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
+                        <span v-if="dueUrgencyClass(entry)" class="urgency-dot" :class="dueUrgencyClass(entry)" :title="dueLabel(entry)"></span>
+                      </div>
+                      <p class="muted small">
+                        {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
+                        {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
+                      </p>
+                      <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
+                    </div>
+                    <div class="entry-side">
+                      <strong>{{ formatCurrency(entry.amount) }}</strong>
+                      <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
+                      <span class="muted small">{{ dueLabel(entry) }}</span>
+                      <div class="entry-actions">
+                        <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
+                        <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
+                        <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+                <p v-else class="muted empty-hint">Keine Posten vorhanden.</p>
+              </article>
+            </section>
+
             <section v-show="activeTab === 'tips'" class="tips-page">
               <article class="panel tips-panel">
                 <div class="panel-head panel-head-space">
@@ -899,11 +950,12 @@ const editingDailyExpenseId = ref(null);
 const savingDailyExpense = ref(false);
 const localStoredCategories = ref(loadStoredCategories());
 
-const tabs = ["planner", "daily", "debts", "tips"];
+const tabs = ["planner", "daily", "debts", "all-entries", "tips"];
 const tabLabels = {
   planner: "Planer",
   daily: "Tägliche Ausgaben",
   debts: "Schulden",
+  "all-entries": "Alle Posten",
   tips: "Tipps und Einnahmequellen",
 };
 const tipTypeLabels = {
@@ -1054,6 +1106,100 @@ function isValidMonth(value) {
   return typeof value === "string" && /^\d{4}-\d{2}$/.test(value);
 }
 
+function safeDate(year, month, day) {
+  const lastDay = new Date(year, month, 0).getDate();
+  return new Date(year, month - 1, Math.min(Number(day) || 1, lastDay));
+}
+
+function addMonths(sourceDate, months = 1) {
+  const base = new Date(sourceDate.getTime());
+  const year = base.getFullYear();
+  const monthIndex = base.getMonth() + months;
+  const day = base.getDate();
+  const nextYear = year + Math.floor(monthIndex / 12);
+  const nextMonth = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(nextYear, nextMonth + 1, 0).getDate();
+  return new Date(nextYear, nextMonth, Math.min(day, lastDay));
+}
+
+function parseDateValue(value) {
+  if (!value) return null;
+  if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  if (typeof value !== "string") return null;
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+function nextDueDateForMonthFilter(entry, monthStartDate) {
+  const year = monthStartDate.getFullYear();
+  const month = monthStartDate.getMonth() + 1;
+  const dueDate = parseDateValue(entry?.due_date);
+
+  if (entry.frequency === "ONCE") {
+    return dueDate;
+  }
+  if (entry.frequency === "MONTHLY") {
+    if (dueDate) return dueDate;
+    if (!entry.due_day) return null;
+    return safeDate(year, month, entry.due_day);
+  }
+  if (entry.frequency === "WEEKLY") {
+    if (!dueDate) return null;
+    return dueDate;
+  }
+  if (entry.frequency === "YEARLY") {
+    if (!dueDate) return null;
+    return safeDate(year, dueDate.getMonth() + 1, dueDate.getDate());
+  }
+  return null;
+}
+
+function entryInPlannerMonth(entry, monthValue) {
+  if (!entry || entry.is_active === false || !isValidMonth(monthValue)) return false;
+  const [year, month] = monthValue.split("-").map(Number);
+  const monthStart = new Date(year, month - 1, 1);
+  const monthEnd = new Date(year, month, 0);
+  const dueDate = parseDateValue(entry.due_date);
+
+  if (entry.frequency === "MONTHLY") {
+    if (dueDate && dueDate > monthEnd) return false;
+    if (entry.due_day) {
+      const nextDue = nextDueDateForMonthFilter(entry, monthStart);
+      if (nextDue && nextDue > monthEnd) return false;
+    }
+    return true;
+  }
+
+  if (entry.frequency === "WEEKLY") {
+    if (dueDate && dueDate > monthEnd) return false;
+    const nextDue = nextDueDateForMonthFilter(entry, monthStart);
+    if (nextDue && nextDue > monthEnd) return false;
+    return true;
+  }
+
+  if (entry.frequency === "YEARLY") {
+    if (dueDate) {
+      const dueYear = dueDate.getFullYear();
+      const dueMonth = dueDate.getMonth() + 1;
+      if (dueYear > year || (dueYear === year && dueMonth > month)) return false;
+    }
+    if (entry.due_day) {
+      const nextDue = nextDueDateForMonthFilter(entry, monthStart);
+      if (nextDue && (nextDue.getFullYear() > year || (nextDue.getFullYear() === year && nextDue.getMonth() + 1 > month))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  if (entry.frequency === "ONCE") {
+    return Boolean(dueDate && dueDate.getFullYear() === year && dueDate.getMonth() + 1 === month);
+  }
+
+  return false;
+}
+
 const dailyMonthLabel = computed(() => {
   if (!isValidMonth(dailyMonth.value)) return currentMonthLabel.value;
   return dailyMonth.value;
@@ -1068,7 +1214,19 @@ const dailyExpensesAverage = computed(() => {
   return dailyExpensesTotal.value / daysInMonth;
 });
 
+const monthRelevantEntries = computed(() =>
+  entries.value.filter((entry) => entryInPlannerMonth(entry, plannerMonthLabel.value))
+);
+
 const filteredEntries = computed(() => {
+  const source = monthRelevantEntries.value;
+  if (activeEntryFilter.value === "ALL") {
+    return source;
+  }
+  return source.filter((entry) => entry.entry_type === activeEntryFilter.value);
+});
+
+const allEntriesFiltered = computed(() => {
   if (activeEntryFilter.value === "ALL") {
     return entries.value;
   }
@@ -1087,11 +1245,11 @@ const entryDateFieldLabel = computed(() => {
 });
 
 const plannerIncomeEntries = computed(() =>
-  entries.value.filter((entry) => entry.entry_type === "INCOME" && entry.is_active !== false)
+  monthRelevantEntries.value.filter((entry) => entry.entry_type === "INCOME" && entry.is_active !== false)
 );
 
 const plannerExpenseEntries = computed(() =>
-  entries.value.filter((entry) => entry.entry_type !== "INCOME" && entry.is_active !== false)
+  monthRelevantEntries.value.filter((entry) => entry.entry_type !== "INCOME" && entry.is_active !== false)
 );
 
 function normalizeCategory(value) {

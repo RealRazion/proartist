@@ -4,6 +4,7 @@ import os
 from calendar import monthrange
 from datetime import datetime, timedelta, date
 from decimal import Decimal
+from django.db import transaction
 import re
 
 from django.contrib.auth.models import User
@@ -84,6 +85,7 @@ from .serializers import (
     ContractSerializer,
     DailyExpenseSerializer,
     DebtSerializer,
+    DebtPaymentActionSerializer,
     EventSerializer,
     ExampleSerializer,
     FinanceEntrySerializer,
@@ -2081,6 +2083,7 @@ class DebtViewSet(viewsets.ModelViewSet):
         qs = (
             Debt.objects
             .select_related("project")
+            .prefetch_related("payments")
             .filter(project__owner=self.request.user.profile)
             .order_by("-created_at")
         )
@@ -2095,6 +2098,59 @@ class DebtViewSet(viewsets.ModelViewSet):
         if project.owner_id != self.request.user.profile.id:
             raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")
         serializer.save()
+
+    @action(detail=True, methods=["post"], url_path="record-payment")
+    def record_payment(self, request, pk=None):
+        from .models import Debt, DebtPayment
+
+        debt = self.get_object()
+        payload = DebtPaymentActionSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        data = payload.validated_data
+
+        decision = data["decision"]
+        with transaction.atomic():
+            if decision == "paid":
+                amount = Decimal(data.get("amount") or 0)
+                if amount <= 0:
+                    raise PermissionDenied("Der Zahlungsbetrag muss groesser als 0 sein.")
+
+                current_amount_paid = Decimal(debt.amount_paid or 0)
+                total_amount = Decimal(debt.total_amount or 0)
+                current_due_amount = Decimal(debt.scheduled_payment_amount or 0)
+                new_amount_paid = min(current_amount_paid + amount, total_amount)
+                covers_current_due = amount + Decimal("0.009") >= current_due_amount
+                payment_date = data.get("date") or date.today()
+
+                debt.amount_paid = new_amount_paid
+                debt.status = "PAID_OFF" if new_amount_paid >= total_amount else "ACTIVE"
+                debt.paid_off_date = payment_date if new_amount_paid >= total_amount else None
+
+                if new_amount_paid >= total_amount:
+                    debt.next_due_date = None
+                elif debt.payment_type == "INSTALLMENT" and covers_current_due and debt.next_due_date:
+                    from .serializers import _advance_debt_due_date
+
+                    debt.next_due_date = _advance_debt_due_date(debt, debt.next_due_date)
+
+                debt.notes = debt.notes or ""
+                debt.save(update_fields=["amount_paid", "status", "paid_off_date", "next_due_date", "notes", "updated_at"])
+
+                DebtPayment.objects.create(
+                    debt=debt,
+                    amount=amount,
+                    payment_date=payment_date,
+                    notes=data.get("notes") or "",
+                )
+            else:
+                reschedule_date = data.get("reschedule_date") or debt.next_due_date
+                debt.status = "ACTIVE"
+                debt.paid_off_date = None
+                debt.next_due_date = reschedule_date
+                debt.total_amount = Decimal(debt.total_amount or 0) + Decimal(debt.scheduled_payment_amount or 0)
+                debt.save(update_fields=["status", "paid_off_date", "next_due_date", "total_amount", "updated_at"])
+
+        return Response(self.get_serializer(debt).data)
 
 
 class DailyExpenseViewSet(viewsets.ModelViewSet):

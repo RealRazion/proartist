@@ -385,6 +385,22 @@ class Debt(models.Model):
         return int((remaining / monthly_payment) + (1 if remaining % monthly_payment else 0))
 
 
+class DebtPayment(models.Model):
+    """Record an individual payment for a debt."""
+
+    debt = models.ForeignKey(Debt, on_delete=models.CASCADE, related_name="payments")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_date = models.DateField()
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-payment_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.debt.name}: {self.amount} on {self.payment_date}"
+
+
 class DailyExpense(models.Model):
     """Track daily expenses like groceries, coffee, etc."""
     project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="daily_expenses")

@@ -248,8 +248,8 @@
                       :key="option.value"
                       type="button"
                       class="chip"
-                      :class="{ active: activeEntryFilter === option.value }"
-                      @click="activeEntryFilter = option.value"
+                      :class="{ active: plannerEntryFilter === option.value }"
+                      @click="plannerEntryFilter = option.value"
                     >
                       {{ option.label }}
                     </button>
@@ -257,12 +257,12 @@
                 </div>
 
                 <div v-if="filteredEntries.length" class="entry-list">
-                  <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry)]">
+                  <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry, plannerMonthLabel)]">
                     <div class="entry-main">
                       <div class="entry-title-line">
                         <strong>{{ entry.title }}</strong>
                         <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
-                        <span v-if="dueUrgencyClass(entry)" class="urgency-dot" :class="dueUrgencyClass(entry)" :title="dueLabel(entry)"></span>
+                        <span v-if="dueUrgencyClass(entry, plannerMonthLabel)" class="urgency-dot" :class="dueUrgencyClass(entry, plannerMonthLabel)" :title="dueLabel(entry)"></span>
                       </div>
                       <p class="muted small">
                         {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
@@ -432,7 +432,7 @@
                     <div class="debt-progress-bar">
                       <div class="debt-progress-fill urgency-red-fill" :style="{ width: Math.min(100, (Number(entry.monthly_amount || entry.amount) / Math.max(Number(overview.monthly_debt || 1), 1)) * 100) + '%' }"></div>
                     </div>
-                    <span v-if="dueUrgencyClass(entry)" :class="['debt-due-badge', dueUrgencyClass(entry)]">
+                    <span v-if="dueUrgencyClass(entry, currentMonthLabel)" :class="['debt-due-badge', dueUrgencyClass(entry, currentMonthLabel)]">
                       Fällig: {{ dueLabel(entry) }}
                     </span>
                   </div>
@@ -455,8 +455,8 @@
                       :key="`all-${option.value}`"
                       type="button"
                       class="chip"
-                      :class="{ active: activeEntryFilter === option.value }"
-                      @click="activeEntryFilter = option.value"
+                      :class="{ active: allEntriesFilter === option.value }"
+                      @click="allEntriesFilter = option.value"
                     >
                       {{ option.label }}
                     </button>
@@ -464,12 +464,12 @@
                 </div>
 
                 <div v-if="allEntriesFiltered.length" class="entry-list">
-                  <article v-for="entry in allEntriesFiltered" :key="`all-${entry.id}`" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry)]">
+                  <article v-for="entry in allEntriesFiltered" :key="`all-${entry.id}`" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry, currentMonthLabel)]">
                     <div class="entry-main">
                       <div class="entry-title-line">
                         <strong>{{ entry.title }}</strong>
                         <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
-                        <span v-if="dueUrgencyClass(entry)" class="urgency-dot" :class="dueUrgencyClass(entry)" :title="dueLabel(entry)"></span>
+                        <span v-if="dueUrgencyClass(entry, currentMonthLabel)" class="urgency-dot" :class="dueUrgencyClass(entry, currentMonthLabel)" :title="dueLabel(entry)"></span>
                       </div>
                       <p class="muted small">
                         {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
@@ -923,7 +923,8 @@ const showFab = ref(false);
 const projects = ref([]);
 const project = ref(null);
 const selectedProjectId = ref(null);
-const activeEntryFilter = ref("ALL");
+const plannerEntryFilter = ref("ALL");
+const allEntriesFilter = ref("ALL");
 const activeTab = ref("planner");
 const editingEntryId = ref(null);
 const membersPanelOpen = ref(false);
@@ -1220,17 +1221,17 @@ const monthRelevantEntries = computed(() =>
 
 const filteredEntries = computed(() => {
   const source = monthRelevantEntries.value;
-  if (activeEntryFilter.value === "ALL") {
+  if (plannerEntryFilter.value === "ALL") {
     return source;
   }
-  return source.filter((entry) => entry.entry_type === activeEntryFilter.value);
+  return source.filter((entry) => entry.entry_type === plannerEntryFilter.value);
 });
 
 const allEntriesFiltered = computed(() => {
-  if (activeEntryFilter.value === "ALL") {
+  if (allEntriesFilter.value === "ALL") {
     return entries.value;
   }
-  return entries.value.filter((entry) => entry.entry_type === activeEntryFilter.value);
+  return entries.value.filter((entry) => entry.entry_type === allEntriesFilter.value);
 });
 
 const entryDateFieldDisabled = computed(() =>
@@ -1334,10 +1335,10 @@ function isSubscriptionEntry(entry) {
 
 const monthlyPlannedOutflow = computed(() =>
   {
-    const monthlyEntryOutflow = entries.value
+    const monthlyEntryOutflow = monthRelevantEntries.value
       .filter((entry) => isActiveExpense(entry) && entry.frequency === "MONTHLY")
       .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
-    const monthlyDebtFromEntries = entries.value
+    const monthlyDebtFromEntries = monthRelevantEntries.value
       .filter((entry) => isActiveExpense(entry) && entry.entry_type === "DEBT")
       .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
     const monthlyDebtTotal = Number(overview.value.monthly_debt || 0);
@@ -1347,7 +1348,7 @@ const monthlyPlannedOutflow = computed(() =>
 );
 
 const monthlySubscriptions = computed(() =>
-  entries.value
+  monthRelevantEntries.value
     .filter((entry) => isActiveExpense(entry) && isSubscriptionEntry(entry))
     .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0)
 );
@@ -1432,12 +1433,24 @@ function daysUntilDue(entry) {
   }
   return null;
 }
-function dueUrgencyClass(entry) {
+function dueUrgencyClass(entry, referenceMonth = plannerMonthLabel.value) {
   if (entry.entry_type === "INCOME") return "";
-  const days = daysUntilDue(entry);
-  if (days === null) return "";
-  if (days <= 3) return "urgency-red";
-  if (days <= 7) return "urgency-yellow";
+  const dueDate = parseDateValue(entry.next_due_date || entry.due_date);
+  if (!dueDate) return "";
+  if (!isValidMonth(referenceMonth)) {
+    const days = daysUntilDue(entry);
+    if (days === null) return "";
+    if (days <= 3) return "urgency-red";
+    if (days <= 7) return "urgency-yellow";
+    return "urgency-green";
+  }
+  const [year, month] = referenceMonth.split("-").map(Number);
+  if (dueDate.getFullYear() !== year || dueDate.getMonth() + 1 !== month) {
+    return "";
+  }
+  const day = dueDate.getDate();
+  if (day <= 3) return "urgency-red";
+  if (day <= 7) return "urgency-yellow";
   return "urgency-green";
 }
 
@@ -1450,7 +1463,7 @@ const savingsGaugePercent = computed(() => {
   return Math.min(100, Math.round((actual / target) * 100));
 });
 const savingsActual = computed(() => {
-  return entries.value
+  return monthRelevantEntries.value
     .filter((e) => e.entry_type === "SAVING" && e.is_active !== false)
     .reduce((s, e) => s + Number(e.monthly_amount || e.amount || 0), 0);
 });
@@ -2079,6 +2092,7 @@ async function exportOverview() {
     document.body.appendChild(link);
     link.click();
     link.remove();
+    window.URL.revokeObjectURL(url);
     setSuccess("Übersicht exportiert.");
   } catch (error) {
     setError(getApiErrorMessage(error, "Export fehlgeschlagen."));

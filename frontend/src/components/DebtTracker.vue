@@ -767,7 +767,22 @@ function parsePaidPaymentsFromNotes(notesText, debt) {
 
 const debtPayments = computed(() =>
   filteredDebts.value
-    .flatMap((debt) => parsePaidPaymentsFromNotes(debt.notes, debt))
+    .flatMap((debt) => {
+      const structuredPayments = Array.isArray(debt.payments)
+        ? debt.payments.map((payment) => ({
+            id: payment.id,
+            debtId: debt.id,
+            debtName: debt.name,
+            date: payment.payment_date,
+            amount: parseEuroAmount(payment.amount),
+            note: payment.notes || '',
+          }))
+        : [];
+      if (structuredPayments.length) {
+        return structuredPayments;
+      }
+      return parsePaidPaymentsFromNotes(debt.notes, debt);
+    })
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
 );
 
@@ -1039,71 +1054,18 @@ function closePaymentModal() {
   paymentForm.value = buildPaymentForm();
 }
 
-function appendDebtNote(existingNotes, newLine) {
-  return [existingNotes?.trim(), newLine.trim()].filter(Boolean).join('\n');
-}
-
-function buildPaymentNote(debt) {
-  if (paymentForm.value.decision === 'paid') {
-    const paidAmount = parseAmount(paymentForm.value.amount).toFixed(2);
-    const detail = paymentForm.value.notes ? ` ${paymentForm.value.notes}` : '';
-    return `${paymentForm.value.date}: FÄlligkeit bezahlt (${paidAmount} EUR).${detail}`;
-  }
-
-  const rescheduleText = paymentForm.value.reschedule_date
-    ? ` Verschoben auf ${paymentForm.value.reschedule_date}.`
-    : ' Bleibt ÜberfÄllig.';
-  const detail = paymentForm.value.notes ? ` ${paymentForm.value.notes}` : '';
-  return `${todayIso()}: FÄlligkeit fÜr ${debt.name} nicht bezahlt.${rescheduleText}${detail}`;
-}
-
 async function recordPayment() {
   const debt = selectedDebtForPayment.value;
   if (!debt) {
     return;
   }
 
-  const currentDueAmount = parseAmount(debt.scheduled_payment_amount);
-  const currentAmountPaid = parseAmount(debt.amount_paid);
-  const totalAmount = parseAmount(debt.total_amount);
-  const nextDueDate = getNextDueDate(debt);
-
-  const payload = {
-    notes: appendDebtNote(debt.notes || '', buildPaymentNote(debt)),
-  };
-
-  if (paymentForm.value.decision === 'paid') {
-    const paymentAmount = parseAmount(paymentForm.value.amount);
-    if (paymentAmount <= 0) {
-      alert('Bitte einen Zahlungsbetrag angeben.');
-      return;
-    }
-
-    const newAmountPaid = Math.min(currentAmountPaid + paymentAmount, totalAmount);
-    const coversCurrentDue = paymentAmount + 0.009 >= currentDueAmount;
-
-    payload.amount_paid = newAmountPaid;
-    payload.status = newAmountPaid >= totalAmount ? 'PAID_OFF' : 'ACTIVE';
-    payload.paid_off_date = newAmountPaid >= totalAmount ? paymentForm.value.date : null;
-
-    if (newAmountPaid >= totalAmount) {
-      payload.next_due_date = null;
-    } else if (debt.payment_type === 'INSTALLMENT' && coversCurrentDue && nextDueDate) {
-      payload.next_due_date = addMonthsWithDay(nextDueDate, 1, debt.due_day);
-    } else {
-      payload.next_due_date = nextDueDate;
-    }
-  } else {
-    payload.status = 'ACTIVE';
-    payload.paid_off_date = null;
-    payload.next_due_date = paymentForm.value.reschedule_date || nextDueDate;
-    // If payment is missed, increase total amount by the due amount to simulate growing debt
-    payload.total_amount = totalAmount + currentDueAmount;
-  }
-
   savingPayment.value = true;
   try {
-    await api.patch(`debts/${debt.id}/`, payload);
+    await api.post(`debts/${debt.id}/record-payment/`, {
+      ...paymentForm.value,
+      amount: paymentForm.value.decision === 'paid' ? parseAmount(paymentForm.value.amount) : null,
+    });
     closePaymentModal();
     await loadDebts();
   } catch (error) {

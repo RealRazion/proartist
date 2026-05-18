@@ -14,6 +14,7 @@ from .models import (
     Contract,
     DailyExpense,
     Debt,
+    DebtPayment,
     Event,
     Example,
     FinanceEntry,
@@ -1159,7 +1160,22 @@ class FinanceProjectSerializer(FinanceProjectListSerializer):
         read_only_fields = FinanceProjectListSerializer.Meta.read_only_fields + ["entries"]
 
 
+class DebtPaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DebtPayment
+        fields = ["id", "debt", "amount", "payment_date", "notes", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+
+class DebtPaymentActionSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=[("paid", "paid"), ("missed", "missed")])
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
+    date = serializers.DateField(required=False, allow_null=True)
+    reschedule_date = serializers.DateField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
 class DebtSerializer(serializers.ModelSerializer):
+    payments = serializers.SerializerMethodField()
     debt_kind = serializers.ChoiceField(choices=Debt.DEBT_KINDS, required=False)
     payment_type = serializers.ChoiceField(choices=Debt.PAYMENT_TYPES, required=False)
     monthly_payment = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
@@ -1195,6 +1211,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "payment_percentage",
             "scheduled_payment_amount",
             "due_state",
+            "payments",
             "notes",
             "created_at",
             "updated_at",
@@ -1206,6 +1223,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "months_remaining",
             "payment_percentage",
             "scheduled_payment_amount",
+            "payments",
             "created_at",
             "updated_at",
         ]
@@ -1219,6 +1237,9 @@ class DebtSerializer(serializers.ModelSerializer):
 
     def get_due_state(self, obj):
         return _debt_due_state(obj, timezone.now().date())
+
+    def get_payments(self, obj):
+        return DebtPaymentSerializer(obj.payments.all(), many=True).data
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

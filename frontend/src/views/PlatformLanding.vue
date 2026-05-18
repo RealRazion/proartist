@@ -25,12 +25,26 @@
     <section class="platforms-section">
       <div class="section-header">
         <h2>Plattformen</h2>
-        <p>Entdecke alle verfügbaren Tools und Bereiche</p>
+        <p>Schnellzugriff auf deine wichtigsten Bereiche, ohne endloses Scrollen.</p>
+      </div>
+
+      <div class="platform-quick-jump" role="navigation" aria-label="Schnellzugriff Plattformen">
+        <button
+          v-for="platform in visiblePlatforms"
+          :key="`jump-${platform.key}`"
+          type="button"
+          class="quick-jump-chip"
+          :aria-label="`Direkt öffnen: ${platform.title}`"
+          @click="openPlatform(platform.key)"
+        >
+          <span class="chip-icon" aria-hidden="true">{{ platform.icon }}</span>
+          <span>{{ platform.title }}</span>
+        </button>
       </div>
 
       <div class="platforms-grid">
         <div
-          v-for="platform in visiblePlatforms"
+          v-for="platform in displayedPlatforms"
           :key="platform.key"
           class="platform-card"
           role="article"
@@ -61,6 +75,12 @@
             </svg>
           </button>
         </div>
+      </div>
+
+      <div v-if="visiblePlatforms.length > initialPlatformCount" class="platforms-more-wrap">
+        <button class="btn ghost" type="button" @click="showAllPlatforms = !showAllPlatforms">
+          {{ showAllPlatforms ? "Weniger anzeigen" : `Weitere Plattformen anzeigen (${visiblePlatforms.length - initialPlatformCount})` }}
+        </button>
       </div>
     </section>
 
@@ -100,6 +120,8 @@ const { showToast } = useToast();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 
 const viewMode = ref("default");
+const showAllPlatforms = ref(false);
+const initialPlatformCount = 6;
 
 // Real stats from API
 const stats = ref({
@@ -239,7 +261,33 @@ const activeRole = computed(() => {
 
 const visiblePlatforms = computed(() => {
   const currentRole = activeRole.value;
-  return platforms.filter((platform) => platform.roles.includes(currentRole));
+  const roleFiltered = platforms.filter((platform) => platform.roles.includes(currentRole));
+
+  const preferredOrder = [
+    "dashboard",
+    "music",
+    "contests",
+    "content-schedule",
+    "content-studio",
+    "finance",
+    "fitness",
+    "locations",
+    "admin",
+    "testing",
+  ];
+
+  return [...roleFiltered].sort((a, b) => {
+    const aIdx = preferredOrder.indexOf(a.key);
+    const bIdx = preferredOrder.indexOf(b.key);
+    const aOrder = aIdx === -1 ? preferredOrder.length : aIdx;
+    const bOrder = bIdx === -1 ? preferredOrder.length : bIdx;
+    return aOrder - bOrder;
+  });
+});
+
+const displayedPlatforms = computed(() => {
+  if (showAllPlatforms.value) return visiblePlatforms.value;
+  return visiblePlatforms.value.slice(0, initialPlatformCount);
 });
 
 function openPlatform(platform) {
@@ -299,7 +347,7 @@ onMounted(async () => {
 
 /* Hero Section */
 .hero-section {
-  padding: 60px 20px;
+  padding: clamp(28px, 4vw, 50px) 20px;
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
   color: white;
   position: relative;
@@ -330,24 +378,24 @@ onMounted(async () => {
   max-width: 1200px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 40px;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 28px;
   align-items: center;
   position: relative;
   z-index: 1;
 }
 
 .hero-text h1 {
-  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-size: clamp(1.9rem, 4.2vw, 3.2rem);
   font-weight: 800;
-  margin: 0 0 20px;
+  margin: 0 0 14px;
   line-height: 1.1;
 }
 
 .hero-subtitle {
-  font-size: 1.2rem;
-  line-height: 1.6;
-  opacity: 0.9;
+  font-size: clamp(1rem, 1.8vw, 1.16rem);
+  line-height: 1.5;
+  opacity: 0.94;
   margin: 0;
 }
 
@@ -384,42 +432,75 @@ onMounted(async () => {
 
 /* Platforms Section */
 .platforms-section {
-  padding: 60px 20px;
+  padding: 44px 20px 56px;
   background: var(--bg);
 }
 
 .section-header {
   max-width: 1200px;
-  margin: 0 auto 40px;
+  margin: 0 auto 24px;
   text-align: center;
 }
 
 .section-header h2 {
-  font-size: 2.5rem;
+  font-size: clamp(1.6rem, 2.3vw, 2.1rem);
   font-weight: 700;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   color: var(--text);
 }
 
 .section-header p {
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: var(--muted);
   margin: 0;
+}
+
+.platform-quick-jump {
+  max-width: 1200px;
+  margin: 0 auto 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.quick-jump-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.quick-jump-chip:hover {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, var(--card) 88%);
+  transform: translateY(-1px);
+}
+
+.chip-icon {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .platforms-grid {
   max-width: 1200px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 30px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
 }
 
 .platform-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 32px;
+  border-radius: 16px;
+  padding: 22px;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: var(--shadow-soft);
@@ -452,13 +533,13 @@ onMounted(async () => {
 .platform-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .platform-icon {
-  width: 60px;
-  height: 60px;
+  width: 52px;
+  height: 52px;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
   border-radius: 16px;
   display: grid;
@@ -469,7 +550,7 @@ onMounted(async () => {
 
 .platform-meta h3 {
   margin: 0 0 4px;
-  font-size: 1.4rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--text);
 }
@@ -487,16 +568,16 @@ onMounted(async () => {
 
 .platform-description {
   color: var(--muted);
-  line-height: 1.6;
-  margin: 0 0 20px;
-  font-size: 1rem;
+  line-height: 1.45;
+  margin: 0 0 14px;
+  font-size: 0.95rem;
 }
 
 .platform-features {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 7px;
+  margin-bottom: 16px;
 }
 
 .feature-tag {
@@ -513,7 +594,7 @@ onMounted(async () => {
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
   color: white;
   border: none;
-  padding: 14px 20px;
+  padding: 12px 18px;
   border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -537,6 +618,13 @@ onMounted(async () => {
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.platforms-more-wrap {
+  max-width: 1200px;
+  margin: 24px auto 0;
+  display: flex;
+  justify-content: center;
 }
 
 /* Stats Section */
@@ -580,8 +668,8 @@ onMounted(async () => {
 /* Responsive - Tablet & Mobile */
 @media (max-width: 1024px) {
   .platforms-grid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
   }
 
   .section-header h2 {
@@ -620,11 +708,23 @@ onMounted(async () => {
 
   .platforms-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 14px;
   }
 
   .platform-card {
-    padding: 20px;
+    padding: 18px;
+  }
+
+  .platform-quick-jump {
+    margin-bottom: 18px;
+    gap: 8px;
+  }
+
+  .quick-jump-chip {
+    width: calc(50% - 4px);
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 0.9rem;
   }
 
   .section-header h2 {
@@ -665,6 +765,10 @@ onMounted(async () => {
   .platform-card {
     padding: 16px;
     border-radius: 12px;
+  }
+
+  .quick-jump-chip {
+    width: 100%;
   }
 
   .platform-header {

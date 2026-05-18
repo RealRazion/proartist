@@ -43,7 +43,7 @@
       </div>
     </header>
 
-    <main class="platform-content">
+    <main class="platform-content" :class="{ 'hub-content': route.name === 'platforms' }">
       <router-view />
     </main>
   </div>
@@ -148,7 +148,7 @@ onMounted(async () => {
   border-top: none;
   box-shadow: none;
   border-bottom: 1px solid var(--border);
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 88%, #ffffff 12%);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -167,7 +167,7 @@ onMounted(async () => {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -175,6 +175,10 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-soft) 62%, transparent 38%);
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border) 78%);
   text-decoration: none;
   color: inherit;
   font-weight: 700;
@@ -207,7 +211,7 @@ onMounted(async () => {
 
 .page-copy h1 {
   margin: 2px 0 0;
-  font-size: clamp(20px, 2.4vw, 26px);
+  font-size: clamp(19px, 2.2vw, 24px);
   line-height: 1.1;
 }
 
@@ -240,6 +244,10 @@ onMounted(async () => {
 
 .platform-content {
   padding: 20px;
+}
+
+.platform-content.hub-content {
+  padding: 0;
 }
 
 @media (max-width: 720px) {

@@ -20,7 +20,18 @@
           </div>
 
           <div class="topbar-actions">
-            <div class="topbar-buttons">
+            <button
+              class="topbar-toggle btn ghost"
+              type="button"
+              @click="topbarExpanded = !topbarExpanded"
+              :aria-expanded="topbarExpanded"
+              aria-controls="topbar-buttons"
+              aria-label="Aktionen ein-/ausblenden"
+            >
+              <span>Aktionen</span>
+              <span class="topbar-toggle-icon" :class="{ open: topbarExpanded }">&#9660;</span>
+            </button>
+            <div id="topbar-buttons" class="topbar-buttons" :class="{ 'topbar-open': topbarExpanded }">
               <button class="btn ghost" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
               <button class="btn ghost" type="button" @click="showProjectSettingsModal = true">Projektbasis</button>
               <button class="btn ghost" type="button" @click="openForecastModal" :disabled="loading">Prognose</button>
@@ -65,7 +76,30 @@
           <div class="metric-breakdown">
             <p class="metric-breakdown-row current-balance-row">
               <span>Aktueller Kontostand:</span>
-              <strong>{{ formatCurrency(currentBalance) }}</strong>
+              <span class="balance-override-group">
+                <template v-if="!showBalanceEdit">
+                  <strong>{{ formatCurrency(currentBalance) }}</strong>
+                  <button
+                    class="balance-edit-btn"
+                    type="button"
+                    @click="openBalanceEdit"
+                    title="Kontostand manuell überschreiben"
+                  >✎</button>
+                </template>
+                <template v-else>
+                  <input
+                    class="balance-input"
+                    v-model="balanceOverrideInput"
+                    type="number"
+                    step="0.01"
+                    @keydown.enter="saveBalanceOverride"
+                    @keydown.esc="showBalanceEdit = false"
+                    autofocus
+                  />
+                  <button class="balance-confirm-btn" type="button" @click="saveBalanceOverride" :disabled="savingProject" title="Speichern">✓</button>
+                  <button class="balance-cancel-btn" type="button" @click="showBalanceEdit = false" title="Abbrechen">✕</button>
+                </template>
+              </span>
             </p>
             <p class="metric-breakdown-row">
               <span>Saldo ohne Dispo:</span>
@@ -1021,6 +1055,9 @@ const loadingFinanceTips = ref(false);
 const editingDailyExpenseId = ref(null);
 const savingDailyExpense = ref(false);
 const localStoredCategories = ref(loadStoredCategories());
+const topbarExpanded = ref(false);
+const showBalanceEdit = ref(false);
+const balanceOverrideInput = ref(null);
 
 const tabs = ["planner", "daily", "debts", "subscriptions", "all-entries", "tips"];
 const tabLabels = {
@@ -1830,6 +1867,24 @@ async function saveProjectFromModal() {
   await saveProject();
   if (!errorMessage.value) {
     showProjectSettingsModal.value = false;
+  }
+}
+
+function openBalanceEdit() {
+  balanceOverrideInput.value = currentBalance.value;
+  showBalanceEdit.value = true;
+}
+
+async function saveBalanceOverride() {
+  const parsed = parseFloat(balanceOverrideInput.value);
+  if (!Number.isFinite(parsed)) {
+    setError("Bitte einen gültigen Betrag eingeben.");
+    return;
+  }
+  projectForm.value.current_balance = parsed;
+  await saveProject();
+  if (!errorMessage.value) {
+    showBalanceEdit.value = false;
   }
 }
 
@@ -4037,6 +4092,123 @@ details[open] .note-summary::before { content: "\25BC  "; }
 @media (max-width: 580px) {
   .summary-band { grid-template-columns: 1fr; }
   .fab { bottom: 16px; right: 16px; }
+}
+
+/* ===== MOBILE TOPBAR TOGGLE ===== */
+
+.topbar-toggle {
+  display: none;
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.36);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+}
+
+.topbar-toggle-icon {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.topbar-toggle-icon.open {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 760px) {
+  .topbar-toggle {
+    display: inline-flex;
+  }
+
+  .topbar-buttons {
+    display: none;
+    width: 100%;
+  }
+
+  .topbar-buttons.topbar-open {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+}
+
+/* ===== BALANCE OVERRIDE ===== */
+
+.balance-override-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.balance-edit-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 7px;
+  line-height: 1.4;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.balance-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.balance-input {
+  width: 110px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+
+.balance-input:focus {
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.balance-confirm-btn,
+.balance-cancel-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 8px;
+  line-height: 1.4;
+  transition: background 0.15s;
+}
+
+.balance-confirm-btn {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.5);
+}
+
+.balance-confirm-btn:hover:not(:disabled) {
+  background: rgba(134, 239, 172, 0.18);
+}
+
+.balance-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.balance-cancel-btn {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.balance-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 </style>
 

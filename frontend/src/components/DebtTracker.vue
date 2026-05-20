@@ -735,10 +735,22 @@ const debtPortfolioProgress = computed(() => {
 });
 
 function parseEuroAmount(rawValue) {
-  const normalized = String(rawValue || '')
-    .replace(/\./g, '')
-    .replace(',', '.')
-    .replace(/[^0-9.-]/g, '');
+  const raw = String(rawValue || '').trim();
+  if (!raw) {
+    return 0;
+  }
+
+  const hasComma = raw.includes(',');
+  const hasDot = raw.includes('.');
+  let normalized = raw;
+
+  if (hasComma && hasDot) {
+    normalized = raw.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma) {
+    normalized = raw.replace(',', '.');
+  }
+
+  normalized = normalized.replace(/[^0-9.-]/g, '');
   const amount = Number.parseFloat(normalized);
   return Number.isFinite(amount) ? amount : 0;
 }

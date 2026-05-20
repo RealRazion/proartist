@@ -57,7 +57,7 @@
             </div>
             <span class="metric-pill">{{ overview.snapshot_month }}</span>
           </div>
-          <p class="metric-note">Einnahmen minus Ausgaben, Sparen und Schuldentilgung. Hier siehst du direkt, ob der Monat aufgeht.</p>
+          <p class="metric-note">Einnahmen minus Ausgaben, Abos, Sparen und Schuldentilgung. Hier siehst du direkt, ob der Monat aufgeht.</p>
           <div class="metric-progress">
             <span class="metric-pill small">{{ overview.people_count }} Personen</span>
             <span class="metric-pill small">{{ overview.active_entry_count || 0 }} aktive Posten</span>
@@ -440,6 +440,77 @@
               </article>
 
               <DebtTracker :projectId="selectedProjectId" />
+            </section>
+
+            <section v-show="activeTab === 'subscriptions'" class="subscriptions-page">
+              <article class="panel subscriptions-summary-panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>Abos</h2>
+                    <p class="muted">Wiederkehrende Mitgliedschaften und Dienste mit eigener Monatswirkung.</p>
+                  </div>
+                  <button class="btn" type="button" @click="openCreateSubscriptionModal">Abo hinzufügen</button>
+                </div>
+
+                <div class="status-grid">
+                  <div>
+                    <span class="info-label">Aktiv</span>
+                    <strong>{{ activeSubscriptionCount }}</strong>
+                  </div>
+                  <div>
+                    <span class="info-label">Monatlich</span>
+                    <strong>{{ formatCurrency(monthlySubscriptions) }}</strong>
+                  </div>
+                  <div>
+                    <span class="info-label">Fällig bald</span>
+                    <strong>{{ subscriptionDueSoonCount }}</strong>
+                  </div>
+                  <div>
+                    <span class="info-label">Alle Abos</span>
+                    <strong>{{ subscriptionEntries.length }}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <article class="panel entries-panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>Abo-Liste</h2>
+                    <p class="muted">Diese Posten werden in der Übersicht als eigener Punkt vom Monatsbudget abgezogen.</p>
+                  </div>
+                </div>
+
+                <div v-if="subscriptionEntries.length" class="entry-list">
+                  <article v-for="entry in subscriptionEntries" :key="`subscription-${entry.id}`" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry, plannerMonthLabel)]">
+                    <div class="entry-main">
+                      <div class="entry-title-line">
+                        <strong>{{ entry.title }}</strong>
+                        <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
+                        <span v-if="dueUrgencyClass(entry, plannerMonthLabel)" class="urgency-dot" :class="dueUrgencyClass(entry, plannerMonthLabel)" :title="dueLabel(entry)"></span>
+                      </div>
+                      <p class="muted small">
+                        {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
+                        {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
+                      </p>
+                      <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
+                    </div>
+                    <div class="entry-side">
+                      <strong>{{ formatCurrency(entry.amount) }}</strong>
+                      <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
+                      <span class="muted small">{{ dueLabel(entry) }}</span>
+                      <div class="entry-actions">
+                        <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
+                        <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
+                        <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+                <div v-else class="empty-state">
+                  <p class="muted">Noch keine Abos hinterlegt.</p>
+                  <button class="btn" type="button" @click="openCreateSubscriptionModal">Erstes Abo hinzufügen</button>
+                </div>
+              </article>
             </section>
 
             <section v-show="activeTab === 'all-entries'" class="all-entries-page">
@@ -951,11 +1022,12 @@ const editingDailyExpenseId = ref(null);
 const savingDailyExpense = ref(false);
 const localStoredCategories = ref(loadStoredCategories());
 
-const tabs = ["planner", "daily", "debts", "all-entries", "tips"];
+const tabs = ["planner", "daily", "debts", "subscriptions", "all-entries", "tips"];
 const tabLabels = {
   planner: "Planer",
   daily: "Tägliche Ausgaben",
   debts: "Schulden",
+  subscriptions: "Abos",
   "all-entries": "Alle Posten",
   tips: "Tipps und Einnahmequellen",
 };
@@ -976,6 +1048,7 @@ const memberRoleLabels = {
 const entryTypeLabels = {
   INCOME: "Einnahme",
   FIXED: "Fixkosten",
+  SUBSCRIPTION: "Abo",
   VARIABLE: "Variabel",
   DEBT: "Schulden",
   SAVING: "Sparen",
@@ -992,6 +1065,7 @@ const entryTypeFormOptions = computed(() => {
   const options = {
     INCOME: entryTypeLabels.INCOME,
     FIXED: entryTypeLabels.FIXED,
+    SUBSCRIPTION: entryTypeLabels.SUBSCRIPTION,
     VARIABLE: entryTypeLabels.VARIABLE,
     SAVING: entryTypeLabels.SAVING,
   };
@@ -1005,6 +1079,7 @@ const entryFilters = [
   { value: "ALL", label: "Alle" },
   { value: "INCOME", label: "Einnahmen" },
   { value: "FIXED", label: "Fixkosten" },
+  { value: "SUBSCRIPTION", label: "Abos" },
   { value: "VARIABLE", label: "Variabel" },
   { value: "DEBT", label: "Schulden" },
   { value: "SAVING", label: "Sparen" },
@@ -1328,6 +1403,9 @@ function isActiveExpense(entry) {
 }
 
 function isSubscriptionEntry(entry) {
+  if (entry?.entry_type === "SUBSCRIPTION") {
+    return true;
+  }
   const haystack = [entry?.category, entry?.title, entry?.notes].map(normalizeText).join(" ");
   const keywords = ["abo", "abonnement", "subscription", "mitgliedschaft", "mitgliedsbeitrag", "streaming"];
   return keywords.some((keyword) => haystack.includes(keyword));
@@ -1348,9 +1426,27 @@ const monthlyPlannedOutflow = computed(() =>
 );
 
 const monthlySubscriptions = computed(() =>
-  monthRelevantEntries.value
-    .filter((entry) => isActiveExpense(entry) && isSubscriptionEntry(entry))
-    .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0)
+  {
+    const explicitTotal = Number(overview.value.monthly_subscriptions || 0);
+    if (explicitTotal > 0) {
+      return explicitTotal;
+    }
+    return monthRelevantEntries.value
+      .filter((entry) => isActiveExpense(entry) && isSubscriptionEntry(entry))
+      .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
+  }
+);
+
+const subscriptionEntries = computed(() =>
+  entries.value.filter((entry) => entry.entry_type === "SUBSCRIPTION")
+);
+
+const activeSubscriptionCount = computed(() =>
+  subscriptionEntries.value.filter((entry) => entry.is_active !== false).length
+);
+
+const subscriptionDueSoonCount = computed(() =>
+  (overview.value.due_soon || []).filter((item) => item.entry_type === "SUBSCRIPTION").length
 );
 
 const monthlyUnplannedOutflow = computed(() => {
@@ -1793,9 +1889,14 @@ function closeCompareModal() {
   showCompareModal.value = false;
 }
 
-function openCreateEntryModal() {
-  resetEntryForm();
+function openCreateEntryModal(initialData = {}) {
+  editingEntryId.value = null;
+  entryForm.value = buildEntryForm(initialData);
   showEntryModal.value = true;
+}
+
+function openCreateSubscriptionModal() {
+  openCreateEntryModal({ entry_type: "SUBSCRIPTION", frequency: "MONTHLY", category: "Abo" });
 }
 
 function closeEntryModal() {

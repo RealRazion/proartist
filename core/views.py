@@ -2013,6 +2013,7 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
         overview = self.get_serializer(project).data['overview']
         writer.writerow(['Einnahmen', overview['monthly_income']])
         writer.writerow(['Fixkosten', overview['monthly_fixed_costs']])
+        writer.writerow(['Abos', overview.get('monthly_subscriptions', 0)])
         writer.writerow(['Variable Ausgaben', overview['monthly_variable_costs']])
         writer.writerow(['Schuldenzahlungen', overview['monthly_debt']])
         writer.writerow(['Sparen', overview['monthly_savings']])

@@ -985,6 +985,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
         totals = {
             "INCOME": Decimal("0.00"),
             "FIXED": Decimal("0.00"),
+            "SUBSCRIPTION": Decimal("0.00"),
             "VARIABLE": Decimal("0.00"),
             "DEBT": Decimal("0.00"),
             "SAVING": Decimal("0.00"),
@@ -1092,7 +1093,14 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
 
         month_daily_expense_count = len(daily_expenses)
         has_month_data = bool(month_entry_count or month_debt_count or month_daily_expense_count)
-        monthly_outflow = totals["FIXED"] + totals["VARIABLE"] + totals["DEBT"] + totals["SAVING"] + daily_expense_total
+        monthly_outflow = (
+            totals["FIXED"]
+            + totals["SUBSCRIPTION"]
+            + totals["VARIABLE"]
+            + totals["DEBT"]
+            + totals["SAVING"]
+            + daily_expense_total
+        )
         monthly_left = totals["INCOME"] - monthly_outflow
         projected_balance = _money(obj.current_balance) + monthly_left
         dispo_limit = _money(obj.dispo_limit)
@@ -1115,6 +1123,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "has_month_data": has_month_data,
             "monthly_income": _to_float(totals["INCOME"]),
             "monthly_fixed_costs": _to_float(totals["FIXED"]),
+            "monthly_subscriptions": _to_float(totals["SUBSCRIPTION"]),
             "monthly_variable_costs": _to_float(totals["VARIABLE"]),
             "monthly_debt": _to_float(totals["DEBT"]),
             "monthly_credit": _to_float(monthly_credit_total),

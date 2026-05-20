@@ -267,6 +267,7 @@ class FinanceEntry(models.Model):
     TYPE_CHOICES = [
         ("INCOME", "Einnahme"),
         ("FIXED", "Fixkosten"),
+        ("SUBSCRIPTION", "Abo"),
         ("VARIABLE", "Variable Ausgabe"),
         ("DEBT", "Schuldenrate"),
         ("SAVING", "Sparen"),

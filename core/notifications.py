@@ -1,8 +1,12 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
+import logging
 
 from .models import Notification
+
+
+logger = logging.getLogger(__name__)
 
 
 def send_notification_email(subject, message, recipients):
@@ -16,8 +20,8 @@ def send_notification_email(subject, message, recipients):
     try:
         send_mail(subject, message, sender, recipients, fail_silently=True)
     except Exception:
-        # We intentionally swallow exceptions so that UI actions do not fail because of email issues.
-        pass
+        # Keep UI flows resilient but make failures visible in logs.
+        logger.exception("Notification email failed for recipients=%s", recipients)
 
 
 def _profile_allows(profile, preference_key=None):

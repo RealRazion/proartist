@@ -62,7 +62,15 @@
             <div class="platform-icon" aria-hidden="true">{{ platform.icon }}</div>
             <div class="platform-meta">
               <h3>{{ platform.title }}</h3>
-              <span class="platform-tag">{{ platform.category }}</span>
+              <div class="platform-tags">
+                <span class="platform-tag">{{ platform.category }}</span>
+                <span
+                  class="platform-tag status"
+                  :class="`status-${platform.status || 'live'}`"
+                >
+                  {{ platformStatusLabel(platform.status) }}
+                </span>
+              </div>
             </div>
           </div>
           <p class="platform-description">{{ platform.description }}</p>
@@ -150,6 +158,11 @@ const activeProjects = computed(() => stats.value.activeProjects);
 const pendingTasks = computed(() => stats.value.pendingTasks);
 const upcomingEvents = computed(() => stats.value.upcomingEvents);
 
+function asList(payload) {
+  if (Array.isArray(payload)) return payload;
+  return payload?.results || [];
+}
+
 const platforms = [
   {
     key: "dashboard",
@@ -162,8 +175,8 @@ const platforms = [
     buttonLabel: "Öffnen",
     icon: "📊",
     features: ["Übersicht", "Schnellzugriffe", "Benachrichtigungen"],
-    roles: ["TEAM", "ARTIST", "PRODUCER", "LOCATION"],
-    comingSoon: false,
+    roles: ["TEAM", "ARTIST", "PROD", "LOC"],
+    status: "live",
   },
   {
     key: "contests",
@@ -173,8 +186,8 @@ const platforms = [
     buttonLabel: "Starten",
     icon: "🏆",
     features: ["Turniere", "Einreichungen", "Voting"],
-    roles: ["TEAM", "ARTIST", "PRODUCER"],
-    comingSoon: false,
+    roles: ["TEAM", "ARTIST", "PROD"],
+    status: "live",
   },
   {
     key: "music",
@@ -184,8 +197,8 @@ const platforms = [
     buttonLabel: "Verwalten",
     icon: "🎵",
     features: ["Songs", "Releases", "Analytics"],
-    roles: ["TEAM", "ARTIST", "PRODUCER"],
-    comingSoon: false,
+    roles: ["TEAM", "ARTIST", "PROD"],
+    status: "live",
   },
   {
     key: "locations",
@@ -195,8 +208,8 @@ const platforms = [
     buttonLabel: "Suchen",
     icon: "📍",
     features: ["Locations", "Events", "Buchungen"],
-    roles: ["TEAM", "LOCATION", "PRODUCER"],
-    comingSoon: true,
+    roles: ["TEAM", "LOC", "PROD"],
+    status: "beta",
   },
   {
     key: "finance",
@@ -207,7 +220,7 @@ const platforms = [
     icon: "💰",
     features: ["Budget", "Schulden", "Einnahmen"],
     roles: ["TEAM", "MEMBER"],
-    comingSoon: false,
+    status: "live",
   },
   {
     key: "content-studio",
@@ -217,8 +230,8 @@ const platforms = [
     buttonLabel: "Erstellen",
     icon: "📝",
     features: ["Tipps", "News", "Tutorials"],
-    roles: ["TEAM", "ARTIST", "PRODUCER", "MEMBER"],
-    comingSoon: false,
+    roles: ["TEAM", "ARTIST", "PROD", "MEMBER"],
+    status: "beta",
   },
   {
     key: "content-schedule",
@@ -228,8 +241,8 @@ const platforms = [
     buttonLabel: "Planen",
     icon: "📅",
     features: ["Wochenplan", "Drag & Drop", "Content-Serien"],
-    roles: ["TEAM", "ARTIST", "PRODUCER", "MEMBER"],
-    comingSoon: false,
+    roles: ["TEAM", "ARTIST", "PROD", "MEMBER"],
+    status: "beta",
   },
   {
     key: "fitness",
@@ -240,7 +253,7 @@ const platforms = [
     icon: "🏋️",
     features: ["Kcal", "Verbrauch", "Essensideen"],
     roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC", "MEMBER"],
-    comingSoon: false,
+    status: "beta",
   },
   {
     key: "admin",
@@ -251,7 +264,7 @@ const platforms = [
     icon: "🔧",
     features: ["Nutzer", "Plattformen", "Sicherheit"],
     roles: ["TEAM"],
-    comingSoon: false,
+    status: "live",
   },
   {
     key: "testing",
@@ -262,9 +275,18 @@ const platforms = [
     icon: "🧪",
     features: ["E-Mail", "Backend", "Debug"],
     roles: ["TEAM"],
-    comingSoon: false,
+    status: "beta",
   },
 ];
+
+function platformStatusLabel(status) {
+  const map = {
+    live: "Live",
+    beta: "Beta",
+    preview: "Preview",
+  };
+  return map[status || "live"] || "Live";
+}
 
 const activeRole = computed(() => {
   if (viewMode.value !== "default") return viewMode.value;
@@ -351,11 +373,13 @@ async function loadStats() {
       api.get("tasks/", { params: { status: "OPEN,IN_PROGRESS,REVIEW" } }),
       api.get("events/", { params: { upcoming: true, limit: 10 } }),
     ]);
+    const taskItems = asList(tasksRes.data);
+    const eventItems = asList(eventsRes.data);
     stats.value = {
       totalUsers: adminRes.data.total_users || 0,
       activeProjects: adminRes.data.active_projects || 0,
-      pendingTasks: tasksRes.data.length || 0,
-      upcomingEvents: eventsRes.data.length || 0,
+      pendingTasks: taskItems.length || 0,
+      upcomingEvents: eventItems.length || 0,
     };
   } catch (err) {
     console.error("Stats konnten nicht geladen werden", err);
@@ -624,6 +648,12 @@ onMounted(async () => {
   color: var(--text);
 }
 
+.platform-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .platform-tag {
   background: rgba(47, 99, 255, 0.1);
   color: var(--brand);
@@ -633,6 +663,26 @@ onMounted(async () => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.platform-tag.status {
+  color: #0f172a;
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.platform-tag.status.status-live {
+  color: #065f46;
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.platform-tag.status.status-beta {
+  color: #9a3412;
+  background: rgba(251, 146, 60, 0.25);
+}
+
+.platform-tag.status.status-preview {
+  color: #7f1d1d;
+  background: rgba(248, 113, 113, 0.22);
 }
 
 .platform-description {

@@ -2,6 +2,7 @@ Django==4.2.7
 djangorestframework==3.14.0
 djangorestframework-simplejwt==5.3.1
 channels==4.0.0
+channels-redis==4.2.0
 redis==5.0.1          # falls du Redis nutzt
 gunicorn==21.2.0
 whitenoise==6.6.0     # statische Dateien

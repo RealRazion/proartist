@@ -70,7 +70,16 @@
             v-for="post in postsForDay(day.dateKey)"
             :key="post.id"
             class="post-card"
+            :class="{
+              'is-drag-source': isDragSource(day.dateKey, post.id),
+              'is-drag-target': isDragTarget(day.dateKey, post.id),
+            }"
             :data-status="post.status"
+            draggable="true"
+            @dragstart.stop="onPostDragStart(day.dateKey, post, $event)"
+            @dragover.stop.prevent="onPostDragOver(day.dateKey, post.id, $event)"
+            @drop.stop.prevent="onPostDrop(day.dateKey, post.id, $event)"
+            @dragend.stop="onPostDragEnd"
             @click="openEdit(day.dateKey, post)"
           >
             <div class="post-top">
@@ -85,7 +94,13 @@
             </div>
           </div>
 
-          <button class="add-post-btn" type="button" @click="openAdd(day.dateKey)">
+          <button
+            class="add-post-btn"
+            type="button"
+            @click="openAdd(day.dateKey)"
+            @dragover.stop.prevent="onPostListDragOver(day.dateKey, $event)"
+            @drop.stop.prevent="onPostListDrop(day.dateKey, $event)"
+          >
             <span class="plus">+</span> Post planen
           </button>
         </div>
@@ -165,9 +180,11 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
+import api from "../api";
+import { useToast } from "../composables/useToast";
 
 const router = useRouter();
-const STORAGE_KEY = "content_schedule_v2";
+const { showToast } = useToast();
 
 // --------------- platforms ---------------
 const platforms = [
@@ -257,28 +274,237 @@ watch(days, (newDays) => {
 });
 
 // --------------- schedule (keyed by YYYY-MM-DD) ---------------
-function loadSchedule() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // ignore
-  }
-  return {};
+const schedule = ref({});
+const reordering = ref(false);
+const dragState = ref({
+  sourceDateKey: null,
+  sourcePostId: null,
+  targetDateKey: null,
+  targetPostId: null,
+});
+
+function asList(payload) {
+  if (Array.isArray(payload)) return payload;
+  return payload?.results || [];
 }
 
-const schedule = ref(loadSchedule());
+function toUiItem(item) {
+  return {
+    id: item.id,
+    platform: item.platform,
+    title: item.title || "",
+    status: item.status,
+    note: item.note || "",
+    sort_order: item.sort_order || 0,
+    created_at: item.created_at,
+  };
+}
 
-watch(schedule, (val) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
-  } catch {
-    // storage full – silently ignore
+function mapItemsByDate(items) {
+  const mapped = {};
+  for (const item of items) {
+    const key = item.scheduled_date;
+    if (!mapped[key]) mapped[key] = [];
+    mapped[key].push(toUiItem(item));
   }
-}, { deep: true });
+  for (const key of Object.keys(mapped)) {
+    mapped[key].sort((a, b) => {
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return String(a.created_at || "").localeCompare(String(b.created_at || ""));
+    });
+  }
+  return mapped;
+}
+
+async function loadWeekSchedule() {
+  if (!days.value.length) return;
+  const startDate = days.value[0].dateKey;
+  const endDate = days.value[days.value.length - 1].dateKey;
+  try {
+    const { data } = await api.get("content-schedule-items/", {
+      params: {
+        start_date: startDate,
+        end_date: endDate,
+        page_size: 500,
+      },
+    });
+    schedule.value = mapItemsByDate(asList(data));
+  } catch (error) {
+    showToast("Content-Schedule konnte nicht geladen werden.", "error");
+  }
+}
+
+watch(
+  () => [days.value[0]?.dateKey, days.value[days.value.length - 1]?.dateKey].join("|"),
+  () => {
+    void loadWeekSchedule();
+  },
+  { immediate: true }
+);
 
 function postsForDay(dateKey) {
   return schedule.value[dateKey] ?? [];
+}
+
+function isDragSource(dateKey, postId) {
+  return dragState.value.sourceDateKey === dateKey && dragState.value.sourcePostId === postId;
+}
+
+function isDragTarget(dateKey, postId) {
+  return dragState.value.targetDateKey === dateKey && dragState.value.targetPostId === postId;
+}
+
+function onPostDragStart(dateKey, post, event) {
+  dragState.value.sourceDateKey = dateKey;
+  dragState.value.sourcePostId = post.id;
+  dragState.value.targetDateKey = dateKey;
+  dragState.value.targetPostId = post.id;
+  if (event?.dataTransfer) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", String(post.id));
+  }
+}
+
+function onPostDragOver(dateKey, postId, event) {
+  if (event?.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+  dragState.value.targetDateKey = dateKey;
+  dragState.value.targetPostId = postId;
+}
+
+function onPostListDragOver(dateKey, event) {
+  if (event?.dataTransfer) {
+    event.dataTransfer.dropEffect = "move";
+  }
+  dragState.value.targetDateKey = dateKey;
+  dragState.value.targetPostId = null;
+}
+
+function onPostDragEnd() {
+  dragState.value = {
+    sourceDateKey: null,
+    sourcePostId: null,
+    targetDateKey: null,
+    targetPostId: null,
+  };
+}
+
+function reorderInList(items, sourceId, targetId = null) {
+  const sourceIndex = items.findIndex((entry) => entry.id === sourceId);
+  if (sourceIndex === -1) return items;
+  const next = [...items];
+  const [moved] = next.splice(sourceIndex, 1);
+  if (!targetId) {
+    next.push(moved);
+    return next;
+  }
+  const targetIndex = next.findIndex((entry) => entry.id === targetId);
+  if (targetIndex === -1) {
+    next.push(moved);
+    return next;
+  }
+  next.splice(targetIndex, 0, moved);
+  return next;
+}
+
+function withSortOrder(items) {
+  return items.map((entry, index) => ({ ...entry, sort_order: index }));
+}
+
+async function persistDayOrder(dateKey) {
+  const items = postsForDay(dateKey);
+  if (!items.length) return;
+  await api.post("content-schedule-items/reorder/", {
+    items: items.map((entry, index) => ({ id: entry.id, sort_order: index })),
+  });
+}
+
+async function movePostWithinDay(dateKey, sourceId, targetId = null) {
+  const original = postsForDay(dateKey);
+  const reordered = withSortOrder(reorderInList(original, sourceId, targetId));
+  if (JSON.stringify(reordered.map((entry) => entry.id)) === JSON.stringify(original.map((entry) => entry.id))) {
+    return;
+  }
+  schedule.value[dateKey] = reordered;
+  try {
+    reordering.value = true;
+    await persistDayOrder(dateKey);
+  } catch (error) {
+    showToast("Reihenfolge konnte nicht gespeichert werden.", "error");
+    await loadWeekSchedule();
+  } finally {
+    reordering.value = false;
+  }
+}
+
+function insertIntoList(items, entry, targetId = null) {
+  const next = [...items];
+  if (!targetId) {
+    next.push(entry);
+    return next;
+  }
+  const targetIndex = next.findIndex((item) => item.id === targetId);
+  if (targetIndex === -1) {
+    next.push(entry);
+    return next;
+  }
+  next.splice(targetIndex, 0, entry);
+  return next;
+}
+
+async function movePostAcrossDays(sourceDateKey, targetDateKey, sourceId, targetId = null) {
+  const sourceOriginal = postsForDay(sourceDateKey);
+  const targetOriginal = postsForDay(targetDateKey);
+  const sourceItem = sourceOriginal.find((entry) => entry.id === sourceId);
+  if (!sourceItem) return;
+
+  const sourceAfterRemoval = sourceOriginal.filter((entry) => entry.id !== sourceId);
+  const targetWithMoved = insertIntoList(targetOriginal, sourceItem, targetId);
+  const sourceReordered = withSortOrder(sourceAfterRemoval);
+  const targetReordered = withSortOrder(targetWithMoved);
+
+  schedule.value[sourceDateKey] = sourceReordered;
+  schedule.value[targetDateKey] = targetReordered;
+
+  const targetSortOrder = targetReordered.find((entry) => entry.id === sourceId)?.sort_order || 0;
+
+  try {
+    reordering.value = true;
+    await api.patch(`content-schedule-items/${sourceId}/`, {
+      scheduled_date: targetDateKey,
+      sort_order: targetSortOrder,
+    });
+    await persistDayOrder(sourceDateKey);
+    await persistDayOrder(targetDateKey);
+  } catch (error) {
+    showToast("Verschieben zwischen Tagen konnte nicht gespeichert werden.", "error");
+    await loadWeekSchedule();
+  } finally {
+    reordering.value = false;
+  }
+}
+
+async function onPostDrop(dateKey, targetPostId) {
+  if (reordering.value) return;
+  const { sourceDateKey, sourcePostId } = dragState.value;
+  if (!sourceDateKey || !sourcePostId) return;
+  if (sourceDateKey !== dateKey) {
+    await movePostAcrossDays(sourceDateKey, dateKey, sourcePostId, targetPostId);
+    return;
+  }
+  await movePostWithinDay(dateKey, sourcePostId, targetPostId);
+}
+
+async function onPostListDrop(dateKey) {
+  if (reordering.value) return;
+  const { sourceDateKey, sourcePostId } = dragState.value;
+  if (!sourceDateKey || !sourcePostId) return;
+  if (sourceDateKey !== dateKey) {
+    await movePostAcrossDays(sourceDateKey, dateKey, sourcePostId, null);
+    return;
+  }
+  await movePostWithinDay(dateKey, sourcePostId, null);
 }
 
 // --------------- stats ---------------
@@ -296,14 +522,6 @@ const statusStats = computed(() =>
     ),
   })).filter((s) => s.count > 0)
 );
-
-// --------------- uid ---------------
-let _uidCounter = 0;
-function uid() {
-  return crypto.randomUUID
-    ? crypto.randomUUID()
-    : `p${Date.now()}-${++_uidCounter}-${Math.random().toString(36).slice(2)}`;
-}
 
 // --------------- modal ---------------
 const modal = ref({
@@ -332,29 +550,42 @@ function openEdit(dateKey, post) {
   };
 }
 
-function savePost() {
+async function savePost() {
   const { dateKey, isEdit, editId, form } = modal.value;
-  if (!schedule.value[dateKey]) schedule.value[dateKey] = [];
-
-  if (isEdit) {
-    const idx = schedule.value[dateKey].findIndex((p) => p.id === editId);
-    if (idx !== -1) {
-      schedule.value[dateKey].splice(idx, 1, { ...schedule.value[dateKey][idx], ...form });
+  const payload = {
+    scheduled_date: dateKey,
+    platform: form.platform,
+    title: (form.title || "").trim(),
+    status: form.status,
+    note: (form.note || "").trim(),
+    sort_order: isEdit
+      ? (postsForDay(dateKey).find((entry) => entry.id === editId)?.sort_order || 0)
+      : postsForDay(dateKey).length,
+  };
+  try {
+    if (isEdit) {
+      await api.patch(`content-schedule-items/${editId}/`, payload);
+    } else {
+      await api.post("content-schedule-items/", payload);
     }
-  } else {
-    schedule.value[dateKey].push({ id: uid(), ...form });
+    modal.value.open = false;
+    await loadWeekSchedule();
+  } catch (error) {
+    showToast("Post konnte nicht gespeichert werden.", "error");
   }
-
-  modal.value.open = false;
 }
 
-function deletePost(dateKey, postId) {
-  if (!schedule.value[dateKey]) return;
-  schedule.value[dateKey] = schedule.value[dateKey].filter((p) => p.id !== postId);
+async function deletePost(_dateKey, postId) {
+  try {
+    await api.delete(`content-schedule-items/${postId}/`);
+    await loadWeekSchedule();
+  } catch (error) {
+    showToast("Post konnte nicht gelöscht werden.", "error");
+  }
 }
 
-function deleteAndClose() {
-  deletePost(modal.value.dateKey, modal.value.editId);
+async function deleteAndClose() {
+  await deletePost(modal.value.dateKey, modal.value.editId);
   modal.value.open = false;
 }
 </script>
@@ -618,6 +849,15 @@ function deleteAndClose() {
 
 .post-card:hover {
   box-shadow: var(--shadow-strong);
+}
+
+.post-card.is-drag-source {
+  opacity: 0.55;
+}
+
+.post-card.is-drag-target {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 70%, transparent);
 }
 
 .post-card[data-status="posted"] {

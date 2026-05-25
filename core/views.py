@@ -1,6 +1,7 @@
 import csv
 import io
 import os
+import logging
 from calendar import monthrange
 from datetime import datetime, timedelta, date
 from decimal import Decimal
@@ -8,7 +9,9 @@ from django.db import transaction
 import re
 
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
 from django.conf import settings
+from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -19,7 +22,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.dateparse import parse_date
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from rest_framework import permissions, viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -33,6 +36,7 @@ from .models import (
     Booking,
     ChatMessage,
     ChatThread,
+    ContentScheduleItem,
     Contract,
     DailyExpense,
     Event,
@@ -82,6 +86,7 @@ from .serializers import (
     BookingSerializer,
     ChatMessageSerializer,
     ChatThreadSerializer,
+    ContentScheduleItemSerializer,
     ContractSerializer,
     DailyExpenseSerializer,
     DebtSerializer,
@@ -123,8 +128,15 @@ from .utils import log_activity
 from .notifications import create_in_app_notification, notify_profiles, send_notification_email
 from .realtime import notify_project_event, notify_task_event
 from .automation import _profile_emails, run_automation_rules_for_project, run_automation_rules_for_task, send_task_reminders
+from .throttling import (
+    InviteUserRateThrottle,
+    RegisterRateThrottle,
+    SetPasswordRateThrottle,
+    VerifyRegistrationRateThrottle,
+)
 
 API_CENTER_OFFLINE = getattr(settings, "API_CENTER_OFFLINE", True)
+logger = logging.getLogger(__name__)
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated, IsTeam])
@@ -136,6 +148,8 @@ def api_center_status(request):
 @permission_classes([permissions.IsAuthenticated, IsTeam])
 def send_test_email(request):
     from django.core.mail import send_mail
+    if not (settings.DEBUG or getattr(settings, "ALLOW_TEST_ENDPOINTS", False)):
+        return Response({"detail": "Testing endpoint disabled."}, status=403)
     recipient = request.user.email
     if not recipient:
         return Response({"detail": "Kein E-Mail beim Nutzer hinterlegt."}, status=400)
@@ -149,6 +163,7 @@ def send_test_email(request):
         )
         return Response({"message": f"Test-Email an {recipient} gesendet."})
     except Exception as e:
+        logger.exception("Failed sending test email for user_id=%s", request.user.id)
         return Response({"detail": str(e)}, status=500)
 
 # --- Auth/Register ---
@@ -216,6 +231,7 @@ def _build_verification_email_html(code: str) -> str:
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([RegisterRateThrottle])
 def register(request):
     import random
     from django.utils import timezone
@@ -264,6 +280,7 @@ def register(request):
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([VerifyRegistrationRateThrottle])
 def verify_registration(request):
     from django.utils import timezone
     from .models import EmailVerification
@@ -366,12 +383,12 @@ def verify_registration(request):
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[email],
             html_message=html_welcome,
-            fail_silently=True,
+            fail_silently=False,
         )
     except Exception:
-        pass
+        logger.exception("Failed to send set-password email during verification for %s", email)
 
-    return Response({"message": "verified", "username": username, "set_password_link": link})
+    return Response({"message": "verified", "username": username})
 
 def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
     role_keys = role_keys or []
@@ -406,6 +423,7 @@ def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
 
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated, IsTeam])
+@throttle_classes([InviteUserRateThrottle])
 def invite_user(request):
     email = (request.data.get("email") or "").strip().lower()
     name = (request.data.get("name") or "").strip()
@@ -417,24 +435,25 @@ def invite_user(request):
         result = _create_invite_for_email(email, name=name, role_keys=role_keys, send_email=send_email)
     except ValueError as exc:
         return Response({"detail": str(exc)}, status=400)
-    return Response({
+    payload = {
         "user_id": result["user"].id,
         "email": email,
         "username": result["username"],
-        "invite_link": result["invite_link"],
         "status": "invited",
-    })
+    }
+    if not send_email:
+        payload["invite_link"] = result["invite_link"]
+    return Response(payload)
 
 @api_view(["POST"])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([SetPasswordRateThrottle])
 def set_password(request):
     uid = request.data.get("uid")
     token = request.data.get("token")
     password = request.data.get("password")
     if not uid or not token or not password:
         return Response({"detail": "missing data"}, status=400)
-    if len(password) < 8:
-        return Response({"detail": "password too short"}, status=400)
     try:
         user_id = force_str(urlsafe_base64_decode(uid))
         user = User.objects.get(pk=user_id)
@@ -442,6 +461,11 @@ def set_password(request):
         return Response({"detail": "invalid link"}, status=400)
     if not default_token_generator.check_token(user, token):
         return Response({"detail": "invalid link"}, status=400)
+    try:
+        validate_password(password, user=user)
+    except Exception as exc:
+        details = getattr(exc, "messages", None) or [str(exc)]
+        return Response({"detail": details[0]}, status=400)
     user.set_password(password)
     user.save(update_fields=["password"])
     
@@ -2195,7 +2219,32 @@ class EventViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
 class BookingViewSet(viewsets.ModelViewSet):
-    queryset=Booking.objects.all(); serializer_class=BookingSerializer; permission_classes=[permissions.IsAuthenticated]
+    queryset = Booking.objects.all()
+    serializer_class = BookingSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Booking.objects.select_related("event", "profile__user").order_by("-id")
+        me = getattr(self.request.user, "profile", None)
+        if not me:
+            return qs.none()
+        if me.roles.filter(key="TEAM").exists():
+            return qs
+        return qs.filter(profile=me)
+
+    def perform_create(self, serializer):
+        me = self.request.user.profile
+        if me.roles.filter(key="TEAM").exists():
+            serializer.save()
+            return
+        serializer.save(profile=me)
+
+    def perform_update(self, serializer):
+        me = self.request.user.profile
+        if me.roles.filter(key="TEAM").exists():
+            serializer.save()
+            return
+        serializer.save(profile=me)
 
 
 class TournamentViewSet(viewsets.ModelViewSet):
@@ -2438,6 +2487,61 @@ class PluginGuideViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class ContentScheduleItemViewSet(viewsets.ModelViewSet):
+    serializer_class = ContentScheduleItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        me = self.request.user.profile
+        qs = ContentScheduleItem.objects.filter(profile=me)
+        start_raw = self.request.query_params.get("start_date")
+        end_raw = self.request.query_params.get("end_date")
+        start_date = parse_date(start_raw) if start_raw else None
+        end_date = parse_date(end_raw) if end_raw else None
+        if start_date:
+            qs = qs.filter(scheduled_date__gte=start_date)
+        if end_date:
+            qs = qs.filter(scheduled_date__lte=end_date)
+        return qs.order_by("scheduled_date", "sort_order", "created_at")
+
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user.profile)
+
+    @action(detail=False, methods=["POST"], url_path="reorder")
+    def reorder(self, request):
+        items = request.data.get("items")
+        if not isinstance(items, list):
+            return Response({"detail": "items must be a list"}, status=status.HTTP_400_BAD_REQUEST)
+
+        me = request.user.profile
+        ids = []
+        normalized = []
+        for row in items:
+            if not isinstance(row, dict):
+                return Response({"detail": "each item must be an object"}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                item_id = int(row.get("id"))
+                sort_order = int(row.get("sort_order"))
+            except (TypeError, ValueError):
+                return Response({"detail": "id and sort_order must be integers"}, status=status.HTTP_400_BAD_REQUEST)
+            ids.append(item_id)
+            normalized.append((item_id, sort_order))
+
+        qs = ContentScheduleItem.objects.filter(profile=me, id__in=ids)
+        found = {entry.id: entry for entry in qs}
+        if len(found) != len(set(ids)):
+            return Response({"detail": "one or more items not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        for item_id, sort_order in normalized:
+            entry = found[item_id]
+            if entry.sort_order != sort_order:
+                entry.sort_order = sort_order
+                entry.save(update_fields=["sort_order", "updated_at"])
+
+        return Response({"updated": len(normalized)})
+
+
 class AutomationRuleViewSet(viewsets.ModelViewSet):
     queryset = AutomationRule.objects.select_related("created_by__user").order_by("-created_at")
     serializer_class = AutomationRuleSerializer
@@ -2497,6 +2601,7 @@ class NewsPostViewSet(viewsets.ModelViewSet):
     queryset = NewsPost.objects.select_related("author__user").order_by("-created_at")
     serializer_class = NewsPostSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         qs = super().get_queryset()

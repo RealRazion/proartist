@@ -127,6 +127,11 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
+function asList(payload) {
+  if (Array.isArray(payload)) return payload;
+  return payload?.results || [];
+}
+
 function cleanupPreviewUrl() {
   if (cropPreviewUrl.value) {
     URL.revokeObjectURL(cropPreviewUrl.value);
@@ -259,7 +264,7 @@ async function loadNews() {
   loading.value = true;
   try {
     const { data } = await api.get("news/");
-    posts.value = data;
+    posts.value = asList(data);
   } catch (err) {
     console.error("News konnten nicht geladen werden", err);
     posts.value = [];

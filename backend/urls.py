@@ -10,6 +10,7 @@ from core.views import (
     BookingViewSet,
     ChatMessageViewSet,
     ChatThreadViewSet,
+    ContentScheduleItemViewSet,
     ContractViewSet,
     DailyExpenseViewSet,
     DebtViewSet,
@@ -66,6 +67,7 @@ router.register(r"examples", ExampleViewSet)
 router.register(r"requests", RequestViewSet)
 router.register(r"threads", ChatThreadViewSet)
 router.register(r"messages", ChatMessageViewSet)
+router.register(r"content-schedule-items", ContentScheduleItemViewSet, basename="content-schedule-items")
 router.register(r"projects", ProjectViewSet)
 router.register(r"registration-requests", RegistrationRequestViewSet)
 router.register(r"tasks", TaskViewSet)

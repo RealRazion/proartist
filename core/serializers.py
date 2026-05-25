@@ -11,6 +11,7 @@ from .models import (
     Booking,
     ChatMessage,
     ChatThread,
+    ContentScheduleItem,
     Contract,
     DailyExpense,
     Debt,
@@ -1563,11 +1564,21 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class NewsPostSerializer(serializers.ModelSerializer):
     author = ProfileMiniSerializer(read_only=True)
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = NewsPost
-        fields = ["id", "title", "body", "author", "is_published", "created_at", "updated_at"]
+        fields = ["id", "title", "body", "author", "image", "image_url", "is_published", "created_at", "updated_at"]
         read_only_fields = ["author", "created_at", "updated_at"]
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get("request") if hasattr(self, "context") else None
+        url = obj.image.url
+        if request and hasattr(request, "build_absolute_uri"):
+            return request.build_absolute_uri(url)
+        return url
 
 
 class FinanceTipSerializer(serializers.ModelSerializer):
@@ -1663,3 +1674,21 @@ class SystemIntegrationSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "last_used_at", "created_at", "updated_at"]
+
+
+class ContentScheduleItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContentScheduleItem
+        fields = [
+            "id",
+            "profile",
+            "scheduled_date",
+            "platform",
+            "status",
+            "title",
+            "note",
+            "sort_order",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["profile", "created_at", "updated_at"]

@@ -38,6 +38,7 @@ def get_env(key, default=None, required=False, cast_type=str):
 
 DEBUG = get_env('DEBUG', 'False', cast_type=bool)
 ENVIRONMENT = get_env('ENVIRONMENT', 'development')
+ALLOW_TEST_ENDPOINTS = get_env('ALLOW_TEST_ENDPOINTS', 'False', cast_type=bool)
 
 # Kritische Variablen validieren
 SECRET_KEY = get_env('SECRET_KEY')
@@ -71,15 +72,25 @@ INSTALLED_APPS = [
 ]
 ASGI_APPLICATION = "backend.asgi.application"
 
-# Channel Layer (dev: InMemory; prod: Redis)
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-        # Prod-Beispiel:
-        # "BACKEND": "channels_redis.core.RedisChannelLayer",
-        # "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
+# Channel Layer (dev: InMemory; prod: Redis via CHANNEL_REDIS_URL/REDIS_URL)
+_redis_channel_url = get_env("CHANNEL_REDIS_URL") or get_env("REDIS_URL")
+if _redis_channel_url:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [_redis_channel_url],
+            },
+        }
     }
-}
+    logger.info("✓ CHANNEL_LAYERS uses Redis backend")
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+    logger.info("✓ CHANNEL_LAYERS uses InMemory backend")
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -99,6 +110,13 @@ TEMPLATES = [{
         "django.template.context_processors.debug","django.template.context_processors.request",
         "django.contrib.auth.context_processors.auth","django.contrib.messages.context_processors.messages",],},},]
 WSGI_APPLICATION = "backend.wsgi.application"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
 
 import dj_database_url
 DATABASES = {
@@ -160,6 +178,8 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 REST_FRAMEWORK = {
   "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
   "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": get_env("API_PAGE_SIZE", "50", cast_type=int),
   "DEFAULT_THROTTLE_CLASSES": (
       "rest_framework.throttling.AnonRateThrottle",
       "rest_framework.throttling.UserRateThrottle",
@@ -167,6 +187,10 @@ REST_FRAMEWORK = {
   "DEFAULT_THROTTLE_RATES": {
       "anon": os.getenv("THROTTLE_ANON", "500/hour"),
       "user": os.getenv("THROTTLE_USER", "2000/hour"),
+            "register": os.getenv("THROTTLE_REGISTER", "10/hour"),
+            "verify_registration": os.getenv("THROTTLE_VERIFY_REGISTRATION", "20/hour"),
+            "set_password": os.getenv("THROTTLE_SET_PASSWORD", "20/hour"),
+            "invite_user": os.getenv("THROTTLE_INVITE_USER", "120/hour"),
   },
 }
 
@@ -175,12 +199,12 @@ API_CENTER_OFFLINE = os.getenv("API_CENTER_OFFLINE", "True").lower() in {"1", "t
 
 # Security headers (konfigurierbar per ENV)
 SECURE_HSTS_SECONDS = int(os.getenv("HSTS_SECONDS", "0"))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("HSTS_INCLUDE_SUBDOMAINS", "False") == "True"
-SECURE_HSTS_PRELOAD = os.getenv("HSTS_PRELOAD", "False") == "True"
+SECURE_HSTS_INCLUDE_SUBDOMAINS = get_env("HSTS_INCLUDE_SUBDOMAINS", "False", cast_type=bool)
+SECURE_HSTS_PRELOAD = get_env("HSTS_PRELOAD", "False", cast_type=bool)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = os.getenv("REFERRER_POLICY", "same-origin")
-CSRF_COOKIE_SECURE = os.getenv("CSRF_COOKIE_SECURE", "False") == "True"
-SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "False") == "True"
+CSRF_COOKIE_SECURE = get_env("CSRF_COOKIE_SECURE", "False", cast_type=bool)
+SESSION_COOKIE_SECURE = get_env("SESSION_COOKIE_SECURE", "False", cast_type=bool)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 MEDIA_URL = "/media/"

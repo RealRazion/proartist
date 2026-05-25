@@ -506,7 +506,7 @@ Quelle: `frontend/src/config/version.js`
   - `MAJOR`: breaking changes
 
 Aktuell (Stand dieser Doku):
-- `1.9.7`
+- `2.11.0.1-beta`
 
 Beim Versions-Update:
 1. `frontend/src/config/version.js` anpassen

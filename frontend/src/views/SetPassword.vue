@@ -81,7 +81,8 @@ async function submit() {
     showMessage("Passwort gespeichert. Bitte jetzt einloggen.", "success");
     setTimeout(() => router.push({ name: "login" }), 600);
   } catch (err) {
-    showMessage("Passwort konnte nicht gesetzt werden.", "error");
+    const detail = err?.response?.data?.detail;
+    showMessage(typeof detail === "string" && detail ? detail : "Passwort konnte nicht gesetzt werden.", "error");
   } finally {
     loading.value = false;
   }

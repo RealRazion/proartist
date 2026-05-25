@@ -169,12 +169,12 @@ const adminTools = [
 function openTool(tool) {
   const mapping = {
     users: "/app/admin",
-    platforms: "/platforms/platforms-control",
+    platforms: "/platforms",
     analytics: "/app/analytics",
-    security: "/platforms/security",
-    requests: "/app/admin#requests",
+    security: "/app/admin",
+    requests: "/app/admin",
     content: "/platforms/content-studio",
-    system: "/platforms/system-settings",
+    system: "/app/testing",
   };
   const path = mapping[tool];
   if (path) {

@@ -708,6 +708,7 @@ class NewsPost(models.Model):
     author = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, related_name="news_posts")
     title = models.CharField(max_length=200)
     body = models.TextField()
+    image = models.FileField(upload_to="news/", blank=True, null=True)
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -764,6 +765,43 @@ class PluginGuideImage(models.Model):
 
     def __str__(self):
         return f"{self.guide_id}#{self.id}"
+
+
+class ContentScheduleItem(models.Model):
+    PLATFORM_CHOICES = [
+        ("youtube", "YouTube"),
+        ("instagram", "Instagram"),
+        ("tiktok", "TikTok"),
+        ("twitter", "X / Twitter"),
+        ("podcast", "Podcast"),
+        ("blog", "Blog"),
+        ("other", "Sonstiges"),
+    ]
+    STATUS_CHOICES = [
+        ("draft", "Entwurf"),
+        ("ready", "Bereit"),
+        ("posted", "Gepostet"),
+    ]
+
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="content_schedule_items")
+    scheduled_date = models.DateField(db_index=True)
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, default="youtube")
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="draft")
+    title = models.CharField(max_length=120, blank=True, default="")
+    note = models.CharField(max_length=400, blank=True, default="")
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["scheduled_date", "sort_order", "created_at"]
+        indexes = [
+            models.Index(fields=["profile", "scheduled_date"]),
+            models.Index(fields=["profile", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.profile_id}:{self.scheduled_date}:{self.platform}"
 
 class AutomationRule(models.Model):
     TRIGGER_CHOICES = [

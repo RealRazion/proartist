@@ -26,7 +26,7 @@ from rest_framework import permissions, viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, MultiPartParser, JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -1682,8 +1682,29 @@ class SongViewSet(viewsets.ModelViewSet):
         project_id = self.request.query_params.get("project")
         if project_id:
             qs = qs.filter(project_id=project_id)
+        genre = (self.request.query_params.get("genre") or "").strip()
+        if genre:
+            qs = qs.filter(genre__icontains=genre)
+        mood = (self.request.query_params.get("mood") or "").strip()
+        if mood:
+            qs = qs.filter(mood__icontains=mood)
+        has_final = self.request.query_params.get("has_final")
+        if has_final is not None:
+            want_final = str(has_final).lower() in {"1", "true", "yes", "on"}
+            if want_final:
+                qs = qs.filter(versions__is_final=True).distinct()
+            else:
+                qs = qs.exclude(versions__is_final=True)
+        min_bpm = self.request.query_params.get("min_bpm")
+        if min_bpm:
+            qs = qs.filter(bpm__gte=min_bpm)
+        max_bpm = self.request.query_params.get("max_bpm")
+        if max_bpm:
+            qs = qs.filter(bpm__lte=max_bpm)
         ordering = self.request.query_params.get("ordering")
-        allowed = {"created_at", "-created_at", "title", "-title", "status", "-status"}
+        allowed = {
+            "created_at", "-created_at", "title", "-title", "status", "-status", "bpm", "-bpm", "release_date", "-release_date"
+        }
         if ordering in allowed:
             qs = qs.order_by(ordering)
         else:
@@ -1743,6 +1764,7 @@ class SongVersionViewSet(viewsets.ModelViewSet):
     serializer_class = SongVersionSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         qs = SongVersion.objects.select_related("song__profile__user", "song__project")
@@ -1761,7 +1783,7 @@ class SongVersionViewSet(viewsets.ModelViewSet):
         song = serializer.validated_data["song"]
         me = self.request.user.profile
         if song.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
-            return Response({"detail": "Nicht erlaubt"}, status=403)
+            raise PermissionDenied("Nicht erlaubt")
         version = serializer.save()
         log_activity(
             "song_version_created",

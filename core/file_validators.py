@@ -6,7 +6,10 @@ Sichert Datei-Uploads mit Größen- und Typ-Validierung
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 import os
-import magic  # python-magic für Datei-Typ Validierung
+try:
+    import magic  # python-magic für Datei-Typ Validierung
+except Exception:
+    magic = None
 
 
 # Maximale Dateigrößen
@@ -51,13 +54,28 @@ def validate_file_type(file, allowed_types):
     Validiert Datei-Typ basierend auf MIME-Type
     Nutzt python-magic für sicherere Validierung
     """
-    try:
-        # Versuche python-magic zu nutzen (sicherer)
-        mime_type = magic.from_buffer(file.read(1024), mime=True)
-        file.seek(0)  # Reset file pointer
-    except:
-        # Fallback auf Django default
-        mime_type = file.content_type
+    mime_type = getattr(file, "content_type", None)
+    if magic is not None:
+        try:
+            # Versuche python-magic zu nutzen (sicherer)
+            mime_type = magic.from_buffer(file.read(1024), mime=True)
+            file.seek(0)  # Reset file pointer
+        except Exception:
+            mime_type = getattr(file, "content_type", None)
+
+    # Fallback: simple extension mapping if MIME is missing/empty
+    if not mime_type:
+        _, ext = os.path.splitext(getattr(file, "name", "") or "")
+        ext = ext.lower()
+        ext_map = {
+            ".mp3": "audio/mpeg",
+            ".wav": "audio/wav",
+            ".ogg": "audio/ogg",
+            ".aac": "audio/aac",
+            ".flac": "audio/flac",
+            ".m4a": "audio/aac",
+        }
+        mime_type = ext_map.get(ext)
     
     if mime_type not in allowed_types:
         allowed_str = ', '.join(allowed_types)

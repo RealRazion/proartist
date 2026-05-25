@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.utils import timezone
 from rest_framework import serializers
+from django.db import transaction
 
 from .models import (
     ActivityEntry,
@@ -48,6 +49,7 @@ from .models import (
     TournamentSubmission,
     TournamentVote,
 )
+from .file_validators import validate_audio_file
 
 
 DECIMAL_2 = Decimal("0.01")
@@ -663,23 +665,66 @@ class TaskCommentSerializer(serializers.ModelSerializer):
 
 
 class SongVersionSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    file_name = serializers.SerializerMethodField()
+
     class Meta:
         model = SongVersion
-        fields = "__all__"
+        fields = [
+            "id",
+            "song",
+            "version_number",
+            "file",
+            "file_url",
+            "file_name",
+            "notes",
+            "duration_seconds",
+            "is_mix_ready",
+            "is_master_ready",
+            "is_final",
+            "created_at",
+        ]
         read_only_fields = ["created_at", "version_number"]
 
     def validate(self, attrs):
-        # Datei nur bei Erstellung zwingend, bei PATCH kann sie fehlen
-        if not self.instance and not attrs.get("file"):
-            raise serializers.ValidationError({"file": "Datei ist erforderlich"})
+        file = attrs.get("file")
+        if file:
+            try:
+                validate_audio_file(file)
+            except Exception as exc:
+                raise serializers.ValidationError({"file": str(exc)})
+        duration_seconds = attrs.get("duration_seconds")
+        if duration_seconds is not None and duration_seconds > 60 * 60 * 4:
+            raise serializers.ValidationError({"duration_seconds": "Dauer darf maximal 4 Stunden betragen."})
         return attrs
 
     def create(self, validated_data):
-        song = validated_data["song"]
-        if "version_number" not in validated_data or not validated_data.get("version_number"):
-            last = song.versions.order_by("-version_number").first()
-            validated_data["version_number"] = (last.version_number + 1) if last else 1
-        return super().create(validated_data)
+        with transaction.atomic():
+            song = validated_data["song"]
+            if "version_number" not in validated_data or not validated_data.get("version_number"):
+                last = song.versions.order_by("-version_number").first()
+                validated_data["version_number"] = (last.version_number + 1) if last else 1
+            is_final = bool(validated_data.get("is_final"))
+            if is_final:
+                song.versions.filter(is_final=True).update(is_final=False)
+            return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        with transaction.atomic():
+            is_final = validated_data.get("is_final")
+            if is_final is True:
+                instance.song.versions.exclude(id=instance.id).filter(is_final=True).update(is_final=False)
+            return super().update(instance, validated_data)
+
+    def get_file_url(self, obj):
+        if obj.file and hasattr(obj.file, "url"):
+            return obj.file.url
+        return None
+
+    def get_file_name(self, obj):
+        if not obj.file:
+            return None
+        return obj.file.name.split("/")[-1]
 
 
 class SongSerializer(serializers.ModelSerializer):
@@ -696,6 +741,12 @@ class SongSerializer(serializers.ModelSerializer):
             "project_title",
             "title",
             "description",
+            "genre",
+            "mood",
+            "bpm",
+            "key_signature",
+            "tags",
+            "release_date",
             "status",
             "created_at",
             "versions",
@@ -714,6 +765,19 @@ class SongSerializer(serializers.ModelSerializer):
         if not is_team:
             if "project" in attrs:
                 raise serializers.ValidationError({"project": "Nur Team darf Projekte zuweisen"})
+        bpm = attrs.get("bpm")
+        if bpm is not None and (bpm < 40 or bpm > 260):
+            raise serializers.ValidationError({"bpm": "BPM muss zwischen 40 und 260 liegen."})
+        tags = attrs.get("tags")
+        if tags is not None:
+            if not isinstance(tags, list):
+                raise serializers.ValidationError({"tags": "Tags müssen als Liste gesendet werden."})
+            cleaned = []
+            for tag in tags:
+                text = str(tag).strip()
+                if text:
+                    cleaned.append(text[:32])
+            attrs["tags"] = cleaned[:12]
         return attrs
 
 

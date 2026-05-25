@@ -1370,6 +1370,10 @@ class TournamentSerializer(serializers.ModelSerializer):
             "application_deadline",
             "submission_deadline",
             "status",
+            "voting_mode",
+            "allow_vote_change",
+            "min_account_age_hours",
+            "max_votes_per_ip_per_hour",
             "require_phone_vote_verification",
             "applications_count",
             "submissions_count",
@@ -1378,6 +1382,20 @@ class TournamentSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+    def validate_min_account_age_hours(self, value):
+        if value < 0:
+            raise serializers.ValidationError("min_account_age_hours darf nicht negativ sein.")
+        if value > 24 * 30:
+            raise serializers.ValidationError("min_account_age_hours darf maximal 720 Stunden sein.")
+        return value
+
+    def validate_max_votes_per_ip_per_hour(self, value):
+        if value < 1:
+            raise serializers.ValidationError("max_votes_per_ip_per_hour muss mindestens 1 sein.")
+        if value > 1000:
+            raise serializers.ValidationError("max_votes_per_ip_per_hour darf maximal 1000 sein.")
+        return value
 
 
 class TournamentApplicationSerializer(serializers.ModelSerializer):
@@ -1462,27 +1480,56 @@ class TournamentBattleSerializer(serializers.ModelSerializer):
         return profile or username
 
     def get_votes_left(self, obj):
-        return obj.votes.filter(selected_submission=obj.left_submission).count()
+        return obj.votes.filter(selected_submission=obj.left_submission, moderation_status="APPROVED").count()
 
     def get_votes_right(self, obj):
-        return obj.votes.filter(selected_submission=obj.right_submission).count()
+        return obj.votes.filter(selected_submission=obj.right_submission, moderation_status="APPROVED").count()
 
 
 class TournamentVoteSerializer(serializers.ModelSerializer):
     voter = ProfileMiniSerializer(read_only=True)
+    voter_name = serializers.SerializerMethodField()
+    tournament = serializers.IntegerField(source="battle.tournament_id", read_only=True)
+    battle_round = serializers.IntegerField(source="battle.round_number", read_only=True)
 
     class Meta:
         model = TournamentVote
         fields = [
             "id",
+            "tournament",
             "battle",
+            "battle_round",
             "voter",
+            "voter_name",
             "selected_submission",
             "phone_number",
+            "is_flagged",
+            "flag_reason",
+            "moderation_status",
+            "moderated_by",
+            "moderated_at",
             "verification_status",
             "created_at",
         ]
-        read_only_fields = ["id", "voter", "verification_status", "created_at"]
+        read_only_fields = [
+            "id",
+            "tournament",
+            "battle_round",
+            "voter",
+            "voter_name",
+            "is_flagged",
+            "flag_reason",
+            "moderation_status",
+            "moderated_by",
+            "moderated_at",
+            "verification_status",
+            "created_at",
+        ]
+
+    def get_voter_name(self, obj):
+        profile_name = getattr(obj.voter, "name", "")
+        username = getattr(getattr(obj.voter, "user", None), "username", "")
+        return profile_name or username
 
 
 class ActivityEntrySerializer(serializers.ModelSerializer):

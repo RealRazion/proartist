@@ -458,6 +458,11 @@ class Tournament(models.Model):
         ("BATTLES", "Battles laufen"),
         ("CLOSED", "Geschlossen"),
     ]
+    VOTING_MODE_CHOICES = [
+        ("COMMUNITY", "Community"),
+        ("HYBRID", "Hybrid (Community + Jury)"),
+        ("JURY_ONLY", "Nur Jury"),
+    ]
 
     created_by = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="created_tournaments")
     title = models.CharField(max_length=200)
@@ -466,6 +471,10 @@ class Tournament(models.Model):
     application_deadline = models.DateTimeField(null=True, blank=True)
     submission_deadline = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="DRAFT")
+    voting_mode = models.CharField(max_length=12, choices=VOTING_MODE_CHOICES, default="COMMUNITY")
+    allow_vote_change = models.BooleanField(default=True)
+    min_account_age_hours = models.PositiveIntegerField(default=0)
+    max_votes_per_ip_per_hour = models.PositiveIntegerField(default=20)
     require_phone_vote_verification = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -566,11 +575,29 @@ class TournamentVote(models.Model):
         ("PENDING_PHONE", "Telefonnummer offen"),
         ("VERIFIED", "Telefonnummer verifiziert"),
     ]
+    MODERATION_CHOICES = [
+        ("APPROVED", "Freigegeben"),
+        ("PENDING_REVIEW", "In Prüfung"),
+        ("REJECTED", "Abgelehnt"),
+    ]
 
     battle = models.ForeignKey(TournamentBattle, on_delete=models.CASCADE, related_name="votes")
     voter = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="tournament_votes")
     selected_submission = models.ForeignKey(TournamentSubmission, on_delete=models.CASCADE, related_name="votes")
     phone_number = models.CharField(max_length=32, blank=True)
+    voter_ip = models.CharField(max_length=45, blank=True)
+    voter_user_agent = models.CharField(max_length=255, blank=True)
+    is_flagged = models.BooleanField(default=False)
+    flag_reason = models.CharField(max_length=255, blank=True)
+    moderation_status = models.CharField(max_length=16, choices=MODERATION_CHOICES, default="APPROVED")
+    moderated_by = models.ForeignKey(
+        Profile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="moderated_tournament_votes",
+    )
+    moderated_at = models.DateTimeField(null=True, blank=True)
     verification_status = models.CharField(max_length=14, choices=VERIFICATION_CHOICES, default="NONE")
     created_at = models.DateTimeField(auto_now_add=True)
 

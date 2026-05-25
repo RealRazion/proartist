@@ -87,6 +87,29 @@
               <option :value="true">Ja (für später)</option>
             </select>
           </label>
+          <label>
+            Voting-Modus
+            <select v-model="createForm.voting_mode">
+              <option value="COMMUNITY">Community</option>
+              <option value="HYBRID">Hybrid (Community + Jury)</option>
+              <option value="JURY_ONLY">Nur Jury</option>
+            </select>
+          </label>
+          <label>
+            Vote-Änderung erlauben
+            <select v-model="createForm.allow_vote_change">
+              <option :value="true">Ja</option>
+              <option :value="false">Nein</option>
+            </select>
+          </label>
+          <label>
+            Mindest-Accountalter (Stunden)
+            <input v-model.number="createForm.min_account_age_hours" type="number" min="0" max="720" />
+          </label>
+          <label>
+            Max Votes pro IP / Stunde
+            <input v-model.number="createForm.max_votes_per_ip_per_hour" type="number" min="1" max="1000" />
+          </label>
           <div class="full actions">
             <button class="btn" type="submit" :disabled="busy">Turnier anlegen</button>
           </div>
@@ -111,6 +134,10 @@
           <p v-if="tournament.description" class="tcard-desc">{{ tournament.description }}</p>
           <div class="tcard-meta">
             <span class="meta-chip">{{ tournament.has_application_phase ? 'Mit Bewerbung' : 'Ohne Bewerbung' }}</span>
+            <span class="meta-chip">{{ votingModeLabel(tournament.voting_mode) }}</span>
+            <span class="meta-chip">{{ tournament.allow_vote_change ? 'Vote änderbar' : 'Vote fix' }}</span>
+            <span class="meta-chip">Min Alter: {{ tournament.min_account_age_hours || 0 }}h</span>
+            <span class="meta-chip">IP-Limit: {{ tournament.max_votes_per_ip_per_hour || 0 }}/h</span>
             <span class="meta-chip">{{ tournament.applications_count || 0 }} Apps</span>
             <span class="meta-chip">{{ tournament.submissions_count || 0 }} Runden</span>
             <span class="meta-chip highlight">{{ tournament.battles_count || 0 }} Battles</span>
@@ -216,6 +243,30 @@
           </div>
         </div>
 
+        <!-- Team: Verdächtige Votes -->
+        <div v-if="isTeam" class="tcard-section">
+          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'flags')">
+            Verdächtige Votes
+            <span class="section-count">{{ flaggedVotesFor(tournament.id).length }}</span>
+            <svg class="chevron" :class="{ open: openSections[tournament.id]?.flags }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div v-if="openSections[tournament.id]?.flags" class="section-body">
+            <div v-if="flaggedVotesFor(tournament.id).length === 0" class="empty-inline">Keine offenen Auffälligkeiten.</div>
+            <div v-for="vote in flaggedVotesFor(tournament.id)" :key="vote.id" class="flag-row">
+              <div class="flag-info">
+                <strong>{{ vote.voter_name || vote.voter?.name || vote.voter?.username }}</strong>
+                <span class="muted">Battle #{{ vote.battle }} · Runde {{ vote.battle_round }}</span>
+                <span class="muted">Grund: {{ vote.flag_reason || 'Auffälligkeitsmuster' }}</span>
+                <span :class="['app-status', vote.moderation_status?.toLowerCase()]">{{ moderationLabel(vote.moderation_status) }}</span>
+              </div>
+              <div class="row-actions">
+                <button class="btn small" @click="moderateVote(vote.id, 'APPROVED')">Freigeben</button>
+                <button class="btn ghost small" @click="moderateVote(vote.id, 'REJECTED')">Ablehnen</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Battles -->
         <div class="tcard-section always-open">
           <div class="section-toggle static">
@@ -272,6 +323,7 @@ const tournaments = ref([]);
 const applications = ref([]);
 const submissions = ref([]);
 const battles = ref([]);
+const flaggedVotes = ref([]);
 const openSections = ref({});
 
 function toggleSection(id, key) {
@@ -291,6 +343,10 @@ const createForm = ref({
   application_deadline: "",
   submission_deadline: "",
   status: "DRAFT",
+  voting_mode: "COMMUNITY",
+  allow_vote_change: true,
+  min_account_age_hours: 0,
+  max_votes_per_ip_per_hour: 20,
   require_phone_vote_verification: false,
 });
 
@@ -324,6 +380,15 @@ function statusLabel(status) {
   return map[status] || status;
 }
 
+function votingModeLabel(mode) {
+  const map = {
+    COMMUNITY: "Community",
+    HYBRID: "Hybrid",
+    JURY_ONLY: "Nur Jury",
+  };
+  return map[mode] || "Community";
+}
+
 function myApplication(tournamentId) {
   return applications.value.find((entry) => entry.tournament === tournamentId && entry.profile?.id === myProfileId.value) || null;
 }
@@ -344,6 +409,16 @@ function submissionsFor(tournamentId) {
 
 function battlesFor(tournamentId) {
   return battles.value.filter((entry) => entry.tournament === tournamentId);
+}
+
+function flaggedVotesFor(tournamentId) {
+  return flaggedVotes.value.filter((entry) => entry.tournament === tournamentId);
+}
+
+function moderationLabel(status) {
+  if (status === "PENDING_REVIEW") return "In Prüfung";
+  if (status === "REJECTED") return "Abgelehnt";
+  return "Freigegeben";
 }
 
 function submissionDraft(tournamentId) {
@@ -382,6 +457,29 @@ async function loadAll() {
     applications.value = asList(applicationRes.data);
     submissions.value = asList(submissionRes.data);
     battles.value = asList(battleRes.data);
+    if (isTeam.value) {
+      const { data } = await api.get("tournament-votes/flags/");
+      flaggedVotes.value = asList(data);
+    } else {
+      flaggedVotes.value = [];
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Turnierdaten konnten nicht geladen werden", "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function moderateVote(voteId, decision) {
+  busy.value = true;
+  try {
+    await api.post(`tournament-votes/${voteId}/moderate/`, { decision });
+    showToast("Vote-Moderation gespeichert", "success");
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    showToast(err?.response?.data?.detail || "Moderation fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
@@ -398,6 +496,10 @@ async function createTournament() {
       application_deadline: normalizeDateTime(createForm.value.application_deadline),
       submission_deadline: normalizeDateTime(createForm.value.submission_deadline),
       status: createForm.value.status,
+      voting_mode: createForm.value.voting_mode,
+      allow_vote_change: createForm.value.allow_vote_change,
+      min_account_age_hours: createForm.value.min_account_age_hours,
+      max_votes_per_ip_per_hour: createForm.value.max_votes_per_ip_per_hour,
       require_phone_vote_verification: createForm.value.require_phone_vote_verification,
     });
     createForm.value = {
@@ -407,6 +509,10 @@ async function createTournament() {
       application_deadline: "",
       submission_deadline: "",
       status: "DRAFT",
+      voting_mode: "COMMUNITY",
+      allow_vote_change: true,
+      min_account_age_hours: 0,
+      max_votes_per_ip_per_hour: 20,
       require_phone_vote_verification: false,
     };
     showToast("Turnier erstellt", "success");
@@ -502,6 +608,7 @@ async function voteBattle(battle, selectedSubmissionId) {
     await loadAll();
   } catch (err) {
     console.error(err);
+    showToast(err?.response?.data?.detail || "Vote fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
@@ -1048,6 +1155,23 @@ onMounted(async () => {
   color: var(--muted);
   font-size: 0.88rem;
   padding: 4px 0;
+}
+
+.flag-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 8px;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+}
+
+.flag-info {
+  display: grid;
+  gap: 4px;
 }
 
 @media (max-width: 600px) {

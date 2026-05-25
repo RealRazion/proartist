@@ -11,6 +11,7 @@ import re
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.conf import settings
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse
@@ -2394,6 +2395,7 @@ class TournamentVoteViewSet(viewsets.ModelViewSet):
             "battle__tournament",
             "selected_submission",
             "voter__user",
+            "moderated_by__user",
         ).order_by("-created_at")
         battle_id = self.request.query_params.get("battle")
         if battle_id:
@@ -2403,30 +2405,127 @@ class TournamentVoteViewSet(viewsets.ModelViewSet):
             return qs
         return qs.filter(voter=me)
 
+    def _client_ip(self, request):
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR", "unknown")
+
+    def _vote_risk(self, request, tournament, battle, me, phone_number):
+        reasons = []
+        account_age_hours = (timezone.now() - request.user.date_joined).total_seconds() / 3600
+        if account_age_hours < 24:
+            reasons.append("Neuer Account (<24h)")
+
+        client_ip = self._client_ip(request)
+        recent_cutoff = timezone.now() - timedelta(hours=1)
+        recent_other_ip_votes = TournamentVote.objects.filter(
+            battle=battle,
+            voter_ip=client_ip,
+            created_at__gte=recent_cutoff,
+        ).exclude(voter=me).count()
+        ip_flag_threshold = max(2, int((tournament.max_votes_per_ip_per_hour or 1) * 0.5))
+        if recent_other_ip_votes >= ip_flag_threshold:
+            reasons.append("Viele Accounts mit gleicher IP")
+
+        if tournament.require_phone_vote_verification and not phone_number:
+            reasons.append("Telefonnummer fehlt")
+
+        if not me.roles.exists():
+            reasons.append("Profil ohne Rollen")
+
+        return {
+            "is_flagged": bool(reasons),
+            "flag_reason": "; ".join(reasons),
+            "client_ip": client_ip,
+        }
+
+    @action(detail=False, methods=["GET"], url_path="flags", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def flags(self, request):
+        qs = self.get_queryset().filter(is_flagged=True).exclude(moderation_status="APPROVED")
+        tournament_id = request.query_params.get("tournament")
+        if tournament_id:
+            qs = qs.filter(battle__tournament_id=tournament_id)
+        serializer = self.get_serializer(qs, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["POST"], url_path="moderate", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def moderate(self, request, pk=None):
+        vote = self.get_object()
+        decision = (request.data.get("decision") or "").strip().upper()
+        if decision not in {"APPROVED", "REJECTED"}:
+            return Response({"detail": "decision muss APPROVED oder REJECTED sein."}, status=status.HTTP_400_BAD_REQUEST)
+        vote.moderation_status = decision
+        vote.moderated_by = request.user.profile
+        vote.moderated_at = timezone.now()
+        vote.save(update_fields=["moderation_status", "moderated_by", "moderated_at"])
+        return Response(self.get_serializer(vote).data)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         me = request.user.profile
         battle = serializer.validated_data["battle"]
+        tournament = battle.tournament
         selected_submission = serializer.validated_data["selected_submission"]
         phone_number = (serializer.validated_data.get("phone_number") or "").strip()
 
         if selected_submission.id not in {battle.left_submission_id, battle.right_submission_id}:
             return Response({"detail": "Ungültige Auswahl für diese Battle."}, status=status.HTTP_400_BAD_REQUEST)
 
+        if tournament.voting_mode == "JURY_ONLY" and not is_team_profile(me):
+            return Response({"detail": "Dieses Turnier erlaubt nur Jury-Votes."}, status=status.HTTP_403_FORBIDDEN)
+
+        if tournament.status != "BATTLES":
+            return Response({"detail": "Voting ist nur im Status 'Battles laufen' erlaubt."}, status=status.HTTP_400_BAD_REQUEST)
+
         if battle.status == "CLOSED":
             return Response({"detail": "Voting ist bereits geschlossen."}, status=status.HTTP_400_BAD_REQUEST)
 
-        verification_status = "PENDING_PHONE" if battle.tournament.require_phone_vote_verification else "NONE"
+        existing_vote = TournamentVote.objects.filter(battle=battle, voter=me).first()
+
+        if existing_vote and not tournament.allow_vote_change:
+            return Response({"detail": "Vote-Änderungen sind für dieses Turnier deaktiviert."}, status=status.HTTP_400_BAD_REQUEST)
+
+        min_age_hours = int(tournament.min_account_age_hours or 0)
+        if min_age_hours > 0:
+            min_created_at = timezone.now() - timedelta(hours=min_age_hours)
+            if request.user.date_joined > min_created_at:
+                return Response(
+                    {"detail": f"Dein Account muss mindestens {min_age_hours} Stunden alt sein."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        risk = self._vote_risk(request, tournament, battle, me, phone_number)
+        client_ip = risk["client_ip"]
+        max_ip_votes = int(tournament.max_votes_per_ip_per_hour or 0)
+        if max_ip_votes > 0 and not existing_vote:
+            hour_bucket = timezone.now().strftime("%Y%m%d%H")
+            ip_key = f"tournament_vote_ip:{battle.id}:{client_ip}:{hour_bucket}"
+            current_ip_votes = int(cache.get(ip_key, 0))
+            if current_ip_votes >= max_ip_votes:
+                return Response(
+                    {"detail": "Zu viele Votes von dieser IP in kurzer Zeit. Bitte später erneut versuchen."},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+
+        verification_status = "PENDING_PHONE" if tournament.require_phone_vote_verification else "NONE"
         vote, created = TournamentVote.objects.update_or_create(
             battle=battle,
             voter=me,
             defaults={
                 "selected_submission": selected_submission,
                 "phone_number": phone_number,
+                "voter_ip": client_ip,
+                "voter_user_agent": (request.META.get("HTTP_USER_AGENT") or "")[:255],
+                "is_flagged": risk["is_flagged"],
+                "flag_reason": risk["flag_reason"],
+                "moderation_status": "PENDING_REVIEW" if risk["is_flagged"] else "APPROVED",
                 "verification_status": verification_status,
             },
         )
+        if created and max_ip_votes > 0:
+            cache.set(ip_key, current_ip_votes + 1, timeout=3600)
         output = self.get_serializer(vote)
         response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(output.data, status=response_status)

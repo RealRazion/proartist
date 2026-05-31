@@ -27,6 +27,7 @@ from .models import (
     GrowProUpdate,
     NewsPost,
     Notification,
+    ManagedPlatform,
     Payment,
     Profile,
     PluginGuideImage,
@@ -1785,6 +1786,36 @@ class SystemIntegrationSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "last_used_at", "created_at", "updated_at"]
+
+
+class ManagedPlatformSerializer(serializers.ModelSerializer):
+    can_access_as_team = serializers.SerializerMethodField()
+    can_access_as_non_team = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ManagedPlatform
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "status",
+            "allow_non_team_users",
+            "status_note",
+            "updated_by",
+            "can_access_as_team",
+            "can_access_as_non_team",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "updated_by", "can_access_as_team", "can_access_as_non_team", "created_at", "updated_at"]
+
+    def get_can_access_as_team(self, obj):
+        return obj.status != "LOCKED"
+
+    def get_can_access_as_non_team(self, obj):
+        if obj.status != "ACTIVE":
+            return False
+        return obj.allow_non_team_users
 
 
 class ContentScheduleItemSerializer(serializers.ModelSerializer):

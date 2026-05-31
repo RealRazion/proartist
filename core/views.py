@@ -50,6 +50,7 @@ from .models import (
     GrowProUpdate,
     NewsPost,
     Notification,
+    ManagedPlatform,
     Payment,
     PluginGuide,
     PluginGuideImage,
@@ -103,6 +104,7 @@ from .serializers import (
     GrowProUpdateSerializer,
     NewsPostSerializer,
     NotificationSerializer,
+    ManagedPlatformSerializer,
     PaymentSerializer,
     PluginGuideSerializer,
     ProfileSerializer,
@@ -2716,6 +2718,100 @@ class SystemIntegrationViewSet(viewsets.ModelViewSet):
         if API_CENTER_OFFLINE:
             return Response({"detail": "API Center ist offline."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return super().destroy(request, *args, **kwargs)
+
+
+class ManagedPlatformViewSet(viewsets.ModelViewSet):
+    queryset = ManagedPlatform.objects.select_related("updated_by__user").all().order_by("name")
+    serializer_class = ManagedPlatformSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeam]
+
+    def _log_platform_change(self, event_type, title, platform, before=None):
+        actor = getattr(self.request.user, "profile", None)
+        metadata = {
+            "platform_id": platform.id,
+            "platform_name": platform.name,
+            "platform_slug": platform.slug,
+            "status": platform.status,
+            "allow_non_team_users": platform.allow_non_team_users,
+            "status_note": platform.status_note,
+        }
+        if before is not None:
+            metadata["before"] = before
+        log_activity(
+            event_type,
+            title,
+            actor=actor,
+            severity="WARNING" if platform.status in {"MAINTENANCE", "LOCKED"} else "INFO",
+            metadata=metadata,
+        )
+
+    def perform_create(self, serializer):
+        platform = serializer.save(updated_by=getattr(self.request.user, "profile", None))
+        self._log_platform_change(
+            "managed_platform_created",
+            f"Plattform erstellt: {platform.name}",
+            platform,
+        )
+
+    def perform_update(self, serializer):
+        current = self.get_object()
+        before = {
+            "status": current.status,
+            "allow_non_team_users": current.allow_non_team_users,
+            "status_note": current.status_note,
+        }
+        platform = serializer.save(updated_by=getattr(self.request.user, "profile", None))
+        self._log_platform_change(
+            "managed_platform_updated",
+            f"Plattform aktualisiert: {platform.name}",
+            platform,
+            before=before,
+        )
+
+    def perform_destroy(self, instance):
+        snapshot = {
+            "platform_id": instance.id,
+            "platform_name": instance.name,
+            "platform_slug": instance.slug,
+            "status": instance.status,
+            "allow_non_team_users": instance.allow_non_team_users,
+            "status_note": instance.status_note,
+        }
+        name = instance.name
+        super().perform_destroy(instance)
+        log_activity(
+            "managed_platform_deleted",
+            f"Plattform geloescht: {name}",
+            actor=getattr(self.request.user, "profile", None),
+            severity="WARNING",
+            metadata=snapshot,
+        )
+
+    @action(detail=False, methods=["GET"], url_path="access-state", permission_classes=[permissions.IsAuthenticated])
+    def access_state(self, request):
+        me = getattr(request.user, "profile", None)
+        is_team_user = is_team_profile(me)
+        rows = []
+        for platform in ManagedPlatform.objects.all().order_by("name"):
+            if platform.status == "LOCKED":
+                accessible = False
+            elif platform.status == "MAINTENANCE":
+                accessible = is_team_user
+            else:
+                accessible = is_team_user or platform.allow_non_team_users
+            rows.append(
+                {
+                    "id": platform.id,
+                    "name": platform.name,
+                    "slug": platform.slug,
+                    "status": platform.status,
+                    "status_note": platform.status_note,
+                    "allow_non_team_users": platform.allow_non_team_users,
+                    "is_accessible": accessible,
+                    "is_team_user": is_team_user,
+                }
+            )
+        return Response(rows)
 
 
 class NewsPostViewSet(viewsets.ModelViewSet):

@@ -874,3 +874,32 @@ class SystemIntegration(models.Model):
         ordering = ["name"]
 
     def __str__(self): return self.name
+
+
+class ManagedPlatform(models.Model):
+    STATUS_CHOICES = [
+        ("ACTIVE", "Aktiv"),
+        ("MAINTENANCE", "Wartung"),
+        ("LOCKED", "Gesperrt"),
+    ]
+
+    name = models.CharField(max_length=120)
+    slug = models.SlugField(unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
+    allow_non_team_users = models.BooleanField(default=True)
+    status_note = models.CharField(max_length=255, blank=True, default="")
+    updated_by = models.ForeignKey(
+        Profile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="managed_platform_updates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name

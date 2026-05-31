@@ -21,6 +21,7 @@ from core.views import (
     FinanceProjectViewSet,
     FinanceTipViewSet,
     GrowProGoalViewSet,
+    ManagedPlatformViewSet,
     NewsPostViewSet,
     NotificationViewSet,
     PaymentViewSet,
@@ -80,6 +81,7 @@ router.register(r"growpro", GrowProGoalViewSet, basename="growpro-goals")
 router.register(r"plugin-guides", PluginGuideViewSet, basename="plugin-guides")
 router.register(r"automation-rules", AutomationRuleViewSet, basename="automation-rules")
 router.register(r"system-integrations", SystemIntegrationViewSet, basename="system-integrations")
+router.register(r"manage-platforms", ManagedPlatformViewSet, basename="manage-platforms")
 router.register(r"contracts", ContractViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"finance-projects", FinanceProjectViewSet, basename="finance-projects")

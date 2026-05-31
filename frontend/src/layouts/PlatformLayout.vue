@@ -71,6 +71,7 @@ const pageMeta = {
   "platform-content-studio": { title: "Content Studio", kicker: "Tipps, News und Tutorials" },
   "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },
   fitness: { title: "Fitness Tracker", kicker: "Kalorien und Tagesprofil" },
+  "manage-platforms": { title: "Manage Plattforms", kicker: "Status und Zugriff steuern" },
 };
 
 const pageMetaCurrent = computed(() => pageMeta[route.name] || { title: "UNYQ", kicker: "Plattform" });

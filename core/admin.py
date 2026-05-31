@@ -8,6 +8,7 @@ from .models import (
     FinanceMember,
     FinanceProject,
     FinanceTip,
+    ManagedPlatform,
     NewsPost,
     Notification,
     PluginGuide,
@@ -39,6 +40,7 @@ admin.site.register(FinanceTip)
 admin.site.register(PluginGuide)
 admin.site.register(RegistrationRequest)
 admin.site.register(SystemIntegration)
+admin.site.register(ManagedPlatform)
 admin.site.register(FinanceProject)
 admin.site.register(FinanceMember)
 admin.site.register(FinanceEntry)

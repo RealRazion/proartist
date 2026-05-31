@@ -53,7 +53,7 @@
           @dragleave="dragOverKey = null"
           @drop="onDrop($event, platform.key)"
           @dragend="onDragEnd"
-          @click="!editMode && openPlatform(platform.key)"
+          @click="!editMode && openPlatform(platform.key, platform)"
         >
           <div v-if="editMode" class="drag-handle" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M9 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>
@@ -74,6 +74,7 @@
             </div>
           </div>
           <p class="platform-description">{{ platform.description }}</p>
+          <p v-if="platform.status_note" class="platform-note">{{ platform.status_note }}</p>
           <div class="platform-features">
             <span v-for="feature in platform.features" :key="feature" class="feature-tag">
               {{ feature }}
@@ -83,7 +84,7 @@
             v-if="!editMode"
             class="platform-btn"
             :aria-label="`${platform.buttonLabel}: ${platform.title}`"
-            @click.stop="openPlatform(platform.key)"
+            @click.stop="openPlatform(platform.key, platform)"
           >
             {{ platform.buttonLabel }}
             <svg class="arrow-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -125,6 +126,10 @@ import { useRouter } from "vue-router";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import api from "../api";
+import {
+  fetchManagedPlatformAccessState,
+  mapAccessStateRows,
+} from "../services/managedPlatforms";
 
 const router = useRouter();
 const { showToast } = useToast();
@@ -144,6 +149,7 @@ function loadSavedOrder() {
   }
 }
 const platformOrder = ref(loadSavedOrder());
+const accessStateBySlug = ref({});
 
 // Real stats from API
 const stats = ref({
@@ -267,6 +273,17 @@ const platforms = [
     status: "live",
   },
   {
+    key: "manage-platforms",
+    title: "Manage Plattforms",
+    category: "Verwaltung",
+    description: "Steuere den Status jeder Plattform und sperre sie bei Bedarf für normale Nutzer.",
+    buttonLabel: "Verwalten",
+    icon: "🛡️",
+    features: ["Status", "Wartung", "Sperren"],
+    roles: ["TEAM"],
+    status: "live",
+  },
+  {
     key: "testing",
     title: "TESTING",
     category: "Intern",
@@ -284,8 +301,14 @@ function platformStatusLabel(status) {
     live: "Live",
     beta: "Beta",
     preview: "Preview",
+    maintenance: "Wartung",
+    locked: "Gesperrt",
   };
   return map[status || "live"] || "Live";
+}
+
+function platformSlugForKey(key) {
+  return key;
 }
 
 const activeRole = computed(() => {
@@ -297,12 +320,29 @@ const activeRole = computed(() => {
 
 const defaultOrder = [
   "dashboard", "music", "contests", "content-schedule",
-  "content-studio", "finance", "fitness", "locations", "admin", "testing",
+  "content-studio", "finance", "fitness", "locations", "admin", "manage-platforms", "testing",
 ];
 
 const visiblePlatforms = computed(() => {
   const currentRole = activeRole.value;
-  return platforms.filter((platform) => platform.roles.includes(currentRole));
+  return platforms
+    .filter((platform) => platform.roles.includes(currentRole))
+    .map((platform) => {
+      const slug = platformSlugForKey(platform.key);
+      const state = accessStateBySlug.value[slug];
+      if (!state) return platform;
+
+      let status = "live";
+      if (state.status === "MAINTENANCE") status = "maintenance";
+      if (state.status === "LOCKED") status = "locked";
+
+      return {
+        ...platform,
+        status,
+        is_accessible: state.is_accessible,
+        status_note: state.status_note || "",
+      };
+    });
 });
 
 const orderedPlatforms = computed(() => {
@@ -344,7 +384,13 @@ function onDragEnd() {
   dragOverKey.value = null;
 }
 
-function openPlatform(platform) {
+function openPlatform(platformKey, platformMeta = null) {
+  if (platformMeta && platformMeta.is_accessible === false) {
+    const hint = platformMeta.status_note || "Diese Plattform ist aktuell nicht verfuegbar.";
+    showToast(hint, "warning");
+    return;
+  }
+
   const mapping = {
     dashboard: "/app/dashboard",
     contests: "/platforms/contests",
@@ -355,14 +401,24 @@ function openPlatform(platform) {
     "content-schedule": "/platforms/content-schedule",
     fitness: "/platforms/fitness",
     admin: "/platforms/admin",
+    "manage-platforms": "/platforms/manage-platforms",
     testing: "/app/testing",
   };
-  const path = mapping[platform];
+  const path = mapping[platformKey];
   if (path) {
     router.push(path);
     return;
   }
   showToast("Diese Plattform wird bald verfügbar sein", "info");
+}
+
+async function loadAccessState() {
+  try {
+    const rows = await fetchManagedPlatformAccessState();
+    accessStateBySlug.value = mapAccessStateRows(rows);
+  } catch (err) {
+    accessStateBySlug.value = {};
+  }
 }
 
 async function loadStats() {
@@ -390,7 +446,7 @@ async function loadStats() {
 
 onMounted(async () => {
   await fetchProfile();
-  await loadStats();
+  await Promise.all([loadStats(), loadAccessState()]);
 });
 </script>
 
@@ -685,11 +741,28 @@ onMounted(async () => {
   background: rgba(248, 113, 113, 0.22);
 }
 
+.platform-tag.status.status-maintenance {
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.25);
+}
+
+.platform-tag.status.status-locked {
+  color: #991b1b;
+  background: rgba(239, 68, 68, 0.2);
+}
+
 .platform-description {
   color: var(--muted);
   line-height: 1.45;
   margin: 0 0 14px;
   font-size: 0.95rem;
+}
+
+.platform-note {
+  margin: -6px 0 12px;
+  color: #9a3412;
+  font-size: 0.84rem;
+  line-height: 1.35;
 }
 
 .platform-features {

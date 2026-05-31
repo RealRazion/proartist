@@ -1,4 +1,10 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { useToast } from "../composables/useToast";
+import {
+  fetchManagedPlatformAccessState,
+  mapAccessStateRows,
+  routeNameToPlatformSlug,
+} from "../services/managedPlatforms";
 
 const Home = () => import("../views/Home.vue");
 const Login = () => import("../views/Login.vue");
@@ -36,6 +42,7 @@ const FitnessTool = () => import("../views/FitnessTool.vue");
 const ContentStudio = () => import("../views/ContentStudio.vue");
 const ContentScheduleLanding = () => import("../views/ContentScheduleLanding.vue");
 const ContentScheduleTool = () => import("../views/ContentScheduleTool.vue");
+const ManagePlatforms = () => import("../views/ManagePlatforms.vue");
 const SearchView = () => import("../views/SearchView.vue");
 const Testing = () => import("../views/Testing.vue");
 const MainLayout = () => import("../layouts/MainLayout.vue");
@@ -100,14 +107,16 @@ const routes = [
       { path: "fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },
       { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },
+      { path: "manage-platforms", name: "manage-platforms", component: ManagePlatforms, meta: { requiresAuth: true } },
     ],
   },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 
 const router = createRouter({ history: createWebHistory(), routes });
+const { showToast } = useToast();
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem("access");
   const requiresAuth = to.matched.some((record) => record.meta?.requiresAuth);
   const guestOnly = to.matched.some((record) => record.meta?.guestOnly);
@@ -120,6 +129,23 @@ router.beforeEach((to, from, next) => {
     next({ name: "platforms" });
     return;
   }
+
+  const targetSlug = routeNameToPlatformSlug(to.name);
+  if (token && targetSlug) {
+    try {
+      const rows = await fetchManagedPlatformAccessState();
+      const bySlug = mapAccessStateRows(rows);
+      const state = bySlug[targetSlug];
+      if (state && state.is_accessible === false) {
+        showToast(state.status_note || "Diese Plattform ist aktuell nicht verfuegbar.", "warning");
+        next({ name: "platforms" });
+        return;
+      }
+    } catch {
+      // If access state cannot be loaded, do not hard block navigation.
+    }
+  }
+
   next();
 });
 

@@ -2,8 +2,8 @@
   <div class="news wide">
     <header class="card header">
       <div>
-        <h1>News & Updates</h1>
-        <p class="muted">Bleib auf dem Laufenden, was das Team teilt.</p>
+        <h1>ProArtist News</h1>
+        <p class="muted">Gezielte Updates fuer die ProArtist Manager- und Artist-Plattform.</p>
       </div>
       <button class="btn ghost" type="button" @click="loadNews" :disabled="loading">
         {{ loading ? "Lade..." : "Aktualisieren" }}
@@ -92,6 +92,10 @@ import { ref, computed, nextTick, onBeforeUnmount, onMounted } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
+
+// KI-Hinweis:
+// Bei jeder funktionalen Aenderung an der ProArtist-News-Plattform wird die Plattform-Version
+// zentral im Backend automatisch hochgezaehlt. Diese View zeigt die Version nur an, sie setzt sie nie selbst.
 
 const { isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();

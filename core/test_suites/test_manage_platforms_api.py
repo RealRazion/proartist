@@ -38,6 +38,7 @@ class ManagePlatformsApiTests(TestCase):
 
         platform = ManagedPlatform.objects.get(id=create_res.json()["id"])
         self.assertEqual(platform.updated_by_id, self.team_profile.id)
+        self.assertEqual(platform.version, "0.1")
 
         update_res = self.client.patch(
             f"/api/manage-platforms/{platform.id}/",
@@ -49,6 +50,7 @@ class ManagePlatformsApiTests(TestCase):
         platform.refresh_from_db()
         self.assertEqual(platform.status, "MAINTENANCE")
         self.assertEqual(platform.status_note, "Kurz offline")
+        self.assertEqual(platform.version, "0.2")
 
     def test_non_team_cannot_manage_platforms(self):
         self.client.force_authenticate(user=self.artist_user)

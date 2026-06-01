@@ -104,6 +104,23 @@
             >
               Entfernen
             </button>
+            <button
+              v-if="canManageTeam(profile)"
+              class="btn ghost tiny"
+              type="button"
+              @click="toggleLock(profile)"
+              :disabled="lockLoading === profile.id"
+            >
+              {{ profile.is_locked ? "Entsperren" : "Sperren" }}
+            </button>
+            <button
+              v-if="canManageTeam(profile)"
+              class="btn ghost tiny"
+              type="button"
+              @click="openManage(profile)"
+            >
+              Rollen
+            </button>
           </div>
         </footer>
       </article>
@@ -111,6 +128,43 @@
         Keine Profile gefunden. Passe deine Suche an.
       </p>
     </section>
+
+    <div v-if="manage.open" class="modal-backdrop" @click.self="closeManage">
+      <div class="modal card">
+        <header class="modal-head">
+          <div>
+            <p class="eyebrow">Rechteverwaltung</p>
+            <h3>{{ manage.profile?.name || manage.profile?.username || "-" }}</h3>
+            <p class="muted">{{ manage.profile?.email || "Keine E-Mail sichtbar" }}</p>
+          </div>
+          <button class="btn ghost tiny" type="button" @click="closeManage">Schließen</button>
+        </header>
+
+        <section v-if="manage.loading" class="modal-body">
+          <p class="muted">Lade Profil...</p>
+        </section>
+        <section v-else class="modal-body">
+          <div class="role-grid">
+            <label v-for="role in nonTeamRoles" :key="role.id">
+              <input type="checkbox" :value="role.id" v-model="manage.roleIds" />
+              {{ role.key }}
+            </label>
+          </div>
+          <label class="toggle-line">
+            <input type="checkbox" v-model="manage.teamMember" />
+            Team-Rechte
+          </label>
+          <p v-if="manage.error" class="error-msg">{{ manage.error }}</p>
+        </section>
+
+        <footer class="modal-actions">
+          <button class="btn ghost" type="button" @click="closeManage">Abbrechen</button>
+          <button class="btn" type="button" @click="saveManage" :disabled="manage.saving || manage.loading">
+            {{ manage.saving ? "Speichere..." : "Speichern" }}
+          </button>
+        </footer>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -136,6 +190,17 @@ const filtering = ref(false);
 const compactCards = ref(false);
 let debounceTimer = null;
 const teamLoading = ref(null);
+const lockLoading = ref(null);
+const roles = ref([]);
+const manage = ref({
+  open: false,
+  loading: false,
+  profile: null,
+  roleIds: [],
+  teamMember: false,
+  saving: false,
+  error: "",
+});
 
 const isTeam = computed(() => (me.value?.roles || []).some((r) => r.key === "TEAM"));
 
@@ -164,6 +229,8 @@ const roleFilterOptions = computed(() => {
     .sort((a, b) => a.label.localeCompare(b.label));
   return [{ key: "ALL", label: "Alle Rollen" }, ...rest];
 });
+const nonTeamRoles = computed(() => roles.value.filter((role) => role.key !== "TEAM"));
+const teamRoleId = computed(() => roles.value.find((role) => role.key === "TEAM")?.id || null);
 
 const filteredProfiles = computed(() => {
   const term = debouncedQuery.value.trim().toLowerCase();
@@ -242,6 +309,21 @@ async function toggleTeam(profile, add) {
   }
 }
 
+async function toggleLock(profile) {
+  if (!canManageTeam(profile)) return;
+  lockLoading.value = profile.id;
+  try {
+    const { data } = await api.post(`profiles/${profile.id}/lock/`, { locked: !profile.is_locked });
+    profile.is_locked = Boolean(data?.locked);
+    showToast(profile.is_locked ? "Profil gesperrt" : "Profil entsperrt", "success");
+  } catch (err) {
+    console.error("Sperren fehlgeschlagen", err);
+    showToast("Sperren/Entsperren fehlgeschlagen", "error");
+  } finally {
+    lockLoading.value = null;
+  }
+}
+
 function socialLinks(profile) {
   const socials = profile.socials || {};
   const links = [];
@@ -262,13 +344,79 @@ function setRoleFilter(key) {
 }
 
 async function loadProfiles() {
-  const { data } = await api.get("profiles/");
-  profiles.value = data.map(decorateProfile);
+  try {
+    const { data } = await api.get("profiles/");
+    const rows = Array.isArray(data) ? data : data?.results || [];
+    profiles.value = rows.map(decorateProfile);
+  } catch (err) {
+    console.error("Profile konnten nicht geladen werden", err);
+    profiles.value = [];
+    showToast("Profile konnten nicht geladen werden", "error");
+  }
+}
+
+async function loadRoles() {
+  if (!isTeam.value) return;
+  try {
+    const { data } = await api.get("roles/");
+    roles.value = Array.isArray(data) ? data : data?.results || [];
+  } catch (err) {
+    console.error("Rollen konnten nicht geladen werden", err);
+    roles.value = [];
+  }
+}
+
+async function openManage(profile) {
+  if (!canManageTeam(profile)) return;
+  manage.value.open = true;
+  manage.value.loading = true;
+  manage.value.error = "";
+  try {
+    const { data } = await api.get(`profiles/${profile.id}/`);
+    manage.value.profile = data;
+    manage.value.roleIds = (data.roles || []).filter((role) => role.key !== "TEAM").map((role) => role.id);
+    manage.value.teamMember = (data.roles || []).some((role) => role.key === "TEAM");
+  } catch (err) {
+    console.error("Profil konnte nicht geladen werden", err);
+    manage.value.error = "Profil konnte nicht geladen werden.";
+  } finally {
+    manage.value.loading = false;
+  }
+}
+
+function closeManage() {
+  manage.value.open = false;
+  manage.value.loading = false;
+  manage.value.profile = null;
+  manage.value.roleIds = [];
+  manage.value.teamMember = false;
+  manage.value.error = "";
+}
+
+async function saveManage() {
+  if (!manage.value.profile) return;
+  manage.value.saving = true;
+  manage.value.error = "";
+  const nextRoleIds = [...manage.value.roleIds];
+  if (manage.value.teamMember && teamRoleId.value) {
+    nextRoleIds.push(teamRoleId.value);
+  }
+  try {
+    await api.put(`profiles/${manage.value.profile.id}/`, { role_ids: nextRoleIds });
+    showToast("Rollen aktualisiert", "success");
+    await loadProfiles();
+    closeManage();
+  } catch (err) {
+    console.error("Rollenupdate fehlgeschlagen", err);
+    manage.value.error = "Rollen konnten nicht gespeichert werden.";
+  } finally {
+    manage.value.saving = false;
+  }
 }
 
 onMounted(async () => {
   await fetchProfile();
-  await loadProfiles();
+  await Promise.all([loadProfiles(), loadRoles()]);
   const initialSearch = route.query.q;
   if (initialSearch) {
     const value = String(initialSearch);
@@ -597,6 +745,56 @@ onBeforeUnmount(() => {
 }
 .btn {
   white-space: nowrap;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  padding: 16px;
+}
+.modal {
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+}
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+.modal-head h3 {
+  margin: 4px 0;
+}
+.modal-body {
+  display: grid;
+  gap: 10px;
+}
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+.role-grid label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  font-size: 13px;
+}
+.toggle-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .empty {
   grid-column: 1 / -1;

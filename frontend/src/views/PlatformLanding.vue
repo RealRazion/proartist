@@ -8,6 +8,18 @@
           <p class="hero-subtitle">
             Dein zentraler Zugang zu allen UNYQ-Plattformen. Entdecke Tools und Funktionen, die auf deine Rolle zugeschnitten sind.
           </p>
+          <div v-if="isTeam" class="audience-switch">
+            <button
+              v-for="mode in audienceModes"
+              :key="mode.key"
+              type="button"
+              class="audience-chip"
+              :class="{ active: viewMode === mode.key }"
+              @click="setAudienceMode(mode.key)"
+            >
+              {{ mode.label }}
+            </button>
+          </div>
         </div>
         <div class="hero-visual">
           <div class="floating-icons">
@@ -64,6 +76,7 @@
               <h3>{{ platform.title }}</h3>
               <div class="platform-tags">
                 <span class="platform-tag">{{ platform.category }}</span>
+                <span class="platform-tag version">v{{ platform.version || '0.1' }}</span>
                 <span
                   class="platform-tag status"
                   :class="`status-${platform.status || 'live'}`"
@@ -150,6 +163,22 @@ function loadSavedOrder() {
 }
 const platformOrder = ref(loadSavedOrder());
 const accessStateBySlug = ref({});
+const HUB_AUDIENCE_KEY = "unyq_hub_audience_mode";
+
+const audienceModes = [
+  { key: "default", label: "Team/Admin Modus" },
+  { key: "MEMBER", label: "Normal User Modus" },
+  { key: "ARTIST", label: "Artist Vorschau" },
+];
+
+function setAudienceMode(mode) {
+  viewMode.value = mode;
+  try {
+    localStorage.setItem(HUB_AUDIENCE_KEY, mode);
+  } catch {
+    // ignore storage errors
+  }
+}
 
 // Real stats from API
 const stats = ref({
@@ -170,6 +199,9 @@ function asList(payload) {
 }
 
 const platforms = [
+  // KI-Hinweis:
+  // Plattform-Versionen werden durch das Backend automatisch bei funktionalen Aenderungen hochgezaehlt.
+  // Nicht manuell im Frontend setzen - nur anzeigen (state.version).
   {
     key: "dashboard",
     title: computed(() => {
@@ -262,6 +294,39 @@ const platforms = [
     status: "beta",
   },
   {
+    key: "proartist-news",
+    title: "ProArtist News",
+    category: "Kommunikation",
+    description: "Kuratiere News speziell fuer die Manager- und Artist-Plattform ProArtist.",
+    buttonLabel: "Lesen",
+    icon: "📰",
+    features: ["Ankuendigungen", "Roadmap", "Team-Updates"],
+    roles: ["TEAM", "ARTIST", "PROD", "MEMBER", "LOC"],
+    status: "live",
+  },
+  {
+    key: "plugin-guides",
+    title: "Plugin Guide",
+    category: "Wissen",
+    description: "Eigene Plattform fuer Plugin-Tutorials, Setup-Guides und Best Practices.",
+    buttonLabel: "Oeffnen",
+    icon: "🔌",
+    features: ["Tutorials", "Setups", "Workflow-Docs"],
+    roles: ["TEAM", "ARTIST", "PROD", "MEMBER", "LOC"],
+    status: "live",
+  },
+  {
+    key: "api-center",
+    title: "API Platform",
+    category: "Entwicklung",
+    description: "Eigene Plattform fuer Integrationen, API-Keys und Automationsregeln.",
+    buttonLabel: "Verwalten",
+    icon: "🔑",
+    features: ["Integrationen", "Automation", "Scopes"],
+    roles: ["TEAM"],
+    status: "live",
+  },
+  {
     key: "admin",
     title: "Admin Control Hub",
     category: "Verwaltung",
@@ -320,7 +385,7 @@ const activeRole = computed(() => {
 
 const defaultOrder = [
   "dashboard", "music", "contests", "content-schedule",
-  "content-studio", "finance", "fitness", "locations", "admin", "manage-platforms", "testing",
+  "content-studio", "proartist-news", "plugin-guides", "api-center", "finance", "fitness", "locations", "admin", "manage-platforms", "testing",
 ];
 
 const visiblePlatforms = computed(() => {
@@ -338,6 +403,7 @@ const visiblePlatforms = computed(() => {
 
       return {
         ...platform,
+        version: state.version || "0.1",
         status,
         is_accessible: state.is_accessible,
         status_note: state.status_note || "",
@@ -399,6 +465,9 @@ function openPlatform(platformKey, platformMeta = null) {
     finance: "/platforms/finance",
     "content-studio": "/platforms/content-studio",
     "content-schedule": "/platforms/content-schedule",
+    "proartist-news": "/platforms/news",
+    "plugin-guides": "/platforms/plugin-guides",
+    "api-center": "/platforms/api-center",
     fitness: "/platforms/fitness",
     admin: "/platforms/admin",
     "manage-platforms": "/platforms/manage-platforms",
@@ -446,6 +515,16 @@ async function loadStats() {
 
 onMounted(async () => {
   await fetchProfile();
+  if (isTeam.value) {
+    try {
+      const stored = localStorage.getItem(HUB_AUDIENCE_KEY);
+      if (stored && audienceModes.some((mode) => mode.key === stored)) {
+        viewMode.value = stored;
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
   await Promise.all([loadStats(), loadAccessState()]);
 });
 </script>
@@ -509,6 +588,29 @@ onMounted(async () => {
   line-height: 1.5;
   opacity: 0.94;
   margin: 0;
+}
+
+.audience-switch {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.audience-chip {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.audience-chip.active {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
 }
 
 .hero-visual {
@@ -719,6 +821,11 @@ onMounted(async () => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.platform-tag.version {
+  background: color-mix(in srgb, var(--card) 80%, var(--brand) 20%);
+  color: var(--text);
 }
 
 .platform-tag.status {

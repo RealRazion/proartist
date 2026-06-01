@@ -66,6 +66,7 @@
             <div class="row-title">
               <strong>{{ item.name }}</strong>
               <span class="muted">/{{ item.slug }}</span>
+              <span class="muted">v{{ item.version || '0.1' }}</span>
               <span class="muted tiny">Zuletzt: {{ formatDate(item.updated_at) }}</span>
             </div>
             <div class="row-fields">
@@ -166,10 +167,17 @@ const canCreate = computed(() => {
   return !existing;
 });
 
+// KI-Hinweis:
+// Bei jeder funktionalen Plattform-Aenderung erhoeht das Backend die Plattform-Version automatisch.
+// Diese Verwaltungsseite soll Versionen nur anzeigen und niemals direkt setzen.
+
 const defaultPlatforms = [
   { name: "Dashboard", slug: "dashboard" },
   { name: "Contests", slug: "contests" },
   { name: "Music", slug: "music" },
+  { name: "ProArtist News", slug: "proartist-news" },
+  { name: "Plugin Guides", slug: "plugin-guides" },
+  { name: "API Center", slug: "api-center" },
   { name: "Locations", slug: "locations" },
   { name: "Finance", slug: "finance" },
   { name: "Content Studio", slug: "content-studio" },
@@ -357,7 +365,7 @@ async function seedDefaults() {
         name: base.name,
         slug: base.slug,
         status: "ACTIVE",
-        allow_non_team_users: base.slug !== "admin" && base.slug !== "testing",
+        allow_non_team_users: !["admin", "testing", "api-center", "manage-platforms"].includes(base.slug),
         status_note: "",
       });
     }

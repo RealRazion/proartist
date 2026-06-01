@@ -9,6 +9,7 @@
         <div class="page-copy">
           <p class="page-kicker">{{ pageKicker }}</p>
           <h1>{{ pageTitle }}</h1>
+          <p v-if="platformSlug" class="page-version">{{ platformSlug }} v{{ platformVersion }}</p>
         </div>
       </div>
 
@@ -53,10 +54,13 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { usePlatformVersion } from "../composables/usePlatformVersion";
 
 const router = useRouter();
 const route = useRoute();
 const { profile: me, fetchProfile, clearProfile } = useCurrentProfile();
+const routeRef = computed(() => route);
+const { platformSlug, platformVersion } = usePlatformVersion(routeRef);
 
 const open = ref(false);
 const theme = ref("light");
@@ -69,6 +73,9 @@ const pageMeta = {
   "platform-finance": { title: "Finance", kicker: "Finanzprojekt anlegen" },
   finance: { title: "Finanzplaner", kicker: "Budget, Schulden und Monatsbild" },
   "platform-content-studio": { title: "Content Studio", kicker: "Tipps, News und Tutorials" },
+  "platform-news": { title: "ProArtist News", kicker: "Updates fuer Artists und Manager" },
+  "platform-plugin-guides": { title: "Plugin Guide", kicker: "Workflows, Tutorials und Setups" },
+  "platform-api-center": { title: "API Platform", kicker: "Integrationen und Automationen" },
   "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },
   fitness: { title: "Fitness Tracker", kicker: "Kalorien und Tagesprofil" },
   "manage-platforms": { title: "Manage Plattforms", kicker: "Status und Zugriff steuern" },
@@ -214,6 +221,14 @@ onMounted(async () => {
   margin: 2px 0 0;
   font-size: clamp(19px, 2.2vw, 24px);
   line-height: 1.1;
+}
+
+.page-version {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .topbar-actions {

@@ -141,10 +141,119 @@ from .throttling import (
 API_CENTER_OFFLINE = getattr(settings, "API_CENTER_OFFLINE", True)
 logger = logging.getLogger(__name__)
 
+DASHBOARD_WIDGET_SIZES = {"s", "m", "l"}
+MAX_DASHBOARD_LAYOUTS = 5
+
+
+def _next_platform_version(version: str) -> str:
+    """Increment platform version using a simple major.minor scheme (e.g. 0.1 -> 0.2)."""
+    raw = str(version or "0.1").strip()
+    match = re.match(r"^(\d+)\.(\d+)$", raw)
+    if not match:
+        return "0.1"
+    major = int(match.group(1))
+    minor = int(match.group(2)) + 1
+    return f"{major}.{minor}"
+
+
+def _normalize_dashboard_layouts(payload):
+    if not isinstance(payload, list):
+        raise ValueError("layouts muss eine Liste sein.")
+    if len(payload) > MAX_DASHBOARD_LAYOUTS:
+        raise ValueError(f"Maximal {MAX_DASHBOARD_LAYOUTS} Layouts erlaubt.")
+
+    normalized = []
+    seen_ids = set()
+    for row in payload:
+        if not isinstance(row, dict):
+            raise ValueError("Jedes Layout muss ein Objekt sein.")
+        layout_id = str(row.get("id") or "").strip()
+        name = str(row.get("name") or "").strip()
+        widgets = row.get("widgets")
+
+        if not layout_id:
+            raise ValueError("Layout id fehlt.")
+        if layout_id in seen_ids:
+            raise ValueError("Layout ids muessen eindeutig sein.")
+        if not name:
+            raise ValueError("Layout Name fehlt.")
+        if not isinstance(widgets, list):
+            raise ValueError("Layout widgets muessen als Liste gesendet werden.")
+
+        normalized_widgets = []
+        for widget in widgets:
+            if not isinstance(widget, dict):
+                raise ValueError("Widget muss ein Objekt sein.")
+            widget_id = str(widget.get("id") or "").strip()
+            size = str(widget.get("size") or "m").strip().lower()
+            if not widget_id:
+                raise ValueError("Widget id fehlt.")
+            if size not in DASHBOARD_WIDGET_SIZES:
+                raise ValueError("Widget size ist ungueltig. Erlaubt: s, m, l.")
+            normalized_widgets.append({"id": widget_id, "size": size})
+
+        seen_ids.add(layout_id)
+        normalized.append(
+            {
+                "id": layout_id,
+                "name": name[:80],
+                "widgets": normalized_widgets,
+            }
+        )
+    return normalized
+
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated, IsTeam])
 def api_center_status(request):
     return Response({"offline": API_CENTER_OFFLINE})
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([permissions.IsAuthenticated])
+def dashboard_layouts(request):
+    profile = getattr(request.user, "profile", None)
+    if not profile:
+        return Response({"detail": "Profil nicht gefunden."}, status=status.HTTP_404_NOT_FOUND)
+
+    settings_payload = dict(profile.notification_settings or {})
+    existing_layouts = settings_payload.get("dashboard_layouts") or []
+    active_layout_id = settings_payload.get("dashboard_active_layout_id")
+
+    if request.method == "GET":
+        return Response(
+            {
+                "layouts": existing_layouts if isinstance(existing_layouts, list) else [],
+                "active_layout_id": active_layout_id,
+                "max_layouts": MAX_DASHBOARD_LAYOUTS,
+            }
+        )
+
+    try:
+        layouts = _normalize_dashboard_layouts(request.data.get("layouts", []))
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    requested_active = request.data.get("active_layout_id")
+    requested_active = str(requested_active).strip() if requested_active is not None else None
+    valid_ids = {row["id"] for row in layouts}
+    if requested_active and requested_active not in valid_ids:
+        return Response(
+            {"detail": "active_layout_id muss auf ein vorhandenes Layout zeigen."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    settings_payload["dashboard_layouts"] = layouts
+    settings_payload["dashboard_active_layout_id"] = requested_active or (layouts[0]["id"] if layouts else None)
+    profile.notification_settings = settings_payload
+    profile.save(update_fields=["notification_settings"])
+
+    return Response(
+        {
+            "layouts": settings_payload["dashboard_layouts"],
+            "active_layout_id": settings_payload["dashboard_active_layout_id"],
+            "max_layouts": MAX_DASHBOARD_LAYOUTS,
+        }
+    )
 
 # --- Testing ---
 @api_view(["POST"])
@@ -2299,6 +2408,135 @@ class TournamentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user.profile)
 
+    @action(detail=True, methods=["GET"], url_path="leaderboard")
+    def leaderboard(self, request, pk=None):
+        tournament = self.get_object()
+
+        participants = {}
+        for submission in TournamentSubmission.objects.select_related("profile__user").filter(tournament=tournament):
+            profile = submission.profile
+            if profile.id not in participants:
+                participants[profile.id] = {
+                    "profile_id": profile.id,
+                    "name": profile.name or profile.user.username,
+                    "votes": 0,
+                    "wins": 0,
+                    "submissions": 0,
+                }
+            participants[profile.id]["submissions"] += 1
+
+        vote_rows = (
+            TournamentVote.objects.filter(
+                battle__tournament=tournament,
+                moderation_status="APPROVED",
+            )
+            .values("selected_submission__profile_id")
+            .annotate(total=Count("id"))
+        )
+        for row in vote_rows:
+            profile_id = row["selected_submission__profile_id"]
+            if not profile_id:
+                continue
+            if profile_id not in participants:
+                profile = Profile.objects.select_related("user").filter(id=profile_id).first()
+                if not profile:
+                    continue
+                participants[profile_id] = {
+                    "profile_id": profile.id,
+                    "name": profile.name or profile.user.username,
+                    "votes": 0,
+                    "wins": 0,
+                    "submissions": 0,
+                }
+            participants[profile_id]["votes"] = row["total"]
+
+        win_rows = (
+            TournamentBattle.objects.filter(tournament=tournament, status="CLOSED", winner_submission__isnull=False)
+            .values("winner_submission__profile_id")
+            .annotate(total=Count("id"))
+        )
+        for row in win_rows:
+            profile_id = row["winner_submission__profile_id"]
+            if not profile_id:
+                continue
+            if profile_id not in participants:
+                profile = Profile.objects.select_related("user").filter(id=profile_id).first()
+                if not profile:
+                    continue
+                participants[profile_id] = {
+                    "profile_id": profile.id,
+                    "name": profile.name or profile.user.username,
+                    "votes": 0,
+                    "wins": 0,
+                    "submissions": 0,
+                }
+            participants[profile_id]["wins"] = row["total"]
+
+        rows = []
+        for entry in participants.values():
+            score = entry["wins"] * 100 + entry["votes"]
+            rows.append({**entry, "score": score})
+
+        rows.sort(key=lambda item: (item["score"], item["wins"], item["votes"]), reverse=True)
+        ranked = [
+            {
+                "rank": idx + 1,
+                **item,
+            }
+            for idx, item in enumerate(rows)
+        ]
+        return Response({"tournament": tournament.id, "rows": ranked})
+
+    @action(detail=True, methods=["GET"], url_path="bracket")
+    def bracket(self, request, pk=None):
+        tournament = self.get_object()
+        battles = (
+            TournamentBattle.objects.select_related(
+                "left_submission__profile__user",
+                "right_submission__profile__user",
+                "winner_submission__profile__user",
+            )
+            .filter(tournament=tournament)
+            .order_by("round_number", "created_at", "id")
+        )
+
+        by_round = {}
+        for battle in battles:
+            left_votes = battle.votes.filter(
+                selected_submission=battle.left_submission,
+                moderation_status="APPROVED",
+            ).count()
+            right_votes = battle.votes.filter(
+                selected_submission=battle.right_submission,
+                moderation_status="APPROVED",
+            ).count()
+            row = {
+                "id": battle.id,
+                "status": battle.status,
+                "left_submission": battle.left_submission_id,
+                "right_submission": battle.right_submission_id,
+                "left_name": battle.left_submission.profile.name or battle.left_submission.profile.user.username,
+                "right_name": battle.right_submission.profile.name or battle.right_submission.profile.user.username,
+                "votes_left": left_votes,
+                "votes_right": right_votes,
+                "winner_submission": battle.winner_submission_id,
+                "winner_name": (
+                    (battle.winner_submission.profile.name or battle.winner_submission.profile.user.username)
+                    if battle.winner_submission
+                    else ""
+                ),
+            }
+            by_round.setdefault(battle.round_number, []).append(row)
+
+        rounds = [
+            {
+                "round": round_number,
+                "battles": by_round[round_number],
+            }
+            for round_number in sorted(by_round.keys())
+        ]
+        return Response({"tournament": tournament.id, "rounds": rounds})
+
     @action(
         detail=True,
         methods=["POST"],
@@ -2407,6 +2645,73 @@ class TournamentBattleViewSet(viewsets.ModelViewSet):
         if left_submission.id == right_submission.id:
             raise PermissionDenied("Eine Battle braucht zwei unterschiedliche Einreichungen.")
         serializer.save()
+
+    @action(detail=True, methods=["POST"], url_path="close", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def close(self, request, pk=None):
+        battle = self.get_object()
+        if battle.status == "CLOSED":
+            return Response(TournamentBattleSerializer(battle).data)
+
+        winner_submission_id = request.data.get("winner_submission")
+        winner_submission = None
+        if winner_submission_id:
+            winner_submission = get_object_or_404(TournamentSubmission, id=winner_submission_id)
+            if winner_submission.id not in {battle.left_submission_id, battle.right_submission_id}:
+                return Response({"detail": "winner_submission gehoert nicht zu dieser Battle."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            left_votes = battle.votes.filter(selected_submission=battle.left_submission, moderation_status="APPROVED").count()
+            right_votes = battle.votes.filter(selected_submission=battle.right_submission, moderation_status="APPROVED").count()
+            if left_votes == right_votes:
+                return Response(
+                    {"detail": "Bei Gleichstand muss winner_submission explizit gesetzt werden."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            winner_submission = battle.left_submission if left_votes > right_votes else battle.right_submission
+
+        battle.winner_submission = winner_submission
+        battle.status = "CLOSED"
+        battle.ends_at = battle.ends_at or timezone.now()
+        battle.closed_at = timezone.now()
+        battle.save(update_fields=["winner_submission", "status", "ends_at", "closed_at"])
+
+        self._auto_advance_winners(battle.tournament, battle.round_number)
+
+        serializer = TournamentBattleSerializer(battle, context={"request": request})
+        return Response(serializer.data)
+
+    def _auto_advance_winners(self, tournament, round_number):
+        closed_round_battles = list(
+            TournamentBattle.objects.filter(
+                tournament=tournament,
+                round_number=round_number,
+                status="CLOSED",
+                winner_submission__isnull=False,
+            ).order_by("created_at", "id")
+        )
+        if not closed_round_battles:
+            return
+
+        next_round = round_number + 1
+        next_round_battles = list(
+            TournamentBattle.objects.filter(tournament=tournament, round_number=next_round)
+        )
+        already_used = set()
+        for existing in next_round_battles:
+            already_used.add(existing.left_submission_id)
+            already_used.add(existing.right_submission_id)
+
+        winners = [battle.winner_submission for battle in closed_round_battles if battle.winner_submission_id not in already_used]
+
+        while len(winners) >= 2:
+            left = winners.pop(0)
+            right = winners.pop(0)
+            TournamentBattle.objects.create(
+                tournament=tournament,
+                round_number=next_round,
+                left_submission=left,
+                right_submission=right,
+                status="SCHEDULED",
+            )
 
 
 class TournamentVoteViewSet(viewsets.ModelViewSet):
@@ -2731,6 +3036,7 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
             "platform_id": platform.id,
             "platform_name": platform.name,
             "platform_slug": platform.slug,
+            "version": platform.version,
             "status": platform.status,
             "allow_non_team_users": platform.allow_non_team_users,
             "status_note": platform.status_note,
@@ -2756,11 +3062,20 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         current = self.get_object()
         before = {
+            "version": current.version,
             "status": current.status,
             "allow_non_team_users": current.allow_non_team_users,
             "status_note": current.status_note,
         }
-        platform = serializer.save(updated_by=getattr(self.request.user, "profile", None))
+        changed_fields = set(serializer.validated_data.keys())
+        version = current.version
+        if changed_fields.intersection({"name", "slug", "status", "allow_non_team_users", "status_note"}):
+            version = _next_platform_version(current.version)
+
+        platform = serializer.save(
+            updated_by=getattr(self.request.user, "profile", None),
+            version=version,
+        )
         self._log_platform_change(
             "managed_platform_updated",
             f"Plattform aktualisiert: {platform.name}",
@@ -2773,6 +3088,7 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
             "platform_id": instance.id,
             "platform_name": instance.name,
             "platform_slug": instance.slug,
+            "version": instance.version,
             "status": instance.status,
             "allow_non_team_users": instance.allow_non_team_users,
             "status_note": instance.status_note,
@@ -2804,6 +3120,7 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                     "id": platform.id,
                     "name": platform.name,
                     "slug": platform.slug,
+                    "version": platform.version,
                     "status": platform.status,
                     "status_note": platform.status_note,
                     "allow_non_team_users": platform.allow_non_team_users,

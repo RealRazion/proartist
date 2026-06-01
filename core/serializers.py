@@ -1533,6 +1533,7 @@ class TournamentBattleSerializer(serializers.ModelSerializer):
     right_profile_name = serializers.SerializerMethodField()
     votes_left = serializers.SerializerMethodField()
     votes_right = serializers.SerializerMethodField()
+    winner_profile_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TournamentBattle
@@ -1542,18 +1543,33 @@ class TournamentBattleSerializer(serializers.ModelSerializer):
             "round_number",
             "left_submission",
             "right_submission",
+            "winner_submission",
             "left_submission_title",
             "right_submission_title",
             "left_profile_name",
             "right_profile_name",
+            "winner_profile_name",
             "votes_left",
             "votes_right",
             "starts_at",
             "ends_at",
+            "closed_at",
             "status",
             "created_at",
         ]
-        read_only_fields = ["id", "votes_left", "votes_right", "created_at", "left_profile_name", "right_profile_name", "left_submission_title", "right_submission_title"]
+        read_only_fields = [
+            "id",
+            "winner_submission",
+            "winner_profile_name",
+            "votes_left",
+            "votes_right",
+            "closed_at",
+            "created_at",
+            "left_profile_name",
+            "right_profile_name",
+            "left_submission_title",
+            "right_submission_title",
+        ]
 
     def get_left_profile_name(self, obj):
         profile = getattr(getattr(obj.left_submission, "profile", None), "name", "")
@@ -1570,6 +1586,13 @@ class TournamentBattleSerializer(serializers.ModelSerializer):
 
     def get_votes_right(self, obj):
         return obj.votes.filter(selected_submission=obj.right_submission, moderation_status="APPROVED").count()
+
+    def get_winner_profile_name(self, obj):
+        if not obj.winner_submission:
+            return ""
+        profile = getattr(getattr(obj.winner_submission, "profile", None), "name", "")
+        username = getattr(getattr(getattr(obj.winner_submission, "profile", None), "user", None), "username", "")
+        return profile or username
 
 
 class TournamentVoteSerializer(serializers.ModelSerializer):
@@ -1819,6 +1842,7 @@ class ManagedPlatformSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "slug",
+            "version",
             "status",
             "allow_non_team_users",
             "status_note",
@@ -1828,7 +1852,7 @@ class ManagedPlatformSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "updated_by", "can_access_as_team", "can_access_as_non_team", "created_at", "updated_at"]
+        read_only_fields = ["id", "version", "updated_by", "can_access_as_team", "can_access_as_non_team", "created_at", "updated_at"]
 
     def get_can_access_as_team(self, obj):
         return obj.status != "LOCKED"

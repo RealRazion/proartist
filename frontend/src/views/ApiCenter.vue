@@ -169,6 +169,10 @@ import api from "../api";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
+// KI-Hinweis:
+// Funktionale Aenderungen an dieser API-Plattform werden ueber ManagedPlatform automatisch versioniert.
+// Diese View darf Versionsnummern nie selbst setzen, sondern nur anzeigen.
+
 const { isTeam } = useCurrentProfile();
 const { showToast } = useToast();
 

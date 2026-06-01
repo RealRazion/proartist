@@ -36,6 +36,66 @@
       </div>
     </header>
 
+    <section class="card tournament-filters">
+      <input
+        v-model.trim="tournamentSearch"
+        class="input"
+        placeholder="Turnier suchen..."
+      />
+      <select v-model="statusFilter" class="input">
+        <option value="ALL">Alle Status</option>
+        <option value="APPLICATION_OPEN">Bewerbung offen</option>
+        <option value="SUBMISSION_OPEN">Einreichung offen</option>
+        <option value="BATTLES">Battles laufen</option>
+        <option value="CLOSED">Geschlossen</option>
+      </select>
+      <select v-model="sortMode" class="input">
+        <option value="newest">Neueste zuerst</option>
+        <option value="most-battles">Meiste Battles</option>
+        <option value="most-submissions">Meiste Einreichungen</option>
+        <option value="open-first">Offene zuerst</option>
+      </select>
+    </section>
+
+    <section v-if="!isTeam" class="card audience-stats">
+      <div class="aud-stat">
+        <strong>{{ myApplicationsCount }}</strong>
+        <span>Meine Bewerbungen</span>
+      </div>
+      <div class="aud-stat">
+        <strong>{{ mySubmissionsCount }}</strong>
+        <span>Meine Einreichungen</span>
+      </div>
+      <div class="aud-stat">
+        <strong>{{ myVotesCount }}</strong>
+        <span>Meine Votes</span>
+      </div>
+    </section>
+
+    <section v-if="isTeam" class="card team-control-center">
+      <div class="control-header">
+        <div>
+          <h2>Turnierleitung</h2>
+          <p>Schnellzugriff auf offene Battles inklusive Direktabschluss.</p>
+        </div>
+        <span class="meta-chip highlight">{{ openBattleRows.length }} offen</span>
+      </div>
+      <div v-if="openBattleRows.length === 0" class="empty-inline">Aktuell keine offenen Battles.</div>
+      <div v-else class="control-list">
+        <article v-for="row in openBattleRows" :key="`control-${row.battle.id}`" class="control-row">
+          <div class="control-info">
+            <strong>{{ row.tournament.title }} · Runde {{ row.battle.round_number }}</strong>
+            <span class="muted">{{ row.battle.left_profile_name }} ({{ row.battle.votes_left }}) vs {{ row.battle.right_profile_name }} ({{ row.battle.votes_right }})</span>
+          </div>
+          <div class="row-actions">
+            <button class="btn small" @click="closeBattle(row.tournament, row.battle)">Auto</button>
+            <button class="btn ghost small" @click="closeBattle(row.tournament, row.battle, row.battle.left_submission)">Links</button>
+            <button class="btn ghost small" @click="closeBattle(row.tournament, row.battle, row.battle.right_submission)">Rechts</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <!-- Turnier erstellen (Team only) -->
     <section v-if="isTeam" class="card collapsible-section">
       <button class="collapsible-head" type="button" @click="showCreateForm = !showCreateForm">
@@ -119,12 +179,12 @@
 
     <!-- Turniere Liste -->
     <section class="list">
-      <article v-if="tournaments.length === 0" class="card empty-state">
+      <article v-if="visibleTournaments.length === 0" class="card empty-state">
         <span class="empty-icon">🏆</span>
         <p>Noch keine Turniere vorhanden.</p>
       </article>
 
-      <article v-for="tournament in tournaments" :key="tournament.id" class="tournament-card">
+      <article v-for="tournament in visibleTournaments" :key="tournament.id" class="tournament-card">
         <!-- Card Header -->
         <div class="tcard-header">
           <div class="tcard-title-row">
@@ -141,6 +201,7 @@
             <span class="meta-chip">{{ tournament.applications_count || 0 }} Apps</span>
             <span class="meta-chip">{{ tournament.submissions_count || 0 }} Runden</span>
             <span class="meta-chip highlight">{{ tournament.battles_count || 0 }} Battles</span>
+            <span class="meta-chip">{{ tournamentProgressLabel(tournament) }}</span>
           </div>
           <div class="deadline-row">
             <span v-if="tournament.application_deadline">
@@ -267,6 +328,51 @@
           </div>
         </div>
 
+        <div class="tcard-section">
+          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'leaderboard')">
+            Leaderboard
+            <span class="section-count">{{ leaderboardFor(tournament.id).length }}</span>
+            <svg class="chevron" :class="{ open: openSections[tournament.id]?.leaderboard }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div v-if="openSections[tournament.id]?.leaderboard" class="section-body">
+            <div v-if="leaderboardFor(tournament.id).length === 0" class="empty-inline">Noch keine Ranking-Daten.</div>
+            <div v-else class="leaderboard-list">
+              <div v-for="row in leaderboardFor(tournament.id)" :key="`${tournament.id}-${row.profile_id}`" class="leader-row">
+                <strong>#{{ row.rank }} {{ row.name }}</strong>
+                <span class="muted">Wins: {{ row.wins }} · Votes: {{ row.votes }} · Score: {{ row.score }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tcard-section">
+          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'bracket')">
+            Bracket
+            <span class="section-count">{{ bracketRoundsFor(tournament.id).length }}</span>
+            <svg class="chevron" :class="{ open: openSections[tournament.id]?.bracket }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div v-if="openSections[tournament.id]?.bracket" class="section-body">
+            <div v-if="bracketRoundsFor(tournament.id).length === 0" class="empty-inline">Bracket noch leer.</div>
+            <div v-else class="bracket-rounds">
+              <article v-for="round in bracketRoundsFor(tournament.id)" :key="`${tournament.id}-round-${round.round}`" class="bracket-round">
+                <h4>Runde {{ round.round }}</h4>
+                <div class="bracket-battles">
+                  <div v-for="node in round.battles" :key="node.id" class="bracket-node">
+                    <div class="node-line" :class="{ winner: node.winner_submission === node.left_submission }">
+                      <span>{{ node.left_name }}</span>
+                      <strong>{{ node.votes_left }}</strong>
+                    </div>
+                    <div class="node-line" :class="{ winner: node.winner_submission === node.right_submission }">
+                      <span>{{ node.right_name }}</span>
+                      <strong>{{ node.votes_right }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
         <!-- Battles -->
         <div class="tcard-section always-open">
           <div class="section-toggle static">
@@ -286,6 +392,12 @@
                 <span class="fighter right">{{ battle.right_profile_name }}</span>
               </div>
               <div class="battle-round-label">Runde {{ battle.round_number }}</div>
+              <div v-if="battle.winner_profile_name" class="battle-winner">Sieger: {{ battle.winner_profile_name }}</div>
+              <div v-if="isTeam && battle.status !== 'CLOSED'" class="row-actions team-close-actions">
+                <button class="btn small" @click="closeBattle(tournament, battle)">Schließen (Auto)</button>
+                <button class="btn ghost small" @click="closeBattle(tournament, battle, battle.left_submission)">Links gewinnt</button>
+                <button class="btn ghost small" @click="closeBattle(tournament, battle, battle.right_submission)">Rechts gewinnt</button>
+              </div>
               <div v-if="!isTeam" class="vote-actions">
                 <input
                   v-if="tournament.require_phone_vote_verification"
@@ -294,8 +406,8 @@
                   class="phone-input"
                 />
                 <div class="row-actions vote-row">
-                  <button class="btn vote-btn" @click="voteBattle(battle, battle.left_submission)">{{ battle.left_profile_name }} wählen</button>
-                  <button class="btn ghost vote-btn" @click="voteBattle(battle, battle.right_submission)">{{ battle.right_profile_name }} wählen</button>
+                  <button class="btn vote-btn" @click="voteBattle(tournament, battle, battle.left_submission)" :disabled="!canVoteBattle(tournament, battle)">{{ battle.left_profile_name }} wählen</button>
+                  <button class="btn ghost vote-btn" @click="voteBattle(tournament, battle, battle.right_submission)" :disabled="!canVoteBattle(tournament, battle)">{{ battle.right_profile_name }} wählen</button>
                 </div>
               </div>
             </div>
@@ -324,7 +436,13 @@ const applications = ref([]);
 const submissions = ref([]);
 const battles = ref([]);
 const flaggedVotes = ref([]);
+const myVotes = ref([]);
+const leaderboardMap = ref({});
+const bracketMap = ref({});
 const openSections = ref({});
+const tournamentSearch = ref("");
+const statusFilter = ref("ALL");
+const sortMode = ref("open-first");
 
 function toggleSection(id, key) {
   if (!openSections.value[id]) openSections.value[id] = {};
@@ -351,6 +469,57 @@ const createForm = ref({
 });
 
 const myProfileId = computed(() => profile.value?.id || null);
+const myApplicationsCount = computed(() => applications.value.filter((entry) => entry.profile?.id === myProfileId.value).length);
+const mySubmissionsCount = computed(() => submissions.value.filter((entry) => entry.profile?.id === myProfileId.value).length);
+const myVotesCount = computed(() => myVotes.value.length);
+const openBattleRows = computed(() => {
+  const tournamentById = new Map(tournaments.value.map((item) => [item.id, item]));
+  return battles.value
+    .filter((battle) => battle.status !== "CLOSED")
+    .map((battle) => ({
+      battle,
+      tournament: tournamentById.get(battle.tournament),
+    }))
+    .filter((row) => !!row.tournament)
+    .sort((a, b) => {
+      if (a.tournament.id !== b.tournament.id) return a.tournament.id - b.tournament.id;
+      if ((a.battle.round_number || 0) !== (b.battle.round_number || 0)) {
+        return (a.battle.round_number || 0) - (b.battle.round_number || 0);
+      }
+      return (a.battle.id || 0) - (b.battle.id || 0);
+    });
+});
+
+const visibleTournaments = computed(() => {
+  const term = tournamentSearch.value.trim().toLowerCase();
+  let rows = [...tournaments.value];
+  if (statusFilter.value !== "ALL") {
+    rows = rows.filter((item) => item.status === statusFilter.value);
+  }
+  if (term) {
+    rows = rows.filter((item) => {
+      const text = `${item.title || ""} ${item.description || ""}`.toLowerCase();
+      return text.includes(term);
+    });
+  }
+  if (sortMode.value === "most-battles") {
+    rows.sort((a, b) => (b.battles_count || 0) - (a.battles_count || 0));
+  } else if (sortMode.value === "most-submissions") {
+    rows.sort((a, b) => (b.submissions_count || 0) - (a.submissions_count || 0));
+  } else if (sortMode.value === "open-first") {
+    const rank = {
+      APPLICATION_OPEN: 0,
+      SUBMISSION_OPEN: 1,
+      BATTLES: 2,
+      DRAFT: 3,
+      CLOSED: 4,
+    };
+    rows.sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9));
+  } else {
+    rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }
+  return rows;
+});
 
 function asList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -378,6 +547,14 @@ function statusLabel(status) {
     CLOSED: "Geschlossen",
   };
   return map[status] || status;
+}
+
+function tournamentProgressLabel(tournament) {
+  if (tournament.status === "APPLICATION_OPEN") return "Phase: Bewerbung";
+  if (tournament.status === "SUBMISSION_OPEN") return "Phase: Einreichung";
+  if (tournament.status === "BATTLES") return "Phase: Voting";
+  if (tournament.status === "CLOSED") return "Finalisiert";
+  return "Vorbereitung";
 }
 
 function votingModeLabel(mode) {
@@ -415,6 +592,14 @@ function flaggedVotesFor(tournamentId) {
   return flaggedVotes.value.filter((entry) => entry.tournament === tournamentId);
 }
 
+function leaderboardFor(tournamentId) {
+  return leaderboardMap.value[tournamentId] || [];
+}
+
+function bracketRoundsFor(tournamentId) {
+  return bracketMap.value[tournamentId] || [];
+}
+
 function moderationLabel(status) {
   if (status === "PENDING_REVIEW") return "In Prüfung";
   if (status === "REJECTED") return "Abgelehnt";
@@ -447,25 +632,66 @@ function goHome() {
 async function loadAll() {
   busy.value = true;
   try {
-    const [tournamentRes, applicationRes, submissionRes, battleRes] = await Promise.all([
+    const requests = [
       api.get("tournaments/"),
       api.get("tournament-applications/"),
       api.get("tournament-submissions/"),
       api.get("tournament-battles/"),
-    ]);
+    ];
+    if (!isTeam.value) {
+      requests.push(api.get("tournament-votes/"));
+    }
+    const [tournamentRes, applicationRes, submissionRes, battleRes, votesRes] = await Promise.all(requests);
     tournaments.value = asList(tournamentRes.data);
     applications.value = asList(applicationRes.data);
     submissions.value = asList(submissionRes.data);
     battles.value = asList(battleRes.data);
+    myVotes.value = votesRes ? asList(votesRes.data) : [];
     if (isTeam.value) {
       const { data } = await api.get("tournament-votes/flags/");
       flaggedVotes.value = asList(data);
     } else {
       flaggedVotes.value = [];
     }
+
+    const leaderboardRequests = tournaments.value.map((tournament) =>
+      api.get(`tournaments/${tournament.id}/leaderboard/`).catch(() => ({ data: { rows: [] } }))
+    );
+    const bracketRequests = tournaments.value.map((tournament) =>
+      api.get(`tournaments/${tournament.id}/bracket/`).catch(() => ({ data: { rounds: [] } }))
+    );
+
+    const [leaderboards, brackets] = await Promise.all([
+      Promise.all(leaderboardRequests),
+      Promise.all(bracketRequests),
+    ]);
+
+    const nextLeaderboardMap = {};
+    const nextBracketMap = {};
+    tournaments.value.forEach((tournament, index) => {
+      nextLeaderboardMap[tournament.id] = leaderboards[index]?.data?.rows || [];
+      nextBracketMap[tournament.id] = brackets[index]?.data?.rounds || [];
+    });
+    leaderboardMap.value = nextLeaderboardMap;
+    bracketMap.value = nextBracketMap;
   } catch (err) {
     console.error(err);
     showToast("Turnierdaten konnten nicht geladen werden", "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function closeBattle(tournament, battle, winnerSubmissionId = null) {
+  busy.value = true;
+  try {
+    const payload = winnerSubmissionId ? { winner_submission: winnerSubmissionId } : {};
+    await api.post(`tournament-battles/${battle.id}/close/`, payload);
+    showToast("Battle geschlossen und Bracket aktualisiert", "success");
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    showToast(err?.response?.data?.detail || "Battle konnte nicht geschlossen werden", "error");
   } finally {
     busy.value = false;
   }
@@ -596,7 +822,19 @@ async function createBattle(tournamentId) {
   }
 }
 
-async function voteBattle(battle, selectedSubmissionId) {
+function canVoteBattle(tournament, battle) {
+  if (!tournament || !battle) return false;
+  if (battle.status === "CLOSED") return false;
+  if (tournament.status !== "BATTLES") return false;
+  if (tournament.allow_vote_change) return true;
+  return !myVotes.value.some((vote) => vote.battle === battle.id);
+}
+
+async function voteBattle(tournament, battle, selectedSubmissionId) {
+  if (!canVoteBattle(tournament, battle)) {
+    showToast("Vote ist fuer diese Battle aktuell nicht moeglich", "warning");
+    return;
+  }
   busy.value = true;
   try {
     await api.post("tournament-votes/", {
@@ -625,6 +863,86 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.tournament-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tournament-filters .input {
+  width: 100%;
+}
+
+.audience-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.aud-stat {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.aud-stat strong {
+  font-size: 21px;
+}
+
+.aud-stat span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.team-control-center {
+  display: grid;
+  gap: 10px;
+}
+
+.control-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.control-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.control-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.control-list {
+  display: grid;
+  gap: 8px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 10px;
+  flex-wrap: wrap;
+}
+
+.control-info {
+  display: grid;
+  gap: 3px;
 }
 
 /* Hero */
@@ -984,6 +1302,63 @@ onMounted(async () => {
   flex-wrap: wrap;
 }
 
+.leaderboard-list {
+  display: grid;
+  gap: 8px;
+}
+
+.leader-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.bracket-rounds {
+  display: grid;
+  gap: 10px;
+}
+
+.bracket-round {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--surface);
+}
+
+.bracket-round h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.bracket-battles {
+  display: grid;
+  gap: 8px;
+}
+
+.bracket-node {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.node-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.node-line.winner {
+  color: var(--brand);
+  font-weight: 700;
+}
+
 .app-info {
   display: flex;
   align-items: center;
@@ -1071,6 +1446,16 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 600;
+}
+
+.battle-winner {
+  font-size: 12px;
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.team-close-actions {
+  margin-top: 2px;
 }
 
 .vote-actions {
@@ -1175,6 +1560,11 @@ onMounted(async () => {
 }
 
 @media (max-width: 600px) {
+  .tournament-filters,
+  .audience-stats {
+    grid-template-columns: 1fr;
+  }
+
   .hero-inner {
     flex-direction: column;
   }

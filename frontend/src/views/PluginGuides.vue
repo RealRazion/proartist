@@ -93,6 +93,10 @@ import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 
+// KI-Hinweis:
+// Jede funktionale Aenderung in der Plugin-Guide-Plattform fuehrt backendseitig zu einer Versionsanhebung.
+// Frontend zeigt die Version nur an und schreibt sie nicht direkt.
+
 const { isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 const guides = ref([]);

@@ -12,6 +12,7 @@ from core.models import (
     Tournament,
     TournamentBattle,
     TournamentSubmission,
+    TournamentVote,
 )
 
 
@@ -193,3 +194,88 @@ class TournamentVotingRulesTests(TestCase):
         battle_after_payload = battle_after.json()
         battle_after_results = battle_after_payload.get("results", battle_after_payload)
         self.assertEqual(battle_after_results[0]["votes_left"], 1)
+
+    def test_team_can_close_battle_and_auto_advance(self):
+        tournament = Tournament.objects.create(
+            created_by=self.creator_profile,
+            title="Bracket Auto Advance",
+            description="",
+            status="BATTLES",
+            has_application_phase=False,
+        )
+
+        left_a = TournamentSubmission.objects.create(tournament=tournament, profile=self.left_profile, round_number=1, title="A")
+        right_a = TournamentSubmission.objects.create(tournament=tournament, profile=self.right_profile, round_number=1, title="B")
+
+        user_c = User.objects.create_user(username="artist-c", password="pw123456")
+        profile_c = Profile.objects.create(user=user_c, name="Artist C")
+        profile_c.roles.add(self.artist_role)
+        user_d = User.objects.create_user(username="artist-d", password="pw123456")
+        profile_d = Profile.objects.create(user=user_d, name="Artist D")
+        profile_d.roles.add(self.artist_role)
+
+        left_b = TournamentSubmission.objects.create(tournament=tournament, profile=profile_c, round_number=1, title="C")
+        right_b = TournamentSubmission.objects.create(tournament=tournament, profile=profile_d, round_number=1, title="D")
+
+        battle_one = TournamentBattle.objects.create(
+            tournament=tournament,
+            round_number=1,
+            left_submission=left_a,
+            right_submission=right_a,
+            status="LIVE",
+        )
+        battle_two = TournamentBattle.objects.create(
+            tournament=tournament,
+            round_number=1,
+            left_submission=left_b,
+            right_submission=right_b,
+            status="LIVE",
+        )
+
+        self.client.force_authenticate(user=self.creator_user)
+        close_one = self.client.post(
+            f"/api/tournament-battles/{battle_one.id}/close/",
+            {"winner_submission": left_a.id},
+            format="json",
+        )
+        self.assertEqual(close_one.status_code, 200, close_one.content)
+
+        close_two = self.client.post(
+            f"/api/tournament-battles/{battle_two.id}/close/",
+            {"winner_submission": left_b.id},
+            format="json",
+        )
+        self.assertEqual(close_two.status_code, 200, close_two.content)
+
+        next_round_battles = TournamentBattle.objects.filter(tournament=tournament, round_number=2)
+        self.assertEqual(next_round_battles.count(), 1)
+        next_battle = next_round_battles.first()
+        self.assertEqual(next_battle.left_submission_id, left_a.id)
+        self.assertEqual(next_battle.right_submission_id, left_b.id)
+
+    def test_leaderboard_endpoint_returns_ranked_rows(self):
+        battle, left_submission, right_submission = self._build_battle()
+
+        voter_user = User.objects.create_user(username="leader-voter", password="pw123456")
+        voter_profile = Profile.objects.create(user=voter_user, name="Leader Voter")
+        voter_profile.roles.add(self.artist_role)
+
+        TournamentVote.objects.create(
+            battle=battle,
+            voter=voter_profile,
+            selected_submission=left_submission,
+            moderation_status="APPROVED",
+        )
+
+        battle.status = "CLOSED"
+        battle.winner_submission = left_submission
+        battle.closed_at = timezone.now()
+        battle.ends_at = timezone.now()
+        battle.save(update_fields=["status", "winner_submission", "closed_at", "ends_at"])
+
+        self.client.force_authenticate(user=self.creator_user)
+        res = self.client.get(f"/api/tournaments/{battle.tournament_id}/leaderboard/")
+        self.assertEqual(res.status_code, 200, res.content)
+        rows = res.json().get("rows", [])
+        self.assertTrue(rows)
+        self.assertEqual(rows[0]["profile_id"], self.left_profile.id)

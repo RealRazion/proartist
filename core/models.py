@@ -557,8 +557,16 @@ class TournamentBattle(models.Model):
         on_delete=models.CASCADE,
         related_name="battles_as_right",
     )
+    winner_submission = models.ForeignKey(
+        TournamentSubmission,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="won_battles",
+    )
     starts_at = models.DateTimeField(null=True, blank=True)
     ends_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="SCHEDULED")
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -885,6 +893,7 @@ class ManagedPlatform(models.Model):
 
     name = models.CharField(max_length=120)
     slug = models.SlugField(unique=True)
+    version = models.CharField(max_length=20, default="0.1")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="ACTIVE")
     allow_non_team_users = models.BooleanField(default=True)
     status_note = models.CharField(max_length=255, blank=True, default="")

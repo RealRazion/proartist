@@ -57,16 +57,6 @@
           <span class="label">Profiles</span>
         </router-link>
         <router-link
-          to="/chats"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Chats' : null"
-        >
-          <span class="icon">💬</span>
-          <span class="label">Chats</span>
-          <small v-if="unreadCount" class="pill">{{ unreadCount }}</small>
-        </router-link>
-        <router-link
           to="/notifications"
           class="nav-link"
           @click="handleNavClick"
@@ -80,19 +70,10 @@
           to="/news"
           class="nav-link"
           @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'News' : null"
+          :title="collapsed && !isMobile ? 'ProArtist News' : null"
         >
           <span class="icon">📰</span>
-          <span class="label">News</span>
-        </router-link>
-        <router-link
-          to="/guides"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Guides' : null"
-        >
-          <span class="icon">🔌</span>
-          <span class="label">Plugin Guides</span>
+          <span class="label">ProArtist News</span>
         </router-link>
         <router-link
           v-if="isTeam"
@@ -146,16 +127,6 @@
         </router-link>
         <router-link
           v-if="isTeam"
-          to="/admin"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Admin' : null"
-        >
-          <span class="icon">⚙</span>
-          <span class="label">Admin</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
           to="/points"
           class="nav-link"
           @click="handleNavClick"
@@ -163,16 +134,6 @@
         >
           <span class="icon">🧮</span>
           <span class="label">Points</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/api-center"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'API' : null"
-        >
-          <span class="icon">🔑</span>
-          <span class="label">API</span>
         </router-link>
         <router-link
           to="/me"
@@ -206,6 +167,7 @@
           </button>
         </div>
         <div class="right">
+          <span v-if="platformSlug" class="platform-version">{{ platformSlug }} v{{ platformVersion }}</span>
           <button class="iconbtn top-icon-btn" type="button" @click="toggleTheme" :title="`Theme: ${themeLabel}`">
             <svg
               v-if="theme === 'dark'"
@@ -306,10 +268,14 @@ import { useRouter, useRoute } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
+import { usePlatformVersion } from "../composables/usePlatformVersion";
 import { APP_VERSION } from "../config/version";
 
 const router = useRouter();
 const route = useRoute();
+const routeRef = computed(() => route);
+
+const { platformSlug, platformVersion } = usePlatformVersion(routeRef);
 
 const { profile: me, isTeam, fetchProfile, clearProfile } = useCurrentProfile();
 
@@ -557,6 +523,16 @@ onBeforeUnmount(() => {
   justify-content: center;
   position: relative;
   border-radius: 12px;
+}
+.platform-version {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 86%, var(--brand) 14%);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .toolbar-svg {
   width: 18px;

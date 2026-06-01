@@ -22,7 +22,6 @@ const MyProfile = () => import("../views/MyProfile.vue");
 const News = () => import("../views/News.vue");
 const ActivityFeed = () => import("../views/ActivityFeed.vue");
 const Notifications = () => import("../views/Notifications.vue");
-const Admin = () => import("../views/Admin.vue");
 const GrowPro = () => import("../views/GrowPro.vue");
 const Songs = () => import("../views/Songs.vue");
 const Timeline = () => import("../views/Timeline.vue");
@@ -75,15 +74,12 @@ const routes = [
       { path: "reviews", name: "reviews", component: ReviewQueue, alias: "/reviews", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
       { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },
-      { path: "guides", name: "guides", component: PluginGuides, alias: "/guides", meta: { requiresAuth: true } },
       { path: "activity", name: "activity", component: ActivityFeed, alias: "/activity", meta: { requiresAuth: true } },
       { path: "notifications", name: "notifications", component: Notifications, alias: "/notifications", meta: { requiresAuth: true } },
-      { path: "admin", name: "admin", component: Admin, alias: "/admin", meta: { requiresAuth: true } },
       { path: "points", name: "points", component: Points, alias: "/points", meta: { requiresAuth: true } },
-      { path: "api-center", name: "api-center", component: ApiCenter, alias: "/api-center", meta: { requiresAuth: true } },
       { path: "growpro", name: "growpro", component: GrowPro, alias: "/growpro", meta: { requiresAuth: true } },
       { path: "songs", name: "songs", component: Songs, alias: "/songs", meta: { requiresAuth: true } },
-      { path: "team/roles", redirect: { name: "admin" } },
+      { path: "team/roles", redirect: { name: "profiles" } },
       { path: "chats", name: "chats", component: Chats, alias: "/chats", meta: { requiresAuth: true } },
       { path: "search", name: "search", component: SearchView, alias: "/search", meta: { requiresAuth: true } },
       { path: "me", name: "me", component: MyProfile, alias: "/me", meta: { requiresAuth: true } },
@@ -104,6 +100,9 @@ const routes = [
       { path: "content-studio", name: "platform-content-studio", component: ContentStudio, meta: { requiresAuth: true } },
       { path: "content-schedule", name: "platform-content-schedule", component: ContentScheduleLanding, meta: { requiresAuth: true } },
       { path: "content-schedule/planner", name: "content-schedule", component: ContentScheduleTool, meta: { requiresAuth: true } },
+      { path: "news", name: "platform-news", component: News, meta: { requiresAuth: true } },
+      { path: "plugin-guides", name: "platform-plugin-guides", component: PluginGuides, meta: { requiresAuth: true } },
+      { path: "api-center", name: "platform-api-center", component: ApiCenter, meta: { requiresAuth: true } },
       { path: "fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },
       { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },

@@ -1,5 +1,5 @@
 from calendar import monthrange
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.utils import timezone
@@ -1248,6 +1248,27 @@ class DebtPaymentActionSerializer(serializers.Serializer):
     date = serializers.DateField(required=False, allow_null=True)
     reschedule_date = serializers.DateField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            data = data.copy()
+            for field in ("date", "reschedule_date"):
+                value = data.get(field)
+                if value == "":
+                    data[field] = None
+                    continue
+                if isinstance(value, str):
+                    normalized = value.strip()
+                    if not normalized:
+                        data[field] = None
+                        continue
+                    for fmt in ("%d.%m.%Y", "%d/%m/%Y", "%Y/%m/%d"):
+                        try:
+                            data[field] = datetime.strptime(normalized, fmt).date().isoformat()
+                            break
+                        except ValueError:
+                            continue
+        return super().to_internal_value(data)
 
 class DebtSerializer(serializers.ModelSerializer):
     payments = serializers.SerializerMethodField()

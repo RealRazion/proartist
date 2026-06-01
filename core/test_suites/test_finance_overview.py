@@ -6,7 +6,13 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 
 from core.models import FinanceEntry, FinanceProject, Profile
-from core.serializers import FinanceProjectListSerializer, _monthly_amount, _next_due_date, _debt_monthly_amount
+from core.serializers import (
+    DebtPaymentActionSerializer,
+    FinanceProjectListSerializer,
+    _debt_monthly_amount,
+    _monthly_amount,
+    _next_due_date,
+)
 
 
 class FinanceOverviewLogicTests(TestCase):
@@ -99,3 +105,21 @@ class FinanceOverviewLogicTests(TestCase):
         self.assertEqual(overview["monthly_outflow"], 819.99)
         self.assertEqual(overview["monthly_left"], 1180.01)
         self.assertTrue(any(item["entry_type"] == "SUBSCRIPTION" for item in overview["due_soon"]))
+
+
+class DebtPaymentActionSerializerTests(TestCase):
+    def test_accepts_blank_reschedule_date(self):
+        serializer = DebtPaymentActionSerializer(
+            data={"decision": "missed", "reschedule_date": "", "notes": "offen"}
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertIsNone(serializer.validated_data["reschedule_date"])
+
+    def test_accepts_german_payment_date_format(self):
+        serializer = DebtPaymentActionSerializer(
+            data={"decision": "paid", "amount": "12.50", "date": "01.06.2026"}
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["date"], date(2026, 6, 1))

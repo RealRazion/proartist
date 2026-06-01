@@ -178,8 +178,15 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 REST_FRAMEWORK = {
   "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
   "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": get_env("API_PAGE_SIZE", "50", cast_type=int),
+  "DATE_INPUT_FORMATS": [
+      "%Y-%m-%d",
+      "%d.%m.%Y",
+      "%d/%m/%Y",
+      "%d-%m-%Y",
+      "%Y/%m/%d",
+  ],
+  "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+  "PAGE_SIZE": get_env("API_PAGE_SIZE", "50", cast_type=int),
   "DEFAULT_THROTTLE_CLASSES": (
       "rest_framework.throttling.AnonRateThrottle",
       "rest_framework.throttling.UserRateThrottle",

@@ -256,6 +256,9 @@ onMounted(async () => {
     padding: 12px 16px;
     flex-wrap: wrap;
     align-items: center;
+    position: static;
+    top: auto;
+    backdrop-filter: none;
   }
 
   .topbar-left,
@@ -278,6 +281,14 @@ onMounted(async () => {
 
   .platform-content {
     padding: 16px;
+  }
+
+  .page-kicker {
+    display: none;
+  }
+
+  .page-copy h1 {
+    font-size: clamp(18px, 5.6vw, 22px);
   }
 }
 

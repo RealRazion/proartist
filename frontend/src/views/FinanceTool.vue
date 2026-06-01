@@ -3768,6 +3768,48 @@ onMounted(async () => {
 }
 
 @media (max-width: 760px) {
+  .finance-tool {
+    gap: 14px;
+  }
+
+  .topbar-card {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .topbar-meta h1 {
+    font-size: clamp(1.55rem, 7.2vw, 2rem);
+  }
+
+  .topbar-buttons.topbar-open .btn {
+    width: 100%;
+  }
+
+  .tab-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    border-radius: 16px;
+    padding: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-pill {
+    white-space: nowrap;
+    padding: 10px 14px;
+  }
+
+  .panel {
+    border-radius: 18px;
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .performance-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
   .summary-split-grid {
     grid-template-columns: 1fr;
   }
@@ -3800,9 +3842,36 @@ onMounted(async () => {
     justify-content: flex-start;
   }
 
+  .planner-head-controls .btn {
+    width: 100%;
+  }
+
   .planner-month-control .input {
     width: 100%;
     min-width: 0;
+  }
+
+  .month-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .month-nav-label {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .chart-container {
+    overflow-x: auto;
+    height: auto;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .chart-bar {
+    min-width: 92px;
+    padding: 10px;
   }
 
   .settings-meta {
@@ -4091,7 +4160,12 @@ details[open] .note-summary::before { content: "\25BC  "; }
 
 @media (max-width: 580px) {
   .summary-band { grid-template-columns: 1fr; }
-  .fab { bottom: 16px; right: 16px; }
+  .fab {
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    right: 12px;
+    width: 48px;
+    height: 48px;
+  }
 }
 
 /* ===== MOBILE TOPBAR TOGGLE ===== */
@@ -4211,6 +4285,5 @@ details[open] .note-summary::before { content: "\25BC  "; }
   background: rgba(255, 255, 255, 0.12);
 }
 </style>
-
 
 

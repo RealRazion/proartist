@@ -26,15 +26,30 @@ def get_env(key, default=None, required=False, cast_type=str):
     if value is None:
         return default
     
-    # Type Casting
-    if cast_type == bool:
-        return value.lower() in ('true', '1', 'yes', 'on')
-    elif cast_type == int:
-        return int(value)
-    elif cast_type == list:
-        return [item.strip() for item in value.split(',') if item.strip()]
-    
-    return value
+    try:
+        # Type Casting
+        if cast_type == bool:
+            return str(value).strip().lower() in ('true', '1', 'yes', 'on')
+        elif cast_type == int:
+            return int(str(value).strip())
+        elif cast_type == list:
+            if isinstance(value, (list, tuple)):
+                return [str(item).strip() for item in value if str(item).strip()]
+            return [item.strip() for item in str(value).split(',') if item.strip()]
+        return value
+    except (ValueError, TypeError) as exc:
+        if required:
+            raise ValueError(
+                f"FEHLER: Environment Variable '{key}' hat einen ungueltigen Wert fuer {cast_type.__name__}: {value!r}"
+            ) from exc
+        logger.warning(
+            "Ungueltige Environment Variable %s=%r fuer %s. Nutze Fallback %r.",
+            key,
+            value,
+            cast_type.__name__,
+            default,
+        )
+        return default
 
 DEBUG = get_env('DEBUG', 'False', cast_type=bool)
 ENVIRONMENT = get_env('ENVIRONMENT', 'development')
@@ -186,7 +201,7 @@ REST_FRAMEWORK = {
       "%Y/%m/%d",
   ],
   "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-  "PAGE_SIZE": get_env("API_PAGE_SIZE", "50", cast_type=int),
+    "PAGE_SIZE": get_env("API_PAGE_SIZE", 50, cast_type=int),
   "DEFAULT_THROTTLE_CLASSES": (
       "rest_framework.throttling.AnonRateThrottle",
       "rest_framework.throttling.UserRateThrottle",
@@ -205,7 +220,7 @@ REST_FRAMEWORK = {
 API_CENTER_OFFLINE = os.getenv("API_CENTER_OFFLINE", "True").lower() in {"1", "true", "yes", "on"}
 
 # Security headers (konfigurierbar per ENV)
-SECURE_HSTS_SECONDS = int(os.getenv("HSTS_SECONDS", "0"))
+SECURE_HSTS_SECONDS = get_env("HSTS_SECONDS", 0, cast_type=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = get_env("HSTS_INCLUDE_SUBDOMAINS", "False", cast_type=bool)
 SECURE_HSTS_PRELOAD = get_env("HSTS_PRELOAD", "False", cast_type=bool)
 SECURE_CONTENT_TYPE_NOSNIFF = True

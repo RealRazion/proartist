@@ -78,7 +78,12 @@
           <h2>Turnierleitung</h2>
           <p>Schnellzugriff auf offene Battles inklusive Direktabschluss.</p>
         </div>
-        <span class="meta-chip highlight">{{ openBattleRows.length }} offen</span>
+        <div class="row-actions">
+          <span class="meta-chip">{{ pendingApplicationsCount }} Bewerbungen offen</span>
+          <span class="meta-chip">{{ pendingSubmissionsCount }} Einreichungen offen</span>
+          <span class="meta-chip">{{ flaggedVotesCount }} Votes in Prüfung</span>
+          <span class="meta-chip highlight">{{ openBattleRows.length }} Battles offen</span>
+        </div>
       </div>
       <div v-if="openBattleRows.length === 0" class="empty-inline">Aktuell keine offenen Battles.</div>
       <div v-else class="control-list">
@@ -215,6 +220,23 @@
           </div>
         </div>
 
+        <div v-if="isTeam" class="tcard-section">
+          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'status')">
+            Turnierstatus
+            <span class="section-count">{{ statusLabel(tournament.status) }}</span>
+            <svg class="chevron" :class="{ open: openSections[tournament.id]?.status }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div v-if="openSections[tournament.id]?.status" class="section-body">
+            <div class="row-actions">
+              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'DRAFT')">Entwurf</button>
+              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'APPLICATION_OPEN')">Bewerbung</button>
+              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'SUBMISSION_OPEN')">Einreichung</button>
+              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'BATTLES')">Battles</button>
+              <button class="btn small" @click="setTournamentStatus(tournament, 'CLOSED')">Schließen</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Artist: Bewerbung -->
         <div v-if="!isTeam && tournament.has_application_phase" class="tcard-section">
           <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'apply')">
@@ -276,6 +298,51 @@
           </div>
         </div>
 
+        <div v-if="isTeam" class="tcard-section">
+          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'submissions')">
+            Einreichungen moderieren
+            <span class="section-count">{{ pendingSubmissionsFor(tournament.id).length }} offen</span>
+            <svg class="chevron" :class="{ open: openSections[tournament.id]?.submissions }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div v-if="openSections[tournament.id]?.submissions" class="section-body">
+            <div v-if="submissionsFor(tournament.id).length === 0" class="empty-inline">Keine Einreichungen vorhanden.</div>
+            <div v-else class="bulk-tools">
+              <label>
+                Runde (optional)
+                <input v-model.number="submissionBulkRoundDrafts[tournament.id]" type="number" min="1" placeholder="alle" />
+              </label>
+              <div class="row-actions">
+                <button
+                  class="btn small"
+                  :disabled="busy || pendingSubmissionsFor(tournament.id).length === 0"
+                  @click="bulkDecideSubmissions(tournament.id, 'APPROVED')"
+                >
+                  Alle offenen freigeben
+                </button>
+                <button
+                  class="btn ghost small"
+                  :disabled="busy || pendingSubmissionsFor(tournament.id).length === 0"
+                  @click="bulkDecideSubmissions(tournament.id, 'REJECTED')"
+                >
+                  Alle offenen ablehnen
+                </button>
+              </div>
+            </div>
+            <div v-for="submission in submissionsFor(tournament.id)" :key="submission.id" class="app-row">
+              <div class="app-info submission-info">
+                <strong>{{ submission.profile?.name || submission.profile?.username }} · R{{ submission.round_number }}</strong>
+                <span>{{ submission.title || 'Ohne Titel' }}</span>
+                <a v-if="submission.media_url" :href="submission.media_url" target="_blank" rel="noopener noreferrer">Media öffnen</a>
+                <span :class="['app-status', submission.status.toLowerCase()]">{{ submission.status }}</span>
+              </div>
+              <div class="row-actions" v-if="submission.status === 'PENDING'">
+                <button class="btn small" @click="decideSubmission(submission.id, 'APPROVED')">Freigeben</button>
+                <button class="btn ghost small" @click="decideSubmission(submission.id, 'REJECTED')">Ablehnen</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Team: Battle anlegen -->
         <div v-if="isTeam" class="tcard-section">
           <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'battle')">
@@ -289,17 +356,20 @@
                 <label>Links
                   <select v-model.number="battleDraft(tournament.id).left_submission">
                     <option :value="null" disabled>Submission wählen</option>
-                    <option v-for="entry in submissionsFor(tournament.id)" :key="`l-${entry.id}`" :value="entry.id">{{ entryLabel(entry) }}</option>
+                    <option v-for="entry in approvedSubmissionsFor(tournament.id)" :key="`l-${entry.id}`" :value="entry.id">{{ entryLabel(entry) }}</option>
                   </select>
                 </label>
                 <label>Rechts
                   <select v-model.number="battleDraft(tournament.id).right_submission">
                     <option :value="null" disabled>Submission wählen</option>
-                    <option v-for="entry in submissionsFor(tournament.id)" :key="`r-${entry.id}`" :value="entry.id">{{ entryLabel(entry) }}</option>
+                    <option v-for="entry in approvedSubmissionsFor(tournament.id)" :key="`r-${entry.id}`" :value="entry.id">{{ entryLabel(entry) }}</option>
                   </select>
                 </label>
               </div>
-              <button class="btn" type="submit" :disabled="busy">Battle erstellen</button>
+              <div v-if="approvedSubmissionsFor(tournament.id).length < 2" class="empty-inline">
+                Für ein Battle sind mindestens zwei freigegebene Einreichungen nötig.
+              </div>
+              <button class="btn" type="submit" :disabled="busy || approvedSubmissionsFor(tournament.id).length < 2">Battle erstellen</button>
             </form>
           </div>
         </div>
@@ -452,6 +522,7 @@ function toggleSection(id, key) {
 const applicationDrafts = ref({});
 const submissionDrafts = ref({});
 const battleDrafts = ref({});
+const submissionBulkRoundDrafts = ref({});
 const phoneDrafts = ref({});
 
 const createForm = ref({
@@ -472,6 +543,9 @@ const myProfileId = computed(() => profile.value?.id || null);
 const myApplicationsCount = computed(() => applications.value.filter((entry) => entry.profile?.id === myProfileId.value).length);
 const mySubmissionsCount = computed(() => submissions.value.filter((entry) => entry.profile?.id === myProfileId.value).length);
 const myVotesCount = computed(() => myVotes.value.length);
+const pendingApplicationsCount = computed(() => applications.value.filter((entry) => entry.status === "PENDING").length);
+const pendingSubmissionsCount = computed(() => submissions.value.filter((entry) => entry.status === "PENDING").length);
+const flaggedVotesCount = computed(() => flaggedVotes.value.filter((entry) => entry.moderation_status !== "APPROVED").length);
 const openBattleRows = computed(() => {
   const tournamentById = new Map(tournaments.value.map((item) => [item.id, item]));
   return battles.value
@@ -582,6 +656,14 @@ function applicationsFor(tournamentId) {
 
 function submissionsFor(tournamentId) {
   return submissions.value.filter((entry) => entry.tournament === tournamentId);
+}
+
+function pendingSubmissionsFor(tournamentId) {
+  return submissionsFor(tournamentId).filter((entry) => entry.status === "PENDING");
+}
+
+function approvedSubmissionsFor(tournamentId) {
+  return submissionsFor(tournamentId).filter((entry) => entry.status === "APPROVED");
 }
 
 function battlesFor(tournamentId) {
@@ -745,6 +827,7 @@ async function createTournament() {
     await loadAll();
   } catch (err) {
     console.error(err);
+    showToast(err?.response?.data?.detail || "Turnier konnte nicht erstellt werden", "error");
   } finally {
     busy.value = false;
   }
@@ -762,6 +845,7 @@ async function submitApplication(tournamentId) {
     await loadAll();
   } catch (err) {
     console.error(err);
+    showToast(err?.response?.data?.detail || "Bewerbung konnte nicht gesendet werden", "error");
   } finally {
     busy.value = false;
   }
@@ -775,6 +859,56 @@ async function decideApplication(tournamentId, applicationId, decision) {
     await loadAll();
   } catch (err) {
     console.error(err);
+    showToast(err?.response?.data?.detail || "Bewerbungsentscheidung fehlgeschlagen", "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function decideSubmission(submissionId, decision) {
+  busy.value = true;
+  try {
+    await api.post(`tournament-submissions/${submissionId}/decision/`, { decision });
+    showToast("Einreichung aktualisiert", "success");
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    showToast(err?.response?.data?.detail || "Einreichung konnte nicht moderiert werden", "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function bulkDecideSubmissions(tournamentId, decision) {
+  busy.value = true;
+  try {
+    const roundValue = submissionBulkRoundDrafts.value[tournamentId];
+    const payload = { decision };
+    if (Number.isInteger(roundValue) && roundValue > 0) {
+      payload.round_number = roundValue;
+    }
+    const { data } = await api.post(`tournaments/${tournamentId}/submissions/bulk-decision/`, payload);
+    const updated = data?.updated_count || 0;
+    showToast(`${updated} Einreichungen aktualisiert`, "success");
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    showToast(err?.response?.data?.detail || "Bulk-Moderation fehlgeschlagen", "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function setTournamentStatus(tournament, nextStatus) {
+  if (!tournament || tournament.status === nextStatus) return;
+  busy.value = true;
+  try {
+    await api.patch(`tournaments/${tournament.id}/`, { status: nextStatus });
+    showToast(`Turnierstatus auf ${statusLabel(nextStatus)} gesetzt`, "success");
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    showToast(err?.response?.data?.detail || "Turnierstatus konnte nicht geändert werden", "error");
   } finally {
     busy.value = false;
   }
@@ -796,6 +930,7 @@ async function submitRound(tournamentId) {
     await loadAll();
   } catch (err) {
     console.error(err);
+    showToast(err?.response?.data?.detail || "Runde konnte nicht eingereicht werden", "error");
   } finally {
     busy.value = false;
   }
@@ -803,6 +938,14 @@ async function submitRound(tournamentId) {
 
 async function createBattle(tournamentId) {
   const draft = battleDraft(tournamentId);
+  if (!draft.left_submission || !draft.right_submission) {
+    showToast("Bitte beide Seiten der Battle auswählen", "warning");
+    return;
+  }
+  if (draft.left_submission === draft.right_submission) {
+    showToast("Links und rechts müssen unterschiedliche Einreichungen sein", "warning");
+    return;
+  }
   busy.value = true;
   try {
     await api.post("tournament-battles/", {
@@ -817,6 +960,7 @@ async function createBattle(tournamentId) {
     await loadAll();
   } catch (err) {
     console.error(err);
+    showToast(err?.response?.data?.detail || "Battle konnte nicht erstellt werden", "error");
   } finally {
     busy.value = false;
   }
@@ -1363,6 +1507,42 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.submission-info {
+  display: grid;
+  gap: 3px;
+}
+
+.submission-info a {
+  font-size: 0.8rem;
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.submission-info a:hover {
+  text-decoration: underline;
+}
+
+.bulk-tools {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--surface);
+}
+
+.bulk-tools label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 140px;
 }
 
 .app-status {

@@ -2555,6 +2555,54 @@ class TournamentViewSet(viewsets.ModelViewSet):
         application.save(update_fields=["status", "decided_by", "decided_at"])
         return Response(TournamentApplicationSerializer(application).data)
 
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="submissions/bulk-decision",
+        permission_classes=[permissions.IsAuthenticated, IsTeam],
+    )
+    def bulk_submission_decision(self, request, pk=None):
+        tournament = self.get_object()
+        decision = (request.data.get("decision") or "").strip().upper()
+        if decision not in {"APPROVED", "REJECTED"}:
+            return Response(
+                {"detail": "decision muss APPROVED oder REJECTED sein."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        raw_round = request.data.get("round_number")
+        round_number = None
+        if raw_round not in (None, ""):
+            try:
+                round_number = int(raw_round)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "round_number muss eine ganze Zahl sein."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if round_number < 1:
+                return Response(
+                    {"detail": "round_number muss mindestens 1 sein."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        pending_qs = TournamentSubmission.objects.filter(tournament=tournament, status="PENDING")
+        if round_number is not None:
+            pending_qs = pending_qs.filter(round_number=round_number)
+
+        pending_count = pending_qs.count()
+        if pending_count:
+            pending_qs.update(status=decision)
+
+        return Response(
+            {
+                "tournament": tournament.id,
+                "decision": decision,
+                "round_number": round_number,
+                "updated_count": pending_count,
+            }
+        )
+
 
 class TournamentApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentApplicationSerializer
@@ -2615,6 +2663,20 @@ class TournamentSubmissionViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("Du brauchst eine bestätigte Bewerbung für dieses Turnier.")
         serializer.save(profile=me)
 
+    @action(detail=True, methods=["POST"], url_path="decision", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def decision(self, request, pk=None):
+        submission = self.get_object()
+        decision = (request.data.get("decision") or "").strip().upper()
+        if decision not in {"APPROVED", "REJECTED"}:
+            return Response(
+                {"detail": "decision muss APPROVED oder REJECTED sein."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        submission.status = decision
+        submission.save(update_fields=["status"])
+        return Response(self.get_serializer(submission).data)
+
 
 class TournamentBattleViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentBattleSerializer
@@ -2644,6 +2706,8 @@ class TournamentBattleViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Beide Einreichungen müssen zum selben Turnier gehören.")
         if left_submission.id == right_submission.id:
             raise PermissionDenied("Eine Battle braucht zwei unterschiedliche Einreichungen.")
+        if left_submission.status != "APPROVED" or right_submission.status != "APPROVED":
+            raise PermissionDenied("Battles duerfen nur mit freigegebenen Einreichungen erstellt werden.")
         serializer.save()
 
     @action(detail=True, methods=["POST"], url_path="close", permission_classes=[permissions.IsAuthenticated, IsTeam])

@@ -279,3 +279,119 @@ class TournamentVotingRulesTests(TestCase):
         rows = res.json().get("rows", [])
         self.assertTrue(rows)
         self.assertEqual(rows[0]["profile_id"], self.left_profile.id)
+
+    def test_team_can_moderate_submission_status(self):
+        tournament = Tournament.objects.create(
+            created_by=self.creator_profile,
+            title="Submission Moderation",
+            description="",
+            status="SUBMISSION_OPEN",
+            has_application_phase=False,
+        )
+        submission = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.left_profile,
+            round_number=1,
+            title="Needs review",
+            media_url="https://example.com/review",
+            status="PENDING",
+        )
+
+        self.client.force_authenticate(user=self.creator_user)
+        res = self.client.post(
+            f"/api/tournament-submissions/{submission.id}/decision/",
+            {"decision": "APPROVED"},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 200, res.content)
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, "APPROVED")
+
+    def test_battle_creation_requires_approved_submissions(self):
+        tournament = Tournament.objects.create(
+            created_by=self.creator_profile,
+            title="Battle Guard",
+            description="",
+            status="BATTLES",
+            has_application_phase=False,
+        )
+        pending_submission = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.left_profile,
+            round_number=1,
+            title="Pending",
+            media_url="https://example.com/pending",
+            status="PENDING",
+        )
+        approved_submission = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.right_profile,
+            round_number=1,
+            title="Approved",
+            media_url="https://example.com/approved",
+            status="APPROVED",
+        )
+
+        self.client.force_authenticate(user=self.creator_user)
+        res = self.client.post(
+            "/api/tournament-battles/",
+            {
+                "tournament": tournament.id,
+                "round_number": 1,
+                "left_submission": pending_submission.id,
+                "right_submission": approved_submission.id,
+                "status": "LIVE",
+            },
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 403, res.content)
+        self.assertEqual(TournamentBattle.objects.filter(tournament=tournament).count(), 0)
+
+    def test_team_can_bulk_moderate_submissions_for_single_round(self):
+        tournament = Tournament.objects.create(
+            created_by=self.creator_profile,
+            title="Bulk Moderation",
+            description="",
+            status="SUBMISSION_OPEN",
+            has_application_phase=False,
+        )
+        round_one_a = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.left_profile,
+            round_number=1,
+            title="R1-A",
+            status="PENDING",
+        )
+        round_one_b = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.right_profile,
+            round_number=1,
+            title="R1-B",
+            status="PENDING",
+        )
+        round_two = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.right_profile,
+            round_number=2,
+            title="R2",
+            status="PENDING",
+        )
+
+        self.client.force_authenticate(user=self.creator_user)
+        res = self.client.post(
+            f"/api/tournaments/{tournament.id}/submissions/bulk-decision/",
+            {"decision": "APPROVED", "round_number": 1},
+            format="json",
+        )
+
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json().get("updated_count"), 2)
+
+        round_one_a.refresh_from_db()
+        round_one_b.refresh_from_db()
+        round_two.refresh_from_db()
+        self.assertEqual(round_one_a.status, "APPROVED")
+        self.assertEqual(round_one_b.status, "APPROVED")
+        self.assertEqual(round_two.status, "PENDING")

@@ -39,6 +39,7 @@ const FinanceLanding = () => import("../views/FinanceLanding.vue");
 const FinanceTool = () => import("../views/FinanceTool.vue");
 const FitnessLanding = () => import("../views/FitnessLanding.vue");
 const FitnessTool = () => import("../views/FitnessTool.vue");
+const TodoLanding = () => import("../views/TodoLanding.vue");
 const ContentStudio = () => import("../views/ContentStudio.vue");
 const ContentScheduleLanding = () => import("../views/ContentScheduleLanding.vue");
 const ContentScheduleTool = () => import("../views/ContentScheduleTool.vue");
@@ -106,6 +107,7 @@ const routes = [
       { path: "api-center", name: "platform-api-center", component: ApiCenter, meta: { requiresAuth: true } },
       { path: "fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },
       { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
+      { path: "todo", name: "platform-todo", component: TodoLanding, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },
       { path: "admin/tournament-animations", name: "admin-tournament-animations", component: TournamentAnimationLab, meta: { requiresAuth: true } },
       { path: "manage-platforms", name: "manage-platforms", component: ManagePlatforms, meta: { requiresAuth: true } },

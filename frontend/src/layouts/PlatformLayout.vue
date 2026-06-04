@@ -78,6 +78,7 @@ const pageMeta = {
   "platform-api-center": { title: "API Platform", kicker: "Integrationen und Automationen" },
   "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },
   fitness: { title: "Fitness Tracker", kicker: "Kalorien und Tagesprofil" },
+  "platform-todo": { title: "Todo", kicker: "Todos mit optionalem Datum" },
   "manage-platforms": { title: "Manage Plattforms", kicker: "Status und Zugriff steuern" },
 };
 

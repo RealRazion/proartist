@@ -33,6 +33,7 @@ const ROUTE_TO_PLATFORM_SLUG = {
   "content-schedule": "content-schedule",
   "platform-fitness": "fitness",
   fitness: "fitness",
+  "platform-todo": "todo",
   "platform-plugin-guides": "plugin-guides",
   "platform-api-center": "api-center",
   "platform-news": "proartist-news",

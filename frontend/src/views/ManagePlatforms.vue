@@ -173,6 +173,7 @@ const canCreate = computed(() => {
 
 const defaultPlatforms = [
   { name: "Dashboard", slug: "dashboard" },
+  { name: "Todo", slug: "todo" },
   { name: "Contests", slug: "contests" },
   { name: "Music", slug: "music" },
   { name: "ProArtist News", slug: "proartist-news" },

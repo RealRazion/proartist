@@ -294,6 +294,17 @@ const platforms = [
     status: "beta",
   },
   {
+    key: "todo",
+    title: "Todo",
+    category: "Organisation",
+    description: "Erstelle Todos mit oder ohne Datum und exportiere einzelne Einträge direkt in deinen Kalender.",
+    buttonLabel: "Öffnen",
+    icon: "✅",
+    features: ["Todos", "Optionales Datum", "Kalender-Button"],
+    roles: ["TEAM"],
+    status: "live",
+  },
+  {
     key: "proartist-news",
     title: "ProArtist News",
     category: "Kommunikation",
@@ -384,7 +395,7 @@ const activeRole = computed(() => {
 });
 
 const defaultOrder = [
-  "dashboard", "music", "contests", "content-schedule",
+  "dashboard", "todo", "music", "contests", "content-schedule",
   "content-studio", "proartist-news", "plugin-guides", "api-center", "finance", "fitness", "locations", "admin", "manage-platforms", "testing",
 ];
 
@@ -465,6 +476,7 @@ function openPlatform(platformKey, platformMeta = null) {
     finance: "/platforms/finance",
     "content-studio": "/platforms/content-studio",
     "content-schedule": "/platforms/content-schedule",
+    todo: "/platforms/todo",
     "proartist-news": "/platforms/news",
     "plugin-guides": "/platforms/plugin-guides",
     "api-center": "/platforms/api-center",

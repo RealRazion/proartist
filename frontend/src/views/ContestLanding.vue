@@ -5,11 +5,11 @@
     <header class="contest-hero">
       <div class="hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow">UNYQ Turnier</p>
-          <h1>Turniere • Battles • Voting</h1>
+          <p class="eyebrow">UNYQ Arena Ranked</p>
+          <h1>Turniere wie ein Game Erlebnis</h1>
           <p class="hero-lead">
-            Team erstellt Turniere, Artists bewerben sich und reichen Runden ein.
-            Battles laufen mit echtem Fan-Voting.
+            Offene Arena fuer Artists, Producer, Songwriter und alle Musik-Creator.
+            Spiele Battles, sammle Punkte und steig von Bronze bis Rubin auf.
           </p>
         </div>
         <div class="hero-stats">
@@ -28,13 +28,67 @@
         </div>
       </div>
       <div class="hero-actions">
-        <button class="btn ghost" type="button" @click="goHome">Zum Hub</button>
+        <button class="btn ghost" type="button" @click="goHome">Zur Plattform</button>
         <button class="btn" type="button" @click="loadAll" :disabled="busy">
           <svg class="spin-icon" :class="{ spinning: busy }" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
           Aktualisieren
         </button>
       </div>
     </header>
+
+    <section class="ranked-strip">
+      <article class="ranked-card season-card">
+        <span class="strip-label">Season</span>
+        <strong>{{ rankedOverview.season || '-' }}</strong>
+        <span>{{ rankedOverview.total_players || 0 }} aktive Creator</span>
+      </article>
+      <article class="ranked-card my-rank-card" v-if="myRankedRow">
+        <span class="strip-label">Mein Rank</span>
+        <strong>#{{ myRankedRow.rank }} · {{ myRankedRow.tier?.label }}</strong>
+        <span>{{ myRankedRow.ranked_points }} RP</span>
+      </article>
+      <article class="ranked-card my-rank-card" v-else>
+        <span class="strip-label">Mein Rank</span>
+        <strong>Noch kein Ranked-Eintrag</strong>
+        <span>Erste Battles spielen, dann erscheinst du im Ladder</span>
+      </article>
+      <article class="ranked-card dist-card" v-for="tier in rankedOverview.tiers || []" :key="tier.key">
+        <span class="strip-label">{{ tier.label }}</span>
+        <strong>{{ rankDistribution[tier.key] || 0 }}</strong>
+        <span>Spieler</span>
+      </article>
+    </section>
+
+    <section class="card ladder-board">
+      <div class="ladder-head">
+        <div>
+          <h2>Ranked Ladder</h2>
+          <p>Globales Punkte-Ranking ueber alle Turniere hinweg.</p>
+        </div>
+      </div>
+      <div v-if="rankedRows.length === 0" class="empty-inline">Noch keine Ranked-Daten vorhanden.</div>
+      <div v-else class="ladder-grid">
+        <article
+          v-for="row in topRankedRows"
+          :key="`ladder-${row.profile_id}`"
+          class="ladder-row"
+          :class="`tier-${(row.tier?.key || 'BRONZE').toLowerCase()}`"
+        >
+          <div class="ladder-core">
+            <strong>#{{ row.rank }} {{ row.name }}</strong>
+            <span class="muted">{{ row.roles?.join(' • ') || 'Musik-Creator' }}</span>
+          </div>
+          <div class="ladder-meta">
+            <span class="tier-pill">{{ row.tier?.label || 'Bronze' }}</span>
+            <span>{{ row.ranked_points }} RP</span>
+            <span>W{{ row.wins }} / B{{ row.battles }}</span>
+          </div>
+          <div class="tier-progress" v-if="row.tier?.next_tier_points">
+            <div class="tier-progress-fill" :style="{ width: `${row.tier.progress_percent || 0}%` }"></div>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <section class="card tournament-filters">
       <input
@@ -57,18 +111,55 @@
       </select>
     </section>
 
+    <section class="card tournament-timeline">
+      <div class="timeline-head">
+        <div>
+          <h2>Turnier Timeline</h2>
+          <p>Aktive und kommende Events wie eine Competitive-Roadmap.</p>
+        </div>
+      </div>
+      <div class="timeline-columns">
+        <div class="timeline-col">
+          <h3>Jetzt Live</h3>
+          <div v-if="timelineCurrent.length === 0" class="empty-inline">Aktuell keine laufenden Turniere.</div>
+          <article v-for="event in timelineCurrent" :key="event.id" class="timeline-item live">
+            <strong>{{ event.title }}</strong>
+            <span>{{ formatDateTime(event.date) }}</span>
+            <div class="row-actions">
+              <span class="meta-chip" v-if="event.is_no_loss">No Loss</span>
+              <span class="meta-chip" v-if="event.is_recurring">Recurring</span>
+              <span class="meta-chip highlight">{{ statusLabel(event.status) }}</span>
+            </div>
+          </article>
+        </div>
+        <div class="timeline-col">
+          <h3>Kommend</h3>
+          <div v-if="timelineUpcoming.length === 0" class="empty-inline">Noch keine kommenden Turniere geplant.</div>
+          <article v-for="event in timelineUpcoming" :key="event.id" class="timeline-item upcoming">
+            <strong>{{ event.title }}</strong>
+            <span>{{ formatDateTime(event.date) }}</span>
+            <div class="row-actions">
+              <span class="meta-chip" v-if="event.is_no_loss">No Loss</span>
+              <span class="meta-chip" v-if="event.is_recurring">Recurring</span>
+              <span class="meta-chip">{{ event.phase === 'RECURRING' ? 'Wiederkehrend' : 'Upcoming' }}</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <section v-if="!isTeam" class="card audience-stats">
       <div class="aud-stat">
         <strong>{{ myApplicationsCount }}</strong>
-        <span>Meine Bewerbungen</span>
+        <span>Meine Teilnahmen</span>
       </div>
       <div class="aud-stat">
         <strong>{{ mySubmissionsCount }}</strong>
-        <span>Meine Einreichungen</span>
+        <span>Meine Plays</span>
       </div>
       <div class="aud-stat">
         <strong>{{ myVotesCount }}</strong>
-        <span>Meine Votes</span>
+        <span>Meine Fan-Votes</span>
       </div>
     </section>
 
@@ -97,6 +188,34 @@
             <button class="btn ghost small" @click="closeBattle(row.tournament, row.battle, row.battle.left_submission)">Links</button>
             <button class="btn ghost small" @click="closeBattle(row.tournament, row.battle, row.battle.right_submission)">Rechts</button>
           </div>
+        </article>
+      </div>
+    </section>
+
+    <section v-if="isTeam" class="card ranked-admin-panel">
+      <div class="control-header">
+        <div>
+          <h2>Ranked Admin</h2>
+          <p>Saison und Tier-Regeln verwalten (Loss-Toleranz, Punktegewichtung, Penalties).</p>
+        </div>
+        <div class="row-actions">
+          <span class="meta-chip">Saison {{ rankConfigSeason.season_index || '-' }}</span>
+          <span class="meta-chip">{{ rankConfigSeason.duration_months || 3 }} Monate</span>
+          <span class="meta-chip">{{ rankConfigSeason.seasons_per_year || 4 }} pro Jahr</span>
+          <button class="btn small" @click="saveRankedConfig" :disabled="busy">Speichern</button>
+        </div>
+      </div>
+      <div class="rank-tier-grid" v-if="rankConfigTiers.length">
+        <article v-for="tier in rankConfigTiers" :key="tier.tier_key" class="rank-tier-editor">
+          <h3>{{ tier.display_name }}</h3>
+          <label>Min Punkte <input v-model.number="tier.min_points" type="number" min="0" /></label>
+          <label>Max Punkte <input v-model.number="tier.max_points" type="number" min="0" /></label>
+          <label>Win Punkte <input v-model.number="tier.win_points" type="number" min="0" /></label>
+          <label>Vote Punkte <input v-model.number="tier.vote_points" type="number" min="0" /></label>
+          <label>Submission Punkte <input v-model.number="tier.submission_points" type="number" min="0" /></label>
+          <label>Battle Punkte <input v-model.number="tier.battle_points" type="number" min="0" /></label>
+          <label>Loss Penalty <input v-model.number="tier.loss_penalty" type="number" min="0" /></label>
+          <label>Losses frei <input v-model.number="tier.max_losses_without_penalty" type="number" min="0" /></label>
         </article>
       </div>
     </section>
@@ -146,11 +265,50 @@
             <input v-model="createForm.submission_deadline" type="datetime-local" />
           </label>
           <label>
+            Turnier Start
+            <input v-model="createForm.starts_at" type="datetime-local" />
+          </label>
+          <label>
+            Turnier Ende
+            <input v-model="createForm.ends_at" type="datetime-local" />
+          </label>
+          <label>
             Telefon-Voting erzwingen
             <select v-model="createForm.require_phone_vote_verification">
               <option :value="false">Nein</option>
               <option :value="true">Ja (für später)</option>
             </select>
+          </label>
+          <label>
+            No Loss Modus
+            <select v-model="createForm.is_no_loss">
+              <option :value="false">Aus</option>
+              <option :value="true">An (Niederlagen ohne Ranked-Verlust)</option>
+            </select>
+          </label>
+          <label>
+            Wiederkehrend
+            <select v-model="createForm.is_recurring">
+              <option :value="false">Nein</option>
+              <option :value="true">Ja</option>
+            </select>
+          </label>
+          <label>
+            Intervall-Typ
+            <select v-model="createForm.recurrence_type" :disabled="!createForm.is_recurring">
+              <option value="NONE">Keine</option>
+              <option value="WEEKLY">Woechentlich</option>
+              <option value="MONTHLY">Monatlich</option>
+              <option value="QUARTERLY">Quartalsweise</option>
+            </select>
+          </label>
+          <label>
+            Intervall Anzahl
+            <input v-model.number="createForm.recurrence_interval" type="number" min="1" max="12" :disabled="!createForm.is_recurring" />
+          </label>
+          <label>
+            Naechster Start (Recurring)
+            <input v-model="createForm.next_starts_at" type="datetime-local" :disabled="!createForm.is_recurring" />
           </label>
           <label>
             Voting-Modus
@@ -201,6 +359,8 @@
             <span class="meta-chip">{{ tournament.has_application_phase ? 'Mit Bewerbung' : 'Ohne Bewerbung' }}</span>
             <span class="meta-chip">{{ votingModeLabel(tournament.voting_mode) }}</span>
             <span class="meta-chip">{{ tournament.allow_vote_change ? 'Vote änderbar' : 'Vote fix' }}</span>
+            <span class="meta-chip" v-if="tournament.is_no_loss">No Loss</span>
+            <span class="meta-chip" v-if="tournament.is_recurring">Recurring {{ recurrenceLabel(tournament.recurrence_type) }}</span>
             <span class="meta-chip">Min Alter: {{ tournament.min_account_age_hours || 0 }}h</span>
             <span class="meta-chip">IP-Limit: {{ tournament.max_votes_per_ip_per_hour || 0 }}/h</span>
             <span class="meta-chip">{{ tournament.applications_count || 0 }} Apps</span>
@@ -509,6 +669,11 @@ const flaggedVotes = ref([]);
 const myVotes = ref([]);
 const leaderboardMap = ref({});
 const bracketMap = ref({});
+const rankedOverview = ref({});
+const timelineCurrent = ref([]);
+const timelineUpcoming = ref([]);
+const rankConfigSeason = ref({});
+const rankConfigTiers = ref([]);
 const openSections = ref({});
 const tournamentSearch = ref("");
 const statusFilter = ref("ALL");
@@ -531,12 +696,19 @@ const createForm = ref({
   has_application_phase: true,
   application_deadline: "",
   submission_deadline: "",
+  starts_at: "",
+  ends_at: "",
   status: "DRAFT",
   voting_mode: "COMMUNITY",
   allow_vote_change: true,
   min_account_age_hours: 0,
   max_votes_per_ip_per_hour: 20,
   require_phone_vote_verification: false,
+  is_no_loss: false,
+  is_recurring: false,
+  recurrence_type: "NONE",
+  recurrence_interval: 1,
+  next_starts_at: "",
 });
 
 const myProfileId = computed(() => profile.value?.id || null);
@@ -546,6 +718,10 @@ const myVotesCount = computed(() => myVotes.value.length);
 const pendingApplicationsCount = computed(() => applications.value.filter((entry) => entry.status === "PENDING").length);
 const pendingSubmissionsCount = computed(() => submissions.value.filter((entry) => entry.status === "PENDING").length);
 const flaggedVotesCount = computed(() => flaggedVotes.value.filter((entry) => entry.moderation_status !== "APPROVED").length);
+const rankedRows = computed(() => rankedOverview.value?.rows || []);
+const topRankedRows = computed(() => rankedRows.value.slice(0, 12));
+const rankDistribution = computed(() => rankedOverview.value?.rank_distribution || {});
+const myRankedRow = computed(() => rankedRows.value.find((row) => row.profile_id === myProfileId.value) || null);
 const openBattleRows = computed(() => {
   const tournamentById = new Map(tournaments.value.map((item) => [item.id, item]));
   return battles.value
@@ -640,6 +816,16 @@ function votingModeLabel(mode) {
   return map[mode] || "Community";
 }
 
+function recurrenceLabel(mode) {
+  const map = {
+    NONE: "Keine",
+    WEEKLY: "Woche",
+    MONTHLY: "Monat",
+    QUARTERLY: "Quartal",
+  };
+  return map[mode] || "Keine";
+}
+
 function myApplication(tournamentId) {
   return applications.value.find((entry) => entry.tournament === tournamentId && entry.profile?.id === myProfileId.value) || null;
 }
@@ -719,15 +905,23 @@ async function loadAll() {
       api.get("tournament-applications/"),
       api.get("tournament-submissions/"),
       api.get("tournament-battles/"),
+      api.get("tournaments/ranked-overview/"),
+      api.get("tournaments/timeline/"),
+      api.get("tournaments/ranked-config/"),
     ];
     if (!isTeam.value) {
       requests.push(api.get("tournament-votes/"));
     }
-    const [tournamentRes, applicationRes, submissionRes, battleRes, votesRes] = await Promise.all(requests);
+    const [tournamentRes, applicationRes, submissionRes, battleRes, rankedRes, timelineRes, rankedConfigRes, votesRes] = await Promise.all(requests);
     tournaments.value = asList(tournamentRes.data);
     applications.value = asList(applicationRes.data);
     submissions.value = asList(submissionRes.data);
     battles.value = asList(battleRes.data);
+    rankedOverview.value = rankedRes?.data || {};
+    timelineCurrent.value = asList(timelineRes?.data?.current || []);
+    timelineUpcoming.value = asList(timelineRes?.data?.upcoming || []);
+    rankConfigSeason.value = rankedConfigRes?.data?.season || {};
+    rankConfigTiers.value = asList(rankedConfigRes?.data?.tiers || []);
     myVotes.value = votesRes ? asList(votesRes.data) : [];
     if (isTeam.value) {
       const { data } = await api.get("tournament-votes/flags/");
@@ -803,12 +997,19 @@ async function createTournament() {
       has_application_phase: createForm.value.has_application_phase,
       application_deadline: normalizeDateTime(createForm.value.application_deadline),
       submission_deadline: normalizeDateTime(createForm.value.submission_deadline),
+      starts_at: normalizeDateTime(createForm.value.starts_at),
+      ends_at: normalizeDateTime(createForm.value.ends_at),
       status: createForm.value.status,
       voting_mode: createForm.value.voting_mode,
       allow_vote_change: createForm.value.allow_vote_change,
       min_account_age_hours: createForm.value.min_account_age_hours,
       max_votes_per_ip_per_hour: createForm.value.max_votes_per_ip_per_hour,
       require_phone_vote_verification: createForm.value.require_phone_vote_verification,
+      is_no_loss: createForm.value.is_no_loss,
+      is_recurring: createForm.value.is_recurring,
+      recurrence_type: createForm.value.is_recurring ? createForm.value.recurrence_type : "NONE",
+      recurrence_interval: createForm.value.is_recurring ? createForm.value.recurrence_interval : 1,
+      next_starts_at: createForm.value.is_recurring ? normalizeDateTime(createForm.value.next_starts_at) : null,
     });
     createForm.value = {
       title: "",
@@ -816,18 +1017,56 @@ async function createTournament() {
       has_application_phase: true,
       application_deadline: "",
       submission_deadline: "",
+      starts_at: "",
+      ends_at: "",
       status: "DRAFT",
       voting_mode: "COMMUNITY",
       allow_vote_change: true,
       min_account_age_hours: 0,
       max_votes_per_ip_per_hour: 20,
       require_phone_vote_verification: false,
+      is_no_loss: false,
+      is_recurring: false,
+      recurrence_type: "NONE",
+      recurrence_interval: 1,
+      next_starts_at: "",
     };
     showToast("Turnier erstellt", "success");
     await loadAll();
   } catch (err) {
     console.error(err);
     showToast(err?.response?.data?.detail || "Turnier konnte nicht erstellt werden", "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function saveRankedConfig() {
+  if (!isTeam.value) return;
+  busy.value = true;
+  try {
+    const payload = {
+      season: {
+        duration_months: rankConfigSeason.value.duration_months || 3,
+      },
+      tiers: rankConfigTiers.value.map((tier) => ({
+        tier_key: tier.tier_key,
+        min_points: Number(tier.min_points || 0),
+        max_points: tier.max_points === null || tier.max_points === "" ? null : Number(tier.max_points),
+        win_points: Number(tier.win_points || 0),
+        vote_points: Number(tier.vote_points || 0),
+        submission_points: Number(tier.submission_points || 0),
+        battle_points: Number(tier.battle_points || 0),
+        loss_penalty: Number(tier.loss_penalty || 0),
+        max_losses_without_penalty: Number(tier.max_losses_without_penalty || 0),
+      })),
+    };
+    await api.patch("tournaments/ranked-config/", payload);
+    showToast("Ranked-Konfiguration gespeichert", "success");
+    await loadAll();
+  } catch (err) {
+    console.error(err);
+    showToast(err?.response?.data?.detail || "Ranked-Konfiguration fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
@@ -1007,7 +1246,224 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding-bottom: 28px;
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, #f97316 15%, transparent 85%), transparent 38%),
+    radial-gradient(circle at 92% 6%, color-mix(in srgb, #0ea5e9 16%, transparent 84%), transparent 44%);
 }
+
+.ranked-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.ranked-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card) 92%, #0f172a 8%);
+  padding: 12px;
+  display: grid;
+  gap: 3px;
+  box-shadow: var(--shadow-soft);
+}
+
+.strip-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ranked-card strong {
+  font-size: 1rem;
+}
+
+.ranked-card span {
+  font-size: 0.8rem;
+}
+
+.ladder-board {
+  display: grid;
+  gap: 10px;
+  border-radius: 16px;
+}
+
+.tournament-timeline {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.timeline-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.timeline-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.timeline-col {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 88%, #0f172a 12%);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.timeline-col h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.timeline-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.timeline-item.live {
+  border-color: color-mix(in srgb, #ef4444 35%, var(--border) 65%);
+}
+
+.timeline-item.upcoming {
+  border-color: color-mix(in srgb, #0ea5e9 35%, var(--border) 65%);
+}
+
+.ranked-admin-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.rank-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.rank-tier-editor {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.rank-tier-editor h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+.rank-tier-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.rank-tier-editor input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+.ladder-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.ladder-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.ladder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.ladder-row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  background: color-mix(in srgb, var(--surface) 90%, #020617 10%);
+}
+
+.ladder-core {
+  display: grid;
+  gap: 2px;
+}
+
+.ladder-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+
+.tier-pill {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+}
+
+.tier-progress {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 70%, #0f172a 30%);
+  overflow: hidden;
+}
+
+.tier-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+}
+
+.tier-bronze { border-color: color-mix(in srgb, #9a6b42 45%, var(--border) 55%); }
+.tier-bronze .tier-pill { color: #9a6b42; }
+
+.tier-silber { border-color: color-mix(in srgb, #8f98a3 45%, var(--border) 55%); }
+.tier-silber .tier-pill { color: #8f98a3; }
+
+.tier-gold { border-color: color-mix(in srgb, #c89a2b 45%, var(--border) 55%); }
+.tier-gold .tier-pill { color: #c89a2b; }
+
+.tier-platin { border-color: color-mix(in srgb, #42b7b7 45%, var(--border) 55%); }
+.tier-platin .tier-pill { color: #42b7b7; }
+
+.tier-rubin { border-color: color-mix(in srgb, #d72663 45%, var(--border) 55%); }
+.tier-rubin .tier-pill { color: #d72663; }
 
 .tournament-filters {
   display: grid;
@@ -1091,7 +1547,8 @@ onMounted(async () => {
 
 /* Hero */
 .contest-hero {
-  background: linear-gradient(135deg, rgba(29, 78, 216, 0.18) 0%, rgba(16, 185, 129, 0.12) 100%);
+  background:
+    linear-gradient(135deg, rgba(249, 115, 22, 0.22) 0%, rgba(14, 165, 233, 0.2) 48%, rgba(236, 72, 153, 0.16) 100%);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 28px 24px 20px;
@@ -1117,10 +1574,10 @@ onMounted(async () => {
 
 .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
   font-size: 11px;
   margin-bottom: 6px;
-  color: var(--brand);
+  color: color-mix(in srgb, var(--brand) 80%, #f97316 20%);
   font-weight: 700;
 }
 
@@ -1147,7 +1604,7 @@ onMounted(async () => {
 .hstat-num {
   font-size: 2rem;
   font-weight: 800;
-  color: var(--brand);
+  color: color-mix(in srgb, var(--brand) 66%, #ef4444 34%);
   line-height: 1;
 }
 
@@ -1289,7 +1746,8 @@ onMounted(async () => {
 }
 
 .tournament-card {
-  background: var(--card);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 92%, #0f172a 8%) 0%, color-mix(in srgb, var(--card) 96%, transparent 4%) 100%);
   border: 1px solid var(--border);
   border-radius: 18px;
   overflow: hidden;
@@ -1357,7 +1815,7 @@ onMounted(async () => {
 .status-badge.status-DRAFT { background: color-mix(in srgb, #94a3b8 18%, transparent); color: #64748b; }
 .status-badge.status-APPLICATION_OPEN { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #d97706; }
 .status-badge.status-SUBMISSION_OPEN { background: color-mix(in srgb, #3b82f6 18%, transparent); color: #2563eb; }
-.status-badge.status-BATTLES { background: color-mix(in srgb, #a855f7 18%, transparent); color: #9333ea; }
+.status-badge.status-BATTLES { background: color-mix(in srgb, #ef4444 18%, transparent); color: #dc2626; }
 .status-badge.status-CLOSED { background: color-mix(in srgb, #10b981 18%, transparent); color: #059669; }
 
 .deadline-row {
@@ -1742,6 +2200,15 @@ onMounted(async () => {
 @media (max-width: 600px) {
   .tournament-filters,
   .audience-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .ranked-strip,
+  .ladder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .timeline-columns {
     grid-template-columns: 1fr;
   }
 

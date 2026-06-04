@@ -60,6 +60,8 @@ from .models import (
     RegistrationRequest,
     Release,
     Request,
+    RankedSeasonSettings,
+    RankTierConfig,
     Role,
     SystemIntegration,
     Task,
@@ -112,6 +114,8 @@ from .serializers import (
     ProjectSerializer,
     ReleaseSerializer,
     RegistrationRequestSerializer,
+    RankedSeasonSettingsSerializer,
+    RankTierConfigSerializer,
     RequestSerializer,
     RoleSerializer,
     SongSerializer,
@@ -2385,6 +2389,189 @@ class TournamentViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    DEFAULT_RANK_TIERS = [
+        {
+            "tier_key": "BRONZE",
+            "display_name": "Bronze",
+            "accent": "#9a6b42",
+            "min_points": 0,
+            "max_points": 799,
+            "win_points": 140,
+            "vote_points": 2,
+            "submission_points": 32,
+            "battle_points": 10,
+            "loss_penalty": 15,
+            "max_losses_without_penalty": 1,
+        },
+        {
+            "tier_key": "SILBER",
+            "display_name": "Silber",
+            "accent": "#8f98a3",
+            "min_points": 800,
+            "max_points": 1599,
+            "win_points": 145,
+            "vote_points": 2,
+            "submission_points": 34,
+            "battle_points": 12,
+            "loss_penalty": 18,
+            "max_losses_without_penalty": 1,
+        },
+        {
+            "tier_key": "GOLD",
+            "display_name": "Gold",
+            "accent": "#c89a2b",
+            "min_points": 1600,
+            "max_points": 2799,
+            "win_points": 150,
+            "vote_points": 3,
+            "submission_points": 36,
+            "battle_points": 14,
+            "loss_penalty": 20,
+            "max_losses_without_penalty": 1,
+        },
+        {
+            "tier_key": "PLATIN",
+            "display_name": "Platin",
+            "accent": "#42b7b7",
+            "min_points": 2800,
+            "max_points": 4199,
+            "win_points": 160,
+            "vote_points": 3,
+            "submission_points": 38,
+            "battle_points": 16,
+            "loss_penalty": 24,
+            "max_losses_without_penalty": 0,
+        },
+        {
+            "tier_key": "RUBIN",
+            "display_name": "Rubin",
+            "accent": "#d72663",
+            "min_points": 4200,
+            "max_points": None,
+            "win_points": 170,
+            "vote_points": 4,
+            "submission_points": 40,
+            "battle_points": 18,
+            "loss_penalty": 28,
+            "max_losses_without_penalty": 0,
+        },
+    ]
+
+    @classmethod
+    def _ensure_ranked_defaults(cls):
+        for row in cls.DEFAULT_RANK_TIERS:
+            RankTierConfig.objects.get_or_create(
+                tier_key=row["tier_key"],
+                defaults=row,
+            )
+        RankedSeasonSettings.objects.get_or_create(
+            id=1,
+            defaults={"duration_months": 3, "seasons_per_year": 4},
+        )
+
+    @classmethod
+    def _tier_configs(cls):
+        cls._ensure_ranked_defaults()
+        rows = list(RankTierConfig.objects.all().order_by("min_points", "id"))
+        return rows or []
+
+    @classmethod
+    def _tier_payload(cls, tier):
+        return {
+            "key": tier.tier_key,
+            "label": tier.display_name,
+            "accent": tier.accent,
+            "min": tier.min_points,
+            "max": tier.max_points,
+            "loss_penalty": tier.loss_penalty,
+            "max_losses_without_penalty": tier.max_losses_without_penalty,
+            "win_points": tier.win_points,
+            "vote_points": tier.vote_points,
+            "submission_points": tier.submission_points,
+            "battle_points": tier.battle_points,
+        }
+
+    @classmethod
+    def _rank_tier_for_points(cls, points, tier_rows=None):
+        tiers = tier_rows or cls._tier_configs()
+        for idx, tier in enumerate(tiers):
+            max_points = tier.max_points
+            if max_points is None or points <= max_points:
+                next_tier = tiers[idx + 1] if idx + 1 < len(tiers) else None
+                tier_span = ((max_points - tier.min_points) + 1) if max_points is not None else None
+                progress = 100
+                if tier_span:
+                    progress = int(max(0, min(100, ((points - tier.min_points) / tier_span) * 100)))
+                return {
+                    "key": tier.tier_key,
+                    "label": tier.display_name,
+                    "accent": tier.accent,
+                    "range_min": tier.min_points,
+                    "range_max": max_points,
+                    "progress_percent": progress,
+                    "next_tier": next_tier.tier_key if next_tier else None,
+                    "next_tier_label": next_tier.display_name if next_tier else None,
+                    "next_tier_points": next_tier.min_points if next_tier else None,
+                    "loss_penalty": tier.loss_penalty,
+                    "max_losses_without_penalty": tier.max_losses_without_penalty,
+                }
+        return {
+            "key": "BRONZE",
+            "label": "Bronze",
+            "accent": "#9a6b42",
+            "range_min": 0,
+            "range_max": 799,
+            "progress_percent": 0,
+            "next_tier": "SILBER",
+            "next_tier_label": "Silber",
+            "next_tier_points": 800,
+            "loss_penalty": 15,
+            "max_losses_without_penalty": 1,
+        }
+
+    @classmethod
+    def _rank_points(cls, wins, approved_votes, battles, approved_submissions, losses, tier_rows=None):
+        tiers = tier_rows or cls._tier_configs()
+        bronze = tiers[0] if tiers else None
+        if not bronze:
+            base = (wins * 140) + (approved_votes * 2) + (approved_submissions * 32) + (battles * 10)
+            return max(0, base - (losses * 15))
+
+        base = (
+            (wins * int(bronze.win_points or 0))
+            + (approved_votes * int(bronze.vote_points or 0))
+            + (approved_submissions * int(bronze.submission_points or 0))
+            + (battles * int(bronze.battle_points or 0))
+        )
+        initial_tier = cls._rank_tier_for_points(base, tier_rows=tiers)
+        current_tier = next((row for row in tiers if row.tier_key == initial_tier["key"]), bronze)
+        free_losses = int(current_tier.max_losses_without_penalty or 0)
+        penalized_losses = max(0, int(losses) - free_losses)
+        penalty = penalized_losses * int(current_tier.loss_penalty or 0)
+        score = base - penalty
+        return max(0, score)
+
+    @classmethod
+    def _season_payload(cls):
+        cls._ensure_ranked_defaults()
+        settings_obj = RankedSeasonSettings.objects.get(id=1)
+        duration = max(1, int(settings_obj.duration_months or 3))
+        seasons_per_year = max(1, int(settings_obj.seasons_per_year or 4))
+
+        now = timezone.now()
+        month_index = max(0, now.month - 1)
+        season_index = (month_index // duration) + 1
+        season_start_month = ((season_index - 1) * duration) + 1
+
+        return {
+            "duration_months": duration,
+            "seasons_per_year": seasons_per_year,
+            "year": now.year,
+            "season_index": season_index,
+            "label": f"S{season_index} {now.year}",
+            "season_start_month": season_start_month,
+        }
+
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.IsAuthenticated()]
@@ -2407,6 +2594,234 @@ class TournamentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user.profile)
+
+    @action(detail=False, methods=["GET", "PATCH"], url_path="ranked-config")
+    def ranked_config(self, request):
+        self._ensure_ranked_defaults()
+        if request.method == "PATCH" and not is_team_profile(request.user.profile):
+            raise PermissionDenied("Nur Team/Admin kann Ranked-Einstellungen aendern.")
+
+        settings_obj = RankedSeasonSettings.objects.get(id=1)
+        tiers = list(RankTierConfig.objects.all().order_by("min_points", "id"))
+
+        if request.method == "PATCH":
+            season_payload = request.data.get("season") or {}
+            if isinstance(season_payload, dict) and season_payload:
+                season_serializer = RankedSeasonSettingsSerializer(settings_obj, data=season_payload, partial=True)
+                season_serializer.is_valid(raise_exception=True)
+                instance = season_serializer.save()
+                if instance.duration_months:
+                    instance.seasons_per_year = max(1, 12 // int(instance.duration_months))
+                    instance.save(update_fields=["seasons_per_year", "updated_at"])
+
+            tier_rows = request.data.get("tiers") or []
+            if isinstance(tier_rows, list):
+                by_key = {tier.tier_key: tier for tier in tiers}
+                for payload in tier_rows:
+                    key = (payload or {}).get("tier_key")
+                    if not key or key not in by_key:
+                        continue
+                    serializer = RankTierConfigSerializer(by_key[key], data=payload, partial=True)
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save()
+
+            settings_obj = RankedSeasonSettings.objects.get(id=1)
+            tiers = list(RankTierConfig.objects.all().order_by("min_points", "id"))
+
+        return Response(
+            {
+                "season": {**self._season_payload(), **RankedSeasonSettingsSerializer(settings_obj).data},
+                "tiers": RankTierConfigSerializer(tiers, many=True).data,
+            }
+        )
+
+    @action(detail=False, methods=["GET"], url_path="timeline")
+    def timeline(self, request):
+        now = timezone.now()
+        current_rows = []
+        upcoming_rows = []
+
+        qs = self.get_queryset()
+        for tournament in qs:
+            start = tournament.starts_at
+            end = tournament.ends_at
+
+            if start and start > now:
+                upcoming_rows.append(
+                    {
+                        "id": f"{tournament.id}-start",
+                        "tournament_id": tournament.id,
+                        "title": tournament.title,
+                        "phase": "UPCOMING",
+                        "date": start,
+                        "is_no_loss": tournament.is_no_loss,
+                        "is_recurring": tournament.is_recurring,
+                        "status": tournament.status,
+                    }
+                )
+            elif tournament.status in {"APPLICATION_OPEN", "SUBMISSION_OPEN", "BATTLES"} and (not end or end >= now):
+                current_rows.append(
+                    {
+                        "id": f"{tournament.id}-live",
+                        "tournament_id": tournament.id,
+                        "title": tournament.title,
+                        "phase": "LIVE",
+                        "date": start or tournament.created_at,
+                        "is_no_loss": tournament.is_no_loss,
+                        "is_recurring": tournament.is_recurring,
+                        "status": tournament.status,
+                    }
+                )
+
+            if tournament.is_recurring and tournament.next_starts_at and tournament.next_starts_at > now:
+                upcoming_rows.append(
+                    {
+                        "id": f"{tournament.id}-next",
+                        "tournament_id": tournament.id,
+                        "title": tournament.title,
+                        "phase": "RECURRING",
+                        "date": tournament.next_starts_at,
+                        "is_no_loss": tournament.is_no_loss,
+                        "is_recurring": tournament.is_recurring,
+                        "status": tournament.status,
+                    }
+                )
+
+        current_rows.sort(key=lambda item: item["date"] or now)
+        upcoming_rows.sort(key=lambda item: item["date"] or now)
+        return Response({"current": current_rows, "upcoming": upcoming_rows})
+
+    @action(detail=False, methods=["GET"], url_path="ranked-overview")
+    def ranked_overview(self, request):
+        me = getattr(request.user, "profile", None)
+        participant_rows = []
+        tier_rows = self._tier_configs()
+
+        profiles = (
+            Profile.objects.select_related("user")
+            .prefetch_related("roles")
+            .annotate(
+                approved_submissions=Count(
+                    "tournament_submissions",
+                    filter=Q(tournament_submissions__status="APPROVED"),
+                    distinct=True,
+                ),
+                approved_votes_received=Count(
+                    "tournament_submissions__votes",
+                    filter=Q(tournament_submissions__votes__moderation_status="APPROVED"),
+                    distinct=True,
+                ),
+                wins=Count(
+                    "tournament_submissions__won_battles",
+                    filter=Q(tournament_submissions__won_battles__status="CLOSED"),
+                    distinct=True,
+                ),
+                battles_left=Count(
+                    "tournament_submissions__battles_as_left",
+                    filter=Q(tournament_submissions__battles_as_left__status="CLOSED"),
+                    distinct=True,
+                ),
+                battles_right=Count(
+                    "tournament_submissions__battles_as_right",
+                    filter=Q(tournament_submissions__battles_as_right__status="CLOSED"),
+                    distinct=True,
+                ),
+                ranked_wins=Count(
+                    "tournament_submissions__won_battles",
+                    filter=Q(
+                        tournament_submissions__won_battles__status="CLOSED",
+                        tournament_submissions__won_battles__tournament__is_no_loss=False,
+                    ),
+                    distinct=True,
+                ),
+                ranked_battles_left=Count(
+                    "tournament_submissions__battles_as_left",
+                    filter=Q(
+                        tournament_submissions__battles_as_left__status="CLOSED",
+                        tournament_submissions__battles_as_left__tournament__is_no_loss=False,
+                    ),
+                    distinct=True,
+                ),
+                ranked_battles_right=Count(
+                    "tournament_submissions__battles_as_right",
+                    filter=Q(
+                        tournament_submissions__battles_as_right__status="CLOSED",
+                        tournament_submissions__battles_as_right__tournament__is_no_loss=False,
+                    ),
+                    distinct=True,
+                ),
+                active_tournaments=Count("tournament_submissions__tournament", distinct=True),
+            )
+        )
+
+        for profile in profiles:
+            wins = int(profile.wins or 0)
+            approved_votes = int(profile.approved_votes_received or 0)
+            approved_submissions = int(profile.approved_submissions or 0)
+            battles = int(profile.battles_left or 0) + int(profile.battles_right or 0)
+            ranked_battles = int(profile.ranked_battles_left or 0) + int(profile.ranked_battles_right or 0)
+            ranked_wins = int(profile.ranked_wins or 0)
+            ranked_losses = max(0, ranked_battles - ranked_wins)
+            active_tournaments = int(profile.active_tournaments or 0)
+
+            if wins == 0 and approved_votes == 0 and approved_submissions == 0 and battles == 0:
+                continue
+
+            role_keys = list(profile.roles.values_list("key", flat=True))
+            role_labels = [role.get_key_display() for role in profile.roles.all()]
+            ranked_points = self._rank_points(
+                wins=wins,
+                approved_votes=approved_votes,
+                battles=battles,
+                approved_submissions=approved_submissions,
+                losses=ranked_losses,
+                tier_rows=tier_rows,
+            )
+            tier = self._rank_tier_for_points(ranked_points, tier_rows=tier_rows)
+
+            participant_rows.append(
+                {
+                    "profile_id": profile.id,
+                    "name": profile.name or profile.user.username,
+                    "role_keys": role_keys,
+                    "roles": role_labels,
+                    "tournaments": active_tournaments,
+                    "wins": wins,
+                    "battles": battles,
+                    "losses": ranked_losses,
+                    "submissions": approved_submissions,
+                    "votes": approved_votes,
+                    "ranked_points": ranked_points,
+                    "tier": tier,
+                }
+            )
+
+        participant_rows.sort(
+            key=lambda item: (item["ranked_points"], item["wins"], item["votes"], item["submissions"]),
+            reverse=True,
+        )
+
+        my_rank = None
+        for idx, row in enumerate(participant_rows):
+            row["rank"] = idx + 1
+            if me and row["profile_id"] == me.id:
+                my_rank = idx + 1
+
+        distribution = {tier.tier_key: 0 for tier in tier_rows}
+        for row in participant_rows:
+            distribution[row["tier"]["key"]] += 1
+
+        return Response(
+            {
+                "season": self._season_payload()["label"],
+                "total_players": len(participant_rows),
+                "rank_distribution": distribution,
+                "tiers": [self._tier_payload(tier) for tier in tier_rows],
+                "my_profile_id": me.id if me else None,
+                "my_rank": my_rank,
+                "rows": participant_rows,
+            }
+        )
 
     @action(detail=True, methods=["GET"], url_path="leaderboard")
     def leaderboard(self, request, pk=None):

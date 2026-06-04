@@ -36,6 +36,8 @@ from .models import (
     Project,
     Release,
     Request,
+    RankedSeasonSettings,
+    RankTierConfig,
     RegistrationRequest,
     Role,
     Song,
@@ -1461,6 +1463,13 @@ class TournamentSerializer(serializers.ModelSerializer):
             "min_account_age_hours",
             "max_votes_per_ip_per_hour",
             "require_phone_vote_verification",
+            "is_no_loss",
+            "starts_at",
+            "ends_at",
+            "is_recurring",
+            "recurrence_type",
+            "recurrence_interval",
+            "next_starts_at",
             "applications_count",
             "submissions_count",
             "battles_count",
@@ -1482,6 +1491,69 @@ class TournamentSerializer(serializers.ModelSerializer):
         if value > 1000:
             raise serializers.ValidationError("max_votes_per_ip_per_hour darf maximal 1000 sein.")
         return value
+
+    def validate(self, attrs):
+        starts_at = attrs.get("starts_at", getattr(self.instance, "starts_at", None))
+        ends_at = attrs.get("ends_at", getattr(self.instance, "ends_at", None))
+        if starts_at and ends_at and starts_at >= ends_at:
+            raise serializers.ValidationError({"ends_at": "ends_at muss nach starts_at liegen."})
+
+        is_recurring = attrs.get("is_recurring", getattr(self.instance, "is_recurring", False))
+        recurrence_type = attrs.get("recurrence_type", getattr(self.instance, "recurrence_type", "NONE"))
+        recurrence_interval = attrs.get("recurrence_interval", getattr(self.instance, "recurrence_interval", 1))
+        if is_recurring and recurrence_type == "NONE":
+            raise serializers.ValidationError({"recurrence_type": "Bitte einen Wiederholungs-Typ waehlen."})
+        if recurrence_interval < 1:
+            raise serializers.ValidationError({"recurrence_interval": "recurrence_interval muss mindestens 1 sein."})
+        if not is_recurring:
+            attrs["recurrence_type"] = "NONE"
+            attrs["recurrence_interval"] = 1
+            attrs["next_starts_at"] = None
+
+        return attrs
+
+
+class RankedSeasonSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RankedSeasonSettings
+        fields = ["id", "duration_months", "seasons_per_year", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_duration_months(self, value):
+        if value < 1 or value > 12:
+            raise serializers.ValidationError("duration_months muss zwischen 1 und 12 liegen.")
+        if 12 % value != 0:
+            raise serializers.ValidationError("duration_months muss 12 ohne Rest teilen (z. B. 1, 2, 3, 4, 6, 12).")
+        return value
+
+
+class RankTierConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RankTierConfig
+        fields = [
+            "id",
+            "tier_key",
+            "display_name",
+            "accent",
+            "min_points",
+            "max_points",
+            "win_points",
+            "vote_points",
+            "submission_points",
+            "battle_points",
+            "loss_penalty",
+            "max_losses_without_penalty",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        min_points = attrs.get("min_points", getattr(self.instance, "min_points", 0))
+        max_points = attrs.get("max_points", getattr(self.instance, "max_points", None))
+        if max_points is not None and max_points < min_points:
+            raise serializers.ValidationError({"max_points": "max_points muss groesser oder gleich min_points sein."})
+        return attrs
 
 
 class TournamentApplicationSerializer(serializers.ModelSerializer):

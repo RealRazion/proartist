@@ -463,6 +463,12 @@ class Tournament(models.Model):
         ("HYBRID", "Hybrid (Community + Jury)"),
         ("JURY_ONLY", "Nur Jury"),
     ]
+    RECURRENCE_CHOICES = [
+        ("NONE", "Keine"),
+        ("WEEKLY", "Woechentlich"),
+        ("MONTHLY", "Monatlich"),
+        ("QUARTERLY", "Quartalsweise"),
+    ]
 
     created_by = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="created_tournaments")
     title = models.CharField(max_length=200)
@@ -476,6 +482,13 @@ class Tournament(models.Model):
     min_account_age_hours = models.PositiveIntegerField(default=0)
     max_votes_per_ip_per_hour = models.PositiveIntegerField(default=20)
     require_phone_vote_verification = models.BooleanField(default=False)
+    is_no_loss = models.BooleanField(default=False)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    is_recurring = models.BooleanField(default=False)
+    recurrence_type = models.CharField(max_length=12, choices=RECURRENCE_CHOICES, default="NONE")
+    recurrence_interval = models.PositiveSmallIntegerField(default=1)
+    next_starts_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -484,6 +497,49 @@ class Tournament(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class RankedSeasonSettings(models.Model):
+    duration_months = models.PositiveSmallIntegerField(default=3)
+    seasons_per_year = models.PositiveSmallIntegerField(default=4)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Ranked Season Settings"
+
+    def __str__(self):
+        return f"Season: {self.duration_months} Monate / {self.seasons_per_year} pro Jahr"
+
+
+class RankTierConfig(models.Model):
+    TIER_CHOICES = [
+        ("BRONZE", "Bronze"),
+        ("SILBER", "Silber"),
+        ("GOLD", "Gold"),
+        ("PLATIN", "Platin"),
+        ("RUBIN", "Rubin"),
+    ]
+
+    tier_key = models.CharField(max_length=16, choices=TIER_CHOICES, unique=True)
+    display_name = models.CharField(max_length=32)
+    accent = models.CharField(max_length=16, default="#9a6b42")
+    min_points = models.PositiveIntegerField(default=0)
+    max_points = models.PositiveIntegerField(null=True, blank=True)
+    win_points = models.PositiveIntegerField(default=140)
+    vote_points = models.PositiveIntegerField(default=2)
+    submission_points = models.PositiveIntegerField(default=32)
+    battle_points = models.PositiveIntegerField(default=10)
+    loss_penalty = models.PositiveIntegerField(default=15)
+    max_losses_without_penalty = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["min_points", "id"]
+
+    def __str__(self):
+        return f"{self.display_name} ({self.tier_key})"
 
 
 class TournamentApplication(models.Model):

@@ -280,6 +280,41 @@ class TournamentVotingRulesTests(TestCase):
         self.assertTrue(rows)
         self.assertEqual(rows[0]["profile_id"], self.left_profile.id)
 
+    def test_ranked_overview_returns_tiers_and_my_rank(self):
+        battle, left_submission, _ = self._build_battle()
+
+        for _ in range(4):
+            voter_user = User.objects.create_user(username=f"ranked-voter-{_}", password="pw123456")
+            profile = Profile.objects.create(user=voter_user, name=f"Ranked Voter {_}")
+            profile.roles.add(self.artist_role)
+            TournamentVote.objects.create(
+                battle=battle,
+                voter=profile,
+                selected_submission=left_submission,
+                moderation_status="APPROVED",
+            )
+
+        battle.status = "CLOSED"
+        battle.winner_submission = left_submission
+        battle.closed_at = timezone.now()
+        battle.ends_at = timezone.now()
+        battle.save(update_fields=["status", "winner_submission", "closed_at", "ends_at"])
+
+        self.client.force_authenticate(user=self.left_user)
+        res = self.client.get("/api/tournaments/ranked-overview/")
+        self.assertEqual(res.status_code, 200, res.content)
+
+        payload = res.json()
+        self.assertIn("rows", payload)
+        self.assertIn("rank_distribution", payload)
+        self.assertEqual(payload.get("my_profile_id"), self.left_profile.id)
+        self.assertEqual(payload.get("my_rank"), 1)
+
+        top_row = payload["rows"][0]
+        self.assertEqual(top_row["profile_id"], self.left_profile.id)
+        self.assertIn(top_row["tier"]["key"], {"BRONZE", "SILBER", "GOLD", "PLATIN", "RUBIN"})
+        self.assertGreaterEqual(top_row["ranked_points"], 0)
+
     def test_team_can_moderate_submission_status(self):
         tournament = Tournament.objects.create(
             created_by=self.creator_profile,
@@ -395,3 +430,103 @@ class TournamentVotingRulesTests(TestCase):
         self.assertEqual(round_one_a.status, "APPROVED")
         self.assertEqual(round_one_b.status, "APPROVED")
         self.assertEqual(round_two.status, "PENDING")
+
+    def test_team_can_update_ranked_config(self):
+        self.client.force_authenticate(user=self.creator_user)
+        read_res = self.client.get("/api/tournaments/ranked-config/")
+        self.assertEqual(read_res.status_code, 200, read_res.content)
+        tiers = read_res.json().get("tiers", [])
+        self.assertTrue(tiers)
+
+        bronze = next((row for row in tiers if row.get("tier_key") == "BRONZE"), None)
+        self.assertIsNotNone(bronze)
+
+        patch_res = self.client.patch(
+            "/api/tournaments/ranked-config/",
+            {
+                "season": {"duration_months": 3},
+                "tiers": [
+                    {
+                        "tier_key": "BRONZE",
+                        "loss_penalty": 11,
+                        "max_losses_without_penalty": 2,
+                    }
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(patch_res.status_code, 200, patch_res.content)
+        updated_bronze = next((row for row in patch_res.json().get("tiers", []) if row.get("tier_key") == "BRONZE"), None)
+        self.assertEqual(updated_bronze.get("loss_penalty"), 11)
+        self.assertEqual(updated_bronze.get("max_losses_without_penalty"), 2)
+
+    def test_timeline_endpoint_returns_live_and_upcoming(self):
+        now = timezone.now()
+        Tournament.objects.create(
+            created_by=self.creator_profile,
+            title="Live Cup",
+            status="BATTLES",
+            has_application_phase=False,
+            starts_at=now - timedelta(hours=1),
+            ends_at=now + timedelta(hours=2),
+        )
+        Tournament.objects.create(
+            created_by=self.creator_profile,
+            title="Upcoming Cup",
+            status="APPLICATION_OPEN",
+            has_application_phase=False,
+            starts_at=now + timedelta(days=1),
+            is_recurring=True,
+            recurrence_type="WEEKLY",
+            next_starts_at=now + timedelta(days=8),
+        )
+
+        self.client.force_authenticate(user=self.left_user)
+        res = self.client.get("/api/tournaments/timeline/")
+        self.assertEqual(res.status_code, 200, res.content)
+
+        payload = res.json()
+        self.assertGreaterEqual(len(payload.get("current", [])), 1)
+        self.assertGreaterEqual(len(payload.get("upcoming", [])), 1)
+
+    def test_no_loss_tournament_does_not_count_losses(self):
+        tournament = Tournament.objects.create(
+            created_by=self.creator_profile,
+            title="No Loss Cup",
+            status="BATTLES",
+            has_application_phase=False,
+            is_no_loss=True,
+        )
+        left_submission = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.left_profile,
+            round_number=1,
+            title="Left",
+            status="APPROVED",
+        )
+        right_submission = TournamentSubmission.objects.create(
+            tournament=tournament,
+            profile=self.right_profile,
+            round_number=1,
+            title="Right",
+            status="APPROVED",
+        )
+        battle = TournamentBattle.objects.create(
+            tournament=tournament,
+            round_number=1,
+            left_submission=left_submission,
+            right_submission=right_submission,
+            status="CLOSED",
+            winner_submission=right_submission,
+            closed_at=timezone.now(),
+            ends_at=timezone.now(),
+        )
+        self.assertIsNotNone(battle.id)
+
+        self.client.force_authenticate(user=self.left_user)
+        res = self.client.get("/api/tournaments/ranked-overview/")
+        self.assertEqual(res.status_code, 200, res.content)
+        rows = res.json().get("rows", [])
+        left_row = next((row for row in rows if row.get("profile_id") == self.left_profile.id), None)
+        self.assertIsNotNone(left_row)
+        self.assertEqual(left_row.get("losses"), 0)

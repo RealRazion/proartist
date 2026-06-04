@@ -16,7 +16,6 @@ const Profiles = () => import("../views/Profiles.vue");
 const Projects = () => import("../views/Projects.vue");
 const ProjectDetail = () => import("../views/ProjectDetail.vue");
 const Tasks = () => import("../views/Tasks.vue");
-const FinishedTasksPage = () => import("../views/FinishedTasksPage.vue");
 const Chats = () => import("../views/Chats.vue");
 const MyProfile = () => import("../views/MyProfile.vue");
 const News = () => import("../views/News.vue");
@@ -72,7 +71,7 @@ const routes = [
         meta: { requiresAuth: true },
       },
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
-      { path: "tasks/finished", name: "tasks-finished", component: FinishedTasksPage, meta: { requiresAuth: true } },
+      { path: "tasks/finished", redirect: { name: "tasks" } },
       { path: "reviews", name: "reviews", component: ReviewQueue, alias: "/reviews", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
       { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },

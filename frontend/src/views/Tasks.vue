@@ -1090,17 +1090,8 @@ async function refreshTasks() {
 
 watch(
   [() => route.name, () => isTeam.value],
-  async ([name, team]) => {
+  async ([, team]) => {
     if (!team) return;
-    if (name === "tasks-finished") {
-      showCompleted.value = true;
-      filterStatus.value = "DONE";
-    } else if (name === "tasks") {
-      if (filterStatus.value === "DONE") {
-        filterStatus.value = "ALL";
-      }
-      showCompleted.value = false;
-    }
     await Promise.all([loadTasks(), loadTaskSummary()]);
   },
   { immediate: true }

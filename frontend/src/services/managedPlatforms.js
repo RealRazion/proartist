@@ -10,7 +10,6 @@ const ROUTE_TO_PLATFORM_SLUG = {
   projects: "dashboard",
   "project-detail": "dashboard",
   tasks: "dashboard",
-  "tasks-finished": "dashboard",
   reviews: "dashboard",
   timeline: "dashboard",
   notifications: "dashboard",

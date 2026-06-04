@@ -1,0 +1,13 @@
+<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Silber Rank">
+  <defs>
+    <linearGradient id="s1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f1f5f9" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="200" height="200" rx="42" fill="#0f172a" stroke="#94a3b8" stroke-width="6" />
+  <polygon points="110,32 185,78 160,170 60,170 35,78" fill="url(#s1)" stroke="#e2e8f0" stroke-width="4" />
+  <path d="M66 118h88" stroke="#0f172a" stroke-width="10" stroke-linecap="round" />
+  <path d="M66 92h88" stroke="#0f172a" stroke-width="10" stroke-linecap="round" />
+  <path d="M66 144h88" stroke="#0f172a" stroke-width="10" stroke-linecap="round" />
+</svg>

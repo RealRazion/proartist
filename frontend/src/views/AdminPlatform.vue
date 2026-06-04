@@ -102,6 +102,15 @@ const systemStats = ref({
 
 const adminTools = [
   {
+    key: "arena-animations",
+    title: "Tournament Animation Lab",
+    category: "Design",
+    description: "Admin Testseite fuer Arena-Animationen, Presets und Motion-Checks.",
+    buttonLabel: "Testen",
+    icon: "🎬",
+    features: ["Presets", "Speed", "Timeline FX"],
+  },
+  {
     key: "users",
     title: "Nutzer-Management",
     category: "Verwaltung",
@@ -168,6 +177,7 @@ const adminTools = [
 
 function openTool(tool) {
   const mapping = {
+    "arena-animations": "/platforms/admin/tournament-animations",
     users: "/app/profiles",
     platforms: "/platforms/manage-platforms",
     analytics: "/app/analytics",

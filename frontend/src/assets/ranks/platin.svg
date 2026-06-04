@@ -1,0 +1,12 @@
+<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Platin Rank">
+  <defs>
+    <linearGradient id="p1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#99f6e4" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="200" height="200" rx="42" fill="#06201f" stroke="#2dd4bf" stroke-width="6" />
+  <polygon points="110,30 184,72 184,148 110,190 36,148 36,72" fill="url(#p1)" stroke="#ccfbf1" stroke-width="4" />
+  <polygon points="110,58 152,82 152,138 110,162 68,138 68,82" fill="#08302d" stroke="#99f6e4" stroke-width="4" />
+  <circle cx="110" cy="110" r="12" fill="#e6fffb" />
+</svg>

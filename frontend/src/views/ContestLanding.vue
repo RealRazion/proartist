@@ -53,10 +53,25 @@
         <span>Erste Battles spielen, dann erscheinst du im Ladder</span>
       </article>
       <article class="ranked-card dist-card" v-for="tier in rankedOverview.tiers || []" :key="tier.key">
+        <img class="rank-chip-art" :src="rankArtwork(tier.key)" :alt="`${tier.label} Emblem`" />
         <span class="strip-label">{{ tier.label }}</span>
         <strong>{{ rankDistribution[tier.key] || 0 }}</strong>
         <span>Spieler</span>
       </article>
+    </section>
+
+    <section class="rank-gallery card">
+      <h2>Rank Gallery</h2>
+      <p>Jeder Tier hat ein eigenes Emblem. Keine Standard-UI, sondern Arena-Identity.</p>
+      <div class="rank-gallery-grid">
+        <article v-for="tier in rankedOverview.tiers || []" :key="`gallery-${tier.key}`" class="rank-art-card" :class="`tier-${(tier.key || 'BRONZE').toLowerCase()}`">
+          <img :src="rankArtwork(tier.key)" :alt="`${tier.label} Rank Artwork`" />
+          <div>
+            <strong>{{ tier.label }}</strong>
+            <span>{{ tier.min }} - {{ tier.max ?? '∞' }} RP</span>
+          </div>
+        </article>
+      </div>
     </section>
 
     <section class="card ladder-board">
@@ -75,6 +90,7 @@
           :class="`tier-${(row.tier?.key || 'BRONZE').toLowerCase()}`"
         >
           <div class="ladder-core">
+            <img class="ladder-rank-art" :src="rankArtwork(row.tier?.key)" :alt="`${row.tier?.label || 'Bronze'} icon`" />
             <strong>#{{ row.rank }} {{ row.name }}</strong>
             <span class="muted">{{ row.roles?.join(' • ') || 'Musik-Creator' }}</span>
           </div>
@@ -654,6 +670,11 @@ import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
+import bronzeRank from "../assets/ranks/bronze.svg";
+import silberRank from "../assets/ranks/silber.svg";
+import goldRank from "../assets/ranks/gold.svg";
+import platinRank from "../assets/ranks/platin.svg";
+import rubinRank from "../assets/ranks/rubin.svg";
 
 const router = useRouter();
 const { profile, isTeam, fetchProfile } = useCurrentProfile();
@@ -824,6 +845,18 @@ function recurrenceLabel(mode) {
     QUARTERLY: "Quartal",
   };
   return map[mode] || "Keine";
+}
+
+function rankArtwork(tierKey) {
+  const key = String(tierKey || "BRONZE").toUpperCase();
+  const map = {
+    BRONZE: bronzeRank,
+    SILBER: silberRank,
+    GOLD: goldRank,
+    PLATIN: platinRank,
+    RUBIN: rubinRank,
+  };
+  return map[key] || bronzeRank;
 }
 
 function myApplication(tournamentId) {
@@ -1242,14 +1275,66 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@400;600;700;800&display=swap");
+
 .tournament-page {
+  --arena-bg-1: #07070c;
+  --arena-bg-2: #10162b;
+  --arena-panel: #101528;
+  --arena-panel-soft: #171f3a;
+  --arena-line: #2d3868;
+  --arena-text: #eef2ff;
+  --arena-muted: #9ca9d5;
+  --arena-hot: #ff4d6d;
+  --arena-cyan: #56d4ff;
+  --arena-gold: #ffbf47;
+  font-family: "Chakra Petch", sans-serif;
+  color: var(--arena-text);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding-bottom: 28px;
+  gap: 18px;
+  padding: 12px 0 36px;
   background:
-    radial-gradient(circle at 8% 0%, color-mix(in srgb, #f97316 15%, transparent 85%), transparent 38%),
-    radial-gradient(circle at 92% 6%, color-mix(in srgb, #0ea5e9 16%, transparent 84%), transparent 44%);
+    radial-gradient(circle at 15% 2%, rgba(255, 77, 109, 0.32), transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(86, 212, 255, 0.25), transparent 38%),
+    linear-gradient(145deg, var(--arena-bg-1), var(--arena-bg-2));
+}
+
+.tournament-page .card,
+.tournament-page .tournament-card {
+  background: linear-gradient(180deg, rgba(23, 31, 58, 0.95) 0%, rgba(11, 16, 32, 0.94) 100%);
+  border: 1px solid var(--arena-line);
+  border-radius: 20px;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.35);
+}
+
+.tournament-page :deep(.btn) {
+  font-family: "Sora", sans-serif;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(125deg, #ff4d6d 0%, #ff7b54 100%);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.tournament-page :deep(.btn.ghost) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--arena-text);
+}
+
+.tournament-page input,
+.tournament-page select,
+.tournament-page textarea {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--arena-text);
+}
+
+.tournament-page input::placeholder,
+.tournament-page textarea::placeholder {
+  color: var(--arena-muted);
 }
 
 .ranked-strip {
@@ -1259,20 +1344,27 @@ onMounted(async () => {
 }
 
 .ranked-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--arena-line);
   border-radius: 14px;
-  background: color-mix(in srgb, var(--card) 92%, #0f172a 8%);
+  background: linear-gradient(155deg, rgba(28, 36, 68, 0.92), rgba(12, 18, 34, 0.95));
   padding: 12px;
   display: grid;
   gap: 3px;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.rank-chip-art {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.45));
 }
 
 .strip-label {
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--arena-muted);
 }
 
 .ranked-card strong {
@@ -1280,6 +1372,57 @@ onMounted(async () => {
 }
 
 .ranked-card span {
+  font-size: 0.8rem;
+  color: var(--arena-muted);
+}
+
+.rank-gallery {
+  padding: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.rank-gallery h2 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.rank-gallery p {
+  margin: 0;
+  color: var(--arena-muted);
+}
+
+.rank-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.rank-art-card {
+  border: 1px solid var(--arena-line);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.rank-art-card img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+}
+
+.rank-art-card strong {
+  display: block;
+  font-family: "Sora", sans-serif;
+  margin-bottom: 2px;
+}
+
+.rank-art-card span {
+  color: var(--arena-muted);
   font-size: 0.8rem;
 }
 
@@ -1312,9 +1455,9 @@ onMounted(async () => {
 }
 
 .timeline-col {
-  border: 1px solid var(--border);
+  border: 1px solid var(--arena-line);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 88%, #0f172a 12%);
+  background: rgba(255, 255, 255, 0.02);
   padding: 10px;
   display: grid;
   gap: 8px;
@@ -1328,9 +1471,9 @@ onMounted(async () => {
 }
 
 .timeline-item {
-  border: 1px solid var(--border);
+  border: 1px solid var(--arena-line);
   border-radius: 10px;
-  background: var(--card);
+  background: rgba(0, 0, 0, 0.22);
   padding: 8px;
   display: grid;
   gap: 4px;
@@ -1356,9 +1499,9 @@ onMounted(async () => {
 }
 
 .rank-tier-editor {
-  border: 1px solid var(--border);
+  border: 1px solid var(--arena-line);
   border-radius: 12px;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.03);
   padding: 10px;
   display: grid;
   gap: 6px;
@@ -1393,7 +1536,7 @@ onMounted(async () => {
 
 .ladder-head p {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--arena-muted);
   font-size: 0.86rem;
 }
 
@@ -1404,17 +1547,26 @@ onMounted(async () => {
 }
 
 .ladder-row {
-  border: 1px solid var(--border);
+  border: 1px solid var(--arena-line);
   border-radius: 12px;
   padding: 10px;
   display: grid;
   gap: 8px;
-  background: color-mix(in srgb, var(--surface) 90%, #020617 10%);
+  background: linear-gradient(165deg, rgba(34, 43, 80, 0.7), rgba(14, 20, 38, 0.92));
 }
 
 .ladder-core {
   display: grid;
-  gap: 2px;
+  grid-template-columns: 54px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.ladder-rank-art {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  grid-row: span 2;
 }
 
 .ladder-meta {
@@ -1422,7 +1574,7 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   font-size: 0.78rem;
-  color: var(--muted);
+  color: var(--arena-muted);
   flex-wrap: wrap;
 }
 
@@ -1482,9 +1634,9 @@ onMounted(async () => {
 }
 
 .aud-stat {
-  border: 1px solid var(--border);
+  border: 1px solid var(--arena-line);
   border-radius: 12px;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.04);
   padding: 10px 12px;
   display: grid;
   gap: 4px;
@@ -1496,7 +1648,7 @@ onMounted(async () => {
 
 .aud-stat span {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--arena-muted);
 }
 
 .team-control-center {
@@ -1519,7 +1671,7 @@ onMounted(async () => {
 
 .control-header p {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--arena-muted);
   font-size: 0.88rem;
 }
 
@@ -1533,9 +1685,9 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--arena-line);
   border-radius: 12px;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.03);
   padding: 10px;
   flex-wrap: wrap;
 }
@@ -1548,13 +1700,29 @@ onMounted(async () => {
 /* Hero */
 .contest-hero {
   background:
-    linear-gradient(135deg, rgba(249, 115, 22, 0.22) 0%, rgba(14, 165, 233, 0.2) 48%, rgba(236, 72, 153, 0.16) 100%);
-  border: 1px solid var(--border);
+    linear-gradient(145deg, rgba(255, 77, 109, 0.22) 0%, rgba(86, 212, 255, 0.24) 45%, rgba(255, 191, 71, 0.14) 100%);
+  border: 1px solid var(--arena-line);
   border-radius: 20px;
   padding: 28px 24px 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.contest-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -55deg,
+    rgba(255, 255, 255, 0.05) 0,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 24px
+  );
+  pointer-events: none;
 }
 
 .hero-inner {
@@ -1567,7 +1735,7 @@ onMounted(async () => {
 
 .hero-copy p.hero-lead {
   margin: 8px 0 0;
-  color: var(--muted);
+  color: var(--arena-muted);
   line-height: 1.6;
   max-width: 540px;
 }
@@ -1577,7 +1745,7 @@ onMounted(async () => {
   letter-spacing: 0.2em;
   font-size: 11px;
   margin-bottom: 6px;
-  color: color-mix(in srgb, var(--brand) 80%, #f97316 20%);
+  color: var(--arena-cyan);
   font-weight: 700;
 }
 
@@ -1586,6 +1754,7 @@ onMounted(async () => {
   font-size: clamp(1.5rem, 2.8vw, 2.1rem);
   font-weight: 800;
   line-height: 1.15;
+  font-family: "Sora", sans-serif;
 }
 
 .hero-stats {
@@ -1604,15 +1773,16 @@ onMounted(async () => {
 .hstat-num {
   font-size: 2rem;
   font-weight: 800;
-  color: color-mix(in srgb, var(--brand) 66%, #ef4444 34%);
+  color: var(--arena-gold);
   line-height: 1;
+  text-shadow: 0 0 18px rgba(255, 191, 71, 0.44);
 }
 
 .hstat-label {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--muted);
+  color: var(--arena-muted);
 }
 
 .hero-actions {
@@ -1688,7 +1858,7 @@ onMounted(async () => {
   width: 16px;
   height: 16px;
   fill: none;
-  stroke: var(--muted);
+  stroke: var(--arena-muted);
   stroke-width: 2;
   stroke-linecap: round;
   transition: transform 0.2s ease;
@@ -1747,11 +1917,11 @@ onMounted(async () => {
 
 .tournament-card {
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card) 92%, #0f172a 8%) 0%, color-mix(in srgb, var(--card) 96%, transparent 4%) 100%);
-  border: 1px solid var(--border);
+    linear-gradient(180deg, rgba(20, 27, 52, 0.98) 0%, rgba(10, 14, 26, 0.96) 100%);
+  border: 1px solid var(--arena-line);
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.38);
 }
 
 .tcard-header {
@@ -1774,7 +1944,7 @@ onMounted(async () => {
 }
 
 .tcard-desc {
-  color: var(--muted);
+  color: var(--arena-muted);
   font-size: 0.92rem;
   margin: 0 0 12px;
 }
@@ -1787,19 +1957,19 @@ onMounted(async () => {
 }
 
 .meta-chip {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--arena-muted);
 }
 
 .meta-chip.highlight {
-  background: color-mix(in srgb, var(--brand) 12%, var(--surface) 88%);
-  color: var(--brand);
-  border-color: color-mix(in srgb, var(--brand) 30%, var(--border) 70%);
+  background: rgba(255, 191, 71, 0.16);
+  color: var(--arena-gold);
+  border-color: rgba(255, 191, 71, 0.42);
 }
 
 .status-badge {
@@ -1823,7 +1993,7 @@ onMounted(async () => {
   flex-wrap: wrap;
   gap: 10px 20px;
   font-size: 0.82rem;
-  color: var(--muted);
+  color: var(--arena-muted);
 }
 
 .deadline-row span {

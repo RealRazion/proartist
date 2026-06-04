@@ -88,11 +88,6 @@
           </div>
           <p class="platform-description">{{ platform.description }}</p>
           <p v-if="platform.status_note" class="platform-note">{{ platform.status_note }}</p>
-          <div class="platform-features">
-            <span v-for="feature in platform.features" :key="feature" class="feature-tag">
-              {{ feature }}
-            </span>
-          </div>
           <button
             v-if="!editMode"
             class="platform-btn"
@@ -706,6 +701,9 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   box-shadow: var(--shadow-soft);
@@ -785,14 +783,16 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
 }
 
 .platform-icon {
   width: 52px;
   height: 52px;
+  min-width: 52px;
+  aspect-ratio: 1 / 1;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  border-radius: 16px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   font-size: 1.5rem;
@@ -861,34 +861,19 @@ onMounted(async () => {
 .platform-description {
   color: var(--muted);
   line-height: 1.45;
-  margin: 0 0 14px;
+  margin: 0;
   font-size: 0.95rem;
 }
 
 .platform-note {
-  margin: -6px 0 12px;
+  margin: 0;
   color: #9a3412;
   font-size: 0.84rem;
   line-height: 1.35;
 }
 
-.platform-features {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin-bottom: 16px;
-}
-
-.feature-tag {
-  background: var(--bg-soft);
-  color: var(--text);
-  padding: 6px 12px;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
 .platform-btn {
+  margin-top: auto;
   width: 100%;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
   color: white;

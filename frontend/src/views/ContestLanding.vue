@@ -2,6 +2,18 @@
   <div class="tournament-page">
     <div class="arena-bg-layer"></div>
 
+    <aside class="arena-left-rail">
+      <p>Bereiche</p>
+      <select class="rail-select" v-model="selectedNavTarget" @change="jumpToSection(selectedNavTarget)">
+        <option v-for="entry in navTargets" :key="`nav-${entry.key}`" :value="entry.key">{{ entry.label }}</option>
+      </select>
+      <button class="btn ghost small" type="button" @click="jumpToSection('turniere')">Turniere</button>
+      <button class="btn ghost small" type="button" @click="jumpToSection('meine-turniere')">Meine Turniere</button>
+      <button class="btn ghost small" type="button" @click="jumpToSection('historie')">Historie</button>
+      <button class="btn ghost small" type="button" @click="jumpToSection('aktuelle-battles')">Aktuelle Battles</button>
+      <button class="btn ghost small" type="button" @click="jumpToSection('rank')">Rank</button>
+    </aside>
+
     <header class="arena-hero">
       <div class="hero-left">
         <p class="eyebrow">UNYQ Arena Mode</p>
@@ -15,25 +27,38 @@
         <div class="hero-stat"><strong>{{ rankedOverview.season || '-' }}</strong><span>Season</span></div>
         <div class="hero-stat"><strong>{{ tournaments.length }}</strong><span>Turniere</span></div>
         <div class="hero-stat"><strong>{{ battles.length }}</strong><span>Battles</span></div>
-        <div class="hero-stat"><strong>{{ rankedOverview.total_players || 0 }}</strong><span>Spieler</span></div>
       </div>
-      <div class="hero-actions">
-        <button class="btn ghost" type="button" @click="goHome">Zur Plattform</button>
-        <button class="btn" type="button" @click="loadAll" :disabled="busy">Reload Arena</button>
+
+      <div class="hero-progress" id="rank-progress">
+        <div class="hero-progress-head">
+          <strong>{{ rankProgress.currentTier }}</strong>
+          <span v-if="rankProgress.nextTier">Noch {{ rankProgress.remaining }} RP bis {{ rankProgress.nextTier }}</span>
+          <span v-else>Max Rank erreicht</span>
+        </div>
+        <div class="hero-progress-track">
+          <span class="hero-progress-fill" :style="{ width: `${rankProgress.percent}%` }"></span>
+        </div>
+        <small>{{ rankProgress.points }} RP</small>
       </div>
     </header>
 
-    <section class="arena-tournament-picker" v-if="visibleTournaments.length">
-      <button
-        v-for="item in visibleTournaments.slice(0, 10)"
-        :key="`pick-${item.id}`"
-        class="pick-chip"
-        :class="{ active: featuredTournament?.id === item.id }"
-        @click="selectTournament(item.id)"
-      >
-        <span>{{ item.title }}</span>
-        <small>{{ statusLabel(item.status) }}</small>
-      </button>
+    <section class="arena-slideshow" id="turniere" v-if="visibleTournaments.length">
+      <button class="slide-arrow left" type="button" @click="prevTournament" aria-label="Vorheriges Turnier">&#10094;</button>
+
+      <article class="tournament-slide" :style="{ '--slide-image': `url(${tournamentCover(featuredTournament)})` }">
+        <div class="slide-content">
+          <p class="eyebrow">Aktuelles Turnier</p>
+          <h2>{{ featuredTournament.title }}</h2>
+          <p>{{ featuredTournament.description || "Bereit fuer die naechste Runde." }}</p>
+          <div class="stage-tags">
+            <span class="tag">{{ statusLabel(featuredTournament.status) }}</span>
+            <span class="tag" v-if="featuredTournament.is_no_loss">No Loss</span>
+            <span class="tag" v-if="featuredTournament.is_recurring">Recurring</span>
+          </div>
+        </div>
+      </article>
+
+      <button class="slide-arrow right" type="button" @click="nextTournament" aria-label="Nächstes Turnier">&#10095;</button>
     </section>
 
     <section class="rank-emblems" v-if="rankedOverview.tiers?.length">
@@ -46,12 +71,11 @@
         <img :src="rankArtwork(tier.key)" :alt="`${tier.label} emblem`" />
         <div>
           <strong>{{ tier.label }}</strong>
-          <span>{{ rankDistribution[tier.key] || 0 }} Spieler</span>
         </div>
       </article>
     </section>
 
-    <section class="arena-main" v-if="featuredTournament">
+    <section class="arena-main" id="aktuelle-battles" v-if="featuredTournament">
       <article class="arena-stage">
         <div class="stage-head">
           <h2>{{ featuredTournament.title }}</h2>
@@ -106,7 +130,7 @@
         </div>
       </article>
 
-      <aside class="arena-side">
+      <aside class="arena-side" id="rank">
         <section class="side-block ladder">
           <h3>Top Ladder</h3>
           <article class="ladder-row" v-for="row in topRankedRows.slice(0, 6)" :key="`ladder-${row.profile_id}`">
@@ -118,7 +142,7 @@
           </article>
         </section>
 
-        <section class="side-block timeline">
+        <section class="side-block timeline" id="historie">
           <h3>Timeline</h3>
           <article class="timeline-row live" v-for="event in timelineCurrent.slice(0, 3)" :key="`live-${event.id}`">
             <strong>{{ event.title }}</strong>
@@ -130,7 +154,7 @@
           </article>
         </section>
 
-        <section class="side-block profile" v-if="!isTeam">
+        <section class="side-block profile" id="meine-turniere" v-if="!isTeam">
           <h3>Mein Fortschritt</h3>
           <p v-if="myRankedRow">{{ myRankedRow.tier?.label }} • #{{ myRankedRow.rank }} • {{ myRankedRow.ranked_points }} RP</p>
           <p v-else>Noch kein Ladder-Eintrag.</p>
@@ -227,6 +251,21 @@ const tournamentSearch = ref("");
 const statusFilter = ref("ALL");
 const sortMode = ref("open-first");
 const selectedTournamentId = ref(null);
+const selectedNavTarget = ref("turniere");
+
+const navTargets = [
+  { key: "turniere", label: "Turniere" },
+  { key: "meine-turniere", label: "Meine Turniere" },
+  { key: "historie", label: "Historie" },
+  { key: "aktuelle-battles", label: "Aktuelle Battles" },
+  { key: "rank", label: "Rank" },
+];
+
+const fallbackTournamentCovers = [
+  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1571330735066-03aaa9429d89?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
+];
 
 const applicationDrafts = ref({});
 const submissionDrafts = ref({});
@@ -258,6 +297,57 @@ const rankedRows = computed(() => rankedOverview.value?.rows || []);
 const topRankedRows = computed(() => rankedRows.value.slice(0, 12));
 const rankDistribution = computed(() => rankedOverview.value?.rank_distribution || {});
 const myRankedRow = computed(() => rankedRows.value.find((row) => row.profile_id === myProfileId.value) || null);
+
+const rankProgress = computed(() => {
+  const points = Number(myRankedRow.value?.ranked_points || 0);
+  const tiers = asList(rankedOverview.value?.tiers || [])
+    .slice()
+    .sort((a, b) => Number(a.min_points || 0) - Number(b.min_points || 0));
+
+  if (!tiers.length) {
+    return {
+      points,
+      percent: 0,
+      currentTier: "Unranked",
+      nextTier: null,
+      remaining: 0,
+    };
+  }
+
+  let current = tiers[0];
+  let next = null;
+
+  for (let idx = 0; idx < tiers.length; idx += 1) {
+    const tier = tiers[idx];
+    if (points >= Number(tier.min_points || 0)) {
+      current = tier;
+      next = tiers[idx + 1] || null;
+    }
+  }
+
+  if (!next) {
+    return {
+      points,
+      percent: 100,
+      currentTier: current.label || current.tier_key || "Rank",
+      nextTier: null,
+      remaining: 0,
+    };
+  }
+
+  const start = Number(current.min_points || 0);
+  const end = Number(next.min_points || start + 1);
+  const span = Math.max(end - start, 1);
+  const percent = Math.max(0, Math.min(100, Math.round(((points - start) / span) * 100)));
+
+  return {
+    points,
+    percent,
+    currentTier: current.label || current.tier_key || "Rank",
+    nextTier: next.label || next.tier_key || "Next",
+    remaining: Math.max(end - points, 0),
+  };
+});
 
 const visibleTournaments = computed(() => {
   const term = tournamentSearch.value.trim().toLowerCase();
@@ -345,6 +435,38 @@ function battlesFor(tournamentId) {
 
 function goHome() {
   router.push({ name: "platforms" });
+}
+
+function tournamentCover(tournament) {
+  if (!tournament) return fallbackTournamentCovers[0];
+  if (tournament.cover_url) return tournament.cover_url;
+  const index = Math.abs(Number(tournament.id || 0)) % fallbackTournamentCovers.length;
+  return fallbackTournamentCovers[index];
+}
+
+function nextTournament() {
+  if (!visibleTournaments.value.length) return;
+  const index = visibleTournaments.value.findIndex((entry) => entry.id === featuredTournament.value?.id);
+  const nextIndex = index >= 0 ? (index + 1) % visibleTournaments.value.length : 0;
+  selectTournament(visibleTournaments.value[nextIndex].id);
+}
+
+function prevTournament() {
+  if (!visibleTournaments.value.length) return;
+  const index = visibleTournaments.value.findIndex((entry) => entry.id === featuredTournament.value?.id);
+  const prevIndex = index >= 0
+    ? (index - 1 + visibleTournaments.value.length) % visibleTournaments.value.length
+    : 0;
+  selectTournament(visibleTournaments.value[prevIndex].id);
+}
+
+function jumpToSection(sectionKey) {
+  const target = document.getElementById(sectionKey);
+  if (!target) {
+    showToast("Bereich ist aktuell nicht verfuegbar", "warning");
+    return;
+  }
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function goAnimationLab() {
@@ -568,7 +690,7 @@ onMounted(async () => {
   min-height: 100vh;
   width: 100vw;
   margin-left: calc(50% - 50vw);
-  padding: 20px clamp(14px, 2vw, 32px) 40px;
+  padding: 20px clamp(14px, 2vw, 32px) 40px clamp(14px, 2vw, 32px);
   position: relative;
   z-index: 0;
   color: #f2f5ff;
@@ -609,6 +731,37 @@ onMounted(async () => {
   font-size: 0.82rem;
 }
 
+.arena-left-rail {
+  position: fixed;
+  left: 18px;
+  top: 24px;
+  width: 200px;
+  z-index: 8;
+  border: 1px solid #2f426f;
+  border-radius: 14px;
+  background: rgba(8, 12, 26, 0.86);
+  backdrop-filter: blur(8px);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.arena-left-rail p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #9eb2e7;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.rail-select {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #edf2ff;
+}
+
 .arena-hero {
   border: 1px solid #334b84;
   border-radius: 22px;
@@ -617,6 +770,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 12px;
+  margin-left: 230px;
 }
 
 .hero-left h1 {
@@ -662,45 +816,126 @@ onMounted(async () => {
   color: #a9b7de;
 }
 
-.hero-actions {
+.hero-progress {
   grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+}
+
+.hero-progress-head {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.arena-tournament-picker {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+.hero-progress-head strong {
+  font-family: "Sora", sans-serif;
 }
 
-.pick-chip {
-  border: 1px solid #314376;
+.hero-progress-head span,
+.hero-progress small {
+  color: #adc0ec;
+  font-size: 0.82rem;
+}
+
+.hero-progress-track {
+  width: 100%;
+  height: 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #edf2ff;
-  padding: 8px 12px;
-  min-width: 180px;
-  text-align: left;
-  cursor: pointer;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(6, 10, 26, 0.65);
+}
+
+.hero-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #ff5f82, #ffd166 55%, #6ee7ff);
+  transition: width 0.3s ease;
+}
+
+.arena-slideshow {
+  margin-left: 230px;
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
 }
 
-.pick-chip small {
-  color: #9bb0e3;
+.slide-arrow {
+  width: 56px;
+  height: 84px;
+  border: 1px solid #3a4f8c;
+  border-radius: 14px;
+  background: rgba(8, 12, 26, 0.8);
+  color: #f8fbff;
+  font-size: 2rem;
+  cursor: pointer;
 }
 
-.pick-chip.active {
-  border-color: #ff6b8b;
-  background: rgba(255, 107, 139, 0.16);
+.tournament-slide {
+  position: relative;
+  min-height: 380px;
+  max-width: 380px;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 24px;
+  border: 1px solid #3c548f;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(3, 5, 14, 0.45);
+}
+
+.tournament-slide::before {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  background-image: var(--slide-image);
+  background-size: cover;
+  background-position: center;
+  filter: blur(12px) saturate(0.75) brightness(0.75);
+  transform: scale(1.06);
+  transition: filter 0.25s ease, transform 0.25s ease;
+}
+
+.tournament-slide:hover::before {
+  filter: blur(0px) saturate(1) brightness(0.92);
+  transform: scale(1.12);
+}
+
+.tournament-slide::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 12, 26, 0.1), rgba(8, 12, 26, 0.82));
+}
+
+.slide-content {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 2;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.slide-content h2 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+}
+
+.slide-content p {
+  margin: 0;
+  color: #d8e3ff;
 }
 
 .rank-emblems {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
+  margin-left: 230px;
 }
 
 .emblem-card {
@@ -733,6 +968,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1.35fr 0.8fr;
   gap: 12px;
+  margin-left: 230px;
 }
 
 .arena-stage,
@@ -982,6 +1218,18 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
+  .arena-left-rail {
+    position: static;
+    width: 100%;
+  }
+
+  .arena-hero,
+  .arena-slideshow,
+  .rank-emblems,
+  .arena-main {
+    margin-left: 0;
+  }
+
   .arena-main {
     grid-template-columns: 1fr;
   }
@@ -1014,6 +1262,15 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
+  .arena-slideshow {
+    grid-template-columns: 1fr;
+  }
+
+  .slide-arrow {
+    width: 100%;
+    height: 48px;
+  }
+
   .hero-right {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

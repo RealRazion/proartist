@@ -21,15 +21,17 @@
       <p class="muted">Nur Team-Mitglieder können Aufgaben verwalten. Bitte wende dich an das Team.</p>
     </section>
 
-    <section v-else class="workspace" :class="{ 'has-detail': Boolean(activeTask) }">
+    <section v-else class="workspace">
       <div class="board card">
         <div class="board-head">
           <div>
             <h2>Task Board</h2>
-            <p class="muted small">Filter und neue Aufgaben per Dialog.</p>
+            <p class="muted small">Alles zentral in einem Fenster mit Kategorien, Status und Erledigt-Ansicht.</p>
           </div>
           <div class="board-actions">
             <button class="btn ghost" type="button" @click="openFilterModal">Filter</button>
+            <button class="btn ghost" type="button" @click="openCategoryModal">Kategorien</button>
+            <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte Anzeigen</button>
             <button class="btn" type="button" @click="openTaskModal" :disabled="taskSaving">Task erstellen</button>
           </div>
         </div>
@@ -78,16 +80,19 @@
             </div>
           </div>
         </div>
-        <div class="columns">
-          <div v-for="column in boardColumns" :key="column.key">
-            <h3>{{ column.label }}</h3>
-            <div v-if="loadingTasks" class="skeleton-column">
-              <div class="skeleton-card" v-for="n in 2" :key="`tsk-${column.key}-${n}`"></div>
-            </div>
-            <template v-else>
-              <ul>
+        <div class="category-list" v-if="!loadingTasks">
+          <article class="category-group" v-for="section in orderedCategorySections" :key="`category-${section.id}`">
+            <button class="category-header" type="button" @click="toggleCategory(section.id)">
+              <span>
+                <strong>{{ section.name }}</strong>
+                <small>{{ categoryTasks(section.id).length }} Tasks</small>
+              </span>
+              <span class="category-toggle">{{ isCategoryCollapsed(section.id) ? "+" : "-" }}</span>
+            </button>
+            <div v-if="!isCategoryCollapsed(section.id)" class="category-content">
+              <ul v-if="categoryTasks(section.id).length">
                 <li
-                  v-for="task in column.items"
+                  v-for="task in categoryTasks(section.id)"
                   :key="task.id"
                   class="task-card"
                   :class="{ overdue: dueState(task) === 'overdue', soon: dueState(task) === 'soon' }"
@@ -116,230 +121,95 @@
                       </div>
                     </div>
                     <div class="card-buttons">
-                      <button class="btn ghost tiny" type="button" @click="openTask(task)">
-                        Details
-                      </button>
                       <button class="btn ghost tiny" type="button" @click="startEditTask(task)">
                         Bearbeiten
                       </button>
                     </div>
                   </div>
-                  <p class="muted">
-                    Projekt: {{ task.project ? projectMap[task.project]?.title || "-" : "Kein Projekt" }}
-                  </p>
-                  <p class="muted small-text">
-                    Verantwortlich: {{ formatAssignees(task) }}
-                  </p>
-                  <p class="muted small-text">
-                    Betroffene: {{ formatStakeholders(task) }}
-                  </p>
+                  <p class="muted">Projekt: {{ task.project ? projectMap[task.project]?.title || "-" : "Kein Projekt" }}</p>
                   <p class="due" :class="dueState(task)">
                     {{ task.due_date ? `Fällig ${formatDueDate(task.due_date)}` : "Kein Termin" }}
                   </p>
-                  <div class="actions">
+                  <div class="actions task-actions-grid">
+                    <select class="input" :value="getTaskCategory(task.id)" @change="setTaskCategory(task.id, $event.target.value)">
+                      <option v-for="category in categoryOptions" :key="`option-${category.id}`" :value="category.id">
+                        {{ category.name }}
+                      </option>
+                    </select>
                     <select class="input" v-model="task.status" @change="onStatusChange(task, $event)">
                       <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
                     </select>
+                    <button class="btn tiny" type="button" @click="markTaskAsDone(task)" :disabled="task.status === 'DONE'">
+                      Als erledigt
+                    </button>
                     <button class="btn ghost danger tiny" type="button" @click="archiveTask(task)">
                       Archivieren
                     </button>
                   </div>
-                  <div v-if="canResolveReview(task)" class="review-actions">
-                    <button
-                      class="btn tiny"
-                      type="button"
-                      @click="setTaskReviewStatus(task, true)"
-                      :disabled="reviewActionSaving[task.id]"
-                    >
-                      {{ reviewActionSaving[task.id] ? "Speichere..." : "Als geprüft markieren" }}
-                    </button>
-                    <button
-                      v-if="task.status === 'REVIEW'"
-                      class="btn ghost tiny danger"
-                      type="button"
-                      @click="setTaskReviewStatus(task, false)"
-                      :disabled="reviewActionSaving[task.id]"
-                    >
-                      Als nicht geprüft markieren
-                    </button>
-                  </div>
                 </li>
               </ul>
-              <p v-if="!column.items.length" class="muted empty">Keine Tasks</p>
-            </template>
-          </div>
+              <p v-else class="muted empty">Keine Tasks in dieser Kategorie</p>
+            </div>
+          </article>
+        </div>
+        <div v-else class="skeleton-column">
+          <div class="skeleton-card" v-for="n in 3" :key="`tsk-load-${n}`"></div>
         </div>
         <div ref="taskSentinel" class="sentinel" v-if="hasMoreTasks"></div>
         <p v-if="loadingMoreTasks" class="muted loading-more">Lade weitere Tasks...</p>
       </div>
-      <section v-if="finishedTaskSummary.visible" class="card finished-summary">
-        <div class="finished-summary-body">
-          <div>
-            <h3>Fertige Tasks</h3>
-            <p class="muted">Es gibt {{ finishedTaskSummary.count }} erledigte Tasks. Sie können fertig erledigte Aufgaben separat anzeigen und bei Bedarf zurücksetzen.</p>
-          </div>
-          <button class="btn" type="button" @click="openFinishedTasks">
-            Fertige Tasks ansehen
-          </button>
-        </div>
-      </section>
-      <section v-if="activeTask" class="card detail-panel">
-        <header class="detail-head">
-          <div>
-            <p class="eyebrow">Ausgewählter Task</p>
-            <h2>{{ activeTask.title }}</h2>
-            <div class="detail-pills">
-              <span class="status-chip" :data-status="activeTask.status">{{ statusLabels[activeTask.status] }}</span>
-              <span class="priority-chip" :data-priority="activeTask.priority">{{ priorityLabels[activeTask.priority] }}</span>
-              <span class="type-chip" :data-type="activeTask.task_type">{{ taskTypeLabels[activeTask.task_type] }}</span>
-              <span v-if="activeTask.recurrence_pattern && activeTask.recurrence_pattern !== 'NONE'" class="type-chip recurrence">
-                {{ recurrenceLabel(activeTask) }}
-              </span>
-              <span
-                v-if="activeTask.review_status"
-                class="review-chip"
-                :data-review="activeTask.review_status"
-              >
-                {{ reviewStatusLabels[activeTask.review_status] || activeTask.review_status }}
-              </span>
-              <span v-if="activeTask.is_archived" class="archive-chip">Archiviert</span>
-            </div>
-            <p class="muted">
-              Projekt: {{ activeTask.project ? projectMap[activeTask.project]?.title || "-" : "Kein Projekt" }}
-            </p>
-          </div>
-          <div class="detail-actions">
-            <button class="btn ghost tiny" type="button" @click="startEditTask(activeTask)">Bearbeiten</button>
-            <button
-              class="btn ghost tiny"
-              type="button"
-              @click="archiveTask(activeTask)"
-              :disabled="activeTask.is_archived"
-            >
-              Archivieren
-            </button>
-            <button class="btn ghost tiny" type="button" @click="activeTaskId = null">Schließen</button>
-          </div>
-        </header>
-        <div class="detail-grid">
-          <section class="info-panel">
-            <h3>Übersicht</h3>
-            <dl class="info-grid">
-              <div>
-                <dt>Status</dt>
-                <dd>{{ statusLabels[activeTask.status] }}</dd>
-              </div>
-              <div>
-                <dt>Review</dt>
-                <dd>{{ reviewStatusLabels[activeTask.review_status] || activeTask.review_status || "-" }}</dd>
-              </div>
-              <div>
-                <dt>Fällig</dt>
-                <dd>{{ activeTask.due_date ? formatDueDate(activeTask.due_date) : "Kein Termin" }}</dd>
-              </div>
-              <div>
-                <dt>Priorität</dt>
-                <dd>{{ priorityLabels[activeTask.priority] }}</dd>
-              </div>
-              <div>
-                <dt>Wiederholung</dt>
-                <dd>{{ recurrenceLabel(activeTask) }}</dd>
-              </div>
-              <div>
-                <dt>Erstellt</dt>
-                <dd>{{ formatDate(activeTask.created_at) }}</dd>
-              </div>
-              <div>
-                <dt>Erstellt von</dt>
-                <dd>{{ formatUser(activeTask.created_by) }}</dd>
-              </div>
-              <div>
-                <dt>Letzte Änderung</dt>
-                <dd>{{ formatUser(activeTask.updated_by) }}</dd>
-              </div>
-            </dl>
-            <div v-if="canResolveReview(activeTask)" class="review-actions">
-              <button
-                class="btn tiny"
-                type="button"
-                @click="setTaskReviewStatus(activeTask, true)"
-                :disabled="reviewActionSaving[activeTask.id]"
-              >
-                {{ reviewActionSaving[activeTask.id] ? "Speichere..." : "Als geprüft markieren" }}
-              </button>
-              <button
-                v-if="activeTask.status === 'REVIEW'"
-                class="btn ghost tiny danger"
-                type="button"
-                @click="setTaskReviewStatus(activeTask, false)"
-                :disabled="reviewActionSaving[activeTask.id]"
-              >
-                Als nicht geprüft markieren
-              </button>
-            </div>
-            <div class="chip-section">
-              <span class="label">Verantwortlich</span>
-              <div class="chip-list" v-if="activeTask.assignees?.length">
-                <span class="chip" v-for="person in activeTask.assignees" :key="person.id">
-                  {{ person.name || person.username }}
-                </span>
-              </div>
-              <p v-else class="muted small">Noch niemand zugewiesen</p>
-            </div>
-            <div class="chip-section">
-              <span class="label">Betroffene</span>
-              <div class="chip-list" v-if="activeTask.stakeholders?.length">
-                <span class="chip" v-for="person in activeTask.stakeholders" :key="`stake-${person.id}`">
-                  {{ person.name || person.username }}
-                </span>
-              </div>
-              <p v-else class="muted small">Keine Stakeholder hinterlegt</p>
-            </div>
-          </section>
-
-          <AttachmentPanel
-            entity-type="task"
-            :entity-id="activeTask.id"
-            title="Dateianhänge"
-            description="Teile Briefings, Referenzen oder Ergebnisse."
-          />
-
-          <section class="comments-panel">
-            <h3>Kommentare</h3>
-            <p class="muted">Nutze @-Mentions, um Teammitglieder zu informieren.</p>
-            <div class="comment-list" v-if="taskComments[activeTask.id]?.length">
-              <article v-for="comment in taskComments[activeTask.id]" :key="comment.id">
-                <header>
-                  <strong>{{ comment.author?.name || comment.author?.username }}</strong>
-                  <span class="muted">{{ formatDate(comment.created_at) }}</span>
-                </header>
-                <p>{{ comment.body }}</p>
-                <div v-if="comment.mention_profiles?.length" class="mentions">
-                  <span v-for="mention in comment.mention_profiles" :key="mention.id">@{{ mention.name || mention.username }}</span>
-                </div>
-              </article>
-            </div>
-            <p v-else class="muted">Noch keine Kommentare.</p>
-            <form class="comment-form" @submit.prevent="addComment(activeTask.id)">
-              <textarea class="input textarea" v-model.trim="taskCommentDraft(activeTask.id).body" placeholder="Kommentar"></textarea>
-              <label>
-                Mentions
-                <select class="input" v-model="taskCommentDraft(activeTask.id).mentions" multiple size="4">
-                  <option v-for="profile in teamProfiles" :key="profile.id" :value="profile.id">
-                    {{ profile.name }}
-                  </option>
-                </select>
-              </label>
-              <button class="btn tiny" type="submit" :disabled="commentLoading[activeTask.id]">
-                {{ commentLoading[activeTask.id] ? "Speichere..." : "Kommentieren" }}
-              </button>
-            </form>
-          </section>
-        </div>
-      </section>
     </section>
 
-    <FinishedTasksCard :finishedCount="finishedTasksCount" :finishedTasks="finishedTasksList" v-if="isTeam" />
+    <div v-if="showCategoryModal" class="modal-backdrop" @click.self="closeCategoryModal">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Kategorien sortieren</h3>
+          <button class="btn ghost tiny" type="button" @click="closeCategoryModal">Schließen</button>
+        </div>
+        <form class="form" @submit.prevent="addCategory">
+          <label>
+            Neue Kategorie
+            <div class="category-create-row">
+              <input class="input" v-model.trim="newCategoryName" placeholder="z. B. Produktion" />
+              <button class="btn tiny" type="submit">Anlegen</button>
+            </div>
+          </label>
+        </form>
+        <div class="category-order-list">
+          <article v-for="(category, index) in customCategories" :key="`manage-${category.id}`" class="category-order-item">
+            <strong>{{ category.name }}</strong>
+            <div class="card-buttons">
+              <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, -1)" :disabled="index === 0">Hoch</button>
+              <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, 1)" :disabled="index === customCategories.length - 1">Runter</button>
+              <button class="btn ghost danger tiny" type="button" @click="removeCategory(category.id)">Löschen</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showFinishedModal" class="modal-backdrop" @click.self="closeFinishedModal">
+      <div class="modal card wide">
+        <div class="modal-head">
+          <h3>Erledigte Tasks</h3>
+          <button class="btn ghost tiny" type="button" @click="closeFinishedModal">Schließen</button>
+        </div>
+        <div v-if="loadingCompletedTasks" class="muted">Lade erledigte Tasks...</div>
+        <div v-else>
+          <div v-if="!completedTasks.length" class="muted">Noch keine erledigten Tasks.</div>
+          <div v-else class="finished-modal-list">
+            <article class="finished-modal-item" v-for="task in completedTasks" :key="`done-${task.id}`">
+              <div>
+                <strong>{{ task.title }}</strong>
+                <p class="muted small-text">{{ task.project_title || "Kein Projekt" }}</p>
+                <p class="muted small-text">Erledigt: {{ formatDate(task.completed_at || task.updated_at) }}</p>
+              </div>
+              <button class="btn ghost tiny" type="button" @click="reopenTask(task)">Wieder öffnen</button>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div v-if="showFilterModal" class="modal-backdrop" @click.self="closeFilterModal">
       <div class="modal card wide">
@@ -556,8 +426,6 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
-import AttachmentPanel from "../components/AttachmentPanel.vue";
-import FinishedTasksCard from "../components/FinishedTasksCard.vue";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useRealtimeUpdates } from "../composables/useRealtimeUpdates";
@@ -606,6 +474,181 @@ const reviewPreviousStatus = ref(null);
 const statusSnapshot = ref({});
 const reviewActionSaving = ref({});
 const calendarExporting = ref(false);
+const showFinishedModal = ref(false);
+const loadingCompletedTasks = ref(false);
+const completedTasks = ref([]);
+const showCategoryModal = ref(false);
+const newCategoryName = ref("");
+
+const TASK_CATEGORY_KEY = "unyq_task_categories";
+const TASK_CATEGORY_ORDER_KEY = "unyq_task_category_order";
+const TASK_CATEGORY_COLLAPSED_KEY = "unyq_task_category_collapsed";
+const UNCATEGORIZED_ID = "uncategorized";
+
+function readStorageJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const taskCategoryMap = ref(readStorageJSON(TASK_CATEGORY_KEY, {}));
+const customCategories = ref(readStorageJSON(TASK_CATEGORY_ORDER_KEY, []));
+const collapsedCategories = ref(readStorageJSON(TASK_CATEGORY_COLLAPSED_KEY, {}));
+
+function persistTaskCategories() {
+  localStorage.setItem(TASK_CATEGORY_KEY, JSON.stringify(taskCategoryMap.value));
+}
+
+function persistCategoryOrder() {
+  localStorage.setItem(TASK_CATEGORY_ORDER_KEY, JSON.stringify(customCategories.value));
+}
+
+function persistCollapsedCategories() {
+  localStorage.setItem(TASK_CATEGORY_COLLAPSED_KEY, JSON.stringify(collapsedCategories.value));
+}
+
+const categoryOptions = computed(() => [
+  { id: UNCATEGORIZED_ID, name: "Ohne Kategorie" },
+  ...customCategories.value,
+]);
+
+const orderedCategorySections = computed(() => [
+  { id: UNCATEGORIZED_ID, name: "Ohne Kategorie" },
+  ...customCategories.value,
+]);
+
+function getTaskCategory(taskId) {
+  return taskCategoryMap.value[taskId] || UNCATEGORIZED_ID;
+}
+
+function categoryTasks(categoryId) {
+  return visibleTasks.value
+    .filter((task) => getTaskCategory(task.id) === categoryId)
+    .slice()
+    .sort(compareTasks);
+}
+
+function setTaskCategory(taskId, categoryId) {
+  taskCategoryMap.value = { ...taskCategoryMap.value, [taskId]: categoryId || UNCATEGORIZED_ID };
+  persistTaskCategories();
+}
+
+function isCategoryCollapsed(categoryId) {
+  return Boolean(collapsedCategories.value[categoryId]);
+}
+
+function toggleCategory(categoryId) {
+  collapsedCategories.value = {
+    ...collapsedCategories.value,
+    [categoryId]: !collapsedCategories.value[categoryId],
+  };
+  persistCollapsedCategories();
+}
+
+function openCategoryModal() {
+  showCategoryModal.value = true;
+}
+
+function closeCategoryModal() {
+  showCategoryModal.value = false;
+  newCategoryName.value = "";
+}
+
+function addCategory() {
+  const name = newCategoryName.value.trim();
+  if (!name) return;
+  const alreadyExists = customCategories.value.some((entry) => entry.name.toLowerCase() === name.toLowerCase());
+  if (alreadyExists) {
+    showToast("Kategorie existiert bereits", "warning");
+    return;
+  }
+  const next = [...customCategories.value, { id: `cat-${Date.now()}`, name }];
+  customCategories.value = next;
+  persistCategoryOrder();
+  newCategoryName.value = "";
+}
+
+function moveCategory(categoryId, direction) {
+  const index = customCategories.value.findIndex((entry) => entry.id === categoryId);
+  if (index === -1) return;
+  const target = index + direction;
+  if (target < 0 || target >= customCategories.value.length) return;
+  const next = [...customCategories.value];
+  const [moved] = next.splice(index, 1);
+  next.splice(target, 0, moved);
+  customCategories.value = next;
+  persistCategoryOrder();
+}
+
+function removeCategory(categoryId) {
+  customCategories.value = customCategories.value.filter((entry) => entry.id !== categoryId);
+  const nextMap = { ...taskCategoryMap.value };
+  Object.keys(nextMap).forEach((taskId) => {
+    if (nextMap[taskId] === categoryId) {
+      nextMap[taskId] = UNCATEGORIZED_ID;
+    }
+  });
+  taskCategoryMap.value = nextMap;
+  delete collapsedCategories.value[categoryId];
+  persistTaskCategories();
+  persistCategoryOrder();
+  persistCollapsedCategories();
+}
+
+async function loadCompletedTasks() {
+  if (!isTeam.value) return;
+  loadingCompletedTasks.value = true;
+  try {
+    const { data } = await api.get("tasks/", {
+      params: {
+        include_done: 1,
+        status: "DONE",
+        ordering: "-completed_at",
+      },
+    });
+    const normalized = normalizeListPayload(data);
+    completedTasks.value = normalized.items
+      .slice()
+      .sort((a, b) => new Date(b.completed_at || b.updated_at || 0) - new Date(a.completed_at || a.updated_at || 0));
+  } catch (err) {
+    console.error("Erledigte Tasks konnten nicht geladen werden", err);
+    completedTasks.value = [];
+    showToast("Erledigte Tasks konnten nicht geladen werden", "error");
+  } finally {
+    loadingCompletedTasks.value = false;
+  }
+}
+
+async function openFinishedModal() {
+  showFinishedModal.value = true;
+  await loadCompletedTasks();
+}
+
+function closeFinishedModal() {
+  showFinishedModal.value = false;
+}
+
+async function reopenTask(task) {
+  if (!task?.id) return;
+  try {
+    await api.patch(`tasks/${task.id}/`, { status: "OPEN", review_status: null });
+    showToast("Task wieder geöffnet", "success");
+    await Promise.all([refreshTasks(), loadCompletedTasks()]);
+  } catch (err) {
+    console.error("Task konnte nicht wieder geöffnet werden", err);
+    showToast("Task konnte nicht wieder geöffnet werden", "error");
+  }
+}
+
+function markTaskAsDone(task) {
+  const previousStatus = statusSnapshot.value[task.id] || task.status;
+  if (previousStatus === "DONE") return;
+  task.status = "DONE";
+  openReviewModal(task, previousStatus);
+}
 
 function getDefaultTaskForm() {
   return {
@@ -687,11 +730,6 @@ function recurrenceLabel(task) {
   return interval > 1 ? `${base} x${interval}` : base;
 }
 const boardTypeFilter = ref("ALL");
-const isFinishedView = computed(() => route.name === "tasks-finished");
-
-function openFinishedTasks() {
-  router.push({ name: "tasks-finished" });
-}
 function setBoardType(value) {
   boardTypeFilter.value = value;
   taskTypeFilter.value = value === "ALL" ? "ALL" : value;
@@ -726,20 +764,6 @@ const boardColumns = computed(() =>
       .slice()
       .sort(compareTasks),
   }))
-);
-
-const finishedTaskSummary = computed(() => ({
-  count: taskSummary.value.done || 0,
-  visible: !isFinishedView.value && (taskSummary.value.done || 0) > 0,
-}));
-
-const finishedTasksCount = computed(() => taskSummary.value.done || 0);
-
-const finishedTasksList = computed(() =>
-  tasks.value
-    .filter(t => t.status === "DONE")
-    .sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))
-    .slice(0, 6)
 );
 
 const statusProgress = computed(() =>
@@ -1660,6 +1684,50 @@ onBeforeUnmount(() => {
   text-align: center;
   padding: 12px 0;
 }
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.category-group {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.08);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+.category-header {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.category-header span {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+.category-header small {
+  color: var(--muted);
+}
+.category-toggle {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--brand);
+}
+.category-content ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
 .task-card {
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -1785,6 +1853,9 @@ onBeforeUnmount(() => {
   gap: 8px;
   align-items: center;
   margin-top: auto;
+}
+.task-actions-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .actions .input {
   width: 100%;
@@ -2135,6 +2206,39 @@ select[multiple] {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 6px;
+}
+.category-create-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.category-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.category-order-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.finished-modal-list {
+  display: grid;
+  gap: 10px;
+}
+.finished-modal-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(16, 185, 129, 0.08);
 }
 .danger-zone {
   border: 1px dashed rgba(220, 38, 38, 0.4);

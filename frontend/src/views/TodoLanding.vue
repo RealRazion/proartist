@@ -76,7 +76,7 @@ const draft = ref({
   due_date: "",
 });
 
-function toList(payload) {
+function extractTodoList(payload) {
   if (Array.isArray(payload)) return payload;
   return payload?.results || [];
 }
@@ -103,6 +103,22 @@ function toICSDate(value) {
   return String(value).slice(0, 10).replaceAll("-", "");
 }
 
+function addDaysToISODate(value, days = 0) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + days);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function toICSTimestamp(date = new Date()) {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+}
+
 async function loadTodos() {
   if (!isTeam.value) return;
   loadingTodos.value = true;
@@ -115,7 +131,7 @@ async function loadTodos() {
         page_size: 100,
       },
     });
-    todos.value = toList(data);
+    todos.value = extractTodoList(data);
   } catch (err) {
     todos.value = [];
     showToast("Todos konnten nicht geladen werden.", "error");
@@ -125,7 +141,7 @@ async function loadTodos() {
 }
 
 async function createTodo() {
-  const title = draft.value.title.trim();
+  const title = draft.value.title;
   if (!title) return;
   savingTodo.value = true;
   try {
@@ -156,18 +172,16 @@ function addTodoToCalendar(todo) {
     showToast("Ungültiges Datum.", "error");
     return;
   }
-  const endDate = new Date(todo.due_date);
-  endDate.setDate(endDate.getDate() + 1);
-  const end = toICSDate(endDate.toISOString().slice(0, 10));
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  const end = toICSDate(addDaysToISODate(todo.due_date, 1));
+  const stamp = toICSTimestamp();
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//UNYQ//Todo Platform//DE",
+    "PRODID:-//UNYQ//TodoPlatform//DE",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:todo-${todo.id}@unyq.local`,
+    `UID:todo-${todo.id}-${stamp}@todo.unyq`,
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${start}`,
     `DTEND;VALUE=DATE:${end}`,
@@ -180,9 +194,7 @@ function addTodoToCalendar(todo) {
   const link = document.createElement("a");
   link.href = url;
   link.download = `todo-${todo.id}.ics`;
-  document.body.appendChild(link);
   link.click();
-  document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
 }
 

@@ -4,21 +4,82 @@
       <div>
         <p class="eyebrow">Todo</p>
         <h1>Todo Platform</h1>
-        <p class="muted">Erstelle Todos mit optionalem Datum und füge sie per Button zum Kalender hinzu.</p>
+        <p class="muted">Eigene Todo-Umgebung ohne Verbindung zu den ProArtist Tasks.</p>
       </div>
-      <button class="btn ghost" type="button" @click="loadTodos" :disabled="loadingTodos">
-        {{ loadingTodos ? "Lade..." : "Aktualisieren" }}
-      </button>
+      <div class="header-actions">
+        <button class="btn ghost" type="button" @click="openCategoryModal">Kategorien</button>
+        <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte Anzeigen</button>
+        <button class="btn" type="button" @click="openCreateModal">Todo anlegen</button>
+      </div>
     </header>
 
     <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur für Team</h2>
-      <p class="muted">Die Todo Plattform nutzt die Team-Task-Funktionen.</p>
+      <h2>Zugriff nur fuer Team</h2>
+      <p class="muted">Nur Team-Mitglieder koennen die Todo Plattform nutzen.</p>
     </section>
 
-    <section v-else class="grid">
-      <article class="card create">
-        <h2>Neues Todo</h2>
+    <section v-else class="card board">
+      <div class="summary-row">
+        <article class="summary-card">
+          <span>Offen</span>
+          <strong>{{ openTodos.length }}</strong>
+        </article>
+        <article class="summary-card">
+          <span>Erledigt</span>
+          <strong>{{ completedTodos.length }}</strong>
+        </article>
+        <article class="summary-card">
+          <span>Kategorien</span>
+          <strong>{{ orderedCategorySections.length }}</strong>
+        </article>
+      </div>
+
+      <article class="category-group" v-for="category in orderedCategorySections" :key="`cat-${category.id}`">
+        <button class="category-header" type="button" @click="toggleCategory(category.id)">
+          <span>
+            <strong>{{ category.name }}</strong>
+            <small>{{ openTodosByCategory(category.id).length }} Todos</small>
+          </span>
+          <span class="toggle-icon">{{ isCategoryCollapsed(category.id) ? "+" : "-" }}</span>
+        </button>
+
+        <div v-if="!isCategoryCollapsed(category.id)" class="category-content">
+          <ul v-if="openTodosByCategory(category.id).length" class="todo-list">
+            <li
+              v-for="todo in openTodosByCategory(category.id)"
+              :key="todo.id"
+              class="todo-item"
+              :class="{ overdue: dueState(todo) === 'overdue', soon: dueState(todo) === 'soon' }"
+            >
+              <div>
+                <strong>{{ todo.title }}</strong>
+                <p class="muted small">{{ todo.due_date ? `Datum: ${formatDate(todo.due_date)}` : "Ohne Datum" }}</p>
+                <p class="todo-state" :class="dueState(todo)">{{ dueLabel(todo) }}</p>
+              </div>
+
+              <div class="todo-actions">
+                <select class="input small-select" :value="todo.category_id" @change="setTodoCategory(todo.id, $event.target.value)">
+                  <option v-for="option in categoryOptions" :key="`opt-${option.id}`" :value="option.id">{{ option.name }}</option>
+                </select>
+                <button class="btn ghost tiny" type="button" :disabled="!todo.due_date" @click="addTodoToCalendar(todo)">
+                  Zum Kalender
+                </button>
+                <button class="btn tiny" type="button" @click="markDone(todo.id)">Erledigt</button>
+              </div>
+            </li>
+          </ul>
+          <p v-else class="muted empty">Keine offenen Todos</p>
+        </div>
+      </article>
+    </section>
+
+    <div v-if="showCreateModal" class="modal-backdrop" @click.self="closeCreateModal">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Neues Todo</h3>
+          <button class="btn ghost tiny" type="button" @click="closeCreateModal">Schliessen</button>
+        </div>
+
         <form class="form" @submit.prevent="createTodo">
           <label>
             Titel
@@ -28,57 +89,145 @@
             Datum (optional)
             <input v-model="draft.due_date" class="input" type="date" />
           </label>
-          <button class="btn" type="submit" :disabled="savingTodo">
-            {{ savingTodo ? "Speichere..." : "Todo hinzufügen" }}
-          </button>
+          <label>
+            Kategorie
+            <select v-model="draft.category_id" class="input">
+              <option v-for="option in categoryOptions" :key="`create-${option.id}`" :value="option.id">{{ option.name }}</option>
+            </select>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="closeCreateModal">Abbrechen</button>
+            <button class="btn" type="submit">Anlegen</button>
+          </div>
         </form>
-      </article>
+      </div>
+    </div>
 
-      <article class="card list">
-        <h2>Todos</h2>
-        <p v-if="loadingTodos" class="muted">Lade Todos...</p>
-        <p v-else-if="!todos.length" class="muted">Noch keine Todos vorhanden.</p>
-        <ul v-else>
-          <li v-for="todo in todos" :key="todo.id" class="todo-item">
+    <div v-if="showCategoryModal" class="modal-backdrop" @click.self="closeCategoryModal">
+      <div class="modal card">
+        <div class="modal-head">
+          <h3>Kategorien</h3>
+          <button class="btn ghost tiny" type="button" @click="closeCategoryModal">Schliessen</button>
+        </div>
+
+        <form class="form" @submit.prevent="addCategory">
+          <label>
+            Neue Kategorie
+            <div class="create-row">
+              <input class="input" v-model.trim="newCategoryName" placeholder="z. B. Recording" />
+              <button class="btn tiny" type="submit">Anlegen</button>
+            </div>
+          </label>
+        </form>
+
+        <div class="category-order-list">
+          <article class="category-order-item" v-for="(category, index) in categories" :key="`manage-${category.id}`">
+            <strong>{{ category.name }}</strong>
+            <div class="todo-actions">
+              <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, -1)" :disabled="index === 0">Hoch</button>
+              <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, 1)" :disabled="index === categories.length - 1">Runter</button>
+              <button class="btn ghost danger tiny" type="button" @click="removeCategory(category.id)">Loeschen</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showFinishedModal" class="modal-backdrop" @click.self="closeFinishedModal">
+      <div class="modal card wide">
+        <div class="modal-head">
+          <h3>Erledigte Todos</h3>
+          <button class="btn ghost tiny" type="button" @click="closeFinishedModal">Schliessen</button>
+        </div>
+
+        <div v-if="!completedTodos.length" class="muted">Noch keine erledigten Todos.</div>
+        <div v-else class="finished-list">
+          <article class="finished-item" v-for="todo in completedTodos" :key="`done-${todo.id}`">
             <div>
               <strong>{{ todo.title }}</strong>
-              <p class="muted small">{{ todo.due_date ? `Datum: ${formatDate(todo.due_date)}` : "Ohne Datum" }}</p>
+              <p class="muted small">{{ todo.completed_at ? `Erledigt: ${formatDateTime(todo.completed_at)}` : "Ohne Zeit" }}</p>
+              <p class="muted small">{{ todo.due_date ? `Termin: ${formatDate(todo.due_date)}` : "Ohne Termin" }}</p>
             </div>
-            <button
-              class="btn ghost tiny"
-              type="button"
-              :disabled="!todo.due_date"
-              @click="addTodoToCalendar(todo)"
-            >
-              Zum Kalender hinzufügen
-            </button>
-          </li>
-        </ul>
-      </article>
-    </section>
+            <button class="btn ghost tiny" type="button" @click="reopenTodo(todo.id)">Wieder oeffnen</button>
+          </article>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
-import api from "../api";
+import { computed, onMounted, ref } from "vue";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
+
+const TODO_STORAGE_KEY = "unyq_todo_platform_items";
+const TODO_CATEGORY_KEY = "unyq_todo_platform_categories";
+const TODO_COLLAPSED_KEY = "unyq_todo_platform_collapsed";
+const UNCATEGORIZED_ID = "uncategorized";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
 const todos = ref([]);
-const loadingTodos = ref(false);
-const savingTodo = ref(false);
+const categories = ref([]);
+const collapsedCategories = ref({});
+
+const showCreateModal = ref(false);
+const showCategoryModal = ref(false);
+const showFinishedModal = ref(false);
+const newCategoryName = ref("");
+
 const draft = ref({
   title: "",
   due_date: "",
+  category_id: UNCATEGORIZED_ID,
 });
 
-function extractTodoList(payload) {
-  if (Array.isArray(payload)) return payload;
-  return payload?.results || [];
+function readStorageJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function persistTodos() {
+  localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos.value));
+}
+
+function persistCategories() {
+  localStorage.setItem(TODO_CATEGORY_KEY, JSON.stringify(categories.value));
+}
+
+function persistCollapsed() {
+  localStorage.setItem(TODO_COLLAPSED_KEY, JSON.stringify(collapsedCategories.value));
+}
+
+const categoryOptions = computed(() => [
+  { id: UNCATEGORIZED_ID, name: "Ohne Kategorie" },
+  ...categories.value,
+]);
+
+const orderedCategorySections = computed(() => categoryOptions.value);
+
+const openTodos = computed(() =>
+  todos.value
+    .filter((todo) => todo.status !== "DONE")
+    .slice()
+    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0))
+);
+
+const completedTodos = computed(() =>
+  todos.value
+    .filter((todo) => todo.status === "DONE")
+    .slice()
+    .sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))
+);
+
+function openTodosByCategory(categoryId) {
+  return openTodos.value.filter((todo) => (todo.category_id || UNCATEGORIZED_ID) === categoryId);
 }
 
 function formatDate(value) {
@@ -88,6 +237,35 @@ function formatDate(value) {
   } catch {
     return value;
   }
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  try {
+    return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function dueState(todo) {
+  if (!todo?.due_date) return "none";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(todo.due_date);
+  due.setHours(0, 0, 0, 0);
+  const diff = Math.round((due - today) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return "overdue";
+  if (diff <= 2) return "soon";
+  return "scheduled";
+}
+
+function dueLabel(todo) {
+  const state = dueState(todo);
+  if (state === "overdue") return "Ueberfaellig";
+  if (state === "soon") return "Faellig in <= 2 Tagen";
+  if (state === "scheduled") return "Geplant";
+  return "Ohne Termin";
 }
 
 function icsEscape(value) {
@@ -119,47 +297,129 @@ function toICSTimestamp(date = new Date()) {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
 }
 
-async function loadTodos() {
-  if (!isTeam.value) return;
-  loadingTodos.value = true;
-  try {
-    const { data } = await api.get("tasks/", {
-      params: {
-        include_archived: 0,
-        include_done: 1,
-        ordering: "-created_at",
-        page_size: 100,
-      },
-    });
-    todos.value = extractTodoList(data);
-  } catch (err) {
-    todos.value = [];
-    showToast("Todos konnten nicht geladen werden.", "error");
-  } finally {
-    loadingTodos.value = false;
-  }
+function openCreateModal() {
+  showCreateModal.value = true;
 }
 
-async function createTodo() {
-  const title = draft.value.title;
-  if (!title) return;
-  savingTodo.value = true;
-  try {
-    await api.post("tasks/", {
-      title,
-      status: "OPEN",
-      priority: "MEDIUM",
-      task_type: "EXTERNAL",
-      due_date: draft.value.due_date || null,
-    });
-    draft.value = { title: "", due_date: "" };
-    await loadTodos();
-    showToast("Todo wurde erstellt.", "success");
-  } catch (err) {
-    showToast("Todo konnte nicht erstellt werden.", "error");
-  } finally {
-    savingTodo.value = false;
+function closeCreateModal() {
+  showCreateModal.value = false;
+}
+
+function openCategoryModal() {
+  showCategoryModal.value = true;
+}
+
+function closeCategoryModal() {
+  showCategoryModal.value = false;
+  newCategoryName.value = "";
+}
+
+function openFinishedModal() {
+  showFinishedModal.value = true;
+}
+
+function closeFinishedModal() {
+  showFinishedModal.value = false;
+}
+
+function isCategoryCollapsed(categoryId) {
+  return Boolean(collapsedCategories.value[categoryId]);
+}
+
+function toggleCategory(categoryId) {
+  collapsedCategories.value = {
+    ...collapsedCategories.value,
+    [categoryId]: !collapsedCategories.value[categoryId],
+  };
+  persistCollapsed();
+}
+
+function addCategory() {
+  const name = newCategoryName.value.trim();
+  if (!name) return;
+  const exists = categories.value.some((entry) => entry.name.toLowerCase() === name.toLowerCase());
+  if (exists) {
+    showToast("Kategorie existiert bereits.", "warning");
+    return;
   }
+  categories.value = [...categories.value, { id: `cat-${Date.now()}`, name }];
+  persistCategories();
+  newCategoryName.value = "";
+}
+
+function moveCategory(categoryId, direction) {
+  const index = categories.value.findIndex((entry) => entry.id === categoryId);
+  if (index === -1) return;
+  const target = index + direction;
+  if (target < 0 || target >= categories.value.length) return;
+  const next = [...categories.value];
+  const [moved] = next.splice(index, 1);
+  next.splice(target, 0, moved);
+  categories.value = next;
+  persistCategories();
+}
+
+function removeCategory(categoryId) {
+  categories.value = categories.value.filter((entry) => entry.id !== categoryId);
+  todos.value = todos.value.map((todo) =>
+    (todo.category_id || UNCATEGORIZED_ID) === categoryId
+      ? { ...todo, category_id: UNCATEGORIZED_ID, updated_at: new Date().toISOString() }
+      : todo
+  );
+  delete collapsedCategories.value[categoryId];
+  persistCategories();
+  persistCollapsed();
+  persistTodos();
+}
+
+function createTodo() {
+  const title = draft.value.title.trim();
+  if (!title) return;
+  const now = new Date().toISOString();
+  const item = {
+    id: `todo-${Date.now()}`,
+    title,
+    due_date: draft.value.due_date || null,
+    category_id: draft.value.category_id || UNCATEGORIZED_ID,
+    status: "OPEN",
+    created_at: now,
+    updated_at: now,
+    completed_at: null,
+  };
+  todos.value = [item, ...todos.value];
+  persistTodos();
+  draft.value = { title: "", due_date: "", category_id: UNCATEGORIZED_ID };
+  showCreateModal.value = false;
+  showToast("Todo wurde erstellt.", "success");
+}
+
+function setTodoCategory(todoId, categoryId) {
+  todos.value = todos.value.map((todo) =>
+    todo.id === todoId
+      ? { ...todo, category_id: categoryId || UNCATEGORIZED_ID, updated_at: new Date().toISOString() }
+      : todo
+  );
+  persistTodos();
+}
+
+function markDone(todoId) {
+  const now = new Date().toISOString();
+  todos.value = todos.value.map((todo) =>
+    todo.id === todoId
+      ? { ...todo, status: "DONE", completed_at: now, updated_at: now }
+      : todo
+  );
+  persistTodos();
+}
+
+function reopenTodo(todoId) {
+  const now = new Date().toISOString();
+  todos.value = todos.value.map((todo) =>
+    todo.id === todoId
+      ? { ...todo, status: "OPEN", completed_at: null, updated_at: now }
+      : todo
+  );
+  persistTodos();
 }
 
 function addTodoToCalendar(todo) {
@@ -169,7 +429,7 @@ function addTodoToCalendar(todo) {
   }
   const start = toICSDate(todo.due_date);
   if (!start) {
-    showToast("Ungültiges Datum.", "error");
+    showToast("Ungueltiges Datum.", "error");
     return;
   }
   const end = toICSDate(addDaysToISODate(todo.due_date, 1));
@@ -181,7 +441,7 @@ function addTodoToCalendar(todo) {
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:todo-${todo.id}-${stamp}@todo.unyq`,
+    `UID:${todo.id}-${stamp}@todo.unyq`,
     `DTSTAMP:${stamp}`,
     `DTSTART;VALUE=DATE:${start}`,
     `DTEND;VALUE=DATE:${end}`,
@@ -193,14 +453,16 @@ function addTodoToCalendar(todo) {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `todo-${todo.id}.ics`;
+  link.download = `${todo.id}.ics`;
   link.click();
   window.URL.revokeObjectURL(url);
 }
 
 onMounted(async () => {
   await fetchProfile();
-  await loadTodos();
+  todos.value = readStorageJSON(TODO_STORAGE_KEY, []);
+  categories.value = readStorageJSON(TODO_CATEGORY_KEY, []);
+  collapsedCategories.value = readStorageJSON(TODO_COLLAPSED_KEY, {});
 });
 </script>
 
@@ -215,6 +477,13 @@ onMounted(async () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .eyebrow {
@@ -225,28 +494,73 @@ onMounted(async () => {
   color: var(--brand);
 }
 
-.grid {
+.board {
   display: grid;
-  gap: 16px;
-  grid-template-columns: 320px 1fr;
+  gap: 12px;
 }
 
-.form {
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--card) 90%, var(--brand) 10%);
+  display: grid;
+  gap: 3px;
+}
+
+.summary-card span {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.summary-card strong {
+  font-size: 1.1rem;
+}
+
+.category-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
   display: grid;
   gap: 10px;
 }
 
-.todo-item {
+.category-header {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
+  cursor: pointer;
 }
 
-.list ul {
+.category-header span {
+  display: grid;
+  text-align: left;
+}
+
+.category-header small {
+  color: var(--muted);
+}
+
+.toggle-icon {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--brand);
+}
+
+.todo-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -254,19 +568,158 @@ onMounted(async () => {
   gap: 10px;
 }
 
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--card) 94%, #fff 6%);
+}
+
+.todo-item.overdue {
+  border-color: color-mix(in srgb, #ef4444 65%, var(--border) 35%);
+}
+
+.todo-item.soon {
+  border-color: color-mix(in srgb, #f59e0b 65%, var(--border) 35%);
+}
+
+.todo-state {
+  margin: 6px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.todo-state.overdue {
+  color: #b91c1c;
+}
+
+.todo-state.soon {
+  color: #b45309;
+}
+
+.todo-state.scheduled {
+  color: #0f766e;
+}
+
+.todo-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.small-select {
+  min-width: 160px;
+}
+
 .small {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   font-size: 12px;
 }
 
+.empty {
+  margin: 0;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 999;
+}
+
+.modal {
+  max-width: 560px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal.wide {
+  max-width: 900px;
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.create-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.category-order-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.category-order-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.finished-list {
+  display: grid;
+  gap: 10px;
+}
+
+.finished-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 @media (max-width: 980px) {
-  .grid {
+  .summary-row {
     grid-template-columns: 1fr;
   }
 
-  .todo-item {
+  .todo-item,
+  .finished-item,
+  .category-order-item {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .todo-actions {
+    justify-content: flex-start;
   }
 }
 </style>

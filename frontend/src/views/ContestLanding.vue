@@ -1,665 +1,196 @@
 <template>
   <div class="tournament-page">
+    <div class="arena-bg-layer"></div>
 
-    <!-- Hero -->
-    <header class="contest-hero">
-      <div class="hero-inner">
-        <div class="hero-copy">
-          <p class="eyebrow">UNYQ Arena Ranked</p>
-          <h1>Turniere wie ein Game Erlebnis</h1>
-          <p class="hero-lead">
-            Offene Arena fuer Artists, Producer, Songwriter und alle Musik-Creator.
-            Spiele Battles, sammle Punkte und steig von Bronze bis Rubin auf.
-          </p>
-        </div>
-        <div class="hero-stats">
-          <div class="hstat">
-            <span class="hstat-num">{{ tournaments.length }}</span>
-            <span class="hstat-label">Turniere</span>
-          </div>
-          <div class="hstat">
-            <span class="hstat-num">{{ battles.length }}</span>
-            <span class="hstat-label">Battles</span>
-          </div>
-          <div class="hstat">
-            <span class="hstat-num">{{ submissions.length }}</span>
-            <span class="hstat-label">Einreichungen</span>
-          </div>
-        </div>
+    <header class="arena-hero">
+      <div class="hero-left">
+        <p class="eyebrow">UNYQ Arena Mode</p>
+        <h1>Battle Royale fuer Musik-Creator</h1>
+        <p>
+          Keine Office-Plattform. Keine 200 Fenster. Eine Arena mit Fokus auf Matches,
+          Ranks und Live-Feeling.
+        </p>
+      </div>
+      <div class="hero-right">
+        <div class="hero-stat"><strong>{{ rankedOverview.season || '-' }}</strong><span>Season</span></div>
+        <div class="hero-stat"><strong>{{ tournaments.length }}</strong><span>Turniere</span></div>
+        <div class="hero-stat"><strong>{{ battles.length }}</strong><span>Battles</span></div>
+        <div class="hero-stat"><strong>{{ rankedOverview.total_players || 0 }}</strong><span>Spieler</span></div>
       </div>
       <div class="hero-actions">
         <button class="btn ghost" type="button" @click="goHome">Zur Plattform</button>
-        <button class="btn" type="button" @click="loadAll" :disabled="busy">
-          <svg class="spin-icon" :class="{ spinning: busy }" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
-          Aktualisieren
-        </button>
+        <button class="btn" type="button" @click="loadAll" :disabled="busy">Reload Arena</button>
       </div>
     </header>
 
-    <section class="ranked-strip">
-      <article class="ranked-card season-card">
-        <span class="strip-label">Season</span>
-        <strong>{{ rankedOverview.season || '-' }}</strong>
-        <span>{{ rankedOverview.total_players || 0 }} aktive Creator</span>
-      </article>
-      <article class="ranked-card my-rank-card" v-if="myRankedRow">
-        <span class="strip-label">Mein Rank</span>
-        <strong>#{{ myRankedRow.rank }} · {{ myRankedRow.tier?.label }}</strong>
-        <span>{{ myRankedRow.ranked_points }} RP</span>
-      </article>
-      <article class="ranked-card my-rank-card" v-else>
-        <span class="strip-label">Mein Rank</span>
-        <strong>Noch kein Ranked-Eintrag</strong>
-        <span>Erste Battles spielen, dann erscheinst du im Ladder</span>
-      </article>
-      <article class="ranked-card dist-card" v-for="tier in rankedOverview.tiers || []" :key="tier.key">
-        <img class="rank-chip-art" :src="rankArtwork(tier.key)" :alt="`${tier.label} Emblem`" />
-        <span class="strip-label">{{ tier.label }}</span>
-        <strong>{{ rankDistribution[tier.key] || 0 }}</strong>
-        <span>Spieler</span>
-      </article>
-    </section>
-
-    <section class="rank-gallery card">
-      <h2>Rank Gallery</h2>
-      <p>Jeder Tier hat ein eigenes Emblem. Keine Standard-UI, sondern Arena-Identity.</p>
-      <div class="rank-gallery-grid">
-        <article v-for="tier in rankedOverview.tiers || []" :key="`gallery-${tier.key}`" class="rank-art-card" :class="`tier-${(tier.key || 'BRONZE').toLowerCase()}`">
-          <img :src="rankArtwork(tier.key)" :alt="`${tier.label} Rank Artwork`" />
-          <div>
-            <strong>{{ tier.label }}</strong>
-            <span>{{ tier.min }} - {{ tier.max ?? '∞' }} RP</span>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="card ladder-board">
-      <div class="ladder-head">
-        <div>
-          <h2>Ranked Ladder</h2>
-          <p>Globales Punkte-Ranking ueber alle Turniere hinweg.</p>
-        </div>
-      </div>
-      <div v-if="rankedRows.length === 0" class="empty-inline">Noch keine Ranked-Daten vorhanden.</div>
-      <div v-else class="ladder-grid">
-        <article
-          v-for="row in topRankedRows"
-          :key="`ladder-${row.profile_id}`"
-          class="ladder-row"
-          :class="`tier-${(row.tier?.key || 'BRONZE').toLowerCase()}`"
-        >
-          <div class="ladder-core">
-            <img class="ladder-rank-art" :src="rankArtwork(row.tier?.key)" :alt="`${row.tier?.label || 'Bronze'} icon`" />
-            <strong>#{{ row.rank }} {{ row.name }}</strong>
-            <span class="muted">{{ row.roles?.join(' • ') || 'Musik-Creator' }}</span>
-          </div>
-          <div class="ladder-meta">
-            <span class="tier-pill">{{ row.tier?.label || 'Bronze' }}</span>
-            <span>{{ row.ranked_points }} RP</span>
-            <span>W{{ row.wins }} / B{{ row.battles }}</span>
-          </div>
-          <div class="tier-progress" v-if="row.tier?.next_tier_points">
-            <div class="tier-progress-fill" :style="{ width: `${row.tier.progress_percent || 0}%` }"></div>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section class="card tournament-filters">
-      <input
-        v-model.trim="tournamentSearch"
-        class="input"
-        placeholder="Turnier suchen..."
-      />
-      <select v-model="statusFilter" class="input">
-        <option value="ALL">Alle Status</option>
-        <option value="APPLICATION_OPEN">Bewerbung offen</option>
-        <option value="SUBMISSION_OPEN">Einreichung offen</option>
-        <option value="BATTLES">Battles laufen</option>
-        <option value="CLOSED">Geschlossen</option>
-      </select>
-      <select v-model="sortMode" class="input">
-        <option value="newest">Neueste zuerst</option>
-        <option value="most-battles">Meiste Battles</option>
-        <option value="most-submissions">Meiste Einreichungen</option>
-        <option value="open-first">Offene zuerst</option>
-      </select>
-    </section>
-
-    <section class="card tournament-timeline">
-      <div class="timeline-head">
-        <div>
-          <h2>Turnier Timeline</h2>
-          <p>Aktive und kommende Events wie eine Competitive-Roadmap.</p>
-        </div>
-      </div>
-      <div class="timeline-columns">
-        <div class="timeline-col">
-          <h3>Jetzt Live</h3>
-          <div v-if="timelineCurrent.length === 0" class="empty-inline">Aktuell keine laufenden Turniere.</div>
-          <article v-for="event in timelineCurrent" :key="event.id" class="timeline-item live">
-            <strong>{{ event.title }}</strong>
-            <span>{{ formatDateTime(event.date) }}</span>
-            <div class="row-actions">
-              <span class="meta-chip" v-if="event.is_no_loss">No Loss</span>
-              <span class="meta-chip" v-if="event.is_recurring">Recurring</span>
-              <span class="meta-chip highlight">{{ statusLabel(event.status) }}</span>
-            </div>
-          </article>
-        </div>
-        <div class="timeline-col">
-          <h3>Kommend</h3>
-          <div v-if="timelineUpcoming.length === 0" class="empty-inline">Noch keine kommenden Turniere geplant.</div>
-          <article v-for="event in timelineUpcoming" :key="event.id" class="timeline-item upcoming">
-            <strong>{{ event.title }}</strong>
-            <span>{{ formatDateTime(event.date) }}</span>
-            <div class="row-actions">
-              <span class="meta-chip" v-if="event.is_no_loss">No Loss</span>
-              <span class="meta-chip" v-if="event.is_recurring">Recurring</span>
-              <span class="meta-chip">{{ event.phase === 'RECURRING' ? 'Wiederkehrend' : 'Upcoming' }}</span>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="!isTeam" class="card audience-stats">
-      <div class="aud-stat">
-        <strong>{{ myApplicationsCount }}</strong>
-        <span>Meine Teilnahmen</span>
-      </div>
-      <div class="aud-stat">
-        <strong>{{ mySubmissionsCount }}</strong>
-        <span>Meine Plays</span>
-      </div>
-      <div class="aud-stat">
-        <strong>{{ myVotesCount }}</strong>
-        <span>Meine Fan-Votes</span>
-      </div>
-    </section>
-
-    <section v-if="isTeam" class="card team-control-center">
-      <div class="control-header">
-        <div>
-          <h2>Turnierleitung</h2>
-          <p>Schnellzugriff auf offene Battles inklusive Direktabschluss.</p>
-        </div>
-        <div class="row-actions">
-          <span class="meta-chip">{{ pendingApplicationsCount }} Bewerbungen offen</span>
-          <span class="meta-chip">{{ pendingSubmissionsCount }} Einreichungen offen</span>
-          <span class="meta-chip">{{ flaggedVotesCount }} Votes in Prüfung</span>
-          <span class="meta-chip highlight">{{ openBattleRows.length }} Battles offen</span>
-        </div>
-      </div>
-      <div v-if="openBattleRows.length === 0" class="empty-inline">Aktuell keine offenen Battles.</div>
-      <div v-else class="control-list">
-        <article v-for="row in openBattleRows" :key="`control-${row.battle.id}`" class="control-row">
-          <div class="control-info">
-            <strong>{{ row.tournament.title }} · Runde {{ row.battle.round_number }}</strong>
-            <span class="muted">{{ row.battle.left_profile_name }} ({{ row.battle.votes_left }}) vs {{ row.battle.right_profile_name }} ({{ row.battle.votes_right }})</span>
-          </div>
-          <div class="row-actions">
-            <button class="btn small" @click="closeBattle(row.tournament, row.battle)">Auto</button>
-            <button class="btn ghost small" @click="closeBattle(row.tournament, row.battle, row.battle.left_submission)">Links</button>
-            <button class="btn ghost small" @click="closeBattle(row.tournament, row.battle, row.battle.right_submission)">Rechts</button>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section v-if="isTeam" class="card ranked-admin-panel">
-      <div class="control-header">
-        <div>
-          <h2>Ranked Admin</h2>
-          <p>Saison und Tier-Regeln verwalten (Loss-Toleranz, Punktegewichtung, Penalties).</p>
-        </div>
-        <div class="row-actions">
-          <span class="meta-chip">Saison {{ rankConfigSeason.season_index || '-' }}</span>
-          <span class="meta-chip">{{ rankConfigSeason.duration_months || 3 }} Monate</span>
-          <span class="meta-chip">{{ rankConfigSeason.seasons_per_year || 4 }} pro Jahr</span>
-          <button class="btn small" @click="saveRankedConfig" :disabled="busy">Speichern</button>
-        </div>
-      </div>
-      <div class="rank-tier-grid" v-if="rankConfigTiers.length">
-        <article v-for="tier in rankConfigTiers" :key="tier.tier_key" class="rank-tier-editor">
-          <h3>{{ tier.display_name }}</h3>
-          <label>Min Punkte <input v-model.number="tier.min_points" type="number" min="0" /></label>
-          <label>Max Punkte <input v-model.number="tier.max_points" type="number" min="0" /></label>
-          <label>Win Punkte <input v-model.number="tier.win_points" type="number" min="0" /></label>
-          <label>Vote Punkte <input v-model.number="tier.vote_points" type="number" min="0" /></label>
-          <label>Submission Punkte <input v-model.number="tier.submission_points" type="number" min="0" /></label>
-          <label>Battle Punkte <input v-model.number="tier.battle_points" type="number" min="0" /></label>
-          <label>Loss Penalty <input v-model.number="tier.loss_penalty" type="number" min="0" /></label>
-          <label>Losses frei <input v-model.number="tier.max_losses_without_penalty" type="number" min="0" /></label>
-        </article>
-      </div>
-    </section>
-
-    <!-- Turnier erstellen (Team only) -->
-    <section v-if="isTeam" class="card collapsible-section">
-      <button class="collapsible-head" type="button" @click="showCreateForm = !showCreateForm">
-        <span class="collapsible-title">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-          Neues Turnier erstellen
-        </span>
-        <svg class="chevron" :class="{ open: showCreateForm }" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    <section class="arena-tournament-picker" v-if="visibleTournaments.length">
+      <button
+        v-for="item in visibleTournaments.slice(0, 10)"
+        :key="`pick-${item.id}`"
+        class="pick-chip"
+        :class="{ active: featuredTournament?.id === item.id }"
+        @click="selectTournament(item.id)"
+      >
+        <span>{{ item.title }}</span>
+        <small>{{ statusLabel(item.status) }}</small>
       </button>
-      <div v-if="showCreateForm" class="collapsible-body">
-        <form class="create-grid" @submit.prevent="createTournament">
-          <label>
-            Titel
-            <input v-model.trim="createForm.title" required maxlength="200" placeholder="z. B. UNYQ Summer Battle" />
-          </label>
-          <label>
-            Status
+    </section>
+
+    <section class="rank-emblems" v-if="rankedOverview.tiers?.length">
+      <article
+        v-for="tier in rankedOverview.tiers"
+        :key="tier.key"
+        class="emblem-card"
+        :class="`tier-${(tier.key || 'BRONZE').toLowerCase()}`"
+      >
+        <img :src="rankArtwork(tier.key)" :alt="`${tier.label} emblem`" />
+        <div>
+          <strong>{{ tier.label }}</strong>
+          <span>{{ rankDistribution[tier.key] || 0 }} Spieler</span>
+        </div>
+      </article>
+    </section>
+
+    <section class="arena-main" v-if="featuredTournament">
+      <article class="arena-stage">
+        <div class="stage-head">
+          <h2>{{ featuredTournament.title }}</h2>
+          <div class="stage-tags">
+            <span class="tag">{{ statusLabel(featuredTournament.status) }}</span>
+            <span class="tag" v-if="featuredTournament.is_no_loss">No Loss</span>
+            <span class="tag" v-if="featuredTournament.is_recurring">
+              Recurring {{ recurrenceLabel(featuredTournament.recurrence_type) }}
+            </span>
+          </div>
+        </div>
+
+        <p class="stage-desc">{{ featuredTournament.description || 'Bereit fuer die naechste Runde.' }}</p>
+
+        <div class="battle-feed">
+          <div v-if="battlesFor(featuredTournament.id).length === 0" class="empty-inline">Noch keine Live-Battles.</div>
+          <article class="battle-duel" v-for="battle in battlesFor(featuredTournament.id)" :key="`duel-${battle.id}`">
+            <div class="duel-player left">{{ battle.left_profile_name }}</div>
+            <div class="duel-center">
+              <strong>{{ battle.votes_left }} : {{ battle.votes_right }}</strong>
+              <span>Runde {{ battle.round_number }}</span>
+            </div>
+            <div class="duel-player right">{{ battle.right_profile_name }}</div>
+            <div class="duel-actions" v-if="!isTeam">
+              <button class="btn vote-btn" @click="voteBattle(featuredTournament, battle, battle.left_submission)" :disabled="!canVoteBattle(featuredTournament, battle)">Left</button>
+              <button class="btn ghost vote-btn" @click="voteBattle(featuredTournament, battle, battle.right_submission)" :disabled="!canVoteBattle(featuredTournament, battle)">Right</button>
+            </div>
+            <div class="duel-actions" v-if="isTeam && battle.status !== 'CLOSED'">
+              <button class="btn small" @click="closeBattle(featuredTournament, battle)">Auto Close</button>
+              <button class="btn ghost small" @click="closeBattle(featuredTournament, battle, battle.left_submission)">Left Win</button>
+              <button class="btn ghost small" @click="closeBattle(featuredTournament, battle, battle.right_submission)">Right Win</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="quick-actions" v-if="!isTeam && featuredTournament.has_application_phase && !myApplication(featuredTournament.id)">
+          <textarea v-model.trim="applicationDrafts[featuredTournament.id]" rows="2" placeholder="Kurze Bewerbung"></textarea>
+          <button class="btn" @click="submitApplication(featuredTournament.id)" :disabled="busy">Jetzt bewerben</button>
+        </div>
+
+        <div class="quick-actions" v-if="!isTeam">
+          <input v-model.trim="submissionDraft(featuredTournament.id).title" placeholder="Track / Runde Titel" />
+          <input v-model.trim="submissionDraft(featuredTournament.id).media_url" placeholder="https://media-link" />
+          <button class="btn" @click="submitRound(featuredTournament.id)" :disabled="busy || !canSubmit(featuredTournament)">Runde einreichen</button>
+        </div>
+
+        <div class="quick-actions" v-if="isTeam">
+          <button class="btn ghost" @click="setTournamentStatus(featuredTournament, 'APPLICATION_OPEN')">Applications</button>
+          <button class="btn ghost" @click="setTournamentStatus(featuredTournament, 'SUBMISSION_OPEN')">Submissions</button>
+          <button class="btn ghost" @click="setTournamentStatus(featuredTournament, 'BATTLES')">Battle Live</button>
+          <button class="btn" @click="setTournamentStatus(featuredTournament, 'CLOSED')">Close Tournament</button>
+        </div>
+      </article>
+
+      <aside class="arena-side">
+        <section class="side-block ladder">
+          <h3>Top Ladder</h3>
+          <article class="ladder-row" v-for="row in topRankedRows.slice(0, 6)" :key="`ladder-${row.profile_id}`">
+            <img class="ladder-rank-art" :src="rankArtwork(row.tier?.key)" :alt="row.tier?.label" />
+            <div>
+              <strong>#{{ row.rank }} {{ row.name }}</strong>
+              <span>{{ row.ranked_points }} RP</span>
+            </div>
+          </article>
+        </section>
+
+        <section class="side-block timeline">
+          <h3>Timeline</h3>
+          <article class="timeline-row live" v-for="event in timelineCurrent.slice(0, 3)" :key="`live-${event.id}`">
+            <strong>{{ event.title }}</strong>
+            <span>{{ formatDateTime(event.date) }}</span>
+          </article>
+          <article class="timeline-row upcoming" v-for="event in timelineUpcoming.slice(0, 4)" :key="`up-${event.id}`">
+            <strong>{{ event.title }}</strong>
+            <span>{{ formatDateTime(event.date) }}</span>
+          </article>
+        </section>
+
+        <section class="side-block profile" v-if="!isTeam">
+          <h3>Mein Fortschritt</h3>
+          <p v-if="myRankedRow">{{ myRankedRow.tier?.label }} • #{{ myRankedRow.rank }} • {{ myRankedRow.ranked_points }} RP</p>
+          <p v-else>Noch kein Ladder-Eintrag.</p>
+        </section>
+
+        <section class="side-block admin" v-if="isTeam">
+          <h3>Admin Tools</h3>
+          <button class="btn" @click="goAnimationLab">Animation Lab</button>
+          <button class="btn ghost" @click="showCreateForm = !showCreateForm">{{ showCreateForm ? 'Hide' : 'Show' }} Create</button>
+          <button class="btn ghost" @click="saveRankedConfig" :disabled="busy">Save Ranked Rules</button>
+        </section>
+      </aside>
+    </section>
+
+    <section class="admin-overlay" v-if="isTeam && showCreateForm">
+      <article class="overlay-card">
+        <header>
+          <h3>Turnier Builder</h3>
+          <button class="btn ghost small" @click="showCreateForm = false">Close</button>
+        </header>
+        <form class="overlay-form" @submit.prevent="createTournament">
+          <input v-model.trim="createForm.title" required maxlength="200" placeholder="Turnier Titel" />
+          <textarea v-model.trim="createForm.description" rows="2" placeholder="Beschreibung"></textarea>
+          <div class="overlay-grid">
             <select v-model="createForm.status">
               <option value="DRAFT">Entwurf</option>
               <option value="APPLICATION_OPEN">Bewerbung offen</option>
               <option value="SUBMISSION_OPEN">Einreichung offen</option>
-              <option value="BATTLES">Battles laufen</option>
+              <option value="BATTLES">Battles</option>
               <option value="CLOSED">Geschlossen</option>
             </select>
-          </label>
-          <label class="full">
-            Beschreibung
-            <textarea v-model.trim="createForm.description" rows="3" placeholder="Kurzbeschreibung für Teilnehmer und Fans"></textarea>
-          </label>
-          <label>
-            Bewerbungsphase
-            <select v-model="createForm.has_application_phase">
-              <option :value="true">Mit Bewerbung</option>
-              <option :value="false">Ohne Bewerbung</option>
+            <select v-model="createForm.voting_mode">
+              <option value="COMMUNITY">Community</option>
+              <option value="HYBRID">Hybrid</option>
+              <option value="JURY_ONLY">Jury</option>
             </select>
-          </label>
-          <label>
-            Bewerbungsdeadline
-            <input v-model="createForm.application_deadline" type="datetime-local" />
-          </label>
-          <label>
-            Einreichungsdeadline
-            <input v-model="createForm.submission_deadline" type="datetime-local" />
-          </label>
-          <label>
-            Turnier Start
             <input v-model="createForm.starts_at" type="datetime-local" />
-          </label>
-          <label>
-            Turnier Ende
             <input v-model="createForm.ends_at" type="datetime-local" />
-          </label>
-          <label>
-            Telefon-Voting erzwingen
-            <select v-model="createForm.require_phone_vote_verification">
-              <option :value="false">Nein</option>
-              <option :value="true">Ja (für später)</option>
-            </select>
-          </label>
-          <label>
-            No Loss Modus
-            <select v-model="createForm.is_no_loss">
-              <option :value="false">Aus</option>
-              <option :value="true">An (Niederlagen ohne Ranked-Verlust)</option>
-            </select>
-          </label>
-          <label>
-            Wiederkehrend
-            <select v-model="createForm.is_recurring">
-              <option :value="false">Nein</option>
-              <option :value="true">Ja</option>
-            </select>
-          </label>
-          <label>
-            Intervall-Typ
+            <input v-model="createForm.next_starts_at" type="datetime-local" :disabled="!createForm.is_recurring" />
             <select v-model="createForm.recurrence_type" :disabled="!createForm.is_recurring">
               <option value="NONE">Keine</option>
               <option value="WEEKLY">Woechentlich</option>
               <option value="MONTHLY">Monatlich</option>
               <option value="QUARTERLY">Quartalsweise</option>
             </select>
-          </label>
-          <label>
-            Intervall Anzahl
-            <input v-model.number="createForm.recurrence_interval" type="number" min="1" max="12" :disabled="!createForm.is_recurring" />
-          </label>
-          <label>
-            Naechster Start (Recurring)
-            <input v-model="createForm.next_starts_at" type="datetime-local" :disabled="!createForm.is_recurring" />
-          </label>
-          <label>
-            Voting-Modus
-            <select v-model="createForm.voting_mode">
-              <option value="COMMUNITY">Community</option>
-              <option value="HYBRID">Hybrid (Community + Jury)</option>
-              <option value="JURY_ONLY">Nur Jury</option>
-            </select>
-          </label>
-          <label>
-            Vote-Änderung erlauben
-            <select v-model="createForm.allow_vote_change">
-              <option :value="true">Ja</option>
-              <option :value="false">Nein</option>
-            </select>
-          </label>
-          <label>
-            Mindest-Accountalter (Stunden)
-            <input v-model.number="createForm.min_account_age_hours" type="number" min="0" max="720" />
-          </label>
-          <label>
-            Max Votes pro IP / Stunde
-            <input v-model.number="createForm.max_votes_per_ip_per_hour" type="number" min="1" max="1000" />
-          </label>
-          <div class="full actions">
-            <button class="btn" type="submit" :disabled="busy">Turnier anlegen</button>
           </div>
+          <div class="overlay-switches">
+            <label><input v-model="createForm.has_application_phase" type="checkbox" /> Bewerbung</label>
+            <label><input v-model="createForm.is_no_loss" type="checkbox" /> No Loss</label>
+            <label><input v-model="createForm.is_recurring" type="checkbox" /> Recurring</label>
+            <label><input v-model="createForm.allow_vote_change" type="checkbox" /> Vote Change</label>
+          </div>
+          <button class="btn" type="submit" :disabled="busy">Publish Tournament</button>
         </form>
-      </div>
+      </article>
     </section>
 
-    <!-- Turniere Liste -->
-    <section class="list">
-      <article v-if="visibleTournaments.length === 0" class="card empty-state">
-        <span class="empty-icon">🏆</span>
-        <p>Noch keine Turniere vorhanden.</p>
-      </article>
-
-      <article v-for="tournament in visibleTournaments" :key="tournament.id" class="tournament-card">
-        <!-- Card Header -->
-        <div class="tcard-header">
-          <div class="tcard-title-row">
-            <span :class="['status-badge', `status-${tournament.status}`]">{{ statusLabel(tournament.status) }}</span>
-            <h3>{{ tournament.title }}</h3>
-          </div>
-          <p v-if="tournament.description" class="tcard-desc">{{ tournament.description }}</p>
-          <div class="tcard-meta">
-            <span class="meta-chip">{{ tournament.has_application_phase ? 'Mit Bewerbung' : 'Ohne Bewerbung' }}</span>
-            <span class="meta-chip">{{ votingModeLabel(tournament.voting_mode) }}</span>
-            <span class="meta-chip">{{ tournament.allow_vote_change ? 'Vote änderbar' : 'Vote fix' }}</span>
-            <span class="meta-chip" v-if="tournament.is_no_loss">No Loss</span>
-            <span class="meta-chip" v-if="tournament.is_recurring">Recurring {{ recurrenceLabel(tournament.recurrence_type) }}</span>
-            <span class="meta-chip">Min Alter: {{ tournament.min_account_age_hours || 0 }}h</span>
-            <span class="meta-chip">IP-Limit: {{ tournament.max_votes_per_ip_per_hour || 0 }}/h</span>
-            <span class="meta-chip">{{ tournament.applications_count || 0 }} Apps</span>
-            <span class="meta-chip">{{ tournament.submissions_count || 0 }} Runden</span>
-            <span class="meta-chip highlight">{{ tournament.battles_count || 0 }} Battles</span>
-            <span class="meta-chip">{{ tournamentProgressLabel(tournament) }}</span>
-          </div>
-          <div class="deadline-row">
-            <span v-if="tournament.application_deadline">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-              Bewerbungsende: {{ formatDateTime(tournament.application_deadline) }}
-            </span>
-            <span v-if="tournament.submission_deadline">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-              Einreichungsende: {{ formatDateTime(tournament.submission_deadline) }}
-            </span>
-          </div>
-        </div>
-
-        <div v-if="isTeam" class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'status')">
-            Turnierstatus
-            <span class="section-count">{{ statusLabel(tournament.status) }}</span>
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.status }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.status" class="section-body">
-            <div class="row-actions">
-              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'DRAFT')">Entwurf</button>
-              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'APPLICATION_OPEN')">Bewerbung</button>
-              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'SUBMISSION_OPEN')">Einreichung</button>
-              <button class="btn ghost small" @click="setTournamentStatus(tournament, 'BATTLES')">Battles</button>
-              <button class="btn small" @click="setTournamentStatus(tournament, 'CLOSED')">Schließen</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Artist: Bewerbung -->
-        <div v-if="!isTeam && tournament.has_application_phase" class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'apply')">
-            Bewerbung
-            <span v-if="myApplication(tournament.id)" :class="['app-status', myApplication(tournament.id).status.toLowerCase()]">{{ myApplication(tournament.id).status }}</span>
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.apply }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.apply" class="section-body">
-            <div v-if="myApplication(tournament.id)" class="applied-notice">
-              Beworben – Status: <strong>{{ myApplication(tournament.id).status }}</strong>
-            </div>
-            <form v-else @submit.prevent="submitApplication(tournament.id)" class="inline-form">
-              <textarea v-model.trim="applicationDrafts[tournament.id]" rows="2" placeholder="Kurze Bewerbung oder Vorstellung"></textarea>
-              <button class="btn" type="submit" :disabled="busy">Bewerben</button>
-            </form>
-          </div>
-        </div>
-
-        <!-- Artist: Runde einreichen -->
-        <div v-if="!isTeam" class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'submit')">
-            Runde einreichen
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.submit }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.submit" class="section-body">
-            <form @submit.prevent="submitRound(tournament.id)" class="submission-form">
-              <div class="submission-grid">
-                <label>Runde <input v-model.number="submissionDraft(tournament.id).round_number" type="number" min="1" /></label>
-                <label>Titel <input v-model.trim="submissionDraft(tournament.id).title" maxlength="200" placeholder="Titel der Runde" /></label>
-                <label class="full">Link <input v-model.trim="submissionDraft(tournament.id).media_url" type="url" placeholder="https://..." /></label>
-                <label class="full">Notiz <textarea v-model.trim="submissionDraft(tournament.id).notes" rows="2" placeholder="Anmerkungen"></textarea></label>
-              </div>
-              <button class="btn" type="submit" :disabled="busy || !canSubmit(tournament)">
-                {{ !canSubmit(tournament) ? 'Bewerbung nicht freigegeben' : 'Einreichen' }}
-              </button>
-            </form>
-          </div>
-        </div>
-
-        <!-- Team: Bewerbungen verwalten -->
-        <div v-if="isTeam" class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'applications')">
-            Bewerbungen
-            <span class="section-count">{{ applicationsFor(tournament.id).length }}</span>
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.applications }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.applications" class="section-body">
-            <div v-if="applicationsFor(tournament.id).length === 0" class="empty-inline">Keine Bewerbungen</div>
-            <div v-for="application in applicationsFor(tournament.id)" :key="application.id" class="app-row">
-              <div class="app-info">
-                <strong>{{ application.profile?.name || application.profile?.username }}</strong>
-                <span :class="['app-status', application.status.toLowerCase()]">{{ application.status }}</span>
-              </div>
-              <div class="row-actions" v-if="application.status === 'PENDING'">
-                <button class="btn small" @click="decideApplication(tournament.id, application.id, 'APPROVED')">Freigeben</button>
-                <button class="btn ghost small" @click="decideApplication(tournament.id, application.id, 'REJECTED')">Ablehnen</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="isTeam" class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'submissions')">
-            Einreichungen moderieren
-            <span class="section-count">{{ pendingSubmissionsFor(tournament.id).length }} offen</span>
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.submissions }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.submissions" class="section-body">
-            <div v-if="submissionsFor(tournament.id).length === 0" class="empty-inline">Keine Einreichungen vorhanden.</div>
-            <div v-else class="bulk-tools">
-              <label>
-                Runde (optional)
-                <input v-model.number="submissionBulkRoundDrafts[tournament.id]" type="number" min="1" placeholder="alle" />
-              </label>
-              <div class="row-actions">
-                <button
-                  class="btn small"
-                  :disabled="busy || pendingSubmissionsFor(tournament.id).length === 0"
-                  @click="bulkDecideSubmissions(tournament.id, 'APPROVED')"
-                >
-                  Alle offenen freigeben
-                </button>
-                <button
-                  class="btn ghost small"
-                  :disabled="busy || pendingSubmissionsFor(tournament.id).length === 0"
-                  @click="bulkDecideSubmissions(tournament.id, 'REJECTED')"
-                >
-                  Alle offenen ablehnen
-                </button>
-              </div>
-            </div>
-            <div v-for="submission in submissionsFor(tournament.id)" :key="submission.id" class="app-row">
-              <div class="app-info submission-info">
-                <strong>{{ submission.profile?.name || submission.profile?.username }} · R{{ submission.round_number }}</strong>
-                <span>{{ submission.title || 'Ohne Titel' }}</span>
-                <a v-if="submission.media_url" :href="submission.media_url" target="_blank" rel="noopener noreferrer">Media öffnen</a>
-                <span :class="['app-status', submission.status.toLowerCase()]">{{ submission.status }}</span>
-              </div>
-              <div class="row-actions" v-if="submission.status === 'PENDING'">
-                <button class="btn small" @click="decideSubmission(submission.id, 'APPROVED')">Freigeben</button>
-                <button class="btn ghost small" @click="decideSubmission(submission.id, 'REJECTED')">Ablehnen</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Team: Battle anlegen -->
-        <div v-if="isTeam" class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'battle')">
-            Battle anlegen
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.battle }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.battle" class="section-body">
-            <form @submit.prevent="createBattle(tournament.id)" class="battle-form">
-              <div class="battle-grid">
-                <label>Runde <input v-model.number="battleDraft(tournament.id).round_number" type="number" min="1" /></label>
-                <label>Links
-                  <select v-model.number="battleDraft(tournament.id).left_submission">
-                    <option :value="null" disabled>Submission wählen</option>
-                    <option v-for="entry in approvedSubmissionsFor(tournament.id)" :key="`l-${entry.id}`" :value="entry.id">{{ entryLabel(entry) }}</option>
-                  </select>
-                </label>
-                <label>Rechts
-                  <select v-model.number="battleDraft(tournament.id).right_submission">
-                    <option :value="null" disabled>Submission wählen</option>
-                    <option v-for="entry in approvedSubmissionsFor(tournament.id)" :key="`r-${entry.id}`" :value="entry.id">{{ entryLabel(entry) }}</option>
-                  </select>
-                </label>
-              </div>
-              <div v-if="approvedSubmissionsFor(tournament.id).length < 2" class="empty-inline">
-                Für ein Battle sind mindestens zwei freigegebene Einreichungen nötig.
-              </div>
-              <button class="btn" type="submit" :disabled="busy || approvedSubmissionsFor(tournament.id).length < 2">Battle erstellen</button>
-            </form>
-          </div>
-        </div>
-
-        <!-- Team: Verdächtige Votes -->
-        <div v-if="isTeam" class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'flags')">
-            Verdächtige Votes
-            <span class="section-count">{{ flaggedVotesFor(tournament.id).length }}</span>
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.flags }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.flags" class="section-body">
-            <div v-if="flaggedVotesFor(tournament.id).length === 0" class="empty-inline">Keine offenen Auffälligkeiten.</div>
-            <div v-for="vote in flaggedVotesFor(tournament.id)" :key="vote.id" class="flag-row">
-              <div class="flag-info">
-                <strong>{{ vote.voter_name || vote.voter?.name || vote.voter?.username }}</strong>
-                <span class="muted">Battle #{{ vote.battle }} · Runde {{ vote.battle_round }}</span>
-                <span class="muted">Grund: {{ vote.flag_reason || 'Auffälligkeitsmuster' }}</span>
-                <span :class="['app-status', vote.moderation_status?.toLowerCase()]">{{ moderationLabel(vote.moderation_status) }}</span>
-              </div>
-              <div class="row-actions">
-                <button class="btn small" @click="moderateVote(vote.id, 'APPROVED')">Freigeben</button>
-                <button class="btn ghost small" @click="moderateVote(vote.id, 'REJECTED')">Ablehnen</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'leaderboard')">
-            Leaderboard
-            <span class="section-count">{{ leaderboardFor(tournament.id).length }}</span>
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.leaderboard }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.leaderboard" class="section-body">
-            <div v-if="leaderboardFor(tournament.id).length === 0" class="empty-inline">Noch keine Ranking-Daten.</div>
-            <div v-else class="leaderboard-list">
-              <div v-for="row in leaderboardFor(tournament.id)" :key="`${tournament.id}-${row.profile_id}`" class="leader-row">
-                <strong>#{{ row.rank }} {{ row.name }}</strong>
-                <span class="muted">Wins: {{ row.wins }} · Votes: {{ row.votes }} · Score: {{ row.score }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="tcard-section">
-          <button class="section-toggle" type="button" @click="toggleSection(tournament.id, 'bracket')">
-            Bracket
-            <span class="section-count">{{ bracketRoundsFor(tournament.id).length }}</span>
-            <svg class="chevron" :class="{ open: openSections[tournament.id]?.bracket }" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-          </button>
-          <div v-if="openSections[tournament.id]?.bracket" class="section-body">
-            <div v-if="bracketRoundsFor(tournament.id).length === 0" class="empty-inline">Bracket noch leer.</div>
-            <div v-else class="bracket-rounds">
-              <article v-for="round in bracketRoundsFor(tournament.id)" :key="`${tournament.id}-round-${round.round}`" class="bracket-round">
-                <h4>Runde {{ round.round }}</h4>
-                <div class="bracket-battles">
-                  <div v-for="node in round.battles" :key="node.id" class="bracket-node">
-                    <div class="node-line" :class="{ winner: node.winner_submission === node.left_submission }">
-                      <span>{{ node.left_name }}</span>
-                      <strong>{{ node.votes_left }}</strong>
-                    </div>
-                    <div class="node-line" :class="{ winner: node.winner_submission === node.right_submission }">
-                      <span>{{ node.right_name }}</span>
-                      <strong>{{ node.votes_right }}</strong>
-                    </div>
-                  </div>
-                </div>
-              </article>
-            </div>
-          </div>
-        </div>
-
-        <!-- Battles -->
-        <div class="tcard-section always-open">
-          <div class="section-toggle static">
-            Aktive Battles
-            <span class="section-count">{{ battlesFor(tournament.id).length }}</span>
-          </div>
-          <div class="section-body">
-            <div v-if="battlesFor(tournament.id).length === 0" class="empty-inline">Noch keine Battles angelegt.</div>
-            <div v-for="battle in battlesFor(tournament.id)" :key="battle.id" class="battle-row">
-              <div class="battle-matchup">
-                <span class="fighter">{{ battle.left_profile_name }}</span>
-                <div class="vs-block">
-                  <span class="score">{{ battle.votes_left }}</span>
-                  <span class="vs">vs</span>
-                  <span class="score">{{ battle.votes_right }}</span>
-                </div>
-                <span class="fighter right">{{ battle.right_profile_name }}</span>
-              </div>
-              <div class="battle-round-label">Runde {{ battle.round_number }}</div>
-              <div v-if="battle.winner_profile_name" class="battle-winner">Sieger: {{ battle.winner_profile_name }}</div>
-              <div v-if="isTeam && battle.status !== 'CLOSED'" class="row-actions team-close-actions">
-                <button class="btn small" @click="closeBattle(tournament, battle)">Schließen (Auto)</button>
-                <button class="btn ghost small" @click="closeBattle(tournament, battle, battle.left_submission)">Links gewinnt</button>
-                <button class="btn ghost small" @click="closeBattle(tournament, battle, battle.right_submission)">Rechts gewinnt</button>
-              </div>
-              <div v-if="!isTeam" class="vote-actions">
-                <input
-                  v-if="tournament.require_phone_vote_verification"
-                  v-model.trim="phoneDrafts[battle.id]"
-                  placeholder="Telefonnummer (Verifizierung später)"
-                  class="phone-input"
-                />
-                <div class="row-actions vote-row">
-                  <button class="btn vote-btn" @click="voteBattle(tournament, battle, battle.left_submission)" :disabled="!canVoteBattle(tournament, battle)">{{ battle.left_profile_name }} wählen</button>
-                  <button class="btn ghost vote-btn" @click="voteBattle(tournament, battle, battle.right_submission)" :disabled="!canVoteBattle(tournament, battle)">{{ battle.right_profile_name }} wählen</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
+    <section class="empty-state" v-if="!featuredTournament">
+      <span class="empty-icon">🎮</span>
+      <p>Keine Turniere aktiv. Als Team kannst du direkt eins erstellen.</p>
     </section>
   </div>
 </template>
@@ -686,29 +217,19 @@ const tournaments = ref([]);
 const applications = ref([]);
 const submissions = ref([]);
 const battles = ref([]);
-const flaggedVotes = ref([]);
 const myVotes = ref([]);
-const leaderboardMap = ref({});
-const bracketMap = ref({});
 const rankedOverview = ref({});
 const timelineCurrent = ref([]);
 const timelineUpcoming = ref([]);
 const rankConfigSeason = ref({});
 const rankConfigTiers = ref([]);
-const openSections = ref({});
 const tournamentSearch = ref("");
 const statusFilter = ref("ALL");
 const sortMode = ref("open-first");
-
-function toggleSection(id, key) {
-  if (!openSections.value[id]) openSections.value[id] = {};
-  openSections.value[id][key] = !openSections.value[id][key];
-}
+const selectedTournamentId = ref(null);
 
 const applicationDrafts = ref({});
 const submissionDrafts = ref({});
-const battleDrafts = ref({});
-const submissionBulkRoundDrafts = ref({});
 const phoneDrafts = ref({});
 
 const createForm = ref({
@@ -733,68 +254,38 @@ const createForm = ref({
 });
 
 const myProfileId = computed(() => profile.value?.id || null);
-const myApplicationsCount = computed(() => applications.value.filter((entry) => entry.profile?.id === myProfileId.value).length);
-const mySubmissionsCount = computed(() => submissions.value.filter((entry) => entry.profile?.id === myProfileId.value).length);
-const myVotesCount = computed(() => myVotes.value.length);
-const pendingApplicationsCount = computed(() => applications.value.filter((entry) => entry.status === "PENDING").length);
-const pendingSubmissionsCount = computed(() => submissions.value.filter((entry) => entry.status === "PENDING").length);
-const flaggedVotesCount = computed(() => flaggedVotes.value.filter((entry) => entry.moderation_status !== "APPROVED").length);
 const rankedRows = computed(() => rankedOverview.value?.rows || []);
 const topRankedRows = computed(() => rankedRows.value.slice(0, 12));
 const rankDistribution = computed(() => rankedOverview.value?.rank_distribution || {});
 const myRankedRow = computed(() => rankedRows.value.find((row) => row.profile_id === myProfileId.value) || null);
-const openBattleRows = computed(() => {
-  const tournamentById = new Map(tournaments.value.map((item) => [item.id, item]));
-  return battles.value
-    .filter((battle) => battle.status !== "CLOSED")
-    .map((battle) => ({
-      battle,
-      tournament: tournamentById.get(battle.tournament),
-    }))
-    .filter((row) => !!row.tournament)
-    .sort((a, b) => {
-      if (a.tournament.id !== b.tournament.id) return a.tournament.id - b.tournament.id;
-      if ((a.battle.round_number || 0) !== (b.battle.round_number || 0)) {
-        return (a.battle.round_number || 0) - (b.battle.round_number || 0);
-      }
-      return (a.battle.id || 0) - (b.battle.id || 0);
-    });
-});
 
 const visibleTournaments = computed(() => {
   const term = tournamentSearch.value.trim().toLowerCase();
   let rows = [...tournaments.value];
-  if (statusFilter.value !== "ALL") {
-    rows = rows.filter((item) => item.status === statusFilter.value);
-  }
-  if (term) {
-    rows = rows.filter((item) => {
-      const text = `${item.title || ""} ${item.description || ""}`.toLowerCase();
-      return text.includes(term);
-    });
-  }
-  if (sortMode.value === "most-battles") {
-    rows.sort((a, b) => (b.battles_count || 0) - (a.battles_count || 0));
-  } else if (sortMode.value === "most-submissions") {
-    rows.sort((a, b) => (b.submissions_count || 0) - (a.submissions_count || 0));
-  } else if (sortMode.value === "open-first") {
-    const rank = {
-      APPLICATION_OPEN: 0,
-      SUBMISSION_OPEN: 1,
-      BATTLES: 2,
-      DRAFT: 3,
-      CLOSED: 4,
-    };
+  if (statusFilter.value !== "ALL") rows = rows.filter((item) => item.status === statusFilter.value);
+  if (term) rows = rows.filter((item) => `${item.title || ""} ${item.description || ""}`.toLowerCase().includes(term));
+
+  if (sortMode.value === "most-battles") rows.sort((a, b) => (b.battles_count || 0) - (a.battles_count || 0));
+  else if (sortMode.value === "most-submissions") rows.sort((a, b) => (b.submissions_count || 0) - (a.submissions_count || 0));
+  else if (sortMode.value === "open-first") {
+    const rank = { APPLICATION_OPEN: 0, SUBMISSION_OPEN: 1, BATTLES: 2, DRAFT: 3, CLOSED: 4 };
     rows.sort((a, b) => (rank[a.status] ?? 9) - (rank[b.status] ?? 9));
-  } else {
-    rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-  }
+  } else rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
   return rows;
+});
+
+const featuredTournament = computed(() => {
+  if (selectedTournamentId.value) {
+    const selected = visibleTournaments.value.find((entry) => entry.id === selectedTournamentId.value);
+    if (selected) return selected;
+  }
+  return visibleTournaments.value[0] || null;
 });
 
 function asList(payload) {
   if (Array.isArray(payload)) return payload;
-  return payload?.results || [];
+  return payload?.results || payload || [];
 }
 
 function normalizeDateTime(value) {
@@ -820,42 +311,14 @@ function statusLabel(status) {
   return map[status] || status;
 }
 
-function tournamentProgressLabel(tournament) {
-  if (tournament.status === "APPLICATION_OPEN") return "Phase: Bewerbung";
-  if (tournament.status === "SUBMISSION_OPEN") return "Phase: Einreichung";
-  if (tournament.status === "BATTLES") return "Phase: Voting";
-  if (tournament.status === "CLOSED") return "Finalisiert";
-  return "Vorbereitung";
-}
-
-function votingModeLabel(mode) {
-  const map = {
-    COMMUNITY: "Community",
-    HYBRID: "Hybrid",
-    JURY_ONLY: "Nur Jury",
-  };
-  return map[mode] || "Community";
-}
-
 function recurrenceLabel(mode) {
-  const map = {
-    NONE: "Keine",
-    WEEKLY: "Woche",
-    MONTHLY: "Monat",
-    QUARTERLY: "Quartal",
-  };
+  const map = { NONE: "Keine", WEEKLY: "Woche", MONTHLY: "Monat", QUARTERLY: "Quartal" };
   return map[mode] || "Keine";
 }
 
 function rankArtwork(tierKey) {
   const key = String(tierKey || "BRONZE").toUpperCase();
-  const map = {
-    BRONZE: bronzeRank,
-    SILBER: silberRank,
-    GOLD: goldRank,
-    PLATIN: platinRank,
-    RUBIN: rubinRank,
-  };
+  const map = { BRONZE: bronzeRank, SILBER: silberRank, GOLD: goldRank, PLATIN: platinRank, RUBIN: rubinRank };
   return map[key] || bronzeRank;
 }
 
@@ -869,44 +332,6 @@ function canSubmit(tournament) {
   return app?.status === "APPROVED";
 }
 
-function applicationsFor(tournamentId) {
-  return applications.value.filter((entry) => entry.tournament === tournamentId);
-}
-
-function submissionsFor(tournamentId) {
-  return submissions.value.filter((entry) => entry.tournament === tournamentId);
-}
-
-function pendingSubmissionsFor(tournamentId) {
-  return submissionsFor(tournamentId).filter((entry) => entry.status === "PENDING");
-}
-
-function approvedSubmissionsFor(tournamentId) {
-  return submissionsFor(tournamentId).filter((entry) => entry.status === "APPROVED");
-}
-
-function battlesFor(tournamentId) {
-  return battles.value.filter((entry) => entry.tournament === tournamentId);
-}
-
-function flaggedVotesFor(tournamentId) {
-  return flaggedVotes.value.filter((entry) => entry.tournament === tournamentId);
-}
-
-function leaderboardFor(tournamentId) {
-  return leaderboardMap.value[tournamentId] || [];
-}
-
-function bracketRoundsFor(tournamentId) {
-  return bracketMap.value[tournamentId] || [];
-}
-
-function moderationLabel(status) {
-  if (status === "PENDING_REVIEW") return "In Prüfung";
-  if (status === "REJECTED") return "Abgelehnt";
-  return "Freigegeben";
-}
-
 function submissionDraft(tournamentId) {
   if (!submissionDrafts.value[tournamentId]) {
     submissionDrafts.value[tournamentId] = { round_number: 1, title: "", media_url: "", notes: "" };
@@ -914,20 +339,20 @@ function submissionDraft(tournamentId) {
   return submissionDrafts.value[tournamentId];
 }
 
-function battleDraft(tournamentId) {
-  if (!battleDrafts.value[tournamentId]) {
-    battleDrafts.value[tournamentId] = { round_number: 1, left_submission: null, right_submission: null };
-  }
-  return battleDrafts.value[tournamentId];
-}
-
-function entryLabel(entry) {
-  const name = entry.profile?.name || entry.profile?.username || "Teilnehmer";
-  return `R${entry.round_number} - ${name}`;
+function battlesFor(tournamentId) {
+  return battles.value.filter((entry) => entry.tournament === tournamentId);
 }
 
 function goHome() {
   router.push({ name: "platforms" });
+}
+
+function goAnimationLab() {
+  router.push({ name: "admin-tournament-animations" });
+}
+
+function selectTournament(tournamentId) {
+  selectedTournamentId.value = tournamentId;
 }
 
 async function loadAll() {
@@ -942,9 +367,8 @@ async function loadAll() {
       api.get("tournaments/timeline/"),
       api.get("tournaments/ranked-config/"),
     ];
-    if (!isTeam.value) {
-      requests.push(api.get("tournament-votes/"));
-    }
+    if (!isTeam.value) requests.push(api.get("tournament-votes/"));
+
     const [tournamentRes, applicationRes, submissionRes, battleRes, rankedRes, timelineRes, rankedConfigRes, votesRes] = await Promise.all(requests);
     tournaments.value = asList(tournamentRes.data);
     applications.value = asList(applicationRes.data);
@@ -956,33 +380,10 @@ async function loadAll() {
     rankConfigSeason.value = rankedConfigRes?.data?.season || {};
     rankConfigTiers.value = asList(rankedConfigRes?.data?.tiers || []);
     myVotes.value = votesRes ? asList(votesRes.data) : [];
-    if (isTeam.value) {
-      const { data } = await api.get("tournament-votes/flags/");
-      flaggedVotes.value = asList(data);
-    } else {
-      flaggedVotes.value = [];
+
+    if (!selectedTournamentId.value || !tournaments.value.some((entry) => entry.id === selectedTournamentId.value)) {
+      selectedTournamentId.value = tournaments.value[0]?.id || null;
     }
-
-    const leaderboardRequests = tournaments.value.map((tournament) =>
-      api.get(`tournaments/${tournament.id}/leaderboard/`).catch(() => ({ data: { rows: [] } }))
-    );
-    const bracketRequests = tournaments.value.map((tournament) =>
-      api.get(`tournaments/${tournament.id}/bracket/`).catch(() => ({ data: { rounds: [] } }))
-    );
-
-    const [leaderboards, brackets] = await Promise.all([
-      Promise.all(leaderboardRequests),
-      Promise.all(bracketRequests),
-    ]);
-
-    const nextLeaderboardMap = {};
-    const nextBracketMap = {};
-    tournaments.value.forEach((tournament, index) => {
-      nextLeaderboardMap[tournament.id] = leaderboards[index]?.data?.rows || [];
-      nextBracketMap[tournament.id] = brackets[index]?.data?.rounds || [];
-    });
-    leaderboardMap.value = nextLeaderboardMap;
-    bracketMap.value = nextBracketMap;
   } catch (err) {
     console.error(err);
     showToast("Turnierdaten konnten nicht geladen werden", "error");
@@ -996,25 +397,11 @@ async function closeBattle(tournament, battle, winnerSubmissionId = null) {
   try {
     const payload = winnerSubmissionId ? { winner_submission: winnerSubmissionId } : {};
     await api.post(`tournament-battles/${battle.id}/close/`, payload);
-    showToast("Battle geschlossen und Bracket aktualisiert", "success");
+    showToast("Battle geschlossen", "success");
     await loadAll();
   } catch (err) {
     console.error(err);
     showToast(err?.response?.data?.detail || "Battle konnte nicht geschlossen werden", "error");
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function moderateVote(voteId, decision) {
-  busy.value = true;
-  try {
-    await api.post(`tournament-votes/${voteId}/moderate/`, { decision });
-    showToast("Vote-Moderation gespeichert", "success");
-    await loadAll();
-  } catch (err) {
-    console.error(err);
-    showToast(err?.response?.data?.detail || "Moderation fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
@@ -1044,26 +431,6 @@ async function createTournament() {
       recurrence_interval: createForm.value.is_recurring ? createForm.value.recurrence_interval : 1,
       next_starts_at: createForm.value.is_recurring ? normalizeDateTime(createForm.value.next_starts_at) : null,
     });
-    createForm.value = {
-      title: "",
-      description: "",
-      has_application_phase: true,
-      application_deadline: "",
-      submission_deadline: "",
-      starts_at: "",
-      ends_at: "",
-      status: "DRAFT",
-      voting_mode: "COMMUNITY",
-      allow_vote_change: true,
-      min_account_age_hours: 0,
-      max_votes_per_ip_per_hour: 20,
-      require_phone_vote_verification: false,
-      is_no_loss: false,
-      is_recurring: false,
-      recurrence_type: "NONE",
-      recurrence_interval: 1,
-      next_starts_at: "",
-    };
     showToast("Turnier erstellt", "success");
     await loadAll();
   } catch (err) {
@@ -1079,9 +446,7 @@ async function saveRankedConfig() {
   busy.value = true;
   try {
     const payload = {
-      season: {
-        duration_months: rankConfigSeason.value.duration_months || 3,
-      },
+      season: { duration_months: rankConfigSeason.value.duration_months || 3 },
       tiers: rankConfigTiers.value.map((tier) => ({
         tier_key: tier.tier_key,
         min_points: Number(tier.min_points || 0),
@@ -1117,55 +482,7 @@ async function submitApplication(tournamentId) {
     await loadAll();
   } catch (err) {
     console.error(err);
-    showToast(err?.response?.data?.detail || "Bewerbung konnte nicht gesendet werden", "error");
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function decideApplication(tournamentId, applicationId, decision) {
-  busy.value = true;
-  try {
-    await api.post(`tournaments/${tournamentId}/applications/${applicationId}/decision/`, { decision });
-    showToast("Bewerbung aktualisiert", "success");
-    await loadAll();
-  } catch (err) {
-    console.error(err);
-    showToast(err?.response?.data?.detail || "Bewerbungsentscheidung fehlgeschlagen", "error");
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function decideSubmission(submissionId, decision) {
-  busy.value = true;
-  try {
-    await api.post(`tournament-submissions/${submissionId}/decision/`, { decision });
-    showToast("Einreichung aktualisiert", "success");
-    await loadAll();
-  } catch (err) {
-    console.error(err);
-    showToast(err?.response?.data?.detail || "Einreichung konnte nicht moderiert werden", "error");
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function bulkDecideSubmissions(tournamentId, decision) {
-  busy.value = true;
-  try {
-    const roundValue = submissionBulkRoundDrafts.value[tournamentId];
-    const payload = { decision };
-    if (Number.isInteger(roundValue) && roundValue > 0) {
-      payload.round_number = roundValue;
-    }
-    const { data } = await api.post(`tournaments/${tournamentId}/submissions/bulk-decision/`, payload);
-    const updated = data?.updated_count || 0;
-    showToast(`${updated} Einreichungen aktualisiert`, "success");
-    await loadAll();
-  } catch (err) {
-    console.error(err);
-    showToast(err?.response?.data?.detail || "Bulk-Moderation fehlgeschlagen", "error");
+    showToast(err?.response?.data?.detail || "Bewerbung fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
@@ -1176,11 +493,11 @@ async function setTournamentStatus(tournament, nextStatus) {
   busy.value = true;
   try {
     await api.patch(`tournaments/${tournament.id}/`, { status: nextStatus });
-    showToast(`Turnierstatus auf ${statusLabel(nextStatus)} gesetzt`, "success");
+    showToast(`Status: ${statusLabel(nextStatus)}`, "success");
     await loadAll();
   } catch (err) {
     console.error(err);
-    showToast(err?.response?.data?.detail || "Turnierstatus konnte nicht geändert werden", "error");
+    showToast(err?.response?.data?.detail || "Statusupdate fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
@@ -1202,37 +519,7 @@ async function submitRound(tournamentId) {
     await loadAll();
   } catch (err) {
     console.error(err);
-    showToast(err?.response?.data?.detail || "Runde konnte nicht eingereicht werden", "error");
-  } finally {
-    busy.value = false;
-  }
-}
-
-async function createBattle(tournamentId) {
-  const draft = battleDraft(tournamentId);
-  if (!draft.left_submission || !draft.right_submission) {
-    showToast("Bitte beide Seiten der Battle auswählen", "warning");
-    return;
-  }
-  if (draft.left_submission === draft.right_submission) {
-    showToast("Links und rechts müssen unterschiedliche Einreichungen sein", "warning");
-    return;
-  }
-  busy.value = true;
-  try {
-    await api.post("tournament-battles/", {
-      tournament: tournamentId,
-      round_number: draft.round_number,
-      left_submission: draft.left_submission,
-      right_submission: draft.right_submission,
-      status: "LIVE",
-    });
-    battleDrafts.value[tournamentId] = { round_number: 1, left_submission: null, right_submission: null };
-    showToast("Battle erstellt", "success");
-    await loadAll();
-  } catch (err) {
-    console.error(err);
-    showToast(err?.response?.data?.detail || "Battle konnte nicht erstellt werden", "error");
+    showToast(err?.response?.data?.detail || "Einreichung fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
@@ -1278,1125 +565,461 @@ onMounted(async () => {
 @import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@400;600;700;800&display=swap");
 
 .tournament-page {
-  --arena-bg-1: #07070c;
-  --arena-bg-2: #10162b;
-  --arena-panel: #101528;
-  --arena-panel-soft: #171f3a;
-  --arena-line: #2d3868;
-  --arena-text: #eef2ff;
-  --arena-muted: #9ca9d5;
-  --arena-hot: #ff4d6d;
-  --arena-cyan: #56d4ff;
-  --arena-gold: #ffbf47;
+  min-height: 100vh;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding: 20px clamp(14px, 2vw, 32px) 40px;
+  position: relative;
+  z-index: 0;
+  color: #f2f5ff;
   font-family: "Chakra Petch", sans-serif;
-  color: var(--arena-text);
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 12px 0 36px;
+  display: grid;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.arena-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
   background:
-    radial-gradient(circle at 15% 2%, rgba(255, 77, 109, 0.32), transparent 42%),
-    radial-gradient(circle at 88% 8%, rgba(86, 212, 255, 0.25), transparent 38%),
-    linear-gradient(145deg, var(--arena-bg-1), var(--arena-bg-2));
+    radial-gradient(circle at 8% 8%, rgba(255, 82, 108, 0.34), transparent 40%),
+    radial-gradient(circle at 88% 12%, rgba(90, 201, 255, 0.3), transparent 36%),
+    radial-gradient(circle at 45% 84%, rgba(255, 191, 71, 0.12), transparent 45%),
+    linear-gradient(145deg, #04060f 0%, #0d1530 52%, #120f24 100%);
 }
 
-.tournament-page .card,
-.tournament-page .tournament-card {
-  background: linear-gradient(180deg, rgba(23, 31, 58, 0.95) 0%, rgba(11, 16, 32, 0.94) 100%);
-  border: 1px solid var(--arena-line);
-  border-radius: 20px;
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.35);
-}
-
-.tournament-page :deep(.btn) {
-  font-family: "Sora", sans-serif;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+.btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
   background: linear-gradient(125deg, #ff4d6d 0%, #ff7b54 100%);
   color: #fff;
+  font-family: "Sora", sans-serif;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  padding: 10px 14px;
+  cursor: pointer;
 }
 
-.tournament-page :deep(.btn.ghost) {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: var(--arena-text);
+.btn.ghost {
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.tournament-page input,
-.tournament-page select,
-.tournament-page textarea {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: var(--arena-text);
+.btn.small {
+  padding: 7px 11px;
+  font-size: 0.82rem;
 }
 
-.tournament-page input::placeholder,
-.tournament-page textarea::placeholder {
-  color: var(--arena-muted);
-}
-
-.ranked-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-}
-
-.ranked-card {
-  border: 1px solid var(--arena-line);
-  border-radius: 14px;
-  background: linear-gradient(155deg, rgba(28, 36, 68, 0.92), rgba(12, 18, 34, 0.95));
-  padding: 12px;
-  display: grid;
-  gap: 3px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-}
-
-.rank-chip-art {
-  width: 44px;
-  height: 44px;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.45));
-}
-
-.strip-label {
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--arena-muted);
-}
-
-.ranked-card strong {
-  font-size: 1rem;
-}
-
-.ranked-card span {
-  font-size: 0.8rem;
-  color: var(--arena-muted);
-}
-
-.rank-gallery {
+.arena-hero {
+  border: 1px solid #334b84;
+  border-radius: 22px;
   padding: 18px;
+  background: linear-gradient(145deg, rgba(255, 87, 122, 0.18), rgba(112, 231, 255, 0.12) 45%, rgba(255, 189, 72, 0.08));
   display: grid;
-  gap: 10px;
-}
-
-.rank-gallery h2 {
-  margin: 0;
-  font-family: "Sora", sans-serif;
-  letter-spacing: 0.02em;
-}
-
-.rank-gallery p {
-  margin: 0;
-  color: var(--arena-muted);
-}
-
-.rank-gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-}
-
-.rank-art-card {
-  border: 1px solid var(--arena-line);
-  border-radius: 16px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.rank-art-card img {
-  width: 62px;
-  height: 62px;
-  object-fit: contain;
-}
-
-.rank-art-card strong {
-  display: block;
-  font-family: "Sora", sans-serif;
-  margin-bottom: 2px;
-}
-
-.rank-art-card span {
-  color: var(--arena-muted);
-  font-size: 0.8rem;
-}
-
-.ladder-board {
-  display: grid;
-  gap: 10px;
-  border-radius: 16px;
-}
-
-.tournament-timeline {
-  display: grid;
-  gap: 10px;
-}
-
-.timeline-head h2 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.timeline-head p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 0.86rem;
-}
-
-.timeline-columns {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.timeline-col {
-  border: 1px solid var(--arena-line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.timeline-col h3 {
-  margin: 0;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.timeline-item {
-  border: 1px solid var(--arena-line);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.22);
-  padding: 8px;
-  display: grid;
-  gap: 4px;
-}
-
-.timeline-item.live {
-  border-color: color-mix(in srgb, #ef4444 35%, var(--border) 65%);
-}
-
-.timeline-item.upcoming {
-  border-color: color-mix(in srgb, #0ea5e9 35%, var(--border) 65%);
-}
-
-.ranked-admin-panel {
-  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 12px;
 }
 
-.rank-tier-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 10px;
+.hero-left h1 {
+  margin: 6px 0;
+  font-family: "Sora", sans-serif;
+  font-size: clamp(1.4rem, 2.5vw, 2.2rem);
 }
 
-.rank-tier-editor {
-  border: 1px solid var(--arena-line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
-  display: grid;
-  gap: 6px;
-}
-
-.rank-tier-editor h3 {
-  margin: 0 0 4px;
-  font-size: 0.95rem;
-}
-
-.rank-tier-editor label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.76rem;
-  color: var(--muted);
-}
-
-.rank-tier-editor input {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
-}
-
-.ladder-head h2 {
+.hero-left p {
   margin: 0;
-  font-size: 1.15rem;
-}
-
-.ladder-head p {
-  margin: 4px 0 0;
-  color: var(--arena-muted);
-  font-size: 0.86rem;
-}
-
-.ladder-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 10px;
-}
-
-.ladder-row {
-  border: 1px solid var(--arena-line);
-  border-radius: 12px;
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-  background: linear-gradient(165deg, rgba(34, 43, 80, 0.7), rgba(14, 20, 38, 0.92));
-}
-
-.ladder-core {
-  display: grid;
-  grid-template-columns: 54px 1fr;
-  align-items: center;
-  gap: 8px;
-}
-
-.ladder-rank-art {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
-  grid-row: span 2;
-}
-
-.ladder-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.78rem;
-  color: var(--arena-muted);
-  flex-wrap: wrap;
-}
-
-.tier-pill {
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-weight: 700;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border: 1px solid currentColor;
-}
-
-.tier-progress {
-  width: 100%;
-  height: 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 70%, #0f172a 30%);
-  overflow: hidden;
-}
-
-.tier-progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
-}
-
-.tier-bronze { border-color: color-mix(in srgb, #9a6b42 45%, var(--border) 55%); }
-.tier-bronze .tier-pill { color: #9a6b42; }
-
-.tier-silber { border-color: color-mix(in srgb, #8f98a3 45%, var(--border) 55%); }
-.tier-silber .tier-pill { color: #8f98a3; }
-
-.tier-gold { border-color: color-mix(in srgb, #c89a2b 45%, var(--border) 55%); }
-.tier-gold .tier-pill { color: #c89a2b; }
-
-.tier-platin { border-color: color-mix(in srgb, #42b7b7 45%, var(--border) 55%); }
-.tier-platin .tier-pill { color: #42b7b7; }
-
-.tier-rubin { border-color: color-mix(in srgb, #d72663 45%, var(--border) 55%); }
-.tier-rubin .tier-pill { color: #d72663; }
-
-.tournament-filters {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.tournament-filters .input {
-  width: 100%;
-}
-
-.audience-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.aud-stat {
-  border: 1px solid var(--arena-line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 10px 12px;
-  display: grid;
-  gap: 4px;
-}
-
-.aud-stat strong {
-  font-size: 21px;
-}
-
-.aud-stat span {
-  font-size: 12px;
-  color: var(--arena-muted);
-}
-
-.team-control-center {
-  display: grid;
-  gap: 10px;
-}
-
-.control-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.control-header h2 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.control-header p {
-  margin: 4px 0 0;
-  color: var(--arena-muted);
-  font-size: 0.88rem;
-}
-
-.control-list {
-  display: grid;
-  gap: 8px;
-}
-
-.control-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  border: 1px solid var(--arena-line);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
-  flex-wrap: wrap;
-}
-
-.control-info {
-  display: grid;
-  gap: 3px;
-}
-
-/* Hero */
-.contest-hero {
-  background:
-    linear-gradient(145deg, rgba(255, 77, 109, 0.22) 0%, rgba(86, 212, 255, 0.24) 45%, rgba(255, 191, 71, 0.14) 100%);
-  border: 1px solid var(--arena-line);
-  border-radius: 20px;
-  padding: 28px 24px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  position: relative;
-  overflow: hidden;
-}
-
-.contest-hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    -55deg,
-    rgba(255, 255, 255, 0.05) 0,
-    rgba(255, 255, 255, 0.05) 1px,
-    transparent 1px,
-    transparent 24px
-  );
-  pointer-events: none;
-}
-
-.hero-inner {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.hero-copy p.hero-lead {
-  margin: 8px 0 0;
-  color: var(--arena-muted);
-  line-height: 1.6;
-  max-width: 540px;
+  color: #b5c1e9;
 }
 
 .eyebrow {
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-size: 11px;
-  margin-bottom: 6px;
-  color: var(--arena-cyan);
-  font-weight: 700;
-}
-
-.hero-copy h1 {
   margin: 0;
-  font-size: clamp(1.5rem, 2.8vw, 2.1rem);
-  font-weight: 800;
-  line-height: 1.15;
-  font-family: "Sora", sans-serif;
-}
-
-.hero-stats {
-  display: flex;
-  gap: 24px;
-  flex-shrink: 0;
-}
-
-.hstat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.hstat-num {
-  font-size: 2rem;
-  font-weight: 800;
-  color: var(--arena-gold);
-  line-height: 1;
-  text-shadow: 0 0 18px rgba(255, 191, 71, 0.44);
-}
-
-.hstat-label {
-  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--arena-muted);
+  letter-spacing: 0.16em;
+  color: #7dd3fc;
+  font-size: 0.72rem;
+}
+
+.hero-right {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.hero-stat {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(6, 10, 26, 0.45);
+  display: grid;
+}
+
+.hero-stat strong {
+  font-family: "Sora", sans-serif;
+  font-size: 1rem;
+}
+
+.hero-stat span {
+  font-size: 0.74rem;
+  color: #a9b7de;
 }
 
 .hero-actions {
+  grid-column: 1 / -1;
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.spin-icon {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  flex-shrink: 0;
-}
-
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Create form */
-.collapsible-section {
-  border-radius: 16px;
-  padding: 0;
-  overflow: hidden;
-}
-
-.collapsible-head {
-  width: 100%;
+.arena-tournament-picker {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text);
-  font-weight: 600;
-  font-size: 1rem;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.pick-chip {
+  border: 1px solid #314376;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #edf2ff;
+  padding: 8px 12px;
+  min-width: 180px;
   text-align: left;
-  gap: 12px;
+  cursor: pointer;
+  display: grid;
 }
 
-.collapsible-head:hover {
-  background: color-mix(in srgb, var(--brand) 6%, transparent 94%);
+.pick-chip small {
+  color: #9bb0e3;
 }
 
-.collapsible-title {
-  display: flex;
-  align-items: center;
+.pick-chip.active {
+  border-color: #ff6b8b;
+  background: rgba(255, 107, 139, 0.16);
+}
+
+.rank-emblems {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
 }
 
-.collapsible-title svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: var(--brand);
-  stroke-width: 2;
-  stroke-linecap: round;
+.emblem-card {
+  border: 1px solid #344985;
+  border-radius: 14px;
+  background: rgba(8, 14, 34, 0.7);
+  padding: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.collapsible-body {
-  padding: 0 20px 20px;
+.emblem-card img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
 }
 
-.chevron {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: var(--arena-muted);
-  stroke-width: 2;
-  stroke-linecap: round;
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
+.emblem-card strong {
+  display: block;
+  font-family: "Sora", sans-serif;
 }
 
-.chevron.open {
-  transform: rotate(180deg);
+.emblem-card span {
+  color: #9fb0dd;
+  font-size: 0.8rem;
 }
 
-.create-grid {
+.arena-main {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1.35fr 0.8fr;
   gap: 12px;
 }
 
-.create-grid .full {
-  grid-column: 1 / -1;
-}
-
-.create-grid label,
-.submission-form label,
-.battle-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.create-grid input,
-.create-grid select,
-.create-grid textarea,
-.submission-form input,
-.submission-form select,
-.submission-form textarea,
-.battle-form input,
-.battle-form select,
-.phone-input {
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
-  font-size: 0.95rem;
-}
-
-/* Tournaments list */
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.tournament-card {
-  background:
-    linear-gradient(180deg, rgba(20, 27, 52, 0.98) 0%, rgba(10, 14, 26, 0.96) 100%);
-  border: 1px solid var(--arena-line);
+.arena-stage,
+.side-block {
+  border: 1px solid #2f426f;
   border-radius: 18px;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.38);
+  background: linear-gradient(180deg, rgba(17, 24, 48, 0.94), rgba(9, 13, 29, 0.95));
 }
 
-.tcard-header {
-  padding: 20px 20px 16px;
-  border-bottom: 1px solid var(--border);
+.arena-stage {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
 }
 
-.tcard-title-row {
+.stage-head {
   display: flex;
-  align-items: center;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.stage-head h2 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+}
+
+.stage-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 0.74rem;
+  color: #b6c6f1;
+}
+
+.stage-desc {
+  margin: 0;
+  color: #b2c0e8;
+}
+
+.battle-feed {
+  display: grid;
+  gap: 8px;
+}
+
+.battle-duel {
+  border: 1px solid #33497f;
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(6, 10, 26, 0.55);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.duel-player {
+  font-family: "Sora", sans-serif;
+  font-weight: 700;
+}
+
+.duel-player.left {
+  text-align: right;
+}
+
+.duel-center {
+  display: grid;
+  text-align: center;
+  min-width: 90px;
+}
+
+.duel-center strong {
+  color: #ffd479;
+  font-size: 1.08rem;
+}
+
+.duel-center span {
+  font-size: 0.72rem;
+  color: #98a8d5;
+}
+
+.duel-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}
+
+.quick-actions textarea,
+.quick-actions input {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #eef2ff;
+  padding: 9px 10px;
+}
+
+.arena-side {
+  display: grid;
+  gap: 10px;
+}
+
+.side-block {
+  padding: 12px;
+}
+
+.side-block h3 {
+  margin: 0 0 8px;
+  font-family: "Sora", sans-serif;
+}
+
+.ladder-row,
+.timeline-row {
+  border: 1px solid #31457a;
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ladder-row {
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  gap: 8px;
+  align-items: center;
   margin-bottom: 6px;
 }
 
-.tcard-title-row h3 {
-  margin: 0;
-  font-size: 1.15rem;
-  font-weight: 700;
+.ladder-row img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
 }
 
-.tcard-desc {
-  color: var(--arena-muted);
-  font-size: 0.92rem;
-  margin: 0 0 12px;
+.ladder-row strong,
+.timeline-row strong {
+  display: block;
+  font-size: 0.88rem;
 }
 
-.tcard-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.meta-chip {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--arena-muted);
-}
-
-.meta-chip.highlight {
-  background: rgba(255, 191, 71, 0.16);
-  color: var(--arena-gold);
-  border-color: rgba(255, 191, 71, 0.42);
-}
-
-.status-badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  flex-shrink: 0;
-}
-
-.status-badge.status-DRAFT { background: color-mix(in srgb, #94a3b8 18%, transparent); color: #64748b; }
-.status-badge.status-APPLICATION_OPEN { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #d97706; }
-.status-badge.status-SUBMISSION_OPEN { background: color-mix(in srgb, #3b82f6 18%, transparent); color: #2563eb; }
-.status-badge.status-BATTLES { background: color-mix(in srgb, #ef4444 18%, transparent); color: #dc2626; }
-.status-badge.status-CLOSED { background: color-mix(in srgb, #10b981 18%, transparent); color: #059669; }
-
-.deadline-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-  font-size: 0.82rem;
-  color: var(--arena-muted);
-}
-
-.deadline-row span {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.deadline-row svg {
-  width: 13px;
-  height: 13px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  flex-shrink: 0;
-}
-
-/* Collapsible sections inside tournament card */
-.tcard-section {
-  border-top: 1px solid var(--border);
-}
-
-.section-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 13px 20px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text);
-  font-weight: 600;
-  font-size: 0.9rem;
-  text-align: left;
-}
-
-.section-toggle:hover {
-  background: color-mix(in srgb, var(--brand) 5%, transparent 95%);
-}
-
-.section-toggle .chevron {
-  margin-left: auto;
-}
-
-.section-toggle.static {
-  cursor: default;
-  pointer-events: none;
-}
-
-.section-count {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.section-body {
-  padding: 4px 20px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.app-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-
-.leaderboard-list {
-  display: grid;
-  gap: 8px;
-}
-
-.leader-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-}
-
-.bracket-rounds {
-  display: grid;
-  gap: 10px;
-}
-
-.bracket-round {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
-  background: var(--surface);
-}
-
-.bracket-round h4 {
-  margin: 0 0 8px;
-  font-size: 14px;
-}
-
-.bracket-battles {
-  display: grid;
-  gap: 8px;
-}
-
-.bracket-node {
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  padding: 8px;
-  display: grid;
-  gap: 6px;
-}
-
-.node-line {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.node-line.winner {
-  color: var(--brand);
-  font-weight: 700;
-}
-
-.app-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.submission-info {
-  display: grid;
-  gap: 3px;
-}
-
-.submission-info a {
-  font-size: 0.8rem;
-  color: var(--brand);
-  text-decoration: none;
-}
-
-.submission-info a:hover {
-  text-decoration: underline;
-}
-
-.bulk-tools {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
-  background: var(--surface);
-}
-
-.bulk-tools label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.8rem;
-  color: var(--muted);
-  min-width: 140px;
-}
-
-.app-status {
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.app-status.pending { background: color-mix(in srgb, #f59e0b 18%, transparent); color: #d97706; }
-.app-status.approved { background: color-mix(in srgb, #10b981 18%, transparent); color: #059669; }
-.app-status.rejected { background: color-mix(in srgb, #ef4444 18%, transparent); color: #dc2626; }
-
-.row-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.small {
-  padding: 7px 12px;
-  font-size: 0.84rem;
-  min-height: 34px;
-}
-
-/* Battle display */
-.battle-row {
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.battle-matchup {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.fighter {
-  flex: 1;
-  font-weight: 700;
-  text-align: right;
-  font-size: 0.95rem;
-}
-
-.fighter.right {
-  text-align: left;
-}
-
-.vs-block {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.score {
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: var(--brand);
-  min-width: 28px;
-  text-align: center;
-}
-
-.vs {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-}
-
-.battle-round-label {
+.ladder-row span,
+.timeline-row span,
+.side-block p {
+  color: #a5b5e0;
   font-size: 0.78rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
+  margin: 0;
 }
 
-.battle-winner {
-  font-size: 12px;
-  color: var(--brand);
-  font-weight: 700;
+.timeline-row.live {
+  border-color: rgba(255, 96, 96, 0.45);
 }
 
-.team-close-actions {
-  margin-top: 2px;
+.timeline-row.upcoming {
+  border-color: rgba(110, 184, 255, 0.44);
 }
 
-.vote-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.vote-row {
-  display: flex;
-  gap: 8px;
-}
-
-.vote-btn {
-  flex: 1;
-  font-size: 0.85rem;
-  padding: 9px 12px;
-  min-height: 38px;
-}
-
-.phone-input {
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
-  padding: 8px 12px;
-}
-
-/* Submission / Battle forms */
-.submission-grid,
-.battle-grid {
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 6, 12, 0.72);
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  place-items: center;
+  padding: 20px;
+  z-index: 40;
+}
+
+.overlay-card {
+  width: min(860px, 100%);
+  border: 1px solid #3a4f8a;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #141d3a, #0d1328);
+  padding: 12px;
+  display: grid;
   gap: 10px;
-  margin-bottom: 12px;
 }
 
-.submission-grid .full,
-.battle-grid .full {
-  grid-column: 1 / -1;
-}
-
-.inline-form {
+.overlay-card header {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.overlay-card h3 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+}
+
+.overlay-form {
+  display: grid;
   gap: 8px;
 }
 
-.inline-form textarea {
-  width: 100%;
-  padding: 10px 12px;
+.overlay-form input,
+.overlay-form textarea,
+.overlay-form select {
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  color: #eef2ff;
+  padding: 9px 10px;
 }
 
-.applied-notice {
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: color-mix(in srgb, #10b981 12%, var(--surface) 88%);
-  border: 1px solid color-mix(in srgb, #10b981 30%, var(--border) 70%);
-  color: var(--text);
-  font-size: 0.9rem;
+.overlay-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.overlay-switches {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #adc0ed;
+  font-size: 0.85rem;
 }
 
 .empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 48px 24px;
+  border: 1px dashed #3e578f;
+  border-radius: 16px;
+  padding: 24px;
   text-align: center;
-  color: var(--muted);
+  color: #acbae6;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .empty-icon {
-  font-size: 3rem;
+  display: block;
+  font-size: 2.4rem;
+  margin-bottom: 8px;
 }
 
 .empty-inline {
-  color: var(--muted);
-  font-size: 0.88rem;
-  padding: 4px 0;
+  color: #a6b4df;
+  font-size: 0.86rem;
 }
 
-.flag-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  margin-top: 8px;
-  background: color-mix(in srgb, var(--card) 80%, transparent);
-}
-
-.flag-info {
-  display: grid;
-  gap: 4px;
-}
-
-@media (max-width: 600px) {
-  .tournament-filters,
-  .audience-stats {
+@media (max-width: 980px) {
+  .arena-main {
     grid-template-columns: 1fr;
   }
 
-  .ranked-strip,
-  .ladder-grid {
+  .hero-right {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .battle-duel {
     grid-template-columns: 1fr;
-  }
-
-  .timeline-columns {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-inner {
-    flex-direction: column;
-  }
-
-  .hero-stats {
-    width: 100%;
-    justify-content: space-around;
-  }
-
-  .battle-matchup {
-    flex-direction: column;
     text-align: center;
   }
 
-  .fighter { text-align: center; }
-  .fighter.right { text-align: center; }
+  .duel-player.left,
+  .duel-player.right {
+    text-align: center;
+  }
+
+  .duel-actions {
+    justify-content: center;
+  }
+
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .overlay-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-right {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .emblem-card {
+    min-height: 62px;
+  }
 }
 </style>

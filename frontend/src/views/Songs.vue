@@ -344,7 +344,8 @@ function onFile(songId, event) {
     versionDraft(songId).file = null;
     return;
   }
-  if (/\.(js|mjs|cjs|ts|sh|bat|cmd)$/i.test(file.name)) {
+  const looksLikeAudio = file.type?.startsWith("audio/") || /\.(mp3|wav|flac|aac|ogg|m4a)$/i.test(file.name);
+  if (!looksLikeAudio) {
     showFormMessage("Nur Audio-Dateien sind erlaubt", "error");
     showToast("Nur Audio-Dateien sind erlaubt", "error");
     event.target.value = "";

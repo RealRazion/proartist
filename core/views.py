@@ -3537,9 +3537,9 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                 updated += 1
         return {"created": created, "updated": updated}
 
-    def get_queryset(self):
+    def list(self, request, *args, **kwargs):
         self._sync_platform_catalog()
-        return super().get_queryset()
+        return super().list(request, *args, **kwargs)
 
     def _log_platform_change(self, event_type, title, platform, before=None):
         actor = getattr(self.request.user, "profile", None)

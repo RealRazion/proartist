@@ -176,7 +176,6 @@ const defaultPlatforms = [
   { name: "Todo", slug: "todo" },
   { name: "Contests", slug: "contests" },
   { name: "Music", slug: "music" },
-  { name: "ProArtist News", slug: "proartist-news" },
   { name: "Plugin Guides", slug: "plugin-guides" },
   { name: "API Center", slug: "api-center" },
   { name: "Locations", slug: "locations" },

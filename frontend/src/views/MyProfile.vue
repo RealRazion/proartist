@@ -212,6 +212,11 @@ const notificationOptions = [
     label: "Täglicher Digest",
     hint: "Eine tägliche Zusammenfassung zu Tasks und Projekten.",
   },
+  {
+    key: "news_updates",
+    label: "Aktuelles per E-Mail",
+    hint: "E-Mail bei neuen veröffentlichten Plattform-News.",
+  },
 ];
 
 const roleLabels = {
@@ -266,6 +271,7 @@ function createDefaultNotifications() {
     task_mentioned: true,
     project_updates: true,
     digest: false,
+    news_updates: false,
   };
 }
 

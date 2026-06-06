@@ -3628,16 +3628,72 @@ class NewsPostViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated(), IsTeam()]
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user.profile)
+    def _news_recipients(self, actor):
+        recipients = []
+        emails = []
+        seen_emails = set()
+        for profile in Profile.objects.select_related("user").all():
+            if not profile:
+                continue
+            if actor and profile.id == actor.id:
+                continue
+            settings_map = profile.notification_settings or {}
+            if not settings_map.get("news_updates", False):
+                continue
+            recipients.append(profile)
+            email = (getattr(profile.user, "email", "") or "").strip().lower()
+            if email and email not in seen_emails:
+                seen_emails.add(email)
+                emails.append(email)
+        return recipients, emails
+
+    def _distribute_news_post(self, post, *, actor, send_email=True):
+        recipients, emails = self._news_recipients(actor)
+        if recipients:
+            notify_profiles(
+                recipients,
+                title=f"Aktuelles: {post.title}",
+                body=post.body[:350],
+                notification_type="news",
+                severity="INFO",
+                actor=actor,
+                metadata={"news_id": post.id},
+            )
+        if send_email and emails:
+            send_notification_email(
+                subject=f"UNYQ Aktuelles: {post.title}",
+                message=post.body[:1500],
+                recipients=emails,
+            )
+        return len(emails) if send_email else 0
+
+    def create(self, request, *args, **kwargs):
+        payload = request.data.copy()
+        send_email = _bool_param(payload.get("send_email"), True)
+        payload.pop("send_email", None)
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        post = serializer.save(author=request.user.profile)
+        emails_sent = 0
+        if post.is_published:
+            emails_sent = self._distribute_news_post(post, actor=request.user.profile, send_email=send_email)
+        headers = self.get_success_headers(serializer.data)
+        response_payload = dict(serializer.data)
+        response_payload["emails_sent"] = emails_sent
+        return Response(response_payload, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=True, methods=["POST"], permission_classes=[permissions.IsAuthenticated, IsTeam])
     def publish(self, request, pk=None):
         post = self.get_object()
+        was_published = bool(post.is_published)
         publish = _bool_param(request.data.get("publish"), True)
         post.is_published = publish
         post.save(update_fields=["is_published"])
-        return Response({"is_published": publish})
+        emails_sent = 0
+        if publish and not was_published:
+            send_email = _bool_param(request.data.get("send_email"), True)
+            emails_sent = self._distribute_news_post(post, actor=request.user.profile, send_email=send_email)
+        return Response({"is_published": publish, "emails_sent": emails_sent})
 
 
 class FinanceTipViewSet(viewsets.ModelViewSet):

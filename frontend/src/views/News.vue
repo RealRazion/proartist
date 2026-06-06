@@ -2,8 +2,8 @@
   <div class="news wide">
     <header class="card header">
       <div>
-        <h1>ProArtist News</h1>
-        <p class="muted">Gezielte Updates fuer die ProArtist Manager- und Artist-Plattform.</p>
+        <h1>Aktuelles</h1>
+        <p class="muted">Neuigkeiten fuer Artists und Team inklusive optionalem E-Mail-Versand.</p>
       </div>
       <button class="btn ghost" type="button" @click="loadNews" :disabled="loading">
         {{ loading ? "Lade..." : "Aktualisieren" }}
@@ -24,6 +24,10 @@
         <label class="toggle">
           <input type="checkbox" v-model="form.is_published" />
           Sofort veröffentlichen
+        </label>
+        <label class="toggle">
+          <input type="checkbox" v-model="form.send_email" />
+          E-Mail an aktivierte Nutzer senden
         </label>
         <label class="file-picker">
           <input type="file" accept="image/*" @change="onImageSelect" />
@@ -107,6 +111,7 @@ const form = ref({
   title: "",
   body: "",
   is_published: true,
+  send_email: true,
 });
 const imageFile = ref(null);
 const cropPreviewUrl = ref("");
@@ -287,6 +292,7 @@ async function createPost() {
       payload.append("title", form.value.title);
       payload.append("body", form.value.body);
       payload.append("is_published", form.value.is_published ? "true" : "false");
+      payload.append("send_email", form.value.send_email ? "true" : "false");
       const cropped = await buildCroppedImage();
       if (cropped) {
         payload.append("image", cropped, imageFile.value.name || "news-image.jpg");
@@ -297,7 +303,7 @@ async function createPost() {
     } else {
       await api.post("news/", form.value);
     }
-    form.value = { title: "", body: "", is_published: true };
+    form.value = { title: "", body: "", is_published: true, send_email: true };
     clearImage();
     await loadNews();
   } catch (err) {
@@ -311,7 +317,7 @@ async function createPost() {
 async function togglePublish(post) {
   savingIds.value.add(post.id);
   try {
-    await api.post(`news/${post.id}/publish/`, { publish: !post.is_published });
+    await api.post(`news/${post.id}/publish/`, { publish: !post.is_published, send_email: form.value.send_email });
     await loadNews();
   } catch (err) {
     console.error("Statuswechsel fehlgeschlagen", err);
@@ -502,4 +508,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

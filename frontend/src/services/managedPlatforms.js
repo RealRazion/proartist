@@ -21,7 +21,6 @@ const ROUTE_TO_PLATFORM_SLUG = {
   search: "dashboard",
   testing: "testing",
   chats: "dashboard",
-  news: "proartist-news",
   "platform-contests": "contests",
   "platform-music": "music",
   "platform-locations": "locations",
@@ -35,7 +34,6 @@ const ROUTE_TO_PLATFORM_SLUG = {
   "platform-todo": "todo",
   "platform-plugin-guides": "plugin-guides",
   "platform-api-center": "api-center",
-  "platform-news": "proartist-news",
   "admin-platform": "admin",
   "manage-platforms": "manage-platforms",
 };

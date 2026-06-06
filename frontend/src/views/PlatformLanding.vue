@@ -8,6 +8,12 @@
           <p class="hero-subtitle">
             Dein zentraler Zugang zu allen UNYQ-Plattformen. Entdecke Tools und Funktionen, die auf deine Rolle zugeschnitten sind.
           </p>
+          <div class="hero-shortcuts">
+            <button class="shortcut-btn" type="button" @click="openCurrentUpdates">
+              <span class="shortcut-icon">📰</span>
+              <span>Aktuellem</span>
+            </button>
+          </div>
           <div v-if="isTeam" class="audience-switch">
             <button
               v-for="mode in audienceModes"
@@ -300,17 +306,6 @@ const platforms = [
     status: "live",
   },
   {
-    key: "proartist-news",
-    title: "ProArtist News",
-    category: "Kommunikation",
-    description: "Kuratiere News speziell fuer die Manager- und Artist-Plattform ProArtist.",
-    buttonLabel: "Lesen",
-    icon: "📰",
-    features: ["Ankuendigungen", "Roadmap", "Team-Updates"],
-    roles: ["TEAM", "ARTIST", "PROD", "MEMBER", "LOC"],
-    status: "live",
-  },
-  {
     key: "plugin-guides",
     title: "Plugin Guide",
     category: "Wissen",
@@ -391,7 +386,7 @@ const activeRole = computed(() => {
 
 const defaultOrder = [
   "dashboard", "todo", "music", "contests", "content-schedule",
-  "content-studio", "proartist-news", "plugin-guides", "api-center", "finance", "fitness", "locations", "admin", "manage-platforms", "testing",
+  "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "admin", "manage-platforms", "testing",
 ];
 
 const visiblePlatforms = computed(() => {
@@ -472,7 +467,6 @@ function openPlatform(platformKey, platformMeta = null) {
     "content-studio": "/platforms/content-studio",
     "content-schedule": "/platforms/content-schedule",
     todo: "/platforms/todo",
-    "proartist-news": "/platforms/news",
     "plugin-guides": "/platforms/plugin-guides",
     "api-center": "/platforms/api-center",
     fitness: "/platforms/fitness",
@@ -484,6 +478,10 @@ function openPlatform(platformKey, platformMeta = null) {
   if (path) {
     router.push(path);
     return;
+  }
+
+  function openCurrentUpdates() {
+    router.push("/platforms/news");
   }
   showToast("Diese Plattform wird bald verfügbar sein", "info");
 }
@@ -595,6 +593,30 @@ onMounted(async () => {
   line-height: 1.5;
   opacity: 0.94;
   margin: 0;
+}
+
+.hero-shortcuts {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+
+.shortcut-btn {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.shortcut-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .audience-switch {

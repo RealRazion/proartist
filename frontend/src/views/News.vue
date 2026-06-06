@@ -61,7 +61,13 @@
     </section>
 
     <section class="card posts">
-      <h2>Aktuelle Meldungen</h2>
+      <div class="posts-head">
+        <h2>Aktuelle Meldungen</h2>
+        <label v-if="isTeam" class="toggle">
+          <input type="checkbox" v-model="publishSendEmail" />
+          Beim Veröffentlichen E-Mail senden
+        </label>
+      </div>
       <div v-if="loading" class="skeleton-list">
         <div class="skeleton-card" v-for="n in 3" :key="`sk-${n}`"></div>
       </div>
@@ -120,6 +126,7 @@ const cropImage = ref(null);
 const cropMeta = ref({ naturalWidth: 0, naturalHeight: 0 });
 const cropState = ref({ scale: 1, offsetX: 0, offsetY: 0 });
 const minScale = ref(1);
+const publishSendEmail = ref(true);
 let dragStart = null;
 
 const cropImageStyle = computed(() => ({
@@ -317,7 +324,7 @@ async function createPost() {
 async function togglePublish(post) {
   savingIds.value.add(post.id);
   try {
-    await api.post(`news/${post.id}/publish/`, { publish: !post.is_published, send_email: form.value.send_email });
+    await api.post(`news/${post.id}/publish/`, { publish: !post.is_published, send_email: publishSendEmail.value });
     await loadNews();
   } catch (err) {
     console.error("Statuswechsel fehlgeschlagen", err);
@@ -440,6 +447,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.posts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .posts li {
   border: 1px solid rgba(148, 163, 184, 0.3);

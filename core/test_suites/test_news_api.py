@@ -70,7 +70,7 @@ class NewsApiTests(TestCase):
                 "is_published": True,
                 "send_email": True,
             },
-            format="json",
+            format="multipart",
         )
         self.assertEqual(res.status_code, 201, res.content)
         self.assertEqual(res.json()["emails_sent"], 1)
@@ -94,7 +94,7 @@ class NewsApiTests(TestCase):
         res = self.client.post(
             f"/api/news/{post.id}/publish/",
             {"publish": True, "send_email": False},
-            format="json",
+            format="multipart",
         )
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(res.json()["emails_sent"], 0)

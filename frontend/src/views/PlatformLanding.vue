@@ -451,6 +451,10 @@ function onDragEnd() {
   dragOverKey.value = null;
 }
 
+function openCurrentUpdates() {
+  router.push("/platforms/news");
+}
+
 function openPlatform(platformKey, platformMeta = null) {
   if (platformMeta && platformMeta.is_accessible === false) {
     const hint = platformMeta.status_note || "Diese Plattform ist aktuell nicht verfuegbar.";
@@ -478,10 +482,6 @@ function openPlatform(platformKey, platformMeta = null) {
   if (path) {
     router.push(path);
     return;
-  }
-
-  function openCurrentUpdates() {
-    router.push("/platforms/news");
   }
   showToast("Diese Plattform wird bald verfügbar sein", "info");
 }

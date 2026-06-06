@@ -3633,8 +3633,6 @@ class NewsPostViewSet(viewsets.ModelViewSet):
         emails = []
         seen_emails = set()
         for profile in Profile.objects.select_related("user").all():
-            if not profile:
-                continue
             if actor and profile.id == actor.id:
                 continue
             settings_map = profile.notification_settings or {}

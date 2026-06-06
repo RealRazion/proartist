@@ -121,7 +121,7 @@
           <form class="upload" @submit.prevent="uploadVersion(song.id)">
             <input class="input" v-model.trim="versionDraft(song.id).notes" placeholder="Notiz" />
             <label class="file-picker">
-              <input type="file" @change="onFile(song.id, $event)" />
+              <input type="file" accept="audio/*,.mp3,.wav,.flac,.aac,.ogg,.m4a" @change="onFile(song.id, $event)" />
               {{ versionDraft(song.id).file ? versionDraft(song.id).file.name : "Datei w&auml;hlen" }}
             </label>
             <div class="flags">
@@ -339,7 +339,19 @@ async function createSong() {
 }
 
 function onFile(songId, event) {
-  versionDraft(songId).file = event.target.files?.[0] || null;
+  const file = event.target.files?.[0] || null;
+  if (!file) {
+    versionDraft(songId).file = null;
+    return;
+  }
+  if (/\.(js|mjs|cjs|ts|sh|bat|cmd)$/i.test(file.name)) {
+    showFormMessage("Nur Audio-Dateien sind erlaubt", "error");
+    showToast("Nur Audio-Dateien sind erlaubt", "error");
+    event.target.value = "";
+    versionDraft(songId).file = null;
+    return;
+  }
+  versionDraft(songId).file = file;
 }
 
 async function uploadVersion(songId) {

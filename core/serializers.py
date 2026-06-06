@@ -53,6 +53,7 @@ from .models import (
     TournamentVote,
 )
 from .file_validators import validate_audio_file
+from .platform_registry import is_system_platform
 
 
 DECIMAL_2 = Decimal("0.01")
@@ -1907,6 +1908,7 @@ class SystemIntegrationSerializer(serializers.ModelSerializer):
 class ManagedPlatformSerializer(serializers.ModelSerializer):
     can_access_as_team = serializers.SerializerMethodField()
     can_access_as_non_team = serializers.SerializerMethodField()
+    is_system_defined = serializers.SerializerMethodField()
 
     class Meta:
         model = ManagedPlatform
@@ -1921,10 +1923,11 @@ class ManagedPlatformSerializer(serializers.ModelSerializer):
             "updated_by",
             "can_access_as_team",
             "can_access_as_non_team",
+            "is_system_defined",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "version", "updated_by", "can_access_as_team", "can_access_as_non_team", "created_at", "updated_at"]
+        read_only_fields = ["id", "version", "updated_by", "can_access_as_team", "can_access_as_non_team", "is_system_defined", "created_at", "updated_at"]
 
     def get_can_access_as_team(self, obj):
         return obj.status != "LOCKED"
@@ -1933,6 +1936,9 @@ class ManagedPlatformSerializer(serializers.ModelSerializer):
         if obj.status != "ACTIVE":
             return False
         return obj.allow_non_team_users
+
+    def get_is_system_defined(self, obj):
+        return is_system_platform(obj.slug)
 
 
 class ContentScheduleItemSerializer(serializers.ModelSerializer):

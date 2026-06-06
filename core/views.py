@@ -141,6 +141,7 @@ from .throttling import (
     SetPasswordRateThrottle,
     VerifyRegistrationRateThrottle,
 )
+from .platform_registry import PLATFORM_REGISTRY, is_system_platform
 
 API_CENTER_OFFLINE = getattr(settings, "API_CENTER_OFFLINE", True)
 logger = logging.getLogger(__name__)
@@ -3509,6 +3510,37 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
     serializer_class = ManagedPlatformSerializer
     permission_classes = [permissions.IsAuthenticated, IsTeam]
 
+    def _sync_platform_catalog(self):
+        created = 0
+        updated = 0
+        existing = {row.slug: row for row in ManagedPlatform.objects.all()}
+        for entry in PLATFORM_REGISTRY:
+            platform = existing.get(entry["slug"])
+            if not platform:
+                ManagedPlatform.objects.create(
+                    name=entry["name"],
+                    slug=entry["slug"],
+                    allow_non_team_users=entry["allow_non_team_users"],
+                )
+                created += 1
+                continue
+
+            changed_fields = []
+            if platform.name != entry["name"]:
+                platform.name = entry["name"]
+                changed_fields.append("name")
+            if platform.allow_non_team_users != entry["allow_non_team_users"]:
+                platform.allow_non_team_users = entry["allow_non_team_users"]
+                changed_fields.append("allow_non_team_users")
+            if changed_fields:
+                platform.save(update_fields=[*changed_fields, "updated_at"])
+                updated += 1
+        return {"created": created, "updated": updated}
+
+    def get_queryset(self):
+        self._sync_platform_catalog()
+        return super().get_queryset()
+
     def _log_platform_change(self, event_type, title, platform, before=None):
         actor = getattr(self.request.user, "profile", None)
         metadata = {
@@ -3563,6 +3595,8 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
         )
 
     def perform_destroy(self, instance):
+        if is_system_platform(instance.slug):
+            raise PermissionDenied("System-Plattformen werden automatisch erkannt und koennen nicht geloescht werden.")
         snapshot = {
             "platform_id": instance.id,
             "platform_name": instance.name,
@@ -3584,6 +3618,7 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["GET"], url_path="access-state", permission_classes=[permissions.IsAuthenticated])
     def access_state(self, request):
+        self._sync_platform_catalog()
         me = getattr(request.user, "profile", None)
         is_team_user = is_team_profile(me)
         rows = []
@@ -3605,9 +3640,16 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                     "allow_non_team_users": platform.allow_non_team_users,
                     "is_accessible": accessible,
                     "is_team_user": is_team_user,
+                    "is_system_defined": is_system_platform(platform.slug),
                 }
             )
         return Response(rows)
+
+    @action(detail=False, methods=["POST"], url_path="sync", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def sync_catalog(self, request):
+        stats = self._sync_platform_catalog()
+        rows = self.get_serializer(self.get_queryset(), many=True).data
+        return Response({"stats": stats, "results": rows})
 
 
 class NewsPostViewSet(viewsets.ModelViewSet):

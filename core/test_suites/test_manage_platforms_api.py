@@ -116,6 +116,32 @@ class ManagePlatformsApiTests(TestCase):
         self.assertTrue(team_rows["analytics"]["is_accessible"])
         self.assertFalse(team_rows["support"]["is_accessible"])
 
+    def test_sync_creates_system_platforms_and_marks_them(self):
+        self.client.force_authenticate(user=self.team_user)
+
+        sync_res = self.client.post("/api/manage-platforms/sync/")
+        self.assertEqual(sync_res.status_code, 200, sync_res.content)
+        body = sync_res.json()
+
+        self.assertGreaterEqual(body["stats"]["created"], 1)
+        finance = ManagedPlatform.objects.get(slug="finance")
+        self.assertEqual(finance.name, "Finance")
+
+        list_res = self.client.get("/api/manage-platforms/")
+        self.assertEqual(list_res.status_code, 200, list_res.content)
+        rows = {row["slug"]: row for row in list_res.json()["results"]}
+        self.assertTrue(rows["finance"]["is_system_defined"])
+
+    def test_system_platform_cannot_be_deleted(self):
+        ManagedPlatform.objects.create(name="Finance", slug="finance", status="ACTIVE", allow_non_team_users=True)
+        self.client.force_authenticate(user=self.team_user)
+
+        platform = ManagedPlatform.objects.get(slug="finance")
+        delete_res = self.client.delete(f"/api/manage-platforms/{platform.id}/")
+
+        self.assertEqual(delete_res.status_code, 403, delete_res.content)
+        self.assertTrue(ManagedPlatform.objects.filter(slug="finance").exists())
+
     def test_audit_entries_are_written_for_create_update_delete(self):
         self.client.force_authenticate(user=self.team_user)
 

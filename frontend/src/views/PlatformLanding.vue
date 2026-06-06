@@ -331,21 +331,10 @@ const platforms = [
     key: "admin",
     title: "Admin Control Hub",
     category: "Verwaltung",
-    description: "Zentrales Verwaltungszentrum für alle UNYQ-Plattformen und Nutzer.",
+    description: "Zentrales Verwaltungszentrum für alle UNYQ-Plattformen, Artist-Vorschau und Nutzer.",
     buttonLabel: "Verwalten",
     icon: "🔧",
-    features: ["Nutzer", "Plattformen", "Sicherheit"],
-    roles: ["TEAM"],
-    status: "live",
-  },
-  {
-    key: "manage-platforms",
-    title: "Manage Plattforms",
-    category: "Verwaltung",
-    description: "Steuere den Status jeder Plattform und sperre sie bei Bedarf für normale Nutzer.",
-    buttonLabel: "Verwalten",
-    icon: "🛡️",
-    features: ["Status", "Wartung", "Sperren"],
+    features: ["Nutzer", "Plattformen", "Artist View"],
     roles: ["TEAM"],
     status: "live",
   },
@@ -386,7 +375,7 @@ const activeRole = computed(() => {
 
 const defaultOrder = [
   "dashboard", "todo", "music", "contests", "content-schedule",
-  "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "admin", "manage-platforms", "testing",
+  "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "admin", "testing",
 ];
 
 const visiblePlatforms = computed(() => {

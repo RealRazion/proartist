@@ -2,17 +2,28 @@
   <div class="tournament-page">
     <div class="arena-bg-layer"></div>
 
-    <aside class="arena-left-rail">
-      <p>Bereiche</p>
-      <select class="rail-select" v-model="selectedNavTarget" @change="jumpToSection(selectedNavTarget)">
-        <option v-for="entry in navTargets" :key="`nav-${entry.key}`" :value="entry.key">{{ entry.label }}</option>
-      </select>
-      <button class="btn ghost small" type="button" @click="jumpToSection('turniere')">Turniere</button>
-      <button class="btn ghost small" type="button" @click="jumpToSection('meine-turniere')">Meine Turniere</button>
-      <button class="btn ghost small" type="button" @click="jumpToSection('historie')">Historie</button>
-      <button class="btn ghost small" type="button" @click="jumpToSection('aktuelle-battles')">Aktuelle Battles</button>
-      <button class="btn ghost small" type="button" @click="jumpToSection('rank')">Rank</button>
-    </aside>
+    <section class="contest-toolbar">
+      <div class="toolbar-nav">
+        <p>Contest Navigation</p>
+        <select class="rail-select" v-model="selectedNavTarget" @change="jumpToSection(selectedNavTarget)">
+          <option v-for="entry in navTargets" :key="`nav-${entry.key}`" :value="entry.key">{{ entry.label }}</option>
+        </select>
+        <div class="toolbar-pills">
+          <button v-for="entry in navTargets" :key="entry.key" class="nav-pill" type="button" @click="jumpToSection(entry.key)">
+            {{ entry.label }}
+          </button>
+        </div>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn ghost small" type="button" @click="goHome">Hub</button>
+        <button v-if="isTeam" class="btn ghost small" type="button" @click="toggleArtistView">
+          {{ artistPreview ? "Admin View" : "Artist View" }}
+        </button>
+        <button class="avatar-btn" type="button" @click="openProfile" :title="profile?.name || profile?.username || 'Profil'">
+          {{ profileInitial }}
+        </button>
+      </div>
+    </section>
 
     <header class="arena-hero">
       <div class="hero-left">
@@ -22,6 +33,7 @@
           Keine Office-Plattform. Keine 200 Fenster. Eine Arena mit Fokus auf Matches,
           Ranks und Live-Feeling.
         </p>
+        <p v-if="artistPreview" class="preview-badge">Artist View aktiv – Admin Controls sind ausgeblendet.</p>
       </div>
       <div class="hero-right">
         <div class="hero-stat"><strong>{{ rankedOverview.season || '-' }}</strong><span>Season</span></div>
@@ -99,11 +111,11 @@
               <span>Runde {{ battle.round_number }}</span>
             </div>
             <div class="duel-player right">{{ battle.right_profile_name }}</div>
-            <div class="duel-actions" v-if="!isTeam">
+            <div class="duel-actions" v-if="!viewerIsTeam">
               <button class="btn vote-btn" @click="voteBattle(featuredTournament, battle, battle.left_submission)" :disabled="!canVoteBattle(featuredTournament, battle)">Left</button>
               <button class="btn ghost vote-btn" @click="voteBattle(featuredTournament, battle, battle.right_submission)" :disabled="!canVoteBattle(featuredTournament, battle)">Right</button>
             </div>
-            <div class="duel-actions" v-if="isTeam && battle.status !== 'CLOSED'">
+            <div class="duel-actions" v-if="viewerIsTeam && battle.status !== 'CLOSED'">
               <button class="btn small" @click="closeBattle(featuredTournament, battle)">Auto Close</button>
               <button class="btn ghost small" @click="closeBattle(featuredTournament, battle, battle.left_submission)">Left Win</button>
               <button class="btn ghost small" @click="closeBattle(featuredTournament, battle, battle.right_submission)">Right Win</button>
@@ -111,18 +123,18 @@
           </article>
         </div>
 
-        <div class="quick-actions" v-if="!isTeam && featuredTournament.has_application_phase && !myApplication(featuredTournament.id)">
+        <div class="quick-actions" v-if="!viewerIsTeam && featuredTournament.has_application_phase && !myApplication(featuredTournament.id)">
           <textarea v-model.trim="applicationDrafts[featuredTournament.id]" rows="2" placeholder="Kurze Bewerbung"></textarea>
           <button class="btn" @click="submitApplication(featuredTournament.id)" :disabled="busy">Jetzt bewerben</button>
         </div>
 
-        <div class="quick-actions" v-if="!isTeam">
+        <div class="quick-actions" v-if="!viewerIsTeam">
           <input v-model.trim="submissionDraft(featuredTournament.id).title" placeholder="Track / Runde Titel" />
           <input v-model.trim="submissionDraft(featuredTournament.id).media_url" placeholder="https://media-link" />
           <button class="btn" @click="submitRound(featuredTournament.id)" :disabled="busy || !canSubmit(featuredTournament)">Runde einreichen</button>
         </div>
 
-        <div class="quick-actions" v-if="isTeam">
+        <div class="quick-actions" v-if="viewerIsTeam">
           <button class="btn ghost" @click="setTournamentStatus(featuredTournament, 'APPLICATION_OPEN')">Applications</button>
           <button class="btn ghost" @click="setTournamentStatus(featuredTournament, 'SUBMISSION_OPEN')">Submissions</button>
           <button class="btn ghost" @click="setTournamentStatus(featuredTournament, 'BATTLES')">Battle Live</button>
@@ -154,13 +166,13 @@
           </article>
         </section>
 
-        <section class="side-block profile" id="meine-turniere" v-if="!isTeam">
+        <section class="side-block profile" id="meine-turniere" v-if="!viewerIsTeam">
           <h3>Mein Fortschritt</h3>
           <p v-if="myRankedRow">{{ myRankedRow.tier?.label }} • #{{ myRankedRow.rank }} • {{ myRankedRow.ranked_points }} RP</p>
           <p v-else>Noch kein Ladder-Eintrag.</p>
         </section>
 
-        <section class="side-block admin" v-if="isTeam">
+        <section class="side-block admin" v-if="viewerIsTeam">
           <h3>Admin Tools</h3>
           <button class="btn" @click="goAnimationLab">Animation Lab</button>
           <button class="btn ghost" @click="showCreateForm = !showCreateForm">{{ showCreateForm ? 'Hide' : 'Show' }} Create</button>
@@ -169,7 +181,7 @@
       </aside>
     </section>
 
-    <section class="admin-overlay" v-if="isTeam && showCreateForm">
+    <section class="admin-overlay" v-if="viewerIsTeam && showCreateForm">
       <article class="overlay-card">
         <header>
           <h3>Turnier Builder</h3>
@@ -221,7 +233,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
@@ -232,6 +244,7 @@ import platinRank from "../assets/ranks/platin.svg";
 import rubinRank from "../assets/ranks/rubin.svg";
 
 const router = useRouter();
+const route = useRoute();
 const { profile, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
@@ -293,6 +306,12 @@ const createForm = ref({
 });
 
 const myProfileId = computed(() => profile.value?.id || null);
+const artistPreview = computed(() => isTeam.value && String(route.query.artistView || "").toLowerCase() === "1");
+const viewerIsTeam = computed(() => isTeam.value && !artistPreview.value);
+const profileInitial = computed(() => {
+  const source = profile.value?.name || profile.value?.username || "";
+  return source ? source.trim().charAt(0).toUpperCase() : "U";
+});
 const rankedRows = computed(() => rankedOverview.value?.rows || []);
 const topRankedRows = computed(() => rankedRows.value.slice(0, 12));
 const rankDistribution = computed(() => rankedOverview.value?.rank_distribution || {});
@@ -437,6 +456,17 @@ function goHome() {
   router.push({ name: "platforms" });
 }
 
+function openProfile() {
+  router.push({ name: "me" });
+}
+
+function toggleArtistView() {
+  router.push({
+    name: route.name,
+    query: artistPreview.value ? {} : { artistView: "1" },
+  });
+}
+
 function tournamentCover(tournament) {
   if (!tournament) return fallbackTournamentCovers[0];
   if (tournament.cover_url) return tournament.cover_url;
@@ -489,7 +519,7 @@ async function loadAll() {
       api.get("tournaments/timeline/"),
       api.get("tournaments/ranked-config/"),
     ];
-    if (!isTeam.value) requests.push(api.get("tournament-votes/"));
+    if (!viewerIsTeam.value) requests.push(api.get("tournament-votes/"));
 
     const [tournamentRes, applicationRes, submissionRes, battleRes, rankedRes, timelineRes, rankedConfigRes, votesRes] = await Promise.all(requests);
     tournaments.value = asList(tournamentRes.data);
@@ -731,6 +761,67 @@ onMounted(async () => {
   font-size: 0.82rem;
 }
 
+.contest-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 18px;
+  background: rgba(7, 12, 28, 0.72);
+  backdrop-filter: blur(12px);
+}
+
+.toolbar-nav {
+  display: grid;
+  gap: 10px;
+}
+
+.toolbar-nav p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #9eb2e7;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.toolbar-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-pill {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #edf2ff;
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.avatar-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  background: linear-gradient(135deg, rgba(110, 231, 255, 0.22), rgba(255, 95, 130, 0.28));
+  color: #fff;
+  font-family: "Sora", sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .arena-left-rail {
   position: fixed;
   left: 18px;
@@ -756,10 +847,14 @@ onMounted(async () => {
 
 .rail-select {
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(10, 16, 35, 0.88);
   color: #edf2ff;
+  min-width: min(320px, 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .arena-hero {
@@ -768,9 +863,8 @@ onMounted(async () => {
   padding: 18px;
   background: linear-gradient(145deg, rgba(255, 87, 122, 0.18), rgba(112, 231, 255, 0.12) 45%, rgba(255, 189, 72, 0.08));
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  margin-left: 230px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.9fr);
+  gap: 16px;
 }
 
 .hero-left h1 {
@@ -784,6 +878,17 @@ onMounted(async () => {
   color: #b5c1e9;
 }
 
+.preview-badge {
+  margin-top: 14px !important;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(8, 12, 26, 0.54);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fef3c7 !important;
+}
+
 .eyebrow {
   margin: 0;
   text-transform: uppercase;
@@ -794,8 +899,9 @@ onMounted(async () => {
 
 .hero-right {
   display: grid;
-  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
   gap: 8px;
+  align-content: start;
 }
 
 .hero-stat {
@@ -817,9 +923,14 @@ onMounted(async () => {
 }
 
 .hero-progress {
-  grid-column: 1 / -1;
+  grid-column: 2;
   display: grid;
   gap: 6px;
+  align-self: start;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(6, 10, 26, 0.48);
+  padding: 14px;
 }
 
 .hero-progress-head {
@@ -858,7 +969,6 @@ onMounted(async () => {
 }
 
 .arena-slideshow {
-  margin-left: 230px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -935,7 +1045,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
-  margin-left: 230px;
 }
 
 .emblem-card {
@@ -968,7 +1077,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1.35fr 0.8fr;
   gap: 12px;
-  margin-left: 230px;
 }
 
 .arena-stage,
@@ -1218,20 +1326,26 @@ onMounted(async () => {
 }
 
 @media (max-width: 980px) {
-  .arena-left-rail {
-    position: static;
+  .contest-toolbar {
+    flex-direction: column;
+  }
+
+  .toolbar-actions {
     width: 100%;
+    justify-content: flex-start;
+  }
+
+  .rail-select {
+    min-width: 0;
   }
 
   .arena-hero,
-  .arena-slideshow,
-  .rank-emblems,
-  .arena-main {
-    margin-left: 0;
-  }
-
   .arena-main {
     grid-template-columns: 1fr;
+  }
+
+  .hero-progress {
+    grid-column: 1;
   }
 
   .hero-right {
@@ -1262,6 +1376,11 @@ onMounted(async () => {
 }
 
 @media (max-width: 640px) {
+  .toolbar-pills {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .arena-slideshow {
     grid-template-columns: 1fr;
   }

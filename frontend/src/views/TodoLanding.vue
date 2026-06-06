@@ -1,24 +1,23 @@
 <template>
   <div class="todo-platform">
-    <header class="card header">
-      <div>
-        <p class="eyebrow">Todo</p>
-        <h1>Todo Platform</h1>
-        <p class="muted">Eigene Todo-Umgebung ohne Verbindung zu den ProArtist Tasks.</p>
-      </div>
-      <div class="header-actions">
-        <button class="btn ghost" type="button" @click="openCategoryModal">Kategorien</button>
-        <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte Anzeigen</button>
-        <button class="btn" type="button" @click="openCreateModal">Todo anlegen</button>
-      </div>
-    </header>
-
     <section v-if="!isTeam" class="card info">
       <h2>Zugriff nur fuer Team</h2>
       <p class="muted">Nur Team-Mitglieder koennen die Todo Plattform nutzen.</p>
     </section>
 
     <section v-else class="card board">
+      <div class="board-head">
+        <div>
+          <p class="eyebrow">Todo</p>
+          <h1>Todo Platform</h1>
+        </div>
+        <div class="header-actions">
+          <button class="btn ghost" type="button" @click="openCategoryModal">Kategorien</button>
+          <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte</button>
+          <button class="btn" type="button" @click="openCreateModal">Todo anlegen</button>
+        </div>
+      </div>
+
       <div class="summary-row">
         <article class="summary-card">
           <span>Offen</span>
@@ -34,19 +33,93 @@
         </article>
       </div>
 
-      <article class="category-group" v-for="category in orderedCategorySections" :key="`cat-${category.id}`">
-        <button class="category-header" type="button" @click="toggleCategory(category.id)">
-          <span>
-            <strong>{{ category.name }}</strong>
-            <small>{{ openTodosByCategory(category.id).length }} Todos</small>
-          </span>
-          <span class="toggle-icon">{{ isCategoryCollapsed(category.id) ? "+" : "-" }}</span>
+      <div class="view-mode-switch">
+        <button
+          class="iconbtn tiny"
+          type="button"
+          :class="{ active: categoryViewMode === 'accordion' }"
+          @click="categoryViewMode = 'accordion'"
+          title="Kategorien untereinander"
+        >
+          ☰
         </button>
+        <button
+          class="iconbtn tiny"
+          type="button"
+          :class="{ active: categoryViewMode === 'slideshow' }"
+          @click="categoryViewMode = 'slideshow'"
+          title="Kategorien als Diashow"
+        >
+          ◉
+        </button>
+      </div>
 
-        <div v-if="!isCategoryCollapsed(category.id)" class="category-content">
-          <ul v-if="openTodosByCategory(category.id).length" class="todo-list">
+      <div v-if="categoryViewMode === 'accordion'" class="accordion-wrap">
+        <article class="category-group" v-for="category in orderedCategorySections" :key="`cat-${category.id}`">
+          <button class="category-header" type="button" @click="toggleCategory(category.id)">
+            <span>
+              <strong>{{ category.name }}</strong>
+              <small>{{ openTodosByCategory(category.id).length }} Todos</small>
+            </span>
+            <span class="toggle-icon">{{ isCategoryCollapsed(category.id) ? "+" : "-" }}</span>
+          </button>
+
+          <div v-if="!isCategoryCollapsed(category.id)" class="category-content">
+            <ul v-if="openTodosByCategory(category.id).length" class="todo-list">
+              <li
+                v-for="todo in openTodosByCategory(category.id)"
+                :key="todo.id"
+                class="todo-item"
+                :class="{ overdue: dueState(todo) === 'overdue', soon: dueState(todo) === 'soon' }"
+              >
+                <div>
+                  <strong>{{ todo.title }}</strong>
+                  <p class="muted small">{{ todo.due_date ? `Datum: ${formatDate(todo.due_date)}` : "Ohne Datum" }}</p>
+                  <p class="todo-state" :class="dueState(todo)">{{ dueLabel(todo) }}</p>
+                </div>
+
+                <div class="todo-actions">
+                  <select class="input small-select" :value="todo.category_id" @change="setTodoCategory(todo.id, $event.target.value)">
+                    <option v-for="option in categoryOptions" :key="`opt-${option.id}`" :value="option.id">{{ option.name }}</option>
+                  </select>
+                  <button class="btn ghost tiny" type="button" :disabled="!todo.due_date" @click="addTodoToCalendar(todo)">
+                    Zum Kalender
+                  </button>
+                  <button class="btn tiny" type="button" @click="markDone(todo.id)">Erledigt</button>
+                </div>
+              </li>
+            </ul>
+            <p v-else class="muted empty">Keine offenen Todos</p>
+          </div>
+        </article>
+      </div>
+
+      <article v-else-if="activeCategory" class="category-group slideshow-group">
+        <div class="slideshow-head">
+          <button class="iconbtn tiny" type="button" @click="prevCategory" title="Vorherige Kategorie">◀</button>
+          <button class="category-header static" type="button">
+            <span>
+              <strong>{{ activeCategory.name }}</strong>
+              <small>{{ openTodosByCategory(activeCategory.id).length }} Todos</small>
+            </span>
+          </button>
+          <button class="iconbtn tiny" type="button" @click="nextCategory" title="Nächste Kategorie">▶</button>
+        </div>
+        <div class="slideshow-indicators">
+          <button
+            v-for="(category, index) in orderedCategorySections"
+            :key="`slide-dot-${category.id}`"
+            class="slide-dot"
+            :class="{ active: index === activeCategoryIndex }"
+            type="button"
+            @click="setActiveCategory(index)"
+            :title="category.name"
+          ></button>
+        </div>
+        <div class="category-content">
+          <ul v-if="activeCategoryTodos.length" class="todo-list">
             <li
-              v-for="todo in openTodosByCategory(category.id)"
+              v-for="todo in activeCategoryTodos"
               :key="todo.id"
               class="todo-item"
               :class="{ overdue: dueState(todo) === 'overdue', soon: dueState(todo) === 'soon' }"
@@ -177,6 +250,8 @@ const showCreateModal = ref(false);
 const showCategoryModal = ref(false);
 const showFinishedModal = ref(false);
 const newCategoryName = ref("");
+const categoryViewMode = ref("accordion");
+const activeCategoryIndex = ref(0);
 
 const draft = ref({
   title: "",
@@ -226,8 +301,32 @@ const completedTodos = computed(() =>
     .sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0))
 );
 
+const activeCategory = computed(() => orderedCategorySections.value[activeCategoryIndex.value] || null);
+const activeCategoryTodos = computed(() => {
+  if (!activeCategory.value) return [];
+  return openTodosByCategory(activeCategory.value.id);
+});
+
 function openTodosByCategory(categoryId) {
   return openTodos.value.filter((todo) => (todo.category_id || UNCATEGORIZED_ID) === categoryId);
+}
+
+function setActiveCategory(index) {
+  const total = orderedCategorySections.value.length;
+  if (!total) {
+    activeCategoryIndex.value = 0;
+    return;
+  }
+  const safeIndex = ((Number(index) % total) + total) % total;
+  activeCategoryIndex.value = safeIndex;
+}
+
+function prevCategory() {
+  setActiveCategory(activeCategoryIndex.value - 1);
+}
+
+function nextCategory() {
+  setActiveCategory(activeCategoryIndex.value + 1);
 }
 
 function formatDate(value) {
@@ -463,6 +562,7 @@ onMounted(async () => {
   todos.value = readStorageJSON(TODO_STORAGE_KEY, []);
   categories.value = readStorageJSON(TODO_CATEGORY_KEY, []);
   collapsedCategories.value = readStorageJSON(TODO_COLLAPSED_KEY, {});
+  setActiveCategory(0);
 });
 </script>
 
@@ -472,7 +572,7 @@ onMounted(async () => {
   gap: 16px;
 }
 
-.header {
+.board-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -523,6 +623,47 @@ onMounted(async () => {
 
 .summary-card strong {
   font-size: 1.1rem;
+}
+
+.view-mode-switch {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.view-mode-switch .iconbtn.active {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.slideshow-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.category-header.static {
+  cursor: default;
+}
+
+.slideshow-indicators {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.slide-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: none;
+  background: color-mix(in srgb, var(--text) 30%, transparent 70%);
+  cursor: pointer;
+}
+
+.slide-dot.active {
+  background: var(--brand);
 }
 
 .category-group {

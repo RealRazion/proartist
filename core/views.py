@@ -141,6 +141,7 @@ from .throttling import (
     SetPasswordRateThrottle,
     VerifyRegistrationRateThrottle,
 )
+from .platform_registry import PLATFORM_REGISTRY, is_system_platform
 
 API_CENTER_OFFLINE = getattr(settings, "API_CENTER_OFFLINE", True)
 logger = logging.getLogger(__name__)
@@ -3509,6 +3510,37 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
     serializer_class = ManagedPlatformSerializer
     permission_classes = [permissions.IsAuthenticated, IsTeam]
 
+    def _sync_platform_catalog(self):
+        created = 0
+        updated = 0
+        existing = {row.slug: row for row in ManagedPlatform.objects.all()}
+        for entry in PLATFORM_REGISTRY:
+            platform = existing.get(entry["slug"])
+            if not platform:
+                ManagedPlatform.objects.create(
+                    name=entry["name"],
+                    slug=entry["slug"],
+                    allow_non_team_users=entry["allow_non_team_users"],
+                )
+                created += 1
+                continue
+
+            changed_fields = []
+            if platform.name != entry["name"]:
+                platform.name = entry["name"]
+                changed_fields.append("name")
+            if platform.allow_non_team_users != entry["allow_non_team_users"]:
+                platform.allow_non_team_users = entry["allow_non_team_users"]
+                changed_fields.append("allow_non_team_users")
+            if changed_fields:
+                platform.save(update_fields=[*changed_fields, "updated_at"])
+                updated += 1
+        return {"created": created, "updated": updated}
+
+    def list(self, request, *args, **kwargs):
+        self._sync_platform_catalog()
+        return super().list(request, *args, **kwargs)
+
     def _log_platform_change(self, event_type, title, platform, before=None):
         actor = getattr(self.request.user, "profile", None)
         metadata = {
@@ -3563,6 +3595,8 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
         )
 
     def perform_destroy(self, instance):
+        if is_system_platform(instance.slug):
+            raise PermissionDenied("System-Plattformen werden automatisch erkannt und koennen nicht geloescht werden.")
         snapshot = {
             "platform_id": instance.id,
             "platform_name": instance.name,
@@ -3584,6 +3618,7 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["GET"], url_path="access-state", permission_classes=[permissions.IsAuthenticated])
     def access_state(self, request):
+        self._sync_platform_catalog()
         me = getattr(request.user, "profile", None)
         is_team_user = is_team_profile(me)
         rows = []
@@ -3605,9 +3640,16 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                     "allow_non_team_users": platform.allow_non_team_users,
                     "is_accessible": accessible,
                     "is_team_user": is_team_user,
+                    "is_system_defined": is_system_platform(platform.slug),
                 }
             )
         return Response(rows)
+
+    @action(detail=False, methods=["POST"], url_path="sync", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def sync_catalog(self, request):
+        stats = self._sync_platform_catalog()
+        rows = self.get_serializer(self.get_queryset(), many=True).data
+        return Response({"stats": stats, "results": rows})
 
 
 class NewsPostViewSet(viewsets.ModelViewSet):
@@ -3628,16 +3670,70 @@ class NewsPostViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         return [permissions.IsAuthenticated(), IsTeam()]
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user.profile)
+    def _news_recipients(self, actor):
+        recipients = []
+        emails = []
+        seen_emails = set()
+        for profile in Profile.objects.select_related("user").all():
+            if actor and profile.id == actor.id:
+                continue
+            settings_map = profile.notification_settings or {}
+            if not settings_map.get("news_updates", False):
+                continue
+            recipients.append(profile)
+            email = (getattr(profile.user, "email", "") or "").strip().lower()
+            if email and email not in seen_emails:
+                seen_emails.add(email)
+                emails.append(email)
+        return recipients, emails
+
+    def _distribute_news_post(self, post, *, actor, send_email=True):
+        recipients, emails = self._news_recipients(actor)
+        if recipients:
+            notify_profiles(
+                recipients,
+                title=f"Aktuelles: {post.title}",
+                body=post.body[:350],
+                notification_type="news",
+                severity="INFO",
+                actor=actor,
+                metadata={"news_id": post.id},
+            )
+        if send_email and emails:
+            send_notification_email(
+                subject=f"UNYQ Aktuelles: {post.title}",
+                message=post.body[:1500],
+                recipients=emails,
+            )
+        return len(emails) if send_email else 0
+
+    def create(self, request, *args, **kwargs):
+        payload = request.data.copy()
+        send_email = _bool_param(payload.get("send_email"), True)
+        payload.pop("send_email", None)
+        serializer = self.get_serializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        post = serializer.save(author=request.user.profile)
+        emails_sent = 0
+        if post.is_published:
+            emails_sent = self._distribute_news_post(post, actor=request.user.profile, send_email=send_email)
+        headers = self.get_success_headers(serializer.data)
+        response_payload = dict(serializer.data)
+        response_payload["emails_sent"] = emails_sent
+        return Response(response_payload, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=True, methods=["POST"], permission_classes=[permissions.IsAuthenticated, IsTeam])
     def publish(self, request, pk=None):
         post = self.get_object()
+        was_published = bool(post.is_published)
         publish = _bool_param(request.data.get("publish"), True)
         post.is_published = publish
         post.save(update_fields=["is_published"])
-        return Response({"is_published": publish})
+        emails_sent = 0
+        if publish and not was_published:
+            send_email = _bool_param(request.data.get("send_email"), True)
+            emails_sent = self._distribute_news_post(post, actor=request.user.profile, send_email=send_email)
+        return Response({"is_published": publish, "emails_sent": emails_sent})
 
 
 class FinanceTipViewSet(viewsets.ModelViewSet):

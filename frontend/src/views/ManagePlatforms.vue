@@ -3,12 +3,12 @@
     <header class="card head">
       <div>
         <p class="eyebrow">Admin</p>
-        <h1>Manage Plattforms</h1>
-        <p class="muted">Status und Zugriff pro Plattform steuern.</p>
+        <h1>Platform Control</h1>
+        <p class="muted">Automatisch erkannte Plattformen zentral im Admin-Bereich steuern.</p>
       </div>
       <div class="head-actions">
-        <button class="btn ghost" type="button" @click="seedDefaults" :disabled="seeding || loading || !isTeam">
-          {{ seeding ? "Lege an..." : "Standard-Plattformen anlegen" }}
+        <button class="btn ghost" type="button" @click="syncPlatforms" :disabled="syncing || loading || !isTeam">
+          {{ syncing ? "Erkenne..." : "Plattformen erkennen" }}
         </button>
         <button class="btn ghost" type="button" @click="loadPlatforms" :disabled="loading || !isTeam">
           {{ loading ? "Lade..." : "Aktualisieren" }}
@@ -22,39 +22,17 @@
     </section>
 
     <section v-else class="grid">
-      <article class="card create-card">
-        <h2>Neue Plattform</h2>
-        <div class="form-grid">
-          <label>
-            <span>Name</span>
-            <input v-model.trim="draft.name" class="input" placeholder="z.B. Finance" @input="onDraftNameInput" />
-          </label>
-          <label>
-            <span>Slug</span>
-            <input v-model.trim="draft.slug" class="input" placeholder="z.B. finance" @input="slugTouched = true" />
-            <small class="muted">Nur Kleinbuchstaben, Zahlen und Bindestriche.</small>
-          </label>
-          <label>
-            <span>Status</span>
-            <select v-model="draft.status" class="input">
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="MAINTENANCE">MAINTENANCE</option>
-              <option value="LOCKED">LOCKED</option>
-            </select>
-          </label>
-          <label class="checkline">
-            <input type="checkbox" v-model="draft.allow_non_team_users" />
-            <span>Für normale Nutzer freigeben</span>
-          </label>
-          <label class="full">
-            <span>Status-Hinweis</span>
-            <input v-model.trim="draft.status_note" class="input" placeholder="Optionaler Hinweis" />
-          </label>
+      <article class="card sync-card">
+        <h2>Automatische Erkennung</h2>
+        <p class="muted">
+          Plattformen werden aus dem Systemkatalog synchronisiert und mit Version, Status und Zugriffen verwaltet.
+          Der frühere manuelle Bereich zum Erstellen einzelner Plattformen ist deshalb entfernt.
+        </p>
+        <div class="sync-meta">
+          <span class="sync-pill">Systembasiert</span>
+          <span class="sync-pill">Versioniert</span>
+          <span class="sync-pill">Admin-only</span>
         </div>
-        <p v-if="formError" class="error-msg">{{ formError }}</p>
-        <button class="btn" type="button" @click="createPlatform" :disabled="creating || !canCreate">
-          {{ creating ? "Erstelle..." : "Plattform erstellen" }}
-        </button>
       </article>
 
       <article class="card list-card">
@@ -67,6 +45,7 @@
               <strong>{{ item.name }}</strong>
               <span class="muted">/{{ item.slug }}</span>
               <span class="muted">v{{ item.version || '0.1' }}</span>
+              <span v-if="item.is_system_defined" class="system-badge">System</span>
               <span class="muted tiny">Zuletzt: {{ formatDate(item.updated_at) }}</span>
             </div>
             <div class="row-fields">
@@ -91,9 +70,10 @@
               <button class="btn ghost tiny" type="button" @click="savePlatform(item)" :disabled="busyId === item.id">
                 {{ busyId === item.id ? "Speichere..." : "Speichern" }}
               </button>
-              <button class="btn ghost tiny danger" type="button" @click="deletePlatform(item)" :disabled="busyId === item.id">
+              <button v-if="!item.is_system_defined" class="btn ghost tiny danger" type="button" @click="deletePlatform(item)" :disabled="busyId === item.id">
                 Löschen
               </button>
+              <span v-else class="muted tiny">Automatisch erkannt</span>
             </div>
           </div>
         </div>
@@ -133,7 +113,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
@@ -143,76 +123,15 @@ const { isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
 const loading = ref(false);
-const creating = ref(false);
-const seeding = ref(false);
+const syncing = ref(false);
 const historyLoading = ref(false);
 const busyId = ref(null);
-const slugTouched = ref(false);
-const formError = ref("");
 const platforms = ref([]);
 const historyEntries = ref([]);
-
-const draft = ref({
-  name: "",
-  slug: "",
-  status: "ACTIVE",
-  allow_non_team_users: true,
-  status_note: "",
-});
-
-const canCreate = computed(() => {
-  if (!draft.value.name || !draft.value.slug) return false;
-  if (!isValidSlug(draft.value.slug)) return false;
-  const existing = platforms.value.some((item) => item.slug === draft.value.slug);
-  return !existing;
-});
 
 // KI-Hinweis:
 // Bei jeder funktionalen Plattform-Aenderung erhoeht das Backend die Plattform-Version automatisch.
 // Diese Verwaltungsseite soll Versionen nur anzeigen und niemals direkt setzen.
-
-const defaultPlatforms = [
-  { name: "Dashboard", slug: "dashboard" },
-  { name: "Todo", slug: "todo" },
-  { name: "Contests", slug: "contests" },
-  { name: "Music", slug: "music" },
-  { name: "ProArtist News", slug: "proartist-news" },
-  { name: "Plugin Guides", slug: "plugin-guides" },
-  { name: "API Center", slug: "api-center" },
-  { name: "Locations", slug: "locations" },
-  { name: "Finance", slug: "finance" },
-  { name: "Content Studio", slug: "content-studio" },
-  { name: "Content Schedule", slug: "content-schedule" },
-  { name: "Fitness", slug: "fitness" },
-  { name: "Admin", slug: "admin" },
-  { name: "Testing", slug: "testing" },
-];
-
-function resetDraft() {
-  draft.value = {
-    name: "",
-    slug: "",
-    status: "ACTIVE",
-    allow_non_team_users: true,
-    status_note: "",
-  };
-  slugTouched.value = false;
-  formError.value = "";
-}
-
-function normalizeSlug(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-\s]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-function isValidSlug(value) {
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(String(value || ""));
-}
 
 function formatDate(value) {
   if (!value) return "-";
@@ -237,11 +156,6 @@ function historyDescription(entry) {
     return `Statuswechsel von ${entry.metadata.before.status} zu ${entry.metadata.status}.`;
   }
   return entry?.description || "Keine weiteren Details.";
-}
-
-function onDraftNameInput() {
-  if (slugTouched.value) return;
-  draft.value.slug = normalizeSlug(draft.value.name);
 }
 
 async function loadPlatforms() {
@@ -277,51 +191,10 @@ async function loadHistory() {
   }
 }
 
-async function createPlatform() {
-  formError.value = "";
-  draft.value.slug = normalizeSlug(draft.value.slug);
-  if (!draft.value.name || !draft.value.slug) {
-    formError.value = "Name und Slug sind Pflichtfelder.";
-    showToast(formError.value, "warning");
-    return;
-  }
-  if (!isValidSlug(draft.value.slug)) {
-    formError.value = "Slug ist ungueltig. Erlaubt: a-z, 0-9 und Bindestriche.";
-    showToast(formError.value, "warning");
-    return;
-  }
-  if (platforms.value.some((item) => item.slug === draft.value.slug)) {
-    formError.value = "Slug existiert bereits.";
-    showToast(formError.value, "warning");
-    return;
-  }
-  creating.value = true;
-  try {
-    const { data } = await api.post("manage-platforms/", draft.value);
-    platforms.value.unshift(data);
-    invalidateManagedPlatformAccessCache();
-    resetDraft();
-    await loadHistory();
-    showToast("Plattform erstellt.", "success");
-  } catch (err) {
-    showToast("Plattform konnte nicht erstellt werden.", "error");
-  } finally {
-    creating.value = false;
-  }
-}
-
 async function savePlatform(item) {
   busyId.value = item.id;
   try {
-    const normalizedSlug = normalizeSlug(item.slug);
-    if (!isValidSlug(normalizedSlug)) {
-      showToast("Slug ist ungueltig.", "warning");
-      return;
-    }
-    item.slug = normalizedSlug;
     const payload = {
-      name: item.name,
-      slug: item.slug,
       status: item.status,
       allow_non_team_users: item.allow_non_team_users,
       status_note: item.status_note || "",
@@ -356,28 +229,20 @@ async function deletePlatform(item) {
   }
 }
 
-async function seedDefaults() {
-  seeding.value = true;
+async function syncPlatforms() {
+  syncing.value = true;
   try {
-    const existing = new Set(platforms.value.map((item) => item.slug));
-    for (const base of defaultPlatforms) {
-      if (existing.has(base.slug)) continue;
-      await api.post("manage-platforms/", {
-        name: base.name,
-        slug: base.slug,
-        status: "ACTIVE",
-        allow_non_team_users: !["admin", "testing", "api-center", "manage-platforms"].includes(base.slug),
-        status_note: "",
-      });
-    }
+    const { data } = await api.post("manage-platforms/sync/");
+    platforms.value = Array.isArray(data?.results) ? data.results : data?.results || [];
     invalidateManagedPlatformAccessCache();
-    await loadPlatforms();
     await loadHistory();
-    showToast("Standard-Plattformen angelegt.", "success");
+    const created = Number(data?.stats?.created || 0);
+    const updated = Number(data?.stats?.updated || 0);
+    showToast(`Plattformen synchronisiert (${created} neu, ${updated} aktualisiert).`, "success");
   } catch (err) {
-    showToast("Standard-Plattformen konnten nicht angelegt werden.", "error");
+    showToast("Plattformen konnten nicht synchronisiert werden.", "error");
   } finally {
-    seeding.value = false;
+    syncing.value = false;
   }
 }
 
@@ -424,6 +289,29 @@ onMounted(async () => {
   gap: 16px;
 }
 
+.sync-card {
+  display: grid;
+  gap: 14px;
+}
+
+.sync-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sync-pill,
+.system-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--brand) 12%, transparent 88%);
+  color: var(--brand);
+}
+
 .history-card {
   grid-column: 1 / -1;
 }
@@ -433,12 +321,6 @@ onMounted(async () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
-}
-
-.form-grid {
-  display: grid;
-  gap: 10px;
   margin-bottom: 12px;
 }
 
@@ -543,11 +425,6 @@ label {
 
 .tiny {
   font-size: 12px;
-}
-
-.error-msg {
-  color: #b91c1c;
-  margin: 0 0 10px;
 }
 
 @media (max-width: 980px) {

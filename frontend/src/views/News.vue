@@ -2,8 +2,8 @@
   <div class="news wide">
     <header class="card header">
       <div>
-        <h1>ProArtist News</h1>
-        <p class="muted">Gezielte Updates fuer die ProArtist Manager- und Artist-Plattform.</p>
+        <h1>Aktuelles</h1>
+        <p class="muted">Neuigkeiten fuer Artists und Team inklusive optionalem E-Mail-Versand.</p>
       </div>
       <button class="btn ghost" type="button" @click="loadNews" :disabled="loading">
         {{ loading ? "Lade..." : "Aktualisieren" }}
@@ -24,6 +24,10 @@
         <label class="toggle">
           <input type="checkbox" v-model="form.is_published" />
           Sofort veröffentlichen
+        </label>
+        <label class="toggle">
+          <input type="checkbox" v-model="form.send_email" />
+          E-Mail an aktivierte Nutzer senden
         </label>
         <label class="file-picker">
           <input type="file" accept="image/*" @change="onImageSelect" />
@@ -57,7 +61,13 @@
     </section>
 
     <section class="card posts">
-      <h2>Aktuelle Meldungen</h2>
+      <div class="posts-head">
+        <h2>Aktuelle Meldungen</h2>
+        <label v-if="isTeam" class="toggle">
+          <input type="checkbox" v-model="publishSendEmail" />
+          Beim Veröffentlichen E-Mail senden
+        </label>
+      </div>
       <div v-if="loading" class="skeleton-list">
         <div class="skeleton-card" v-for="n in 3" :key="`sk-${n}`"></div>
       </div>
@@ -107,6 +117,7 @@ const form = ref({
   title: "",
   body: "",
   is_published: true,
+  send_email: true,
 });
 const imageFile = ref(null);
 const cropPreviewUrl = ref("");
@@ -115,6 +126,7 @@ const cropImage = ref(null);
 const cropMeta = ref({ naturalWidth: 0, naturalHeight: 0 });
 const cropState = ref({ scale: 1, offsetX: 0, offsetY: 0 });
 const minScale = ref(1);
+const publishSendEmail = ref(true);
 let dragStart = null;
 
 const cropImageStyle = computed(() => ({
@@ -287,6 +299,7 @@ async function createPost() {
       payload.append("title", form.value.title);
       payload.append("body", form.value.body);
       payload.append("is_published", form.value.is_published ? "true" : "false");
+      payload.append("send_email", form.value.send_email ? "true" : "false");
       const cropped = await buildCroppedImage();
       if (cropped) {
         payload.append("image", cropped, imageFile.value.name || "news-image.jpg");
@@ -297,7 +310,7 @@ async function createPost() {
     } else {
       await api.post("news/", form.value);
     }
-    form.value = { title: "", body: "", is_published: true };
+    form.value = { title: "", body: "", is_published: true, send_email: true };
     clearImage();
     await loadNews();
   } catch (err) {
@@ -311,7 +324,7 @@ async function createPost() {
 async function togglePublish(post) {
   savingIds.value.add(post.id);
   try {
-    await api.post(`news/${post.id}/publish/`, { publish: !post.is_published });
+    await api.post(`news/${post.id}/publish/`, { publish: !post.is_published, send_email: publishSendEmail.value });
     await loadNews();
   } catch (err) {
     console.error("Statuswechsel fehlgeschlagen", err);
@@ -435,6 +448,14 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 14px;
 }
+
+.posts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .posts li {
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 12px;
@@ -502,4 +523,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

@@ -1,6 +1,6 @@
 <template>
   <div class="platform-layout">
-    <header class="platform-topbar card">
+    <header v-if="showTopbar" class="platform-topbar card">
       <div class="topbar-left">
         <router-link class="brand-link" :to="{ name: 'platforms' }">
           <span class="brand-mark">UNYQ</span>
@@ -44,7 +44,7 @@
       </div>
     </header>
 
-    <main class="platform-content" :class="{ 'hub-content': route.name === 'platforms' }">
+    <main class="platform-content" :class="{ 'hub-content': route.name === 'platforms', 'no-frame': !showTopbar }">
       <router-view />
     </main>
   </div>
@@ -73,7 +73,7 @@ const pageMeta = {
   "platform-finance": { title: "Finance", kicker: "Finanzprojekt anlegen" },
   finance: { title: "Finanzplaner", kicker: "Budget, Schulden und Monatsbild" },
   "platform-content-studio": { title: "Content Studio", kicker: "Tipps, News und Tutorials" },
-  "platform-news": { title: "ProArtist News", kicker: "Updates fuer Artists und Manager" },
+  "platform-news": { title: "Aktuelles", kicker: "News fuer Artists und Manager" },
   "platform-plugin-guides": { title: "Plugin Guide", kicker: "Workflows, Tutorials und Setups" },
   "platform-api-center": { title: "API Platform", kicker: "Integrationen und Automationen" },
   "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },
@@ -85,6 +85,7 @@ const pageMeta = {
 const pageMetaCurrent = computed(() => pageMeta[route.name] || { title: "UNYQ", kicker: "Plattform" });
 const pageTitle = computed(() => pageMetaCurrent.value.title);
 const pageKicker = computed(() => pageMetaCurrent.value.kicker);
+const showTopbar = computed(() => !route.meta?.hidePlatformTopbar);
 const initial = computed(() => {
   const source = me.value?.name || me.value?.username || "";
   return source ? source.trim().charAt(0).toUpperCase() : "U";
@@ -264,6 +265,10 @@ onMounted(async () => {
 }
 
 .platform-content.hub-content {
+  padding: 0;
+}
+
+.platform-content.no-frame {
   padding: 0;
 }
 

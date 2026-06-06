@@ -93,7 +93,12 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: "", name: "platforms", component: PlatformLanding, meta: { requiresAuth: true } },
-      { path: "contests", name: "platform-contests", component: ContestLanding, meta: { requiresAuth: true } },
+      {
+        path: "contests",
+        name: "platform-contests",
+        component: ContestLanding,
+        meta: { requiresAuth: true, hidePlatformTopbar: true },
+      },
       { path: "music", name: "platform-music", component: MusicLanding, meta: { requiresAuth: true } },
       { path: "locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
       { path: "finance", name: "platform-finance", component: FinanceLanding, meta: { requiresAuth: true } },

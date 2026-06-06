@@ -148,8 +148,8 @@ class ManagePlatformsApiTests(TestCase):
         create_res = self.client.post(
             "/api/manage-platforms/",
             {
-                "name": "Music Sandbox",
-                "slug": "music-sandbox",
+                "name": "Sandbox Lab",
+                "slug": "sandbox-lab",
                 "status": "ACTIVE",
                 "allow_non_team_users": True,
                 "status_note": "",

@@ -5,20 +5,20 @@
         <p class="eyebrow">Finance</p>
         <h1>Ein Finanzprojekt statt zehn Einzelseiten.</h1>
         <p class="muted lead">
-          Lege euer Haushalts- oder Finanzprojekt an, trage Personen ein und arbeite danach in einer klaren MonatsÜbersicht
-          mit Einnahmen, Fixkosten, Schulden, Sparen und den nÄchsten FÄlligkeiten.
+          Lege euer Haushalts- oder Finanzprojekt an, trage Personen ein und arbeite danach in einer klaren Monatsuebersicht
+          mit Einnahmen, Fixkosten, Schulden, Sparen und den naechsten Faelligkeiten.
         </p>
         <div class="hero-points">
-          <span>Ein Konto fÜr mehrere Personen</span>
+          <span>Ein Konto fuer mehrere Personen</span>
           <span>Monatsbild statt zerstreuter Tabs</span>
-          <span>Schnell genug fÜr den Alltag</span>
+          <span>Schnell genug fuer den Alltag</span>
         </div>
       </div>
 
       <div class="action-panel">
         <div class="panel-head">
           <h2>Projekte</h2>
-          <button class="btn ghost" type="button" @click="goBack">Zur PlattformÜbersicht</button>
+          <button class="btn ghost" type="button" @click="goBack">Zur Plattformuebersicht</button>
         </div>
         <p class="muted">
           Projekt oeffnen oder neues Projekt starten. Die Projektbasis wird direkt im Popup gesetzt.
@@ -50,7 +50,7 @@
                 rows="3"
                 placeholder="z. B. Samir, Aylin"
               ></textarea>
-              <small class="muted hint">Kommagetrennt oder Zeile fÜr Zeile. So kÖnnt ihr direkt 2 Personen unter einem Account fÜhren.</small>
+              <small class="muted hint">Kommagetrennt oder Zeile fuer Zeile. So koennt ihr direkt 2 Personen unter einem Account fuehren.</small>
             </label>
 
             <label>
@@ -59,13 +59,13 @@
                 v-model.trim="form.description"
                 class="input textarea"
                 rows="3"
-                placeholder="WofÜr nutzt ihr das Projekt?"
+                placeholder="Wofuer nutzt ihr das Projekt?"
               ></textarea>
             </label>
 
             <div class="grid two">
               <label>
-                WÄhrung
+                Waehrung
                 <select v-model="form.currency" class="input">
                   <option value="EUR">EUR</option>
                   <option value="USD">USD</option>
@@ -80,7 +80,7 @@
 
             <div class="grid two">
               <label>
-                Dispo verfÜgbar
+                Dispo verfuegbar
                 <input v-model="form.dispo_limit" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
               </label>
               <label>
@@ -116,7 +116,7 @@
             </label>
 
             <div class="modal-actions">
-              <button class="btn ghost" type="button" @click="showProjectBasisModal = false">ZurÜck</button>
+              <button class="btn ghost" type="button" @click="showProjectBasisModal = false">Zurueck</button>
               <button class="btn" type="submit" :disabled="saving">
                 {{ saving ? "Lege an..." : "Projekt erstellen" }}
               </button>
@@ -166,7 +166,7 @@
               <strong>{{ formatCurrency(project.overview?.monthly_outflow, project.currency) }}</strong>
             </div>
             <div>
-              <span class="label">FÄllig bald</span>
+              <span class="label">Faellig bald</span>
               <strong>{{ project.overview?.due_soon?.length || 0 }}</strong>
             </div>
           </div>

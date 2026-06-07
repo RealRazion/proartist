@@ -11,7 +11,7 @@
           <div class="hero-shortcuts">
             <button class="shortcut-btn" type="button" @click="openCurrentUpdates">
               <span class="shortcut-icon">📰</span>
-              <span>Aktuellem</span>
+              <span>Aktuelles</span>
             </button>
           </div>
           <div v-if="isTeam" class="audience-switch">
@@ -265,7 +265,7 @@ const platforms = [
     key: "content-studio",
     title: "Content Studio",
     category: "Content",
-    description: "Erstelle zentral Tipps, News und Plugin Tutorials fÜr alle Nutzerbereiche.",
+    description: "Erstelle zentral Tipps, News und Plugin-Tutorials fuer alle Nutzerbereiche.",
     buttonLabel: "Erstellen",
     icon: "📝",
     features: ["Tipps", "News", "Tutorials"],
@@ -287,7 +287,7 @@ const platforms = [
     key: "fitness",
     title: "Fitness Tracker",
     category: "Health",
-    description: "Tracke Kalorien, schaetze deinen Tagesverbrauch und finde einfache Essensideen fÜr jede Mahlzeit.",
+    description: "Tracke Kalorien, schaetze deinen Tagesverbrauch und finde einfache Essensideen fuer jede Mahlzeit.",
     buttonLabel: "Starten",
     icon: "🏋️",
     features: ["Kcal", "Verbrauch", "Essensideen"],
@@ -307,10 +307,10 @@ const platforms = [
   },
   {
     key: "plugin-guides",
-    title: "Plugin Guide",
+    title: "Plugin Guides",
     category: "Wissen",
     description: "Eigene Plattform fuer Plugin-Tutorials, Setup-Guides und Best Practices.",
-    buttonLabel: "Oeffnen",
+    buttonLabel: "Öffnen",
     icon: "🔌",
     features: ["Tutorials", "Setups", "Workflow-Docs"],
     roles: ["TEAM", "ARTIST", "PROD", "MEMBER", "LOC"],
@@ -320,10 +320,21 @@ const platforms = [
     key: "api-center",
     title: "API Platform",
     category: "Entwicklung",
-    description: "Eigene Plattform fuer Integrationen, API-Keys und Automationsregeln.",
+    description: "Eigene Plattform fuer Integrationen, API-Keys und Automatisierungsregeln.",
     buttonLabel: "Verwalten",
     icon: "🔑",
     features: ["Integrationen", "Automation", "Scopes"],
+    roles: ["TEAM"],
+    status: "live",
+  },
+  {
+    key: "manage-platforms",
+    title: "Platform Control",
+    category: "Verwaltung",
+    description: "Steuere Verfuegbarkeit, Versionen und Hinweise fuer einzelne Plattformen zentral.",
+    buttonLabel: "Steuern",
+    icon: "🛠️",
+    features: ["Status", "Versionen", "Hinweise"],
     roles: ["TEAM"],
     status: "live",
   },
@@ -375,7 +386,7 @@ const activeRole = computed(() => {
 
 const defaultOrder = [
   "dashboard", "todo", "music", "contests", "content-schedule",
-  "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "admin", "testing",
+  "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "manage-platforms", "admin", "testing",
 ];
 
 const visiblePlatforms = computed(() => {

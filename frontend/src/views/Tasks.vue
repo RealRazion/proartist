@@ -81,11 +81,16 @@
           </div>
         </div>
         <div class="category-list" v-if="!loadingTasks">
-          <article class="category-group" v-for="section in orderedCategorySections" :key="`category-${section.id}`">
+          <article
+            class="category-group"
+            v-for="section in orderedCategorySections"
+            :key="`category-${section.id}`"
+            :style="categoryThemeStyle(section.id)"
+          >
             <button class="category-header" type="button" @click="toggleCategory(section.id)">
-              <span>
+              <span class="category-header-copy">
                 <strong>{{ section.name }}</strong>
-                <small>{{ categoryTasks(section.id).length }} Tasks</small>
+                <small class="category-count">{{ categoryTasks(section.id).length }} Tasks</small>
               </span>
               <span class="category-toggle">{{ isCategoryCollapsed(section.id) ? "+" : "-" }}</span>
             </button>
@@ -176,8 +181,16 @@
           </label>
         </form>
         <div class="category-order-list">
-          <article v-for="(category, index) in customCategories" :key="`manage-${category.id}`" class="category-order-item">
-            <strong>{{ category.name }}</strong>
+          <article
+            v-for="(category, index) in customCategories"
+            :key="`manage-${category.id}`"
+            class="category-order-item"
+            :style="categoryThemeStyle(category.id)"
+          >
+            <div class="category-order-meta">
+              <span class="category-swatch" aria-hidden="true"></span>
+              <strong>{{ category.name }}</strong>
+            </div>
             <div class="card-buttons">
               <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, -1)" :disabled="index === 0">Hoch</button>
               <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, 1)" :disabled="index === customCategories.length - 1">Runter</button>

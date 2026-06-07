@@ -8,12 +8,6 @@
           <p class="hero-subtitle">
             Dein zentraler Zugang zu allen UNYQ-Plattformen. Entdecke Tools und Funktionen, die auf deine Rolle zugeschnitten sind.
           </p>
-          <div class="hero-shortcuts">
-            <button class="shortcut-btn" type="button" @click="openCurrentUpdates">
-              <span class="shortcut-icon">📰</span>
-              <span>Aktuelles</span>
-            </button>
-          </div>
           <div v-if="isTeam" class="audience-switch">
             <button
               v-for="mode in audienceModes"
@@ -303,6 +297,7 @@ const platforms = [
     icon: "✅",
     features: ["Todos", "Optionales Datum", "Kalender-Button"],
     roles: ["TEAM"],
+    version: "0.2",
     status: "live",
   },
   {
@@ -449,10 +444,6 @@ function onDrop(event, targetKey) {
 function onDragEnd() {
   draggedKey.value = null;
   dragOverKey.value = null;
-}
-
-function openCurrentUpdates() {
-  router.push("/platforms/news");
 }
 
 function openPlatform(platformKey, platformMeta = null) {

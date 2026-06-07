@@ -51,10 +51,10 @@
           to="/profiles"
           class="nav-link"
           @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Profiles' : null"
+          :title="collapsed && !isMobile ? 'Artists' : null"
         >
           <span class="icon">🎤</span>
-          <span class="label">Profiles</span>
+          <span class="label">Artists</span>
         </router-link>
         <router-link
           to="/notifications"
@@ -65,15 +65,6 @@
           <span class="icon">🔔</span>
           <span class="label">Notifications</span>
           <small v-if="notificationCount" class="pill">{{ notificationCount }}</small>
-        </router-link>
-        <router-link
-          to="/news"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'ProArtist News' : null"
-        >
-          <span class="icon">📰</span>
-          <span class="label">ProArtist News</span>
         </router-link>
         <router-link
           v-if="isTeam"

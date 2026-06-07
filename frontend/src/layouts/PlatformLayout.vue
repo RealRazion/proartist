@@ -73,7 +73,6 @@ const pageMeta = {
   "platform-finance": { title: "Finance", kicker: "Finanzprojekt anlegen" },
   finance: { title: "Finanzplaner", kicker: "Budget, Schulden und Monatsbild" },
   "platform-content-studio": { title: "Content Studio", kicker: "Tipps, News und Tutorials" },
-  "platform-news": { title: "Aktuelles", kicker: "News fuer Artists und Manager" },
   "platform-plugin-guides": { title: "Plugin Guide", kicker: "Workflows, Tutorials und Setups" },
   "platform-api-center": { title: "API Platform", kicker: "Integrationen und Automationen" },
   "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },

@@ -2,14 +2,14 @@
   <div :class="['profiles', { compact: compactCards }]">
     <header class="card header">
       <div>
-        <h1>Profiles entdecken</h1>
-        <p class="muted">Suche nach Artists, Produzenten oder Locations und starte direkt einen Chat.</p>
+        <h1>Artists entdecken</h1>
+        <p class="muted">Suche gezielt nach Artists, Produzenten oder Videografen und starte direkt einen Chat.</p>
       </div>
       <div class="search-area">
         <input
           class="input search"
           v-model.trim="queryInput"
-          placeholder="Filter nach Name, Rolle, Genre oder Stadt..."
+          placeholder="Filter nach Name, Rolle (z. B. Videograf), Genre oder Stadt..."
         />
         <span class="result-info">
           <span v-if="filtering">Filtert...</span>
@@ -125,7 +125,7 @@
         </footer>
       </article>
       <p v-if="!filteredProfiles.length" class="empty muted">
-        Keine Profile gefunden. Passe deine Suche an.
+        Keine Artists gefunden. Passe deine Suche an.
       </p>
     </section>
 
@@ -219,14 +219,31 @@ const roleLabels = {
   TEAM: "Team",
 };
 
+const roleFilterLabels = {
+  ARTIST: "Artists",
+  PROD: "Producer",
+  VIDEO: "Videografen",
+  MERCH: "Merch",
+  MKT: "Marketing",
+  LOC: "Locations",
+  TEAM: "Team",
+};
+
+const roleFilterOrder = ["ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC", "TEAM"];
+
 const roleFilterOptions = computed(() => {
   const keys = new Set();
   profiles.value.forEach((profile) => {
     (profile.roles || []).forEach((role) => keys.add(role.key));
   });
-  const rest = Array.from(keys)
-    .map((key) => ({ key, label: roleLabels[key] || key }))
+  const preferred = roleFilterOrder
+    .filter((key) => keys.has(key))
+    .map((key) => ({ key, label: roleFilterLabels[key] || roleLabels[key] || key }));
+  const custom = Array.from(keys)
+    .filter((key) => !roleFilterOrder.includes(key))
+    .map((key) => ({ key, label: roleFilterLabels[key] || roleLabels[key] || key }))
     .sort((a, b) => a.label.localeCompare(b.label));
+  const rest = [...preferred, ...custom];
   return [{ key: "ALL", label: "Alle Rollen" }, ...rest];
 });
 const nonTeamRoles = computed(() => roles.value.filter((role) => role.key !== "TEAM"));

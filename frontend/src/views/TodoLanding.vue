@@ -9,7 +9,7 @@
       <div class="board-head">
         <div>
           <p class="eyebrow">Todo</p>
-          <h1>Todo Platform</h1>
+          <h1>Todo Platform <span class="version-pill">v0.2</span></h1>
         </div>
         <div class="header-actions">
           <button class="btn ghost" type="button" @click="openCategoryModal">Kategorien</button>
@@ -55,7 +55,7 @@
       </div>
 
       <div v-if="categoryViewMode === 'accordion'" class="accordion-wrap">
-        <article class="category-group" v-for="category in orderedCategorySections" :key="`cat-${category.id}`">
+        <article class="category-group" v-for="category in orderedCategorySections" :key="`cat-${category.id}`" :style="categoryTone(category.id)">
           <button class="category-header" type="button" @click="toggleCategory(category.id)">
             <span>
               <strong>{{ category.name }}</strong>
@@ -94,7 +94,7 @@
         </article>
       </div>
 
-      <article v-else-if="activeCategory" class="category-group slideshow-group">
+      <article v-else-if="activeCategory" class="category-group slideshow-group" :style="categoryTone(activeCategory.id)">
         <div class="slideshow-head">
           <button class="iconbtn tiny" type="button" @click="prevCategory" title="Vorherige Kategorie">◀</button>
           <button class="category-header static" type="button">
@@ -195,7 +195,7 @@
 
         <div class="category-order-list">
           <article class="category-order-item" v-for="(category, index) in categories" :key="`manage-${category.id}`">
-            <strong>{{ category.name }}</strong>
+            <strong><span class="category-swatch" :style="categoryTone(category.id)" aria-hidden="true"></span>{{ category.name }}</strong>
             <div class="todo-actions">
               <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, -1)" :disabled="index === 0">Hoch</button>
               <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, 1)" :disabled="index === categories.length - 1">Runter</button>
@@ -238,6 +238,14 @@ const TODO_STORAGE_KEY = "unyq_todo_platform_items";
 const TODO_CATEGORY_KEY = "unyq_todo_platform_categories";
 const TODO_COLLAPSED_KEY = "unyq_todo_platform_collapsed";
 const UNCATEGORIZED_ID = "uncategorized";
+const CATEGORY_PALETTE = [
+  { accent: "#2563eb", soft: "rgba(37, 99, 235, 0.18)", strong: "rgba(37, 99, 235, 0.26)" },
+  { accent: "#dc2626", soft: "rgba(220, 38, 38, 0.16)", strong: "rgba(220, 38, 38, 0.24)" },
+  { accent: "#059669", soft: "rgba(5, 150, 105, 0.17)", strong: "rgba(5, 150, 105, 0.24)" },
+  { accent: "#d97706", soft: "rgba(217, 119, 6, 0.18)", strong: "rgba(217, 119, 6, 0.25)" },
+  { accent: "#7c3aed", soft: "rgba(124, 58, 237, 0.18)", strong: "rgba(124, 58, 237, 0.26)" },
+  { accent: "#0f766e", soft: "rgba(15, 118, 110, 0.17)", strong: "rgba(15, 118, 110, 0.24)" },
+];
 
 const { isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
@@ -309,6 +317,28 @@ const activeCategoryTodos = computed(() => {
 
 function openTodosByCategory(categoryId) {
   return openTodos.value.filter((todo) => (todo.category_id || UNCATEGORIZED_ID) === categoryId);
+}
+
+function categoryTone(categoryId) {
+  if (!categoryId || categoryId === UNCATEGORIZED_ID) {
+    return {
+      "--cat-accent": "#64748b",
+      "--cat-soft": "rgba(100, 116, 139, 0.16)",
+      "--cat-strong": "rgba(100, 116, 139, 0.24)",
+    };
+  }
+  const source = String(categoryId);
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash << 5) - hash + source.charCodeAt(i);
+    hash |= 0;
+  }
+  const palette = CATEGORY_PALETTE[Math.abs(hash) % CATEGORY_PALETTE.length];
+  return {
+    "--cat-accent": palette.accent,
+    "--cat-soft": palette.soft,
+    "--cat-strong": palette.strong,
+  };
 }
 
 function setActiveCategory(index) {
@@ -572,6 +602,17 @@ onMounted(async () => {
   gap: 16px;
 }
 
+.version-pill {
+  font-size: 0.76rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+  border: 1px solid color-mix(in srgb, var(--brand) 50%, var(--border) 50%);
+  background: color-mix(in srgb, var(--brand) 18%, transparent 82%);
+  color: var(--brand);
+}
+
 .board-head {
   display: flex;
   align-items: flex-start;
@@ -597,6 +638,12 @@ onMounted(async () => {
 .board {
   display: grid;
   gap: 12px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, var(--border) 75%);
+  background:
+    radial-gradient(120% 140% at 0% -10%, color-mix(in srgb, var(--brand) 16%, transparent 84%), transparent 60%),
+    linear-gradient(165deg, color-mix(in srgb, var(--card) 88%, var(--bg-soft) 12%), var(--card));
+  box-shadow: 0 18px 45px rgba(2, 6, 23, 0.08);
 }
 
 .summary-row {
@@ -609,7 +656,7 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: color-mix(in srgb, var(--card) 90%, var(--brand) 10%);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--card) 88%, var(--brand) 12%), var(--card));
   display: grid;
   gap: 3px;
 }
@@ -667,18 +714,20 @@ onMounted(async () => {
 }
 
 .category-group {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--cat-accent, var(--brand)) 40%, var(--border) 60%);
+  border-radius: 16px;
+  padding: 12px;
   display: grid;
   gap: 10px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--cat-soft, rgba(37, 99, 235, 0.14)) 60%, var(--card) 40%), var(--card));
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
 
 .category-header {
   width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--cat-accent, var(--brand)) 35%, var(--border) 65%);
   border-radius: 10px;
-  background: var(--card);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cat-strong, rgba(37, 99, 235, 0.2)) 35%, transparent 65%), var(--card));
   padding: 10px 12px;
   display: flex;
   align-items: center;
@@ -698,7 +747,7 @@ onMounted(async () => {
 .toggle-icon {
   font-size: 20px;
   line-height: 1;
-  color: var(--brand);
+  color: var(--cat-accent, var(--brand));
 }
 
 .todo-list {
@@ -714,10 +763,10 @@ onMounted(async () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--cat-accent, var(--brand)) 28%, var(--border) 72%);
+  border-radius: 12px;
   padding: 12px;
-  background: color-mix(in srgb, var(--card) 94%, #fff 6%);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--cat-soft, rgba(37, 99, 235, 0.13)) 30%, var(--card) 70%), var(--card));
 }
 
 .todo-item.overdue {
@@ -832,6 +881,21 @@ onMounted(async () => {
   gap: 10px;
 }
 
+.category-order-item strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--cat-accent, var(--brand)) 60%, transparent 40%);
+  background: var(--cat-accent, var(--brand));
+  display: inline-block;
+}
+
 .finished-list {
   display: grid;
   gap: 10px;
@@ -845,6 +909,19 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+:global(.dark) .board {
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
+}
+
+:global(.dark) .summary-card,
+:global(.dark) .category-group,
+:global(.dark) .todo-item,
+:global(.dark) .category-header,
+:global(.dark) .finished-item,
+:global(.dark) .category-order-item {
+  box-shadow: none;
 }
 
 @media (max-width: 980px) {

@@ -34,40 +34,17 @@
 
     <section v-if="isTeam" class="layout-toolbar card">
       <div class="layout-tabs">
-        <button
-          v-for="layout in teamLayouts"
-          :key="layout.id"
-          type="button"
-          class="btn tiny"
-          :class="activeLayoutId === layout.id ? '' : 'ghost'"
-          @click="activateLayout(layout.id)"
-        >
-          {{ layout.name }}
-        </button>
+        <strong>Dashboard Ansicht</strong>
+        <span class="muted">Lege fest, welche Daten im Team-Dashboard sichtbar sind.</span>
       </div>
       <div class="layout-actions">
-        <button class="btn ghost tiny" type="button" @click="createLayout" :disabled="teamLayouts.length >= MAX_LAYOUTS">Neues Layout</button>
-        <button class="btn ghost tiny" type="button" @click="renameLayout" :disabled="!activeLayout">Umbenennen</button>
-        <button class="btn ghost tiny danger" type="button" @click="removeLayout" :disabled="teamLayouts.length <= 1">Loeschen</button>
-        <button class="btn ghost tiny" type="button" @click="toggleCustomize">{{ customizing ? "Fertig" : "Anpassen" }}</button>
-        <button class="btn tiny" type="button" @click="saveLayouts" :disabled="savingLayouts">{{ savingLayouts ? "Speichere..." : "Layout speichern" }}</button>
-      </div>
-    </section>
-
-    <section v-if="isTeam && customizing" class="card widget-picker">
-      <h2>Widgets auswählen</h2>
-      <p class="muted">Aktiviere Widgets, ändere ihre Größe und Reihenfolge im Grid.</p>
-      <div class="picker-grid">
-        <label v-for="option in teamWidgetOptions" :key="option.id" class="picker-item">
-          <input type="checkbox" :checked="isWidgetEnabled(option.id)" @change="toggleWidget(option.id)" />
-          <span>{{ option.title }}</span>
-        </label>
+        <button class="btn ghost tiny" type="button" @click="openDisplaySettings">Anzeige-Einstellungen</button>
       </div>
     </section>
 
     <section v-if="isTeam" class="dashboard-grid">
       <article
-        v-for="(widget, index) in renderedTeamWidgets"
+        v-for="widget in renderedTeamWidgets"
         :key="widget.id"
         class="card panel"
         :class="`size-${widget.size}`"
@@ -75,15 +52,6 @@
         <div class="panel-head">
           <h2>{{ widget.title }}</h2>
           <button v-if="widget.cta" class="btn ghost tiny" type="button" @click="widget.cta.action()">{{ widget.cta.text }}</button>
-        </div>
-        <div v-if="customizing" class="widget-controls">
-          <button class="btn ghost tiny" type="button" @click="moveWidget(index, -1)" :disabled="index === 0">Nach oben</button>
-          <button class="btn ghost tiny" type="button" @click="moveWidget(index, 1)" :disabled="index === renderedTeamWidgets.length - 1">Nach unten</button>
-          <select class="input size-select" :value="widget.size" @change="setWidgetSize(widget.id, $event.target.value)">
-            <option value="s">Klein</option>
-            <option value="m">Mittel</option>
-            <option value="l">Groß</option>
-          </select>
         </div>
         <ul v-if="widget.content" class="list">
           <li v-for="(item, index) in widget.content" :key="index">
@@ -177,6 +145,22 @@
         </div>
       </div>
     </div>
+
+    <div v-if="displaySettingsOpen" class="modal-backdrop" @click.self="closeDisplaySettings">
+      <div class="modal card">
+        <h3>Anzeige-Einstellungen</h3>
+        <p class="muted">Wähle aus, welche Bereiche im Team-Dashboard angezeigt werden.</p>
+        <div class="picker-grid">
+          <label v-for="option in teamWidgetOptions" :key="`setting-${option.id}`" class="picker-item">
+            <input type="checkbox" :checked="isWidgetEnabled(option.id)" @change="toggleWidget(option.id)" />
+            <span>{{ option.title }}</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" type="button" @click="closeDisplaySettings">Fertig</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -207,7 +191,6 @@ const reviewSaving = ref({});
 // Versionsregeln sind zentral: Bei funktionalen Dashboard-Aenderungen wird die Plattform-Version
 // backendseitig hochgezaehlt. Frontend zeigt Versionen nur an und schreibt sie nie direkt.
 
-const MAX_LAYOUTS = 5;
 const TEAM_WIDGET_OPTIONS = [
   { id: "priorities", title: "Prioritaeten heute" },
   { id: "reviews", title: "Review Queue" },
@@ -216,72 +199,34 @@ const TEAM_WIDGET_OPTIONS = [
   { id: "projects", title: "Projekt Snapshot" },
   { id: "growpro-watch", title: "GrowPro Watch" },
 ];
+const TEAM_WIDGET_DEFAULT_ORDER = TEAM_WIDGET_OPTIONS.map((item) => item.id);
 const VALID_WIDGET_IDS = new Set(TEAM_WIDGET_OPTIONS.map((item) => item.id));
+const WIDGET_SIZE_BY_ID = {
+  priorities: "m",
+  reviews: "m",
+  deadlines: "m",
+  requests: "l",
+  projects: "m",
+  "growpro-watch": "s",
+};
 
-function createDefaultLayout() {
-  return {
-    id: "layout-main",
-    name: "Main",
-    widgets: [
-      { id: "priorities", size: "m" },
-      { id: "reviews", size: "m" },
-      { id: "deadlines", size: "m" },
-      { id: "requests", size: "l" },
-      { id: "projects", size: "m" },
-      { id: "growpro-watch", size: "s" },
-    ],
-  };
-}
-
-function normalizeLayoutPayload(rawLayouts) {
-  const rows = Array.isArray(rawLayouts) ? rawLayouts : [];
-  const normalized = [];
-  const seen = new Set();
-  for (const layout of rows) {
-    if (!layout || typeof layout !== "object") continue;
-    const id = String(layout.id || "").trim();
-    const name = String(layout.name || "").trim();
-    if (!id || !name || seen.has(id)) continue;
-    const widgets = Array.isArray(layout.widgets)
-      ? layout.widgets
-          .map((widget) => {
-            const wid = String(widget?.id || "").trim();
-            const size = ["s", "m", "l"].includes(widget?.size) ? widget.size : "m";
-            if (!VALID_WIDGET_IDS.has(wid)) return null;
-            return { id: wid, size };
-          })
-          .filter(Boolean)
-      : [];
-    normalized.push({ id, name: name.slice(0, 80), widgets });
-    seen.add(id);
-    if (normalized.length >= MAX_LAYOUTS) break;
-  }
-  return normalized.length ? normalized : [createDefaultLayout()];
-}
-
-function loadLocalLayouts() {
+function loadTeamWidgetVisibility() {
   try {
-    const raw = JSON.parse(localStorage.getItem("dashboard:teamLayouts") || "null");
-    const active = localStorage.getItem("dashboard:activeLayout") || null;
-    return {
-      layouts: normalizeLayoutPayload(raw?.layouts),
-      activeLayoutId: active,
-    };
+    const raw = JSON.parse(localStorage.getItem("dashboard:teamWidgetVisibility") || "[]");
+    if (!Array.isArray(raw)) return [...TEAM_WIDGET_DEFAULT_ORDER];
+    const cleaned = raw.filter((item) => VALID_WIDGET_IDS.has(item));
+    return cleaned.length ? cleaned : [...TEAM_WIDGET_DEFAULT_ORDER];
   } catch {
-    return { layouts: [createDefaultLayout()], activeLayoutId: null };
+    return [...TEAM_WIDGET_DEFAULT_ORDER];
   }
 }
 
-function saveLocalLayouts(layouts, activeId) {
-  localStorage.setItem("dashboard:teamLayouts", JSON.stringify({ layouts }));
-  if (activeId) localStorage.setItem("dashboard:activeLayout", activeId);
+function persistTeamWidgetVisibility() {
+  localStorage.setItem("dashboard:teamWidgetVisibility", JSON.stringify(enabledWidgetIds.value));
 }
 
-const localLayoutState = loadLocalLayouts();
-const teamLayouts = ref(localLayoutState.layouts);
-const activeLayoutId = ref(localLayoutState.activeLayoutId || teamLayouts.value[0]?.id || "layout-main");
-const customizing = ref(false);
-const savingLayouts = ref(false);
+const enabledWidgetIds = ref(loadTeamWidgetVisibility());
+const displaySettingsOpen = ref(false);
 const teamWidgetOptions = TEAM_WIDGET_OPTIONS;
 
 const taskModalOpen = ref(false);
@@ -430,151 +375,44 @@ const widgetConfigs = computed(() => ({
   }
 }));
 
-const activeLayout = computed(() => {
-  return teamLayouts.value.find((layout) => layout.id === activeLayoutId.value) || teamLayouts.value[0] || null;
-});
-
 const renderedTeamWidgets = computed(() => {
   const configs = widgetConfigs.value;
-  return (activeLayout.value?.widgets || [])
-    .map((row) => {
-      const config = configs[row.id];
+  return enabledWidgetIds.value
+    .map((widgetId) => {
+      const config = configs[widgetId];
       if (!config) return null;
-      return { ...config, size: row.size || "m" };
+      return { ...config, size: WIDGET_SIZE_BY_ID[widgetId] || "m" };
     })
     .filter(Boolean);
 });
 
-function ensureActiveLayout() {
-  if (!teamLayouts.value.length) {
-    teamLayouts.value = [createDefaultLayout()];
-  }
-  if (!teamLayouts.value.some((layout) => layout.id === activeLayoutId.value)) {
-    activeLayoutId.value = teamLayouts.value[0].id;
-  }
+function openDisplaySettings() {
+  displaySettingsOpen.value = true;
 }
 
-function activateLayout(layoutId) {
-  activeLayoutId.value = layoutId;
-}
-
-function toggleCustomize() {
-  customizing.value = !customizing.value;
+function closeDisplaySettings() {
+  displaySettingsOpen.value = false;
 }
 
 function isWidgetEnabled(widgetId) {
-  return (activeLayout.value?.widgets || []).some((widget) => widget.id === widgetId);
+  return enabledWidgetIds.value.includes(widgetId);
 }
 
 function toggleWidget(widgetId) {
-  const layout = activeLayout.value;
-  if (!layout) return;
-  const exists = layout.widgets.some((widget) => widget.id === widgetId);
+  const exists = enabledWidgetIds.value.includes(widgetId);
   if (exists) {
-    layout.widgets = layout.widgets.filter((widget) => widget.id !== widgetId);
+    const next = enabledWidgetIds.value.filter((id) => id !== widgetId);
+    enabledWidgetIds.value = next.length ? next : [TEAM_WIDGET_DEFAULT_ORDER[0]];
   } else {
-    layout.widgets.push({ id: widgetId, size: "m" });
+    const next = [...enabledWidgetIds.value, widgetId];
+    next.sort((a, b) => TEAM_WIDGET_DEFAULT_ORDER.indexOf(a) - TEAM_WIDGET_DEFAULT_ORDER.indexOf(b));
+    enabledWidgetIds.value = next;
   }
-  saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-}
-
-function moveWidget(index, direction) {
-  const layout = activeLayout.value;
-  if (!layout) return;
-  const target = index + direction;
-  if (target < 0 || target >= layout.widgets.length) return;
-  const next = [...layout.widgets];
-  const [moved] = next.splice(index, 1);
-  next.splice(target, 0, moved);
-  layout.widgets = next;
-  saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-}
-
-function setWidgetSize(widgetId, size) {
-  if (!["s", "m", "l"].includes(size)) return;
-  const layout = activeLayout.value;
-  if (!layout) return;
-  layout.widgets = layout.widgets.map((widget) => (widget.id === widgetId ? { ...widget, size } : widget));
-  saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-}
-
-function createLayout() {
-  if (teamLayouts.value.length >= MAX_LAYOUTS) {
-    showToast(`Maximal ${MAX_LAYOUTS} Layouts erlaubt`, "warning");
-    return;
-  }
-  const nextNumber = teamLayouts.value.length + 1;
-  const sourceWidgets = activeLayout.value?.widgets?.length
-    ? activeLayout.value.widgets.map((widget) => ({ ...widget }))
-    : createDefaultLayout().widgets;
-  const layout = {
-    id: `layout-${Date.now()}`,
-    name: `Layout ${nextNumber}`,
-    widgets: sourceWidgets,
-  };
-  teamLayouts.value = [...teamLayouts.value, layout];
-  activeLayoutId.value = layout.id;
-  saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-}
-
-function renameLayout() {
-  const layout = activeLayout.value;
-  if (!layout) return;
-  const nextName = window.prompt("Neuer Layout-Name", layout.name || "");
-  if (!nextName || !nextName.trim()) return;
-  layout.name = nextName.trim().slice(0, 80);
-  saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-}
-
-function removeLayout() {
-  if (teamLayouts.value.length <= 1) return;
-  const layout = activeLayout.value;
-  if (!layout) return;
-  const ok = window.confirm(`Layout ${layout.name} wirklich loeschen?`);
-  if (!ok) return;
-  teamLayouts.value = teamLayouts.value.filter((item) => item.id !== layout.id);
-  ensureActiveLayout();
-  saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-}
-
-async function loadLayoutsFromApi() {
-  try {
-    const { data } = await api.get("dashboard/layouts/");
-    teamLayouts.value = normalizeLayoutPayload(data?.layouts);
-    activeLayoutId.value = data?.active_layout_id || teamLayouts.value[0]?.id;
-    ensureActiveLayout();
-    saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-  } catch {
-    ensureActiveLayout();
-  }
-}
-
-async function saveLayouts() {
-  savingLayouts.value = true;
-  try {
-    ensureActiveLayout();
-    const payload = {
-      layouts: teamLayouts.value,
-      active_layout_id: activeLayoutId.value,
-    };
-    const { data } = await api.put("dashboard/layouts/", payload);
-    teamLayouts.value = normalizeLayoutPayload(data?.layouts);
-    activeLayoutId.value = data?.active_layout_id || teamLayouts.value[0]?.id;
-    saveLocalLayouts(teamLayouts.value, activeLayoutId.value);
-    showToast("Dashboard-Layout gespeichert", "success");
-  } catch {
-    showToast("Layout konnte nicht gespeichert werden", "error");
-  } finally {
-    savingLayouts.value = false;
-  }
+  persistTeamWidgetVisibility();
 }
 
 onMounted(async () => {
-  ensureActiveLayout();
   await refresh();
-  if (isTeam.value) {
-    await loadLayoutsFromApi();
-  }
 });
 
 const urgentTasks = computed(() =>
@@ -847,9 +685,8 @@ function copyInviteLink() {
   flex-wrap: wrap;
   gap: 8px;
 }
-.widget-picker {
-  display: grid;
-  gap: 10px;
+.layout-tabs {
+  align-items: baseline;
 }
 .picker-grid {
   display: grid;
@@ -878,15 +715,6 @@ function copyInviteLink() {
 .panel.size-l { grid-column: 1 / -1; }
 .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .panel-head h2 { margin: 0; font-size: 18px; }
-.widget-controls {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-.size-select {
-  width: 140px;
-}
 .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .list li { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: var(--surface); display: flex; justify-content: space-between; gap: 10px; }
 .list li[data-tone="overdue"] { border-color: rgba(248, 113, 113, 0.45); }

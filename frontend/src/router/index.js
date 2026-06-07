@@ -18,7 +18,6 @@ const ProjectDetail = () => import("../views/ProjectDetail.vue");
 const Tasks = () => import("../views/Tasks.vue");
 const Chats = () => import("../views/Chats.vue");
 const MyProfile = () => import("../views/MyProfile.vue");
-const News = () => import("../views/News.vue");
 const ActivityFeed = () => import("../views/ActivityFeed.vue");
 const Notifications = () => import("../views/Notifications.vue");
 const GrowPro = () => import("../views/GrowPro.vue");
@@ -74,7 +73,6 @@ const routes = [
       { path: "tasks/finished", redirect: { name: "tasks" } },
       { path: "reviews", name: "reviews", component: ReviewQueue, alias: "/reviews", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
-      { path: "news", name: "news", component: News, alias: "/news", meta: { requiresAuth: true } },
       { path: "activity", name: "activity", component: ActivityFeed, alias: "/activity", meta: { requiresAuth: true } },
       { path: "notifications", name: "notifications", component: Notifications, alias: "/notifications", meta: { requiresAuth: true } },
       { path: "points", name: "points", component: Points, alias: "/points", meta: { requiresAuth: true } },
@@ -106,7 +104,6 @@ const routes = [
       { path: "content-studio", name: "platform-content-studio", component: ContentStudio, meta: { requiresAuth: true } },
       { path: "content-schedule", name: "platform-content-schedule", component: ContentScheduleLanding, meta: { requiresAuth: true } },
       { path: "content-schedule/planner", name: "content-schedule", component: ContentScheduleTool, meta: { requiresAuth: true } },
-      { path: "news", name: "platform-news", component: News, meta: { requiresAuth: true } },
       { path: "plugin-guides", name: "platform-plugin-guides", component: PluginGuides, meta: { requiresAuth: true } },
       { path: "api-center", name: "platform-api-center", component: ApiCenter, meta: { requiresAuth: true } },
       { path: "fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },

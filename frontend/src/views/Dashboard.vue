@@ -209,10 +209,17 @@ const WIDGET_SIZE_BY_ID = {
   projects: "m",
   "growpro-watch": "s",
 };
+const DASHBOARD_WIDGET_SETTINGS_KEY = "dashboard:teamWidgetVisibility";
 
 function loadTeamWidgetVisibility() {
+  const profileVisible = me.value?.notification_settings?.dashboard?.teamWidgetVisibility;
+  if (Array.isArray(profileVisible)) {
+    const cleaned = profileVisible.filter((item) => VALID_WIDGET_IDS.has(item));
+    if (cleaned.length) return cleaned;
+  }
+
   try {
-    const raw = JSON.parse(localStorage.getItem("dashboard:teamWidgetVisibility") || "[]");
+    const raw = JSON.parse(localStorage.getItem(DASHBOARD_WIDGET_SETTINGS_KEY) || "[]");
     if (!Array.isArray(raw)) return [...TEAM_WIDGET_DEFAULT_ORDER];
     const cleaned = raw.filter((item) => VALID_WIDGET_IDS.has(item));
     return cleaned.length ? cleaned : [...TEAM_WIDGET_DEFAULT_ORDER];
@@ -222,7 +229,23 @@ function loadTeamWidgetVisibility() {
 }
 
 function persistTeamWidgetVisibility() {
-  localStorage.setItem("dashboard:teamWidgetVisibility", JSON.stringify(enabledWidgetIds.value));
+  localStorage.setItem(DASHBOARD_WIDGET_SETTINGS_KEY, JSON.stringify(enabledWidgetIds.value));
+
+  if (!me.value?.id) return;
+
+  const notificationSettings = {
+    ...(me.value.notification_settings || {}),
+    dashboard: {
+      ...((me.value.notification_settings || {}).dashboard || {}),
+      teamWidgetVisibility: [...enabledWidgetIds.value],
+    },
+  };
+
+  void api.patch(`profiles/${me.value.id}/`, { notification_settings: notificationSettings }).then(({ data }) => {
+    me.value.notification_settings = data.notification_settings || notificationSettings;
+  }).catch(() => {
+    // Keep the local fallback if profile persistence is unavailable.
+  });
 }
 
 const enabledWidgetIds = ref(loadTeamWidgetVisibility());
@@ -413,6 +436,9 @@ function toggleWidget(widgetId) {
 
 onMounted(async () => {
   await refresh();
+  if (isTeam.value) {
+    enabledWidgetIds.value = loadTeamWidgetVisibility();
+  }
 });
 
 const urgentTasks = computed(() =>

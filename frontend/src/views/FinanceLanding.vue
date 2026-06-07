@@ -21,7 +21,7 @@
           <button class="btn ghost" type="button" @click="goBack">Zur Plattformuebersicht</button>
         </div>
         <p class="muted">
-          Projekt oeffnen oder neues Projekt starten. Die Projektbasis wird direkt im Popup gesetzt.
+          Projekt öffnen oder neues Projekt starten. Die Projektbasis wird direkt im Popup gesetzt.
         </p>
         <button class="btn" type="button" @click="openProjectBasisModal">
           Projekt erstellen

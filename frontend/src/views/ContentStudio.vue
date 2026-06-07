@@ -174,7 +174,7 @@
           </div>
         </li>
       </ul>
-      <p v-if="!loading && !items.length" class="muted empty">Noch keine EintrÄge fÜr diesen Typ.</p>
+      <p v-if="!loading && !items.length" class="muted empty">Noch keine Einträge für diesen Typ.</p>
     </section>
   </div>
 </template>
@@ -218,7 +218,7 @@ const processingImage = ref(false);
 const imageDraft = ref(buildImageDraft());
 const itemGalleryIndex = ref({});
 
-const selectedTypeLabel = computed(() => typeConfig[selectedType.value]?.title || "EintrÄge");
+const selectedTypeLabel = computed(() => typeConfig[selectedType.value]?.title || "Einträge");
 
 function buildForm() {
   return {

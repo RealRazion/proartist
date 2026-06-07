@@ -25,17 +25,17 @@
       <div class="board card">
         <div class="board-head">
           <div>
-            <h2>Task Board</h2>
+            <h2>Aufgabenboard</h2>
             <p class="muted small">Alles zentral in einem Fenster mit Kategorien, Status und Erledigt-Ansicht.</p>
           </div>
           <div class="board-actions">
             <button class="btn ghost" type="button" @click="openFilterModal">Filter</button>
             <button class="btn ghost" type="button" @click="openCategoryModal">Kategorien</button>
-            <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte Anzeigen</button>
+            <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte Tasks</button>
             <button class="btn" type="button" @click="openTaskModal" :disabled="taskSaving">Task erstellen</button>
           </div>
         </div>
-        <p class="muted board-hint">Archivierte Tasks blendest du über die Filter wieder ein.</p>
+        <p class="muted board-hint">Archivierte Tasks kannst du über die Filter wieder einblenden.</p>
         <div class="board-type-chips">
           <button
             v-for="type in boardTypeOptions"

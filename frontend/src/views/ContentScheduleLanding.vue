@@ -18,7 +18,7 @@
       <div class="launch card">
         <h2>Planer öffnen</h2>
         <p class="muted">
-          Trag deinen Content für die Woche ein – mit Plattform, Titel, Status und optionaler Notiz. Alles wird lokal gespeichert.
+          Trag deinen Content für die Woche ein – mit Plattform, Titel, Status und optionaler Notiz. Der Planer speichert direkt in deinem UNYQ-Projekt.
         </p>
         <div class="launch-actions">
           <button class="btn" type="button" @click="goToPlanner">Zum Content Planer</button>

@@ -47,8 +47,8 @@
             <option value="ARCHIVED">Archiviert</option>
           </select>
         </label>
-        <label>Genre <input v-model.trim="newSong.genre" placeholder="z. B. Drill" class="sinput" /></label>
-        <label>Mood <input v-model.trim="newSong.mood" placeholder="z. B. Dark" class="sinput" /></label>
+        <label>Genre <input v-model.trim="newSong.genre" placeholder="z. B. Drill" class="sinput" list="music-genres" /></label>
+        <label>Mood <input v-model.trim="newSong.mood" placeholder="z. B. Dark" class="sinput" list="music-moods" /></label>
         <label>BPM <input v-model.number="newSong.bpm" type="number" min="40" max="260" class="sinput" /></label>
         <label>Key <input v-model.trim="newSong.key_signature" placeholder="z. B. Am" class="sinput" /></label>
         <label>Release-Datum <input v-model="newSong.release_date" type="date" class="sinput" /></label>
@@ -64,6 +64,28 @@
         </div>
       </form>
     </div>
+
+    <datalist id="music-genres">
+      <option value="Drill" />
+      <option value="Trap" />
+      <option value="Afrobeats" />
+      <option value="Dancehall" />
+      <option value="R&B" />
+      <option value="Pop" />
+      <option value="House" />
+      <option value="Lo-Fi" />
+    </datalist>
+
+    <datalist id="music-moods">
+      <option value="Dark" />
+      <option value="Energetic" />
+      <option value="Melancholic" />
+      <option value="Warm" />
+      <option value="Anthemic" />
+      <option value="Chill" />
+      <option value="Aggressive" />
+      <option value="Uplifting" />
+    </datalist>
 
     <!-- Filter bar -->
     <div class="filter-bar">

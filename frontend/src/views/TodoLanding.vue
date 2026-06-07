@@ -1,8 +1,8 @@
 <template>
-  <div class="todo-platform">
+  <div :class="['todo-platform', `preset-${designPreset}`]">
     <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur fuer Team</h2>
-      <p class="muted">Nur Team-Mitglieder koennen die Todo Plattform nutzen.</p>
+      <h2>Zugriff nur für Team</h2>
+      <p class="muted">Nur Team-Mitglieder können die Todo-Plattform nutzen.</p>
     </section>
 
     <section v-else class="card board">
@@ -16,6 +16,19 @@
           <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte</button>
           <button class="btn" type="button" @click="openCreateModal">Todo anlegen</button>
         </div>
+      </div>
+
+      <div class="preset-switch" role="group" aria-label="Design Preset">
+        <button
+          v-for="preset in presetOptions"
+          :key="preset.key"
+          class="preset-chip"
+          :class="{ active: designPreset === preset.key }"
+          type="button"
+          @click="setDesignPreset(preset.key)"
+        >
+          {{ preset.label }}
+        </button>
       </div>
 
       <div class="summary-row">
@@ -237,6 +250,7 @@ import { useToast } from "../composables/useToast";
 const TODO_STORAGE_KEY = "unyq_todo_platform_items";
 const TODO_CATEGORY_KEY = "unyq_todo_platform_categories";
 const TODO_COLLAPSED_KEY = "unyq_todo_platform_collapsed";
+const TODO_DESIGN_PRESET_KEY = "unyq_todo_platform_design_preset";
 const UNCATEGORIZED_ID = "uncategorized";
 const CATEGORY_PALETTE = [
   { accent: "#2563eb", soft: "rgba(37, 99, 235, 0.18)", strong: "rgba(37, 99, 235, 0.26)" },
@@ -260,6 +274,12 @@ const showFinishedModal = ref(false);
 const newCategoryName = ref("");
 const categoryViewMode = ref("accordion");
 const activeCategoryIndex = ref(0);
+const designPreset = ref("minimal");
+const presetOptions = [
+  { key: "soft", label: "Soft" },
+  { key: "bold", label: "Bold" },
+  { key: "minimal", label: "Minimal" },
+];
 
 const draft = ref({
   title: "",
@@ -274,6 +294,12 @@ function readStorageJSON(key, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function setDesignPreset(preset) {
+  if (!["soft", "bold", "minimal"].includes(preset)) return;
+  designPreset.value = preset;
+  localStorage.setItem(TODO_DESIGN_PRESET_KEY, preset);
 }
 
 function persistTodos() {
@@ -589,6 +615,12 @@ function addTodoToCalendar(todo) {
 
 onMounted(async () => {
   await fetchProfile();
+  const storedPreset = localStorage.getItem(TODO_DESIGN_PRESET_KEY);
+  if (["soft", "bold", "minimal"].includes(storedPreset)) {
+    designPreset.value = storedPreset;
+  } else {
+    localStorage.setItem(TODO_DESIGN_PRESET_KEY, designPreset.value);
+  }
   todos.value = readStorageJSON(TODO_STORAGE_KEY, []);
   categories.value = readStorageJSON(TODO_CATEGORY_KEY, []);
   collapsedCategories.value = readStorageJSON(TODO_COLLAPSED_KEY, {});
@@ -610,6 +642,29 @@ onMounted(async () => {
   vertical-align: middle;
   border: 1px solid color-mix(in srgb, var(--brand) 50%, var(--border) 50%);
   background: color-mix(in srgb, var(--brand) 18%, transparent 82%);
+  color: var(--brand);
+}
+
+.preset-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-chip {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 88%, transparent 12%);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.preset-chip.active {
+  border-color: color-mix(in srgb, var(--brand) 55%, var(--border) 45%);
+  background: color-mix(in srgb, var(--brand) 22%, transparent 78%);
   color: var(--brand);
 }
 
@@ -769,6 +824,14 @@ onMounted(async () => {
   background: linear-gradient(145deg, color-mix(in srgb, var(--cat-soft, rgba(37, 99, 235, 0.13)) 30%, var(--card) 70%), var(--card));
 }
 
+.todo-item strong {
+  display: block;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+}
+
 .todo-item.overdue {
   border-color: color-mix(in srgb, #ef4444 65%, var(--border) 35%);
 }
@@ -778,24 +841,40 @@ onMounted(async () => {
 }
 
 .todo-state {
-  margin: 6px 0 0;
-  font-size: 11px;
+  margin: 8px 0 0;
+  width: fit-content;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent 20%);
+  padding: 3px 9px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: var(--muted);
+  background: color-mix(in srgb, var(--card) 88%, transparent 12%);
 }
 
 .todo-state.overdue {
   color: #b91c1c;
+  border-color: color-mix(in srgb, #ef4444 58%, var(--border) 42%);
+  background: color-mix(in srgb, #ef4444 16%, transparent 84%);
 }
 
 .todo-state.soon {
   color: #b45309;
+  border-color: color-mix(in srgb, #f59e0b 58%, var(--border) 42%);
+  background: color-mix(in srgb, #f59e0b 16%, transparent 84%);
 }
 
 .todo-state.scheduled {
   color: #0f766e;
+  border-color: color-mix(in srgb, #14b8a6 58%, var(--border) 42%);
+  background: color-mix(in srgb, #14b8a6 14%, transparent 86%);
+}
+
+.todo-state.none {
+  border-color: color-mix(in srgb, var(--text) 22%, var(--border) 78%);
+  background: color-mix(in srgb, var(--text) 8%, transparent 92%);
 }
 
 .todo-actions {
@@ -810,8 +889,9 @@ onMounted(async () => {
 }
 
 .small {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   font-size: 12px;
+  line-height: 1.35;
 }
 
 .empty {
@@ -911,6 +991,86 @@ onMounted(async () => {
   gap: 10px;
 }
 
+.todo-platform.preset-bold .board {
+  border-color: color-mix(in srgb, var(--brand) 42%, var(--border) 58%);
+  background:
+    radial-gradient(130% 150% at 0% -20%, color-mix(in srgb, var(--brand) 24%, transparent 76%), transparent 62%),
+    linear-gradient(165deg, color-mix(in srgb, var(--card) 78%, var(--bg-soft) 22%), var(--card));
+  box-shadow: 0 22px 52px rgba(2, 6, 23, 0.12);
+}
+
+.todo-platform.preset-bold .category-group {
+  border-width: 2px;
+  border-radius: 18px;
+  background: linear-gradient(150deg, color-mix(in srgb, var(--cat-soft) 75%, var(--card) 25%), var(--card));
+}
+
+.todo-platform.preset-bold .todo-item {
+  border-width: 2px;
+}
+
+.todo-platform.preset-bold .todo-item strong {
+  font-size: 1.02rem;
+}
+
+.todo-platform.preset-bold .category-header {
+  border-width: 2px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cat-strong) 48%, transparent 52%), var(--card));
+}
+
+.todo-platform.preset-bold .summary-card {
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--border) 66%);
+  background: linear-gradient(155deg, color-mix(in srgb, var(--brand) 22%, var(--card) 78%), var(--card));
+}
+
+.todo-platform.preset-bold .preset-chip.active {
+  background: color-mix(in srgb, var(--brand) 30%, transparent 70%);
+}
+
+.todo-platform.preset-minimal .board {
+  border-radius: 14px;
+  border-color: var(--border);
+  background: var(--card);
+  box-shadow: none;
+}
+
+.todo-platform.preset-minimal .board-head {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 85%, transparent 15%);
+  padding-bottom: 10px;
+}
+
+.todo-platform.preset-minimal .summary-card,
+.todo-platform.preset-minimal .category-group,
+.todo-platform.preset-minimal .todo-item,
+.todo-platform.preset-minimal .category-header,
+.todo-platform.preset-minimal .finished-item,
+.todo-platform.preset-minimal .category-order-item {
+  background: var(--card);
+  box-shadow: none;
+}
+
+.todo-platform.preset-minimal .category-group,
+.todo-platform.preset-minimal .category-header,
+.todo-platform.preset-minimal .todo-item {
+  border-color: color-mix(in srgb, var(--cat-accent) 22%, var(--border) 78%);
+}
+
+.todo-platform.preset-minimal .summary-card {
+  border-radius: 10px;
+}
+
+.todo-platform.preset-minimal .todo-state {
+  border-radius: 8px;
+}
+
+.todo-platform.preset-minimal .preset-chip {
+  border-radius: 8px;
+}
+
+.todo-platform.preset-minimal .preset-chip.active {
+  background: color-mix(in srgb, var(--brand) 14%, transparent 86%);
+}
+
 :global(.dark) .board {
   box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
 }
@@ -922,6 +1082,19 @@ onMounted(async () => {
 :global(.dark) .finished-item,
 :global(.dark) .category-order-item {
   box-shadow: none;
+}
+
+:global(.dark) .todo-state {
+  background: color-mix(in srgb, var(--card) 76%, #000 24%);
+  border-color: color-mix(in srgb, var(--border) 65%, #000 35%);
+}
+
+:global(.dark) .todo-platform.preset-bold .board {
+  box-shadow: 0 26px 56px rgba(0, 0, 0, 0.42);
+}
+
+:global(.dark) .todo-platform.preset-minimal .board {
+  background: color-mix(in srgb, var(--card) 92%, #000 8%);
 }
 
 @media (max-width: 980px) {

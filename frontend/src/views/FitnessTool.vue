@@ -271,11 +271,16 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import api from "../api";
+import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const router = useRouter();
 const STORAGE_KEY = "unyq-fitness-tracker-v1";
+const FITNESS_PROFILE_SETTINGS_KEY = "fitness_tracker";
+const PROFILE_SYNC_DEBOUNCE_MS = 800;
+const { profile: me, fetchProfile } = useCurrentProfile();
 
 const activityMap = {
   sedentary: { label: "wenig Bewegung", factor: 1.2 },
@@ -347,6 +352,57 @@ function loadState() {
   } catch {
     return createDefaultState();
   }
+}
+
+function normalizeState(raw) {
+  const fallback = createDefaultState();
+  if (!raw || typeof raw !== "object") return fallback;
+  return {
+    ...fallback,
+    ...raw,
+    profile: {
+      ...fallback.profile,
+      ...(raw.profile || {}),
+    },
+    entries: Array.isArray(raw.entries) ? raw.entries : fallback.entries,
+  };
+}
+
+function readProfileFitnessState() {
+  const payload = me.value?.notification_settings?.[FITNESS_PROFILE_SETTINGS_KEY];
+  if (!payload || typeof payload !== "object") return null;
+  return normalizeState(payload);
+}
+
+let profileSyncTimer = null;
+
+function persistStateToProfile(snapshot) {
+  if (!me.value?.id) return;
+
+  const notificationSettings = {
+    ...(me.value.notification_settings || {}),
+    [FITNESS_PROFILE_SETTINGS_KEY]: normalizeState(snapshot),
+  };
+
+  void api
+    .patch(`profiles/${me.value.id}/`, { notification_settings: notificationSettings })
+    .then(({ data }) => {
+      me.value.notification_settings = data.notification_settings || notificationSettings;
+    })
+    .catch(() => {
+      // Local persistence remains active if profile sync fails.
+    });
+}
+
+function queueProfileSync(snapshot) {
+  if (profileSyncTimer) {
+    clearTimeout(profileSyncTimer);
+  }
+  if (!me.value?.id) return;
+  profileSyncTimer = setTimeout(() => {
+    persistStateToProfile(snapshot);
+    profileSyncTimer = null;
+  }, PROFILE_SYNC_DEBOUNCE_MS);
 }
 
 const initialState = loadState();
@@ -448,6 +504,7 @@ watch(
   }),
   (value) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    queueProfileSync(value);
   },
   { deep: true }
 );
@@ -531,6 +588,25 @@ function resetTracker() {
   cancelEdit();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
 }
+
+onMounted(async () => {
+  await fetchProfile();
+  const profileState = readProfileFitnessState();
+  if (profileState) {
+    Object.assign(profile, profileState.profile);
+    selectedDay.value = profileState.selectedDay;
+    deltaInput.value = profileState.deltaInput;
+    state.entries = [...profileState.entries];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(profileState));
+  }
+});
+
+onUnmounted(() => {
+  if (profileSyncTimer) {
+    clearTimeout(profileSyncTimer);
+    profileSyncTimer = null;
+  }
+});
 </script>
 
 <style scoped>

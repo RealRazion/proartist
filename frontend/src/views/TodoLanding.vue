@@ -244,6 +244,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 
@@ -251,6 +252,7 @@ const TODO_STORAGE_KEY = "unyq_todo_platform_items";
 const TODO_CATEGORY_KEY = "unyq_todo_platform_categories";
 const TODO_COLLAPSED_KEY = "unyq_todo_platform_collapsed";
 const TODO_DESIGN_PRESET_KEY = "unyq_todo_platform_design_preset";
+const TODO_PROFILE_SETTINGS_KEY = "todo_platform";
 const UNCATEGORIZED_ID = "uncategorized";
 const CATEGORY_PALETTE = [
   { accent: "#2563eb", soft: "rgba(37, 99, 235, 0.18)", strong: "rgba(37, 99, 235, 0.26)" },
@@ -261,7 +263,7 @@ const CATEGORY_PALETTE = [
   { accent: "#0f766e", soft: "rgba(15, 118, 110, 0.17)", strong: "rgba(15, 118, 110, 0.24)" },
 ];
 
-const { isTeam, fetchProfile } = useCurrentProfile();
+const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
 const todos = ref([]);
@@ -296,22 +298,63 @@ function readStorageJSON(key, fallback) {
   }
 }
 
+function readProfileTodoState() {
+  const payload = me.value?.notification_settings?.[TODO_PROFILE_SETTINGS_KEY];
+  if (!payload || typeof payload !== "object") return null;
+  return {
+    todos: Array.isArray(payload.todos) ? payload.todos : null,
+    categories: Array.isArray(payload.categories) ? payload.categories : null,
+    collapsedCategories:
+      payload.collapsedCategories && typeof payload.collapsedCategories === "object"
+        ? payload.collapsedCategories
+        : null,
+    designPreset: ["soft", "bold", "minimal"].includes(payload.designPreset) ? payload.designPreset : null,
+  };
+}
+
+function persistTodoStateToProfile() {
+  if (!me.value?.id) return;
+
+  const notificationSettings = {
+    ...(me.value.notification_settings || {}),
+    [TODO_PROFILE_SETTINGS_KEY]: {
+      todos: [...todos.value],
+      categories: [...categories.value],
+      collapsedCategories: { ...collapsedCategories.value },
+      designPreset: designPreset.value,
+    },
+  };
+
+  void api
+    .patch(`profiles/${me.value.id}/`, { notification_settings: notificationSettings })
+    .then(({ data }) => {
+      me.value.notification_settings = data.notification_settings || notificationSettings;
+    })
+    .catch(() => {
+      // Keep local persistence when profile sync is not available.
+    });
+}
+
 function setDesignPreset(preset) {
   if (!["soft", "bold", "minimal"].includes(preset)) return;
   designPreset.value = preset;
   localStorage.setItem(TODO_DESIGN_PRESET_KEY, preset);
+  persistTodoStateToProfile();
 }
 
 function persistTodos() {
   localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos.value));
+  persistTodoStateToProfile();
 }
 
 function persistCategories() {
   localStorage.setItem(TODO_CATEGORY_KEY, JSON.stringify(categories.value));
+  persistTodoStateToProfile();
 }
 
 function persistCollapsed() {
   localStorage.setItem(TODO_COLLAPSED_KEY, JSON.stringify(collapsedCategories.value));
+  persistTodoStateToProfile();
 }
 
 const categoryOptions = computed(() => [
@@ -615,15 +658,28 @@ function addTodoToCalendar(todo) {
 
 onMounted(async () => {
   await fetchProfile();
+  const profileState = readProfileTodoState();
+
   const storedPreset = localStorage.getItem(TODO_DESIGN_PRESET_KEY);
-  if (["soft", "bold", "minimal"].includes(storedPreset)) {
+  if (profileState?.designPreset) {
+    designPreset.value = profileState.designPreset;
+  } else if (["soft", "bold", "minimal"].includes(storedPreset)) {
     designPreset.value = storedPreset;
   } else {
     localStorage.setItem(TODO_DESIGN_PRESET_KEY, designPreset.value);
   }
-  todos.value = readStorageJSON(TODO_STORAGE_KEY, []);
-  categories.value = readStorageJSON(TODO_CATEGORY_KEY, []);
-  collapsedCategories.value = readStorageJSON(TODO_COLLAPSED_KEY, {});
+
+  todos.value = profileState?.todos || readStorageJSON(TODO_STORAGE_KEY, []);
+  categories.value = profileState?.categories || readStorageJSON(TODO_CATEGORY_KEY, []);
+  collapsedCategories.value = profileState?.collapsedCategories || readStorageJSON(TODO_COLLAPSED_KEY, {});
+
+  if (profileState) {
+    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos.value));
+    localStorage.setItem(TODO_CATEGORY_KEY, JSON.stringify(categories.value));
+    localStorage.setItem(TODO_COLLAPSED_KEY, JSON.stringify(collapsedCategories.value));
+    localStorage.setItem(TODO_DESIGN_PRESET_KEY, designPreset.value);
+  }
+
   setActiveCategory(0);
 });
 </script>

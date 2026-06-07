@@ -1014,9 +1014,13 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
 import DebtTracker from "../components/DebtTracker.vue";
+import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const route = useRoute();
 const router = useRouter();
+const { profile: me, fetchProfile } = useCurrentProfile();
+
+const FINANCE_PROFILE_SETTINGS_KEY = "finance_preferences";
 
 const loading = ref(false);
 const savingProject = ref(false);
@@ -1388,6 +1392,10 @@ function dedupeCategories(values) {
 }
 
 function loadStoredCategories() {
+  const profileCategories = readFinanceProfileSetting("categorySuggestions");
+  if (Array.isArray(profileCategories)) {
+    return dedupeCategories(profileCategories);
+  }
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem("finance.categorySuggestions");
@@ -1403,6 +1411,42 @@ function loadStoredCategories() {
 function persistStoredCategories() {
   if (typeof window === "undefined") return;
   window.localStorage.setItem("finance.categorySuggestions", JSON.stringify(localStoredCategories.value));
+  persistFinanceProfileSetting({ categorySuggestions: [...localStoredCategories.value] });
+}
+
+function readFinanceProfileSettings() {
+  const payload = me.value?.notification_settings?.[FINANCE_PROFILE_SETTINGS_KEY];
+  if (!payload || typeof payload !== "object") return {};
+  return payload;
+}
+
+function readFinanceProfileSetting(key) {
+  const settings = readFinanceProfileSettings();
+  return settings[key];
+}
+
+function persistFinanceProfileSetting(patch) {
+  if (!me.value?.id || !patch || typeof patch !== "object") return;
+
+  const currentProfileSettings = readFinanceProfileSettings();
+  const nextProfileSettings = {
+    ...currentProfileSettings,
+    ...patch,
+  };
+
+  const notificationSettings = {
+    ...(me.value.notification_settings || {}),
+    [FINANCE_PROFILE_SETTINGS_KEY]: nextProfileSettings,
+  };
+
+  void api
+    .patch(`profiles/${me.value.id}/`, { notification_settings: notificationSettings })
+    .then(({ data }) => {
+      me.value.notification_settings = data.notification_settings || notificationSettings;
+    })
+    .catch(() => {
+      // Keep local fallback when profile sync is unavailable.
+    });
 }
 
 const knownCategoriesFromData = computed(() => {
@@ -1628,14 +1672,30 @@ function monthlyNoteKey() {
   return `finance.note.${selectedProjectId.value}.${plannerMonthLabel.value}`;
 }
 function loadMonthlyNote() {
-  try { monthlyNote.value = localStorage.getItem(monthlyNoteKey()) || ""; } catch { monthlyNote.value = ""; }
+  const key = monthlyNoteKey();
+  const profileNotes = readFinanceProfileSetting("monthlyNotes");
+  if (profileNotes && typeof profileNotes === "object" && typeof profileNotes[key] === "string") {
+    monthlyNote.value = profileNotes[key];
+    try { localStorage.setItem(key, monthlyNote.value); } catch {}
+    return;
+  }
+  try { monthlyNote.value = localStorage.getItem(key) || ""; } catch { monthlyNote.value = ""; }
 }
 function saveMonthlyNote() {
-  try { localStorage.setItem(monthlyNoteKey(), monthlyNote.value); } catch {}
+  const key = monthlyNoteKey();
+  try { localStorage.setItem(key, monthlyNote.value); } catch {}
+  const existing = readFinanceProfileSetting("monthlyNotes");
+  const monthlyNotes = existing && typeof existing === "object" ? { ...existing } : {};
+  monthlyNotes[key] = monthlyNote.value;
+  persistFinanceProfileSetting({ monthlyNotes });
 }
 
 // --- Entry templates ---
 function loadEntryTemplates() {
+  const profileTemplates = readFinanceProfileSetting("entryTemplates");
+  if (Array.isArray(profileTemplates)) {
+    return profileTemplates;
+  }
   try {
     const raw = localStorage.getItem("finance.entryTemplates");
     return raw ? JSON.parse(raw) : [];
@@ -1643,6 +1703,7 @@ function loadEntryTemplates() {
 }
 function persistEntryTemplates() {
   try { localStorage.setItem("finance.entryTemplates", JSON.stringify(entryTemplates.value)); } catch {}
+  persistFinanceProfileSetting({ entryTemplates: [...entryTemplates.value] });
 }
 function saveEntryAsTemplate() {
   const f = entryForm.value;
@@ -2256,6 +2317,20 @@ async function exportOverview() {
 }
 
 onMounted(async () => {
+  await fetchProfile();
+
+  const profileCategories = readFinanceProfileSetting("categorySuggestions");
+  if (Array.isArray(profileCategories)) {
+    localStoredCategories.value = dedupeCategories(profileCategories);
+    try { localStorage.setItem("finance.categorySuggestions", JSON.stringify(localStoredCategories.value)); } catch {}
+  }
+
+  const profileTemplates = readFinanceProfileSetting("entryTemplates");
+  if (Array.isArray(profileTemplates)) {
+    entryTemplates.value = profileTemplates;
+    try { localStorage.setItem("finance.entryTemplates", JSON.stringify(entryTemplates.value)); } catch {}
+  }
+
   await Promise.all([syncProjectSelection(), loadFinanceTips()]);
 });
 </script>

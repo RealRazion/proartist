@@ -38,7 +38,7 @@
             <span class="muted">{{ formatDate(event.date) }} · {{ event.location }}</span>
           </li>
         </ul>
-        <p v-else class="muted">Noch keine Events vorhanden.</p>
+          <p v-else class="muted">Es sind derzeit keine Events verfügbar.</p>
       </article>
       <article class="card feature-card booking">
         <h3>Buchung einreichen</h3>
@@ -59,10 +59,10 @@
         <ul v-if="bookings.length" class="item-list">
           <li v-for="booking in bookings.slice(0, 4)" :key="booking.id" class="item-row">
             <strong>{{ eventName(booking.event) }}</strong>
-            <span class="muted">{{ booking.slot_time || "Kein Slot" }} · {{ booking.status }}</span>
+            <span class="muted">{{ booking.slot_time || "Kein Slot" }} · {{ bookingStatusLabel(booking.status) }}</span>
           </li>
         </ul>
-        <p v-else class="muted">Du hast noch keine Buchungen.</p>
+          <p v-else class="muted">Aktuell hast du keine Buchungen.</p>
       </article>
     </section>
   </div>
@@ -89,6 +89,12 @@ const bookingForm = ref({
 
 const appliedBookings = computed(() => bookings.value.filter((entry) => entry.status === "APPLIED").length);
 const confirmedBookings = computed(() => bookings.value.filter((entry) => entry.status === "CONFIRMED").length);
+const bookingStatusMap = {
+  APPLIED: "Eingereicht",
+  CONFIRMED: "Bestätigt",
+  CANCELLED: "Abgesagt",
+  REJECTED: "Abgelehnt",
+};
 
 function asList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -104,6 +110,10 @@ function formatDate(value) {
 
 function eventName(eventId) {
   return events.value.find((event) => event.id === eventId)?.title || `Event #${eventId}`;
+}
+
+function bookingStatusLabel(status) {
+  return bookingStatusMap[status] || status || "Unbekannt";
 }
 
 async function loadData() {

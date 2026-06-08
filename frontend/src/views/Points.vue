@@ -43,85 +43,97 @@
       </div>
     </section>
 
-    <section v-if="isTeam" class="grid">
-      <article v-for="member in members" :key="member.profile.id" class="card member">
-        <div class="member-head">
-          <div>
-            <h2>{{ member.profile.name }}</h2>
-            <p class="muted small">@{{ member.profile.username }}</p>
+    <section v-if="isTeam" class="card list-card">
+      <div v-if="!members.length" class="muted">Keine Team-Mitglieder gefunden.</div>
+      <div v-else class="member-list">
+        <article v-for="member in members" :key="member.profile.id" class="member-row">
+          <button class="member-summary" type="button" @click="toggleExpanded(member.profile.id)">
+            <div>
+              <strong>{{ member.profile.name }}</strong>
+              <p class="muted small">@{{ member.profile.username }}</p>
+            </div>
+            <div class="summary-metrics">
+              <div>
+                <span class="label">Aktuell</span>
+                <strong>{{ member.total }}</strong>
+              </div>
+              <div>
+                <span class="label">Ø Netto (7 Tage)</span>
+                <strong>{{ member.daily?.avg_daily_net ?? 0 }}</strong>
+              </div>
+              <div>
+                <span class="label">Cap</span>
+                <strong>{{ member.profile.max_task_points ?? "-" }}</strong>
+              </div>
+            </div>
+            <span class="expand-indicator">{{ isExpanded(member.profile.id) ? "−" : "+" }}</span>
+          </button>
+
+          <div v-if="isExpanded(member.profile.id)" class="member-details">
+            <div class="cap-row">
+              <label>
+                Max aktive Punkte für Auto-Zuweisung
+                <input
+                  class="input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  :value="capDraft(member.profile.id)"
+                  @input="setCapDraft(member.profile.id, $event.target.value)"
+                  placeholder="leer = kein Limit"
+                />
+              </label>
+              <button class="btn tiny" type="button" @click="saveCap(member)" :disabled="capSaving[member.profile.id]">
+                {{ capSaving[member.profile.id] ? "Speichere..." : "Cap speichern" }}
+              </button>
+            </div>
+            <div class="performance">
+              <div>
+                <span class="label">Heute</span>
+                <span class="value">+{{ member.daily?.today_plus ?? 0 }} / -{{ member.daily?.today_minus ?? 0 }}</span>
+                <span class="muted tiny">Netto {{ member.daily?.today_net ?? 0 }}</span>
+              </div>
+              <div>
+                <span class="label">Ø 7 Tage</span>
+                <span class="value">+{{ member.daily?.avg_daily_plus ?? 0 }} / -{{ member.daily?.avg_daily_minus ?? 0 }}</span>
+                <span class="muted tiny">Netto {{ member.daily?.avg_daily_net ?? 0 }}</span>
+              </div>
+            </div>
+            <div class="member-grid">
+              <div class="bucket">
+                <h3>Tasks ({{ totalTaskPoints(member) }})</h3>
+                <ul v-if="member.tasks.length" class="item-list">
+                  <li v-for="task in member.tasks" :key="`task-${task.id}`">
+                    <span>{{ task.title }}</span>
+                    <span class="badge">+{{ task.points }}</span>
+                  </li>
+                </ul>
+                <p v-else class="muted small">Keine aktiven Tasks.</p>
+              </div>
+              <div class="bucket">
+                <h3>Projekte ({{ totalProjectPoints(member) }})</h3>
+                <ul v-if="member.projects.length" class="item-list">
+                  <li v-for="project in member.projects" :key="`project-${project.id}`">
+                    <span>{{ project.title }}</span>
+                    <span class="badge">+{{ project.points }}</span>
+                  </li>
+                </ul>
+                <p v-else class="muted small">Keine Projekte zugeordnet.</p>
+              </div>
+              <div class="bucket">
+                <h3>GrowPro ({{ totalGrowProPoints(member) }})</h3>
+                <ul v-if="member.growpro.length" class="item-list">
+                  <li v-for="goal in member.growpro" :key="`goal-${goal.id}`">
+                    <span>{{ goal.title }}</span>
+                    <span class="badge">+{{ goal.points }}</span>
+                  </li>
+                </ul>
+                <p v-else class="muted small">Keine GrowPro Ziele zugeteilt.</p>
+              </div>
+            </div>
           </div>
-          <div class="score">
-            <span class="label">Punkte</span>
-            <strong>{{ member.total }}</strong>
-          </div>
-        </div>
-        <div class="performance">
-          <div>
-            <span class="label">Heute</span>
-            <span class="value">+{{ member.daily?.today_plus ?? 0 }} / -{{ member.daily?.today_minus ?? 0 }}</span>
-            <span class="muted tiny">Netto {{ member.daily?.today_net ?? 0 }}</span>
-          </div>
-          <div>
-            <span class="label">Ø 7 Tage</span>
-            <span class="value">+{{ member.daily?.avg_daily_plus ?? 0 }} / -{{ member.daily?.avg_daily_minus ?? 0 }}</span>
-            <span class="muted tiny">Netto {{ member.daily?.avg_daily_net ?? 0 }}</span>
-          </div>
-        </div>
-        <div class="today-details">
-          <div>
-            <span class="label">Heute +</span>
-            <ul v-if="sliceDetails(member.daily?.today_plus_details).length" class="detail-list">
-              <li v-for="item in sliceDetails(member.daily?.today_plus_details)" :key="`plus-${item.type}-${item.title}`">
-                <span>{{ item.title }}</span>
-                <span class="badge">+{{ item.points }}</span>
-              </li>
-            </ul>
-            <p v-else class="muted small">Keine Plus-Punkte heute.</p>
-          </div>
-          <div>
-            <span class="label">Heute -</span>
-            <ul v-if="sliceDetails(member.daily?.today_minus_details).length" class="detail-list">
-              <li v-for="item in sliceDetails(member.daily?.today_minus_details)" :key="`minus-${item.type}-${item.title}`">
-                <span>{{ item.title }}</span>
-                <span class="badge danger">-{{ item.points }}</span>
-              </li>
-            </ul>
-            <p v-else class="muted small">Keine Minus-Punkte heute.</p>
-          </div>
-        </div>
-        <div class="member-grid">
-          <div class="bucket">
-            <h3>Tasks ({{ totalTaskPoints(member) }})</h3>
-            <ul v-if="member.tasks.length" class="item-list">
-              <li v-for="task in member.tasks" :key="`task-${task.id}`">
-                <span>{{ task.title }}</span>
-                <span class="badge">+{{ task.points }}</span>
-              </li>
-            </ul>
-            <p v-else class="muted small">Keine aktiven Tasks.</p>
-          </div>
-          <div class="bucket">
-            <h3>Projekte ({{ totalProjectPoints(member) }})</h3>
-            <ul v-if="member.projects.length" class="item-list">
-              <li v-for="project in member.projects" :key="`project-${project.id}`">
-                <span>{{ project.title }}</span>
-                <span class="badge">+{{ project.points }}</span>
-              </li>
-            </ul>
-            <p v-else class="muted small">Keine Projekte zugeordnet.</p>
-          </div>
-          <div class="bucket">
-            <h3>GrowPro ({{ totalGrowProPoints(member) }})</h3>
-            <ul v-if="member.growpro.length" class="item-list">
-              <li v-for="goal in member.growpro" :key="`goal-${goal.id}`">
-                <span>{{ goal.title }}</span>
-                <span class="badge">+{{ goal.points }}</span>
-              </li>
-            </ul>
-            <p v-else class="muted small">Keine GrowPro Ziele zugeteilt.</p>
-          </div>
-        </div>
-      </article>
+        </article>
+      </div>
     </section>
   </div>
 </template>
@@ -132,12 +144,15 @@ import api from "../api";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
-const { isTeam } = useCurrentProfile();
+const { isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
 const members = ref([]);
 const rules = ref(null);
 const loading = ref(false);
+const expanded = ref({});
+const capDrafts = ref({});
+const capSaving = ref({});
 
 async function loadPoints() {
   if (!isTeam.value) return;
@@ -147,6 +162,11 @@ async function loadPoints() {
     const payload = Array.isArray(data) ? { members: data, rules: null } : data || {};
     members.value = payload.members || [];
     rules.value = payload.rules || null;
+    capDrafts.value = members.value.reduce((acc, member) => {
+      const raw = member?.profile?.max_task_points;
+      acc[member.profile.id] = raw === null || raw === undefined ? "" : String(raw);
+      return acc;
+    }, {});
   } catch (err) {
     console.error("Team-Punkte konnten nicht geladen werden", err);
     showToast("Team-Punkte konnten nicht geladen werden", "error");
@@ -190,8 +210,52 @@ function sliceDetails(list) {
   return list.slice(0, 3);
 }
 
+function isExpanded(profileId) {
+  return Boolean(expanded.value[profileId]);
+}
+
+function toggleExpanded(profileId) {
+  expanded.value = { ...expanded.value, [profileId]: !expanded.value[profileId] };
+}
+
+function capDraft(profileId) {
+  return capDrafts.value[profileId] ?? "";
+}
+
+function setCapDraft(profileId, value) {
+  capDrafts.value = { ...capDrafts.value, [profileId]: value };
+}
+
+async function saveCap(member) {
+  const profileId = member?.profile?.id;
+  if (!profileId) return;
+  capSaving.value = { ...capSaving.value, [profileId]: true };
+  try {
+    const raw = (capDrafts.value[profileId] || "").trim();
+    const parsed = raw === "" ? null : Math.max(0, Number.parseInt(raw, 10) || 0);
+    const { data } = await api.get(`profiles/${profileId}/`);
+    const currentSettings = data?.notification_settings || {};
+    const nextSettings = {
+      ...currentSettings,
+      task_point_cap: parsed,
+      team_points: {
+        ...(currentSettings.team_points || {}),
+        max_active_points: parsed,
+      },
+    };
+    await api.patch(`profiles/${profileId}/`, { notification_settings: nextSettings });
+    showToast("Cap gespeichert", "success");
+    await loadPoints();
+  } catch (err) {
+    console.error("Cap konnte nicht gespeichert werden", err);
+    showToast("Cap konnte nicht gespeichert werden", "error");
+  } finally {
+    capSaving.value = { ...capSaving.value, [profileId]: false };
+  }
+}
+
 onMounted(() => {
-  loadPoints();
+  fetchProfile().catch(() => null).finally(() => loadPoints());
 });
 </script>
 
@@ -229,21 +293,57 @@ onMounted(() => {
   padding: 12px;
   background: color-mix(in srgb, var(--text) 3%, var(--surface));
 }
-.grid {
+.list-card {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
-.member {
+.member-list {
+  display: grid;
+  gap: 10px;
+}
+.member-row {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 2%, var(--surface));
+}
+.member-summary {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  cursor: pointer;
+}
+.summary-metrics {
   display: flex;
-  flex-direction: column;
   gap: 16px;
 }
-.member-head {
-  display: flex;
-  justify-content: space-between;
+.summary-metrics .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.expand-indicator {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--brand);
+}
+.member-details {
+  border-top: 1px dashed var(--border);
+  padding: 12px;
+  display: grid;
   gap: 12px;
-  flex-wrap: wrap;
-  align-items: center;
+}
+.cap-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
 }
 .performance {
   display: flex;

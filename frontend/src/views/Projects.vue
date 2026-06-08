@@ -102,6 +102,10 @@
               <span class="label">Projektrechte:</span>
               <span class="names">{{ participantTaskAccessLabels[project.participant_task_access] || "Keine" }}</span>
             </div>
+            <label class="toggle review-toggle">
+              <input type="checkbox" :checked="Boolean(project.review_required)" @change="toggleProjectReviewRequired(project, $event)" />
+              Review erforderlich
+            </label>
           </li>
         </ul>
         <div ref="projectSentinel" class="sentinel" v-if="hasMoreProjects"></div>
@@ -195,6 +199,10 @@
                 {{ participantTaskAccessLabels[opt] }}
               </option>
             </select>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" v-model="projectForm.review_required" />
+            Review erforderlich
           </label>
           <label class="full">
             Betroffene Nutzer
@@ -326,6 +334,7 @@ function getDefaultProjectForm() {
     title: "",
     description: "",
     status: "PLANNED",
+    review_required: false,
     participant_task_access: "NONE",
     participant_ids: [],
     owner_ids: [],
@@ -398,7 +407,8 @@ async function loadProjects({ append = false, pageUrl = null } = {}) {
 async function loadProfiles() {
   try {
     const { data } = await api.get("profiles/");
-    profiles.value = data.map((profile) => ({
+    const rows = Array.isArray(data) ? data : data?.results || [];
+    profiles.value = rows.map((profile) => ({
       id: profile.id,
       name: profile.name || profile.username,
       username: profile.username,
@@ -475,6 +485,7 @@ function startEditProject(project) {
     title: project.title,
     description: project.description || "",
     status: project.status,
+    review_required: Boolean(project.review_required),
     participant_task_access: project.participant_task_access || "NONE",
     participant_ids: project.participants?.map((p) => p.id) || [],
     owner_ids: project.owners?.map((p) => p.id) || [],
@@ -516,6 +527,20 @@ async function updateProjectStatus(project) {
   } catch (err) {
     console.error("Projekt-Status konnte nicht aktualisiert werden", err);
     showToast("Status konnte nicht aktualisiert werden", "error");
+  }
+}
+
+async function toggleProjectReviewRequired(project, event) {
+  const nextValue = Boolean(event?.target?.checked);
+  const previousValue = Boolean(project.review_required);
+  project.review_required = nextValue;
+  try {
+    await api.patch(`projects/${project.id}/`, { review_required: nextValue });
+    showToast("Review-Regel aktualisiert", "success");
+  } catch (err) {
+    project.review_required = previousValue;
+    console.error("Review-Regel konnte nicht aktualisiert werden", err);
+    showToast("Review-Regel konnte nicht aktualisiert werden", "error");
   }
 }
 

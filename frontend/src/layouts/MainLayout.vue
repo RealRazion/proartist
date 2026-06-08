@@ -127,6 +127,15 @@
           <span class="label">Points</span>
         </router-link>
         <router-link
+          to="/growpro"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'GrowPro' : null"
+        >
+          <span class="icon">🌱</span>
+          <span class="label">GrowPro</span>
+        </router-link>
+        <router-link
           to="/me"
           class="nav-link"
           @click="handleNavClick"
@@ -364,14 +373,23 @@ function logout() {
 }
 
 async function loadUnread() {
+  if (!localStorage.getItem("access")) {
+    unreadCount.value = 0;
+    return;
+  }
   if (loadingUnread.value) return;
   loadingUnread.value = true;
   try {
     const { data } = await api.get("threads/");
-    const messages = data.flatMap((thread) => thread.messages || []);
+    const threads = Array.isArray(data) ? data : data?.results || [];
+    const messages = threads.flatMap((thread) => (Array.isArray(thread?.messages) ? thread.messages : []));
     const myId = me.value?.id;
     unreadCount.value = messages.filter((m) => !m.read && m.sender !== myId).length;
   } catch (err) {
+    if (err?.response?.status === 401) {
+      unreadCount.value = 0;
+      return;
+    }
     console.error("Konnte Threads nicht laden", err);
   } finally {
     loadingUnread.value = false;
@@ -380,9 +398,17 @@ async function loadUnread() {
 
 async function loadNotificationCount() {
   try {
+    if (!localStorage.getItem("access")) {
+      notificationCount.value = 0;
+      return;
+    }
     const { data } = await api.get("notifications/unread-count/");
     notificationCount.value = data?.unread || 0;
   } catch (err) {
+    if (err?.response?.status === 401) {
+      notificationCount.value = 0;
+      return;
+    }
     console.error("Konnte Notification-Count nicht laden", err);
   }
 }

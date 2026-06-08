@@ -193,9 +193,8 @@ const reviewSaving = ref({});
 
 const TEAM_WIDGET_OPTIONS = [
   { id: "priorities", title: "Prioritaeten heute" },
-  { id: "reviews", title: "Review Queue" },
   { id: "deadlines", title: "Naechste Fristen" },
-  { id: "requests", title: "Requests & Feed" },
+  { id: "requests", title: "Requests, Feed & Review" },
   { id: "projects", title: "Projekt Snapshot" },
   { id: "growpro-watch", title: "GrowPro Watch" },
 ];
@@ -203,11 +202,10 @@ const TEAM_WIDGET_DEFAULT_ORDER = TEAM_WIDGET_OPTIONS.map((item) => item.id);
 const VALID_WIDGET_IDS = new Set(TEAM_WIDGET_OPTIONS.map((item) => item.id));
 const WIDGET_SIZE_BY_ID = {
   priorities: "m",
-  reviews: "m",
   deadlines: "m",
-  requests: "l",
+  requests: "m",
   projects: "m",
-  "growpro-watch": "s",
+  "growpro-watch": "m",
 };
 const DASHBOARD_WIDGET_SETTINGS_KEY = "dashboard:teamWidgetVisibility";
 
@@ -312,21 +310,6 @@ const widgetConfigs = computed(() => ({
     })) : null,
     emptyText: "Keine dringenden Tasks."
   },
-  reviews: {
-    id: "reviews",
-    title: "Review Queue",
-    cta: { text: "Alle Reviews", action: () => goTo('reviews') },
-    content: reviewList.value.length ? reviewList.value.map(entry => ({
-      title: entry.title,
-      subtitle: entry.subtitle,
-      badges: [{ text: entry.flag, tone: entry.tone }],
-      actions: [
-        { text: "Zur Task", action: () => openTask(entry.task) },
-        { text: reviewSaving.value[entry.task.id] ? "..." : "Geprüft", action: () => markReviewed(entry.task), disabled: reviewSaving.value[entry.task.id] }
-      ]
-    })) : null,
-    emptyText: "Keine offenen Reviews."
-  },
   deadlines: {
     id: "deadlines",
     title: "Nächste Fristen",
@@ -341,9 +324,18 @@ const widgetConfigs = computed(() => ({
   },
   requests: {
     id: "requests",
-    title: "Requests & Feed",
+    title: "Requests, Feed & Review Queue",
     cta: { text: "Aktivität", action: () => goTo('activity') },
     content: [
+      ...reviewList.value.slice(0, 4).map(entry => ({
+        title: entry.title,
+        subtitle: `Review · ${entry.subtitle}`,
+        badges: [{ text: entry.flag, tone: entry.tone }],
+        actions: [
+          { text: "Zur Task", action: () => openTask(entry.task) },
+          { text: reviewSaving.value[entry.task.id] ? "..." : "Geprueft", action: () => markReviewed(entry.task), disabled: reviewSaving.value[entry.task.id] }
+        ]
+      })),
       ...requests.value.slice(0, 4).map(req => ({
         title: requestTypeLabel(req.req_type),
         subtitle: `${req.sender_name} -> ${req.receiver_name}`,
@@ -358,7 +350,7 @@ const widgetConfigs = computed(() => ({
         badge: { text: formatDateTime(item.created_at), tone: 'info' }
       }))
     ],
-    emptyText: "Keine Requests oder Aktivitäten."
+    emptyText: "Keine Requests, Reviews oder Aktivitäten."
   },
   "growpro-watch": {
     id: "growpro-watch",
@@ -731,14 +723,14 @@ function copyInviteLink() {
 .dashboard-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .artist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .panel { display: grid; gap: 10px; align-content: start; }
 .panel.size-s { grid-column: span 1; }
-.panel.size-m { grid-column: span 2; }
-.panel.size-l { grid-column: 1 / -1; }
+.panel.size-m { grid-column: span 1; }
+.panel.size-l { grid-column: span 2; }
 .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .panel-head h2 { margin: 0; font-size: 18px; }
 .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }

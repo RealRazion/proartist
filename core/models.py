@@ -112,6 +112,7 @@ class Project(models.Model):
         choices=PARTICIPANT_TASK_ACCESS_CHOICES,
         default="NONE",
     )
+    review_required = models.BooleanField(default=False)
     def __str__(self): return self.title
 
 class Task(models.Model):
@@ -142,6 +143,7 @@ class Task(models.Model):
     due_date=models.DateField(null=True,blank=True)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="MEDIUM")
     task_type = models.CharField(max_length=10, choices=TASK_TYPE_CHOICES, default="EXTERNAL")
+    review_required = models.BooleanField(default=False)
     stakeholders = models.ManyToManyField(Profile, blank=True, related_name="task_stakeholder")
     assignees = models.ManyToManyField(Profile, blank=True, related_name="assigned_tasks")
     review_status = models.CharField(max_length=20, choices=REVIEW_STATUS_CHOICES, null=True, blank=True)

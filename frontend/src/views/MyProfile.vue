@@ -381,7 +381,8 @@ async function loadExamples() {
   loadingExamples.value = true;
   try {
     const { data } = await api.get("examples/", { params: { profile: me.value.id } });
-    examples.value = data.filter((item) => item.profile === me.value.id);
+    const rows = Array.isArray(data) ? data : data?.results || [];
+    examples.value = rows.filter((item) => item.profile === me.value.id);
   } catch (err) {
     console.error("Beispiele konnten nicht geladen werden", err);
     showToast("Beispiele konnten nicht geladen werden", "error");

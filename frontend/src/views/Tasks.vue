@@ -113,6 +113,9 @@
                         <span class="task-type" :data-type="task.task_type">
                           {{ taskTypeLabels[task.task_type] || task.task_type }}
                         </span>
+                        <span v-if="task.review_required" class="task-type review-needed">
+                          Review nötig
+                        </span>
                         <span v-if="task.recurrence_pattern && task.recurrence_pattern !== 'NONE'" class="task-type recurrence">
                           {{ recurrenceLabel(task) }}
                         </span>
@@ -330,6 +333,10 @@
                 {{ taskTypeLabels[opt] }}
               </option>
             </select>
+          </label>
+          <label class="toggle review-required-toggle">
+            <input type="checkbox" v-model="taskForm.review_required" />
+            Review erforderlich
           </label>
           <label>
             Status
@@ -596,6 +603,28 @@ function moveCategory(categoryId, direction) {
   persistCategoryOrder();
 }
 
+function categoryThemeStyle(categoryId) {
+  const palette = [
+    { border: "#f97316", bg: "rgba(249, 115, 22, 0.08)" },
+    { border: "#0ea5e9", bg: "rgba(14, 165, 233, 0.09)" },
+    { border: "#22c55e", bg: "rgba(34, 197, 94, 0.08)" },
+    { border: "#eab308", bg: "rgba(234, 179, 8, 0.1)" },
+    { border: "#ef4444", bg: "rgba(239, 68, 68, 0.08)" },
+    { border: "#14b8a6", bg: "rgba(20, 184, 166, 0.09)" },
+  ];
+  let hash = 0;
+  const seed = String(categoryId || "uncategorized");
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const token = palette[Math.abs(hash) % palette.length];
+  return {
+    borderColor: token.border,
+    background: `linear-gradient(145deg, ${token.bg}, rgba(255, 255, 255, 0.28))`,
+  };
+}
+
 function removeCategory(categoryId) {
   customCategories.value = customCategories.value.filter((entry) => entry.id !== categoryId);
   const nextMap = { ...taskCategoryMap.value };
@@ -659,6 +688,10 @@ async function reopenTask(task) {
 function markTaskAsDone(task) {
   const previousStatus = statusSnapshot.value[task.id] || task.status;
   if (previousStatus === "DONE") return;
+  if (!task.review_required) {
+    void applyStatusChange(task, "DONE", "REVIEWED", previousStatus);
+    return;
+  }
   task.status = "DONE";
   openReviewModal(task, previousStatus);
 }
@@ -668,6 +701,7 @@ function getDefaultTaskForm() {
     title: "",
     project: "",
     status: "OPEN",
+    review_required: false,
     priority: "MEDIUM",
     assignee_ids: [],
     stakeholder_ids: [],
@@ -1145,6 +1179,7 @@ async function submitTaskForm() {
   const payload = {
     title: taskForm.value.title.trim(),
     status: taskForm.value.status,
+    review_required: Boolean(taskForm.value.review_required),
     priority: taskForm.value.priority,
     task_type: taskForm.value.task_type,
     stakeholder_ids: taskForm.value.stakeholder_ids,
@@ -1197,6 +1232,7 @@ function startEditTask(task) {
     title: task.title,
     project: task.project || "",
     status: task.status,
+    review_required: Boolean(task.review_required),
     priority: task.priority,
     assignee_ids: task.assignees?.map((p) => p.id) || [],
     stakeholder_ids: task.stakeholders?.map((p) => p.id) || [],
@@ -1310,6 +1346,10 @@ async function onStatusChange(task, event) {
   const nextStatus = event?.target?.value || task.status;
   const previousStatus = statusSnapshot.value[task.id] || task.status;
   if (nextStatus === "DONE" && previousStatus !== "DONE") {
+    if (!task.review_required) {
+      await applyStatusChange(task, "DONE", "REVIEWED", previousStatus);
+      return;
+    }
     openReviewModal(task, previousStatus);
     return;
   }
@@ -1827,6 +1867,10 @@ onBeforeUnmount(() => {
 .task-type[data-type="INTERNAL"] {
   background: rgba(248, 113, 113, 0.22);
   color: #b91c1c;
+}
+.task-type.review-needed {
+  background: rgba(234, 179, 8, 0.2);
+  color: #92400e;
 }
 .task-type.recurrence,
 .type-chip.recurrence {

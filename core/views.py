@@ -1334,17 +1334,25 @@ class TaskViewSet(viewsets.ModelViewSet):
             if not task.completed_at:
                 task.completed_at = timezone.now()
                 update_fields.append("completed_at")
-            if not task.review_status:
-                task.review_status = "NOT_REVIEWED"
-                update_fields.append("review_status")
-            if task.review_status == "REVIEWED" and not task.reviewed_at:
-                task.reviewed_at = timezone.now()
-                update_fields.append("reviewed_at")
-            if task.review_status == "NOT_REVIEWED" and task.reviewed_at:
-                task.reviewed_at = None
-                update_fields.append("reviewed_at")
-            if task.review_status == "NOT_REVIEWED":
-                assign_task_for_review(task)
+            if task.review_required:
+                if not task.review_status:
+                    task.review_status = "NOT_REVIEWED"
+                    update_fields.append("review_status")
+                if task.review_status == "REVIEWED" and not task.reviewed_at:
+                    task.reviewed_at = timezone.now()
+                    update_fields.append("reviewed_at")
+                if task.review_status == "NOT_REVIEWED" and task.reviewed_at:
+                    task.reviewed_at = None
+                    update_fields.append("reviewed_at")
+                if task.review_status == "NOT_REVIEWED":
+                    assign_task_for_review(task)
+            else:
+                if task.review_status != "REVIEWED":
+                    task.review_status = "REVIEWED"
+                    update_fields.append("review_status")
+                if not task.reviewed_at:
+                    task.reviewed_at = timezone.now()
+                    update_fields.append("reviewed_at")
             if update_fields:
                 task.save(update_fields=update_fields)
         log_activity(
@@ -1387,6 +1395,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         prev_status = instance.status
         prev_review_status = instance.review_status
+        prev_review_required = instance.review_required
         prev_priority = instance.priority
         prev_due_date = instance.due_date
         previous_assignees = set(instance.assignees.values_list("id", flat=True))
@@ -1409,17 +1418,28 @@ class TaskViewSet(viewsets.ModelViewSet):
                     task.reviewed_at = None
                     review_fields.append("reviewed_at")
         if task.status == "DONE":
-            if not task.review_status:
-                task.review_status = "NOT_REVIEWED"
-                review_fields.append("review_status")
-            if task.review_status == "REVIEWED" and not task.reviewed_at:
-                task.reviewed_at = timezone.now()
-                review_fields.append("reviewed_at")
-            if task.review_status == "NOT_REVIEWED" and task.reviewed_at:
-                task.reviewed_at = None
-                review_fields.append("reviewed_at")
-            if task.review_status == "NOT_REVIEWED":
-                assign_task_for_review(task)
+            if task.review_required:
+                if prev_review_required is False and task.review_status == "REVIEWED":
+                    task.review_status = "NOT_REVIEWED"
+                    review_fields.append("review_status")
+                if not task.review_status:
+                    task.review_status = "NOT_REVIEWED"
+                    review_fields.append("review_status")
+                if task.review_status == "REVIEWED" and not task.reviewed_at:
+                    task.reviewed_at = timezone.now()
+                    review_fields.append("reviewed_at")
+                if task.review_status == "NOT_REVIEWED" and task.reviewed_at:
+                    task.reviewed_at = None
+                    review_fields.append("reviewed_at")
+                if task.review_status == "NOT_REVIEWED":
+                    assign_task_for_review(task)
+            else:
+                if task.review_status != "REVIEWED":
+                    task.review_status = "REVIEWED"
+                    review_fields.append("review_status")
+                if not task.reviewed_at:
+                    task.reviewed_at = timezone.now()
+                    review_fields.append("reviewed_at")
         elif task.review_status:
             task.review_status = None
             review_fields.append("review_status")

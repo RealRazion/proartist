@@ -17,6 +17,20 @@ def _team_profiles():
     return Profile.objects.filter(roles__key="TEAM").distinct()
 
 
+def _resolve_member_point_cap(profile):
+    settings = profile.notification_settings or {}
+    value = settings.get("task_point_cap")
+    if value is None:
+        value = (settings.get("team_points") or {}).get("max_active_points")
+    if value in (None, ""):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return max(parsed, 0)
+
+
 def compute_team_scores(team_profiles=None):
     team_profiles = list(team_profiles) if team_profiles is not None else list(_team_profiles())
     scores = {profile.id: 0 for profile in team_profiles}
@@ -44,10 +58,19 @@ def compute_team_scores(team_profiles=None):
     return scores
 
 
-def pick_lowest_score_member(scores):
+def pick_lowest_score_member(scores, caps=None):
     if not scores:
         return None
-    return min(scores.items(), key=lambda entry: (entry[1], entry[0]))[0]
+    caps = caps or {}
+    eligible = []
+    for member_id, points in scores.items():
+        cap = caps.get(member_id)
+        if cap is not None and points >= cap:
+            continue
+        eligible.append((member_id, points))
+    if not eligible:
+        return None
+    return min(eligible, key=lambda entry: (entry[1], entry[0]))[0]
 
 
 def assign_task_for_review(task):
@@ -55,7 +78,8 @@ def assign_task_for_review(task):
     if not team_profiles:
         return None
     scores = compute_team_scores(team_profiles)
-    target_id = pick_lowest_score_member(scores)
+    caps = {profile.id: _resolve_member_point_cap(profile) for profile in team_profiles}
+    target_id = pick_lowest_score_member(scores, caps=caps)
     if not target_id:
         return None
     if not task.assignees.filter(id=target_id).exists():
@@ -151,6 +175,9 @@ def build_team_points_breakdown(team_profiles=None):
             }
             members[assignee.id]["tasks"].append(entry)
             members[assignee.id]["total"] += points
+
+    for profile in team_profiles:
+        members[profile.id]["profile"]["max_task_points"] = _resolve_member_point_cap(profile)
 
     projects = Project.objects.filter(is_archived=False).prefetch_related("participants", "owners")
     for project in projects:

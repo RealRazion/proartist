@@ -31,21 +31,6 @@
         </button>
       </div>
 
-      <div class="summary-row">
-        <article class="summary-card">
-          <span>Offen</span>
-          <strong>{{ openTodos.length }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>Erledigt</span>
-          <strong>{{ completedTodos.length }}</strong>
-        </article>
-        <article class="summary-card">
-          <span>Kategorien</span>
-          <strong>{{ orderedCategorySections.length }}</strong>
-        </article>
-      </div>
-
       <div class="view-mode-switch">
         <button
           class="iconbtn tiny"
@@ -391,9 +376,9 @@ function openTodosByCategory(categoryId) {
 function categoryTone(categoryId) {
   if (!categoryId || categoryId === UNCATEGORIZED_ID) {
     return {
-      "--cat-accent": "#64748b",
-      "--cat-soft": "rgba(100, 116, 139, 0.16)",
-      "--cat-strong": "rgba(100, 116, 139, 0.24)",
+      "--cat-accent": "#f97316",
+      "--cat-soft": "rgba(249, 115, 22, 0.16)",
+      "--cat-strong": "rgba(249, 115, 22, 0.24)",
     };
   }
   const source = String(categoryId);

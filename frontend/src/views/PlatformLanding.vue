@@ -980,18 +980,17 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
   .hero-section {
-    padding: 40px 16px;
+    padding: 28px 16px;
   }
 
   .hero-content {
     grid-template-columns: 1fr;
     text-align: center;
-    gap: 24px;
+    gap: 12px;
   }
 
   .hero-visual {
-    height: 200px;
-    opacity: 0.5;
+    display: none;
   }
 
   .icon-float {

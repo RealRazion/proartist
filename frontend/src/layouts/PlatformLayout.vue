@@ -1,6 +1,6 @@
 <template>
   <div class="platform-layout">
-    <header v-if="showTopbar" class="platform-topbar card" :class="{ 'hub-mobile': route.name === 'platforms' }">
+    <header v-if="showTopbar" class="platform-topbar card" :class="{ 'hub': route.name === 'platforms' }">
       <div class="topbar-left">
         <router-link class="brand-link" :to="{ name: 'platforms' }">
           <span class="brand-mark">UNYQ</span>
@@ -140,6 +140,8 @@ onMounted(async () => {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
+  /* Hub-Gradient – muss zum Hero-Gradient in PlatformLanding.vue passen */
+  --hub-gradient: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
 }
 
 .platform-topbar {
@@ -300,40 +302,40 @@ onMounted(async () => {
     font-size: clamp(18px, 5.6vw, 22px);
   }
 
-  /* Hub-spezifisch: Topbar visuell mit dem Hero-Banner zusammenführen */
-  .platform-topbar.hub-mobile {
-    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+  /* Hub-spezifisch: Topbar visuell mit dem Hero-Banner zusammenführen (nur mobile) */
+  .platform-topbar.hub {
+    background: var(--hub-gradient);
     border-bottom: none;
     color: #fff;
   }
 
-  .platform-topbar.hub-mobile .brand-link {
+  .platform-topbar.hub .brand-link {
     border-color: rgba(255, 255, 255, 0.28);
     background: rgba(255, 255, 255, 0.12);
     color: #fff;
   }
 
-  .platform-topbar.hub-mobile .brand-pill {
+  .platform-topbar.hub .brand-pill {
     background: rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.9);
   }
 
-  .platform-topbar.hub-mobile .page-kicker {
+  .platform-topbar.hub .page-kicker {
     display: block;
     color: rgba(255, 255, 255, 0.75);
   }
 
-  .platform-topbar.hub-mobile .page-copy h1 {
+  .platform-topbar.hub .page-copy h1 {
     color: #fff;
   }
 
-  .platform-topbar.hub-mobile .iconbtn {
+  .platform-topbar.hub .iconbtn {
     border-color: rgba(255, 255, 255, 0.28);
     background: rgba(255, 255, 255, 0.12);
     color: #fff;
   }
 
-  .platform-topbar.hub-mobile .iconbtn:hover {
+  .platform-topbar.hub .iconbtn:hover {
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.5);
   }

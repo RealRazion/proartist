@@ -1107,4 +1107,15 @@ onMounted(async () => {
     padding: 14px 20px;
   }
 }
+
+/* Auf Mobile: Hero-Section nahtlos an den Topbar-Banner anschließen */
+@media (max-width: 720px) {
+  .hero-section {
+    padding-top: 8px;
+  }
+
+  .hero-title {
+    display: none;
+  }
+}
 </style>

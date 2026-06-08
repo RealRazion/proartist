@@ -1,6 +1,6 @@
 <template>
   <div class="platform-layout">
-    <header v-if="showTopbar" class="platform-topbar card">
+    <header v-if="showTopbar" class="platform-topbar card" :class="{ 'hub-mobile': route.name === 'platforms' }">
       <div class="topbar-left">
         <router-link class="brand-link" :to="{ name: 'platforms' }">
           <span class="brand-mark">UNYQ</span>
@@ -14,13 +14,6 @@
       </div>
 
       <div class="topbar-actions">
-        <button
-          class="btn ghost tiny nav-btn"
-          type="button"
-          @click="router.push({ name: route.name === 'platforms' ? 'dashboard' : 'platforms' })"
-        >
-          {{ route.name === "platforms" ? "Zum Dashboard" : "Zum Hub" }}
-        </button>
         <button class="iconbtn top-icon-btn" type="button" @click="toggleTheme" :title="`Theme: ${themeLabel}`">
           <svg v-if="theme === 'dark'" class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
@@ -238,10 +231,6 @@ onMounted(async () => {
   gap: 10px;
 }
 
-.nav-btn {
-  white-space: nowrap;
-}
-
 .top-icon-btn {
   width: 40px;
   height: 40px;
@@ -310,6 +299,44 @@ onMounted(async () => {
   .page-copy h1 {
     font-size: clamp(18px, 5.6vw, 22px);
   }
+
+  /* Hub-spezifisch: Topbar visuell mit dem Hero-Banner zusammenführen */
+  .platform-topbar.hub-mobile {
+    background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+    border-bottom: none;
+    color: #fff;
+  }
+
+  .platform-topbar.hub-mobile .brand-link {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+  }
+
+  .platform-topbar.hub-mobile .brand-pill {
+    background: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .platform-topbar.hub-mobile .page-kicker {
+    display: block;
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .platform-topbar.hub-mobile .page-copy h1 {
+    color: #fff;
+  }
+
+  .platform-topbar.hub-mobile .iconbtn {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+  }
+
+  .platform-topbar.hub-mobile .iconbtn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
 }
 
 @media (max-width: 560px) {
@@ -322,10 +349,6 @@ onMounted(async () => {
     width: 100%;
     margin-left: 0;
     justify-content: flex-start;
-  }
-
-  .nav-btn {
-    width: 100%;
   }
 }
 </style>

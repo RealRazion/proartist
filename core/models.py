@@ -970,3 +970,31 @@ class ManagedPlatform(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ArturVote(models.Model):
+    CHOICE_PIZZA = "pizza"
+    CHOICE_PASTA = "pasta"
+    CHOICE_CURRYWURST = "currywurst_mit_pommes"
+    CHOICE_FISH_BURGER = "fish_burger"
+    CHOICE_CUSTOM = "eigene_idee"
+
+    CHOICE_OPTIONS = [
+        (CHOICE_PIZZA, "Pizza"),
+        (CHOICE_PASTA, "Pasta"),
+        (CHOICE_CURRYWURST, "Currywurst mit Pommes"),
+        (CHOICE_FISH_BURGER, "Fish Burger"),
+        (CHOICE_CUSTOM, "Eigene Idee"),
+    ]
+
+    choice = models.CharField(max_length=32, choices=CHOICE_OPTIONS)
+    custom_idea = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        if self.choice == self.CHOICE_CUSTOM and self.custom_idea:
+            return f"Eigene Idee: {self.custom_idea}"
+        return self.get_choice_display()

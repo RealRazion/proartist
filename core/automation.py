@@ -1,8 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.utils import timezone
 
-from .models import ActivityEntry, AutomationRule, Profile, Project, Task
+from .models import ActivityEntry, AutomationRule, GrowProGoal, Profile, Project, Task
 from .notifications import notify_profiles, send_notification_email
 from .utils import log_activity
 
@@ -118,6 +118,128 @@ def send_task_reminders(days=3, include_overdue=True, include_due_soon=True, dry
             )
             for key, value in result.items():
                 summary[key] += value
+
+    return summary
+
+
+def _growpro_due_at(goal):
+    # Prefer explicit due_at datetime if set
+    if getattr(goal, "due_at", None):
+        return goal.due_at if timezone.is_aware(goal.due_at) else timezone.make_aware(goal.due_at, timezone.get_current_timezone())
+    # Fall back to due_date at end-of-day
+    if not goal.due_date:
+        return None
+    naive = datetime.combine(goal.due_date, time(hour=23, minute=59))
+    return timezone.make_aware(naive, timezone.get_current_timezone())
+
+
+def _already_growpro_reminded(goal, event_type, due_at):
+    return ActivityEntry.objects.filter(
+        event_type=event_type,
+        metadata__growpro_goal_id=goal.id,
+        metadata__due_at=due_at.isoformat(),
+    ).exists()
+
+
+def _notify_growpro(goal, *, event_type, title, message, severity, stage, dry_run=False):
+    due_at = _growpro_due_at(goal)
+    if not due_at:
+        return {"skipped": 1}
+    if _already_growpro_reminded(goal, event_type, due_at):
+        return {"skipped": 1}
+
+    assignee = goal.assigned_team
+    if not assignee:
+        return {"no_recipients": 1}
+
+    recipients = _profile_emails([assignee])
+    if not recipients:
+        return {"no_recipients": 1}
+
+    metadata = {
+        "growpro_goal_id": goal.id,
+        "due_at": due_at.isoformat(),
+        "stage": stage,
+    }
+    if not dry_run:
+        send_notification_email(title, message, recipients)
+        notify_profiles(
+            [assignee],
+            title,
+            message,
+            notification_type=event_type,
+            severity=severity,
+            metadata=metadata,
+            preference_key="growpro_updates",
+        )
+        log_activity(
+            event_type,
+            title,
+            description=message[:200],
+            severity=severity,
+            metadata=metadata,
+        )
+    return {"goals_notified": 1, "emails_sent": len(recipients)}
+
+
+def send_growpro_reminders(dry_run=False):
+    now = timezone.now()
+    summary = {
+        "goals_considered": 0,
+        "goals_notified": 0,
+        "emails_sent": 0,
+        "skipped": 0,
+        "no_recipients": 0,
+    }
+
+    goals = (
+        GrowProGoal.objects.select_related("assigned_team__user")
+        .filter(status__in=["ACTIVE", "ON_HOLD"], due_date__isnull=False)
+    )
+
+    for goal in goals:
+        due_at = _growpro_due_at(goal)
+        if not due_at:
+            continue
+        summary["goals_considered"] += 1
+        hours_to_due = (due_at - now).total_seconds() / 3600
+
+        result = None
+        if hours_to_due <= 0:
+            result = _notify_growpro(
+                goal,
+                event_type="growpro_due_overdue",
+                title=f"GrowPro fällig: {goal.title}",
+                message=f"Das GrowPro-Ziel '{goal.title}' ist jetzt fällig. Bitte sofort prüfen und aktualisieren.",
+                severity="DANGER",
+                stage="overdue",
+                dry_run=dry_run,
+            )
+        elif hours_to_due <= 1:
+            result = _notify_growpro(
+                goal,
+                event_type="growpro_due_1h",
+                title=f"GrowPro in ~1h fällig: {goal.title}",
+                message=f"Das GrowPro-Ziel '{goal.title}' ist in ungefähr einer Stunde fällig.",
+                severity="WARNING",
+                stage="1h",
+                dry_run=dry_run,
+            )
+        elif hours_to_due <= 12:
+            result = _notify_growpro(
+                goal,
+                event_type="growpro_due_12h",
+                title=f"GrowPro in ~12h fällig: {goal.title}",
+                message=f"Das GrowPro-Ziel '{goal.title}' ist in ungefähr 12 Stunden fällig.",
+                severity="INFO",
+                stage="12h",
+                dry_run=dry_run,
+            )
+
+        if not result:
+            continue
+        for key, value in result.items():
+            summary[key] += value
 
     return summary
 

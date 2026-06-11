@@ -2,8 +2,8 @@
   <div :class="['profiles', { compact: compactCards }]">
     <header class="card header">
       <div>
-        <h1>Artists entdecken</h1>
-        <p class="muted">Suche gezielt nach Artists, Produzenten oder Videografen und starte direkt einen Chat.</p>
+        <h1>{{ adminMode ? "Alle Nutzer" : "Artists entdecken" }}</h1>
+        <p class="muted">{{ adminMode ? "Admin-Ansicht: alle Nutzerprofile inklusive Team." : "Suche gezielt nach Artists und Team-Mitgliedern und starte direkt einen Chat." }}</p>
       </div>
       <div class="search-area">
         <input
@@ -203,6 +203,7 @@ const manage = ref({
 });
 
 const isTeam = computed(() => (me.value?.roles || []).some((r) => r.key === "TEAM"));
+const adminMode = computed(() => isTeam.value && String(route.query.admin || "") === "1");
 
 if (typeof window !== "undefined") {
   const saved = window.localStorage.getItem(COMPACT_KEY);
@@ -249,9 +250,17 @@ const roleFilterOptions = computed(() => {
 const nonTeamRoles = computed(() => roles.value.filter((role) => role.key !== "TEAM"));
 const teamRoleId = computed(() => roles.value.find((role) => role.key === "TEAM")?.id || null);
 
+const visibleProfiles = computed(() => {
+  if (adminMode.value) return profiles.value;
+  return profiles.value.filter((profile) => {
+    const keys = (profile.roles || []).map((role) => role.key);
+    return keys.includes("TEAM") || keys.includes("ARTIST");
+  });
+});
+
 const filteredProfiles = computed(() => {
   const term = debouncedQuery.value.trim().toLowerCase();
-  return profiles.value.filter((profile) => {
+  return visibleProfiles.value.filter((profile) => {
     const haystack = [
       profile.name,
       profile.username,
@@ -362,7 +371,7 @@ function setRoleFilter(key) {
 
 async function loadProfiles() {
   try {
-    const { data } = await api.get("profiles/");
+    const { data } = await api.get("profiles/", { params: { page_size: 300 } });
     const rows = Array.isArray(data) ? data : data?.results || [];
     profiles.value = rows.map(decorateProfile);
   } catch (err) {

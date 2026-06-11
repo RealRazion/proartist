@@ -83,6 +83,18 @@
                 >
                   {{ platformStatusLabel(platform.status) }}
                 </span>
+                <span v-if="platform.key === 'dashboard' && unreadNotifications" class="platform-tag notif-badge">
+                  🔔 {{ unreadNotificationBadge }}
+                </span>
+                <span v-if="platform.key === 'dashboard' && hubBadges.overdueTasks" class="platform-tag badge-danger">
+                  🔴 {{ hubBadges.overdueTasks }} überfällig
+                </span>
+                <span v-if="platform.key === 'dashboard' && hubBadges.pendingReviews" class="platform-tag badge-warning">
+                  👀 {{ hubBadges.pendingReviews }} Review
+                </span>
+                <span v-if="platform.key === 'dashboard' && hubBadges.staleGrowpro" class="platform-tag badge-danger">
+                  ⏰ {{ hubBadges.staleGrowpro }} GrowPro stale
+                </span>
               </div>
             </div>
           </div>
@@ -147,6 +159,8 @@ const viewMode = ref("default");
 const editMode = ref(false);
 const draggedKey = ref(null);
 const dragOverKey = ref(null);
+const unreadNotifications = ref(0);
+const hubBadges = ref({ openTasks: 0, overdueTasks: 0, pendingReviews: 0, staleGrowpro: 0 });
 
 function loadSavedOrder() {
   try {
@@ -187,6 +201,7 @@ const totalUsers = computed(() => stats.value.totalUsers);
 const activeProjects = computed(() => stats.value.activeProjects);
 const pendingTasks = computed(() => stats.value.pendingTasks);
 const upcomingEvents = computed(() => stats.value.upcomingEvents);
+const unreadNotificationBadge = computed(() => (unreadNotifications.value > 99 ? "99+" : String(unreadNotifications.value)));
 
 function asList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -509,6 +524,44 @@ async function loadStats() {
   }
 }
 
+async function loadNotificationCount() {
+  try {
+    const { data } = await api.get("notifications/unread-count/");
+    unreadNotifications.value = Number(data?.unread || 0);
+  } catch {
+    unreadNotifications.value = 0;
+  }
+}
+
+async function loadHubBadges() {
+  if (!isTeam.value) return;
+  try {
+    const [tasksRes, reviewRes, growproRes] = await Promise.all([
+      api.get("tasks/", { params: { status: "OPEN,IN_PROGRESS", include_archived: 0, page_size: 1 } }).catch(() => null),
+      api.get("tasks/", { params: { status: "DONE", review_status: "NOT_REVIEWED", include_done: 1, include_archived: 0, page_size: 1 } }).catch(() => null),
+      api.get("growpro/", { params: { status: "ACTIVE,ON_HOLD", page_size: 200 } }).catch(() => null),
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    const taskCount = tasksRes?.data?.count ?? (Array.isArray(tasksRes?.data) ? tasksRes.data.length : 0);
+    const overdueCount = await api.get("analytics/summary/").then((r) => r.data?.overdue_tasks || 0).catch(() => 0);
+    const reviewCount = reviewRes?.data?.count ?? (Array.isArray(reviewRes?.data) ? reviewRes.data.length : 0);
+    const growproItems = Array.isArray(growproRes?.data) ? growproRes.data : growproRes?.data?.results || [];
+    const now = Date.now();
+    const staleCount = growproItems.filter((goal) => {
+      const last = goal.last_logged_at ? new Date(goal.last_logged_at).getTime() : null;
+      return !last || (now - last) / (1000 * 60 * 60) > 72;
+    }).length;
+    hubBadges.value = {
+      openTasks: Math.min(99, taskCount),
+      overdueTasks: Math.min(99, overdueCount),
+      pendingReviews: Math.min(99, reviewCount),
+      staleGrowpro: Math.min(99, staleCount),
+    };
+  } catch {
+    // silently ignore
+  }
+}
+
 onMounted(async () => {
   await fetchProfile();
   if (isTeam.value) {
@@ -521,7 +574,7 @@ onMounted(async () => {
       // ignore storage errors
     }
   }
-  await Promise.all([loadStats(), loadAccessState()]);
+  await Promise.all([loadStats(), loadAccessState(), loadNotificationCount(), loadHubBadges()]);
 });
 </script>
 
@@ -880,6 +933,21 @@ onMounted(async () => {
 
 .platform-tag.status.status-locked {
   color: #991b1b;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.platform-tag.notif-badge {
+  color: #7c2d12;
+  background: rgba(251, 146, 60, 0.26);
+}
+
+.platform-tag.badge-warning {
+  color: #78350f;
+  background: rgba(234, 179, 8, 0.22);
+}
+
+.platform-tag.badge-danger {
+  color: #7f1d1d;
   background: rgba(239, 68, 68, 0.2);
 }
 

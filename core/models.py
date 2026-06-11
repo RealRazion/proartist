@@ -100,6 +100,7 @@ class Project(models.Model):
         ("EDIT", "Tasks bearbeiten"),
     ]
     title=models.CharField(max_length=200)
+    color = models.CharField(max_length=16, default="#4f46e5")
     description=models.TextField(blank=True)
     status=models.CharField(max_length=50,default="PLANNED")
     created_at=models.DateTimeField(auto_now_add=True)
@@ -732,6 +733,7 @@ class GrowProGoal(models.Model):
     current_value = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     unit = models.CharField(max_length=32, blank=True, help_text="z.B. Hörer, Streams, %")
     due_date = models.DateField(null=True, blank=True)
+    due_at = models.DateTimeField(null=True, blank=True, help_text="Optionale Uhrzeit der Fälligkeit für präzise Erinnerungen")
     status = models.CharField(max_length=12, choices=STATUS, default="ACTIVE")
     last_logged_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -971,30 +973,3 @@ class ManagedPlatform(models.Model):
     def __str__(self):
         return self.name
 
-
-class ArturVote(models.Model):
-    CHOICE_PIZZA = "pizza"
-    CHOICE_PASTA = "pasta"
-    CHOICE_CURRYWURST = "currywurst_mit_pommes"
-    CHOICE_FISH_BURGER = "fish_burger"
-    CHOICE_CUSTOM = "eigene_idee"
-
-    CHOICE_OPTIONS = [
-        (CHOICE_PIZZA, "Pizza"),
-        (CHOICE_PASTA, "Pasta"),
-        (CHOICE_CURRYWURST, "Currywurst mit Pommes"),
-        (CHOICE_FISH_BURGER, "Fish Burger"),
-        (CHOICE_CUSTOM, "Eigene Idee"),
-    ]
-
-    choice = models.CharField(max_length=32, choices=CHOICE_OPTIONS)
-    custom_idea = models.CharField(max_length=200, blank=True, default="")
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        if self.choice == self.CHOICE_CUSTOM and self.custom_idea:
-            return f"Eigene Idee: {self.custom_idea}"
-        return self.get_choice_display()

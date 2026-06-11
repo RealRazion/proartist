@@ -27,6 +27,7 @@
         >
           <span class="icon">🧭</span>
           <span class="label">Hub</span>
+          <small v-if="notificationCount" class="pill">{{ notificationBadge }}</small>
         </router-link>
         <router-link
           to="/dashboard"
@@ -64,7 +65,7 @@
         >
           <span class="icon">🔔</span>
           <span class="label">Notifications</span>
-          <small v-if="notificationCount" class="pill">{{ notificationCount }}</small>
+          <small v-if="notificationCount" class="pill">{{ notificationBadge }}</small>
         </router-link>
         <router-link
           v-if="isTeam"
@@ -197,7 +198,7 @@
               <path d="M6 8a6 6 0 1 1 12 0v4.5l1.7 2.6A1 1 0 0 1 18.9 17H5.1a1 1 0 0 1-.8-1.9L6 12.5z" />
               <path d="M10 19a2 2 0 0 0 4 0" />
             </svg>
-            <span v-if="notificationCount" class="pill toolbar-pill">{{ notificationCount }}</span>
+            <span v-if="notificationCount" class="pill toolbar-pill">{{ notificationBadge }}</span>
           </button>
           <button
             class="iconbtn top-icon-btn"
@@ -306,6 +307,10 @@ const initial = computed(() => {
 
 const themeLabel = computed(() => (theme.value === "dark" ? "Dark" : "Light"));
 const routerViewKey = computed(() => `${route.fullPath}::${viewRefreshKey.value}`);
+const notificationBadge = computed(() => {
+  const unread = Number(notificationCount.value || 0);
+  return unread > 99 ? "99+" : String(unread);
+});
 function notify(msg) {
   showToast(msg);
 }

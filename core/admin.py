@@ -1,6 +1,5 @@
 from django.contrib import admin
 from .models import (
-    ArturVote,
     ActivityEntry,
     AutomationRule,
     DailyExpense,
@@ -51,4 +50,3 @@ admin.site.register(Song)
 admin.site.register(SongVersion)
 admin.site.register(GrowProGoal)
 admin.site.register(GrowProUpdate)
-admin.site.register(ArturVote)

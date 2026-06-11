@@ -1,21 +1,5 @@
 <template>
   <div class="tasks">
-    <header class="card header">
-      <div>
-        <h1>Tasks</h1>
-        <p class="muted">Verteile Aufgaben, lade Dateien hoch und halte Kommentare fest.</p>
-        <p class="muted small">Wähle "Erledigt" und bestätige dann, ob die Aufgabe geprüft wurde.</p>
-      </div>
-      <div class="board-actions">
-        <button class="btn ghost" type="button" @click="exportCalendar" :disabled="calendarExporting">
-          {{ calendarExporting ? "Exportiere..." : "Kalender Export" }}
-        </button>
-        <button class="btn ghost" type="button" @click="refreshTasks" :disabled="loadingTasks">
-          {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
-        </button>
-      </div>
-    </header>
-
     <section v-if="!isTeam" class="card info">
       <h2>Zugriff nur für Team</h2>
       <p class="muted">Nur Team-Mitglieder können Aufgaben verwalten. Bitte wende dich an das Team.</p>
@@ -25,12 +9,17 @@
       <div class="board card">
         <div class="board-head">
           <div>
-            <h2>Aufgabenboard</h2>
-            <p class="muted small">Alles zentral in einem Fenster mit Kategorien, Status und Erledigt-Ansicht.</p>
+            <h2>Tasks</h2>
+            <p class="muted small">Alles zentral in einem Fenster mit Projekten, Status und Erledigt-Ansicht.</p>
           </div>
           <div class="board-actions">
+            <button class="btn ghost" type="button" @click="exportCalendar" :disabled="calendarExporting">
+              {{ calendarExporting ? "Exportiere..." : "Kalender Export" }}
+            </button>
+            <button class="btn ghost" type="button" @click="refreshTasks" :disabled="loadingTasks">
+              {{ loadingTasks ? "Lade..." : "Aktualisieren" }}
+            </button>
             <button class="btn ghost" type="button" @click="openFilterModal">Filter</button>
-            <button class="btn ghost" type="button" @click="openCategoryModal">Kategorien</button>
             <button class="btn ghost" type="button" @click="openFinishedModal">Erledigte Tasks</button>
             <button class="btn" type="button" @click="openTaskModal" :disabled="taskSaving">Task erstellen</button>
           </div>
@@ -83,21 +72,21 @@
         <div class="category-list" v-if="!loadingTasks">
           <article
             class="category-group"
-            v-for="section in orderedCategorySections"
-            :key="`category-${section.id}`"
-            :style="categoryThemeStyle(section.id)"
+            v-for="section in orderedProjectSections"
+            :key="`project-${section.id}`"
+            :style="projectThemeStyle(section.id)"
           >
-            <button class="category-header" type="button" @click="toggleCategory(section.id)">
+            <button class="category-header" type="button" @click="toggleProjectGroup(section.id)">
               <span class="category-header-copy">
                 <strong>{{ section.name }}</strong>
-                <small class="category-count">{{ categoryTasks(section.id).length }} Tasks</small>
+                <small class="category-count">{{ projectTasks(section.id).length }} Tasks</small>
               </span>
-              <span class="category-toggle">{{ isCategoryCollapsed(section.id) ? "+" : "-" }}</span>
+              <span class="category-toggle">{{ isProjectGroupCollapsed(section.id) ? "+" : "-" }}</span>
             </button>
-            <div v-if="!isCategoryCollapsed(section.id)" class="category-content">
-              <ul v-if="categoryTasks(section.id).length">
+            <div v-if="!isProjectGroupCollapsed(section.id)" class="category-content">
+              <ul v-if="projectTasks(section.id).length">
                 <li
-                  v-for="task in categoryTasks(section.id)"
+                  v-for="task in projectTasks(section.id)"
                   :key="task.id"
                   class="task-card"
                   :class="{ overdue: dueState(task) === 'overdue', soon: dueState(task) === 'soon' }"
@@ -139,11 +128,6 @@
                     {{ task.due_date ? `Fällig ${formatDueDate(task.due_date)}` : "Kein Termin" }}
                   </p>
                   <div class="actions task-actions-grid">
-                    <select class="input" :value="getTaskCategory(task.id)" @change="setTaskCategory(task.id, $event.target.value)">
-                      <option v-for="category in categoryOptions" :key="`option-${category.id}`" :value="category.id">
-                        {{ category.name }}
-                      </option>
-                    </select>
                     <select class="input" v-model="task.status" @change="onStatusChange(task, $event)">
                       <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
                     </select>
@@ -156,7 +140,7 @@
                   </div>
                 </li>
               </ul>
-              <p v-else class="muted empty">Keine Tasks in dieser Kategorie</p>
+              <p v-else class="muted empty">Keine Tasks in diesem Projekt</p>
             </div>
           </article>
         </div>
@@ -167,42 +151,6 @@
         <p v-if="loadingMoreTasks" class="muted loading-more">Lade weitere Tasks...</p>
       </div>
     </section>
-
-    <div v-if="showCategoryModal" class="modal-backdrop" @click.self="closeCategoryModal">
-      <div class="modal card">
-        <div class="modal-head">
-          <h3>Kategorien sortieren</h3>
-          <button class="btn ghost tiny" type="button" @click="closeCategoryModal">Schließen</button>
-        </div>
-        <form class="form" @submit.prevent="addCategory">
-          <label>
-            Neue Kategorie
-            <div class="category-create-row">
-              <input class="input" v-model.trim="newCategoryName" placeholder="z. B. Produktion" />
-              <button class="btn tiny" type="submit">Anlegen</button>
-            </div>
-          </label>
-        </form>
-        <div class="category-order-list">
-          <article
-            v-for="(category, index) in customCategories"
-            :key="`manage-${category.id}`"
-            class="category-order-item"
-            :style="categoryThemeStyle(category.id)"
-          >
-            <div class="category-order-meta">
-              <span class="category-swatch" aria-hidden="true"></span>
-              <strong>{{ category.name }}</strong>
-            </div>
-            <div class="card-buttons">
-              <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, -1)" :disabled="index === 0">Hoch</button>
-              <button class="btn ghost tiny" type="button" @click="moveCategory(category.id, 1)" :disabled="index === customCategories.length - 1">Runter</button>
-              <button class="btn ghost danger tiny" type="button" @click="removeCategory(category.id)">Löschen</button>
-            </div>
-          </article>
-        </div>
-      </div>
-    </div>
 
     <div v-if="showFinishedModal" class="modal-backdrop" @click.self="closeFinishedModal">
       <div class="modal card wide">
@@ -497,13 +445,8 @@ const calendarExporting = ref(false);
 const showFinishedModal = ref(false);
 const loadingCompletedTasks = ref(false);
 const completedTasks = ref([]);
-const showCategoryModal = ref(false);
-const newCategoryName = ref("");
-
-const TASK_CATEGORY_KEY = "unyq_task_categories";
-const TASK_CATEGORY_ORDER_KEY = "unyq_task_category_order";
-const TASK_CATEGORY_COLLAPSED_KEY = "unyq_task_category_collapsed";
-const UNCATEGORIZED_ID = "uncategorized";
+const PROJECT_GROUP_COLLAPSED_KEY = "unyq_task_project_collapsed";
+const NO_PROJECT_ID = "no-project";
 
 function readStorageJSON(key, fallback) {
   try {
@@ -514,96 +457,52 @@ function readStorageJSON(key, fallback) {
   }
 }
 
-const taskCategoryMap = ref(readStorageJSON(TASK_CATEGORY_KEY, {}));
-const customCategories = ref(readStorageJSON(TASK_CATEGORY_ORDER_KEY, []));
-const collapsedCategories = ref(readStorageJSON(TASK_CATEGORY_COLLAPSED_KEY, {}));
+const collapsedProjectGroups = ref(readStorageJSON(PROJECT_GROUP_COLLAPSED_KEY, {}));
 
-function persistTaskCategories() {
-  localStorage.setItem(TASK_CATEGORY_KEY, JSON.stringify(taskCategoryMap.value));
+function persistCollapsedProjectGroups() {
+  localStorage.setItem(PROJECT_GROUP_COLLAPSED_KEY, JSON.stringify(collapsedProjectGroups.value));
 }
 
-function persistCategoryOrder() {
-  localStorage.setItem(TASK_CATEGORY_ORDER_KEY, JSON.stringify(customCategories.value));
+const orderedProjectSections = computed(() => {
+  const byId = projects.value.map((project) => ({ id: String(project.id), name: project.title }));
+  const existing = new Set(visibleTasks.value.map((task) => String(task.project || NO_PROJECT_ID)));
+  const rows = byId.filter((row) => existing.has(row.id));
+  if (existing.has(NO_PROJECT_ID)) rows.push({ id: NO_PROJECT_ID, name: "Ohne Projekt" });
+  return rows;
+});
+
+function taskProjectGroup(task) {
+  return String(task.project || NO_PROJECT_ID);
 }
 
-function persistCollapsedCategories() {
-  localStorage.setItem(TASK_CATEGORY_COLLAPSED_KEY, JSON.stringify(collapsedCategories.value));
-}
-
-const categoryOptions = computed(() => [
-  { id: UNCATEGORIZED_ID, name: "Ohne Kategorie" },
-  ...customCategories.value,
-]);
-
-const orderedCategorySections = computed(() => [
-  { id: UNCATEGORIZED_ID, name: "Ohne Kategorie" },
-  ...customCategories.value,
-]);
-
-function getTaskCategory(taskId) {
-  return taskCategoryMap.value[taskId] || UNCATEGORIZED_ID;
-}
-
-function categoryTasks(categoryId) {
+function projectTasks(projectId) {
   return visibleTasks.value
-    .filter((task) => getTaskCategory(task.id) === categoryId)
+    .filter((task) => taskProjectGroup(task) === String(projectId))
     .slice()
     .sort(compareTasks);
 }
 
-function setTaskCategory(taskId, categoryId) {
-  taskCategoryMap.value = { ...taskCategoryMap.value, [taskId]: categoryId || UNCATEGORIZED_ID };
-  persistTaskCategories();
+function isProjectGroupCollapsed(projectId) {
+  return Boolean(collapsedProjectGroups.value[String(projectId)]);
 }
 
-function isCategoryCollapsed(categoryId) {
-  return Boolean(collapsedCategories.value[categoryId]);
-}
-
-function toggleCategory(categoryId) {
-  collapsedCategories.value = {
-    ...collapsedCategories.value,
-    [categoryId]: !collapsedCategories.value[categoryId],
+function toggleProjectGroup(projectId) {
+  const key = String(projectId);
+  collapsedProjectGroups.value = {
+    ...collapsedProjectGroups.value,
+    [key]: !collapsedProjectGroups.value[key],
   };
-  persistCollapsedCategories();
+  persistCollapsedProjectGroups();
 }
 
-function openCategoryModal() {
-  showCategoryModal.value = true;
-}
-
-function closeCategoryModal() {
-  showCategoryModal.value = false;
-  newCategoryName.value = "";
-}
-
-function addCategory() {
-  const name = newCategoryName.value.trim();
-  if (!name) return;
-  const alreadyExists = customCategories.value.some((entry) => entry.name.toLowerCase() === name.toLowerCase());
-  if (alreadyExists) {
-    showToast("Kategorie existiert bereits", "warning");
-    return;
+function projectThemeStyle(projectId) {
+  const project = projects.value.find((entry) => String(entry.id) === String(projectId));
+  if (project?.color) {
+    return {
+      borderColor: project.color,
+      background: `linear-gradient(145deg, color-mix(in srgb, ${project.color} 14%, transparent), rgba(255, 255, 255, 0.28))`,
+    };
   }
-  const next = [...customCategories.value, { id: `cat-${Date.now()}`, name }];
-  customCategories.value = next;
-  persistCategoryOrder();
-  newCategoryName.value = "";
-}
-
-function moveCategory(categoryId, direction) {
-  const index = customCategories.value.findIndex((entry) => entry.id === categoryId);
-  if (index === -1) return;
-  const target = index + direction;
-  if (target < 0 || target >= customCategories.value.length) return;
-  const next = [...customCategories.value];
-  const [moved] = next.splice(index, 1);
-  next.splice(target, 0, moved);
-  customCategories.value = next;
-  persistCategoryOrder();
-}
-
-function categoryThemeStyle(categoryId) {
   const palette = [
     { border: "#f97316", bg: "rgba(249, 115, 22, 0.08)" },
     { border: "#0ea5e9", bg: "rgba(14, 165, 233, 0.09)" },
@@ -623,21 +522,6 @@ function categoryThemeStyle(categoryId) {
     borderColor: token.border,
     background: `linear-gradient(145deg, ${token.bg}, rgba(255, 255, 255, 0.28))`,
   };
-}
-
-function removeCategory(categoryId) {
-  customCategories.value = customCategories.value.filter((entry) => entry.id !== categoryId);
-  const nextMap = { ...taskCategoryMap.value };
-  Object.keys(nextMap).forEach((taskId) => {
-    if (nextMap[taskId] === categoryId) {
-      nextMap[taskId] = UNCATEGORIZED_ID;
-    }
-  });
-  taskCategoryMap.value = nextMap;
-  delete collapsedCategories.value[categoryId];
-  persistTaskCategories();
-  persistCategoryOrder();
-  persistCollapsedCategories();
 }
 
 async function loadCompletedTasks() {

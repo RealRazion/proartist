@@ -122,6 +122,9 @@ function typeLabel(type) {
     project_status_updated: "Projekt-Update",
     task_reminder_due_soon: "Reminder",
     task_reminder_overdue: "Reminder",
+    growpro_due_12h: "GrowPro Reminder",
+    growpro_due_1h: "GrowPro Reminder",
+    growpro_due_overdue: "GrowPro Alarm",
     automation_notification: "Automation",
   };
   return labels[type] || "Hinweis";

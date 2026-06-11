@@ -187,7 +187,7 @@ const adminTools = [
 function openTool(tool) {
   const mapping = {
     "arena-animations": "/platforms/admin/tournament-animations",
-    users: "/app/profiles",
+    users: "/app/profiles?admin=1",
     platforms: "/platforms/manage-platforms",
     "artist-view": "/platforms/contests?artistView=1",
     analytics: "/app/analytics",

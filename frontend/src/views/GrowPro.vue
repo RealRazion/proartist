@@ -216,6 +216,10 @@
               <input class="input" type="date" v-model="editForm.due_date" />
             </label>
             <label>
+              Uhrzeit (optional &ndash; für präzise Erinnerungen)
+              <input class="input" type="time" v-model="editForm.due_time" placeholder="z.B. 18:00" />
+            </label>
+            <label>
               Status
               <select class="input" v-model="editForm.status">
                 <option v-for="s in statusOptions" :key="s" :value="s">{{ statusLabels[s] }}</option>
@@ -268,6 +272,10 @@
             <label>
               F&auml;llig am
               <input class="input" type="date" v-model="form.due_date" />
+            </label>
+            <label>
+              Uhrzeit (optional &ndash; für präzise Erinnerungen)
+              <input class="input" type="time" v-model="form.due_time" placeholder="z.B. 18:00" />
             </label>
             <label>
               Status
@@ -347,6 +355,7 @@ const editForm = ref({
   target_value: 0,
   current_value: 0,
   due_date: "",
+  due_time: "",
   status: "ACTIVE",
 });
 
@@ -376,6 +385,7 @@ const form = ref({
   target_value: 0,
   current_value: 0,
   due_date: "",
+  due_time: "",
   status: "ACTIVE",
 });
 
@@ -436,8 +446,16 @@ function resetCreateForm() {
     target_value: 0,
     current_value: 0,
     due_date: "",
+    due_time: "",
     status: "ACTIVE",
   };
+}
+
+function buildDueAt(due_date, due_time) {
+  if (!due_date) return null;
+  if (!due_time) return null;
+  // Combine date + time into ISO datetime string
+  return `${due_date}T${due_time}:00`;
 }
 
 function openCreateModal() {
@@ -461,10 +479,15 @@ function logDraft(id) {
 function dueState(goal) {
   if (!goal || ["DONE", "ARCHIVED"].includes(goal.status)) return "OK";
   const now = Date.now();
-  const dueDate = goal.due_date ? new Date(goal.due_date).getTime() : null;
+  // Use due_at (precise datetime) when available, otherwise fall back to due_date
+  const dueTimestamp = goal.due_at
+    ? new Date(goal.due_at).getTime()
+    : goal.due_date
+    ? new Date(goal.due_date).getTime()
+    : null;
   const lastLogged = goal.last_logged_at ? new Date(goal.last_logged_at).getTime() : null;
-  if (dueDate && dueDate < now) return "OVERDUE";
-  if (dueDate && dueDate - now < 24 * 60 * 60 * 1000) return "SOON";
+  if (dueTimestamp && dueTimestamp < now) return "OVERDUE";
+  if (dueTimestamp && dueTimestamp - now < 24 * 60 * 60 * 1000) return "SOON";
   if (!lastLogged || (now - lastLogged) / (1000 * 60 * 60) > 72) return "STALE";
   return "OK";
 }
@@ -507,6 +530,16 @@ function goalProgress(goal) {
 
 function openEdit(goal) {
   if (!canManageGoal(goal)) return;
+  // Extract date and time from due_at if set, otherwise fall back to due_date
+  let dueDate = goal.due_date || "";
+  let dueTime = "";
+  if (goal.due_at) {
+    const dt = new Date(goal.due_at);
+    if (!Number.isNaN(dt.getTime())) {
+      dueDate = dt.toISOString().slice(0, 10);
+      dueTime = dt.toTimeString().slice(0, 5);
+    }
+  }
   editForm.value = {
     id: goal.id,
     profile_id: goal.profile?.id || "",
@@ -514,7 +547,8 @@ function openEdit(goal) {
     unit: goal.unit || "",
     target_value: Number(goal.target_value || 0),
     current_value: Number(goal.current_value || 0),
-    due_date: goal.due_date || "",
+    due_date: dueDate,
+    due_time: dueTime,
     status: goal.status || "ACTIVE",
   };
   editModalOpen.value = true;
@@ -542,6 +576,7 @@ async function saveEdit() {
       target_value: Number(editForm.value.target_value || 0),
       current_value: Number(editForm.value.current_value || 0),
       due_date: editForm.value.due_date || null,
+      due_at: buildDueAt(editForm.value.due_date, editForm.value.due_time),
       status: editForm.value.status,
     };
     if (isTeam.value) {
@@ -641,6 +676,7 @@ async function createGoal() {
     const payload = {
       ...form.value,
       metric: form.value.title.trim() || "Ziel",
+      due_at: buildDueAt(form.value.due_date, form.value.due_time),
     };
     await api.post("growpro/", payload);
     resetCreateForm();

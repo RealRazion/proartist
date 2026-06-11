@@ -457,6 +457,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "color",
             "description",
             "status",
             "review_required",
@@ -828,6 +829,7 @@ class GrowProGoalSerializer(serializers.ModelSerializer):
             "target_value",
             "current_value",
             "due_date",
+            "due_at",
             "status",
             "last_logged_at",
             "created_at",

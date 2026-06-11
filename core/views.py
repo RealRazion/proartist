@@ -15,12 +15,10 @@ from django.core.cache import cache
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse, HttpResponseRedirect
-from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.db.models import Case, Count, IntegerField, Max, Q, When
 from django.db.models.functions import Coalesce
-from django.utils.html import escape
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.dateparse import parse_date
@@ -36,7 +34,6 @@ from rest_framework.views import APIView
 from .models import (
     ROLE_CHOICES,
     ActivityEntry,
-    ArturVote,
     AutomationRule,
     Booking,
     ChatMessage,
@@ -138,7 +135,13 @@ from .assignment import assign_task_for_review, build_team_points_breakdown, bui
 from .utils import log_activity
 from .notifications import create_in_app_notification, notify_profiles, send_notification_email
 from .realtime import notify_project_event, notify_task_event
-from .automation import _profile_emails, run_automation_rules_for_project, run_automation_rules_for_task, send_task_reminders
+from .automation import (
+    _profile_emails,
+    run_automation_rules_for_project,
+    run_automation_rules_for_task,
+    send_growpro_reminders,
+    send_task_reminders,
+)
 from .throttling import (
     InviteUserRateThrottle,
     RegisterRateThrottle,
@@ -152,9 +155,6 @@ logger = logging.getLogger(__name__)
 
 DASHBOARD_WIDGET_SIZES = {"s", "m", "l"}
 MAX_DASHBOARD_LAYOUTS = 5
-ARTUR_PASSWORD = "3004"
-ARTUR_SESSION_KEY = "artur_access_granted"
-
 
 def _next_platform_version(version: str) -> str:
     """Increment platform version using a simple major.minor scheme (e.g. 0.1 -> 0.2)."""
@@ -212,376 +212,6 @@ def _normalize_dashboard_layouts(payload):
             }
         )
     return normalized
-
-
-def _artur_has_access(request):
-        return bool(request.session.get(ARTUR_SESSION_KEY))
-
-
-def _artur_vote_label(vote):
-    if vote.choice == ArturVote.CHOICE_CUSTOM and vote.custom_idea:
-        return f"Eigene Idee: {escape(vote.custom_idea)}"
-    return escape(vote.get_choice_display())
-
-
-def artur_page(request):
-        error_message = ""
-        success_message = ""
-
-        if request.method == "POST":
-                if not _artur_has_access(request):
-                        submitted_password = str(request.POST.get("password") or "").strip()
-                        if submitted_password == ARTUR_PASSWORD:
-                                request.session[ARTUR_SESSION_KEY] = True
-                                return HttpResponseRedirect(reverse("artur"))
-                        error_message = "Falsches Passwort. Bitte erneut versuchen."
-                else:
-                        selected_choice = str(request.POST.get("choice") or "").strip()
-                        custom_idea = str(request.POST.get("custom_idea") or "").strip()
-                        valid_choices = {value for value, _ in ArturVote.CHOICE_OPTIONS}
-                        if selected_choice not in valid_choices:
-                                error_message = "Bitte waehle ein Gericht aus."
-                        elif selected_choice == ArturVote.CHOICE_CUSTOM and not custom_idea:
-                                error_message = "Bitte gib deine eigene Idee ein."
-                        else:
-                                ArturVote.objects.create(choice=selected_choice, custom_idea=custom_idea[:200])
-                                success_message = "Deine Wahl wurde gespeichert."
-
-        csrf_token = get_token(request)
-        has_access = _artur_has_access(request)
-
-        password_panel = f"""
-                <section class=\"card gate-card\">
-                    <h1>artur</h1>
-                    <p>Private Voting-Ecke fuer morgen. Gib das Passwort ein, um die Abstimmung zu sehen.</p>
-                    {f'<div class="banner error">{error_message}</div>' if error_message else ''}
-                    <form method=\"post\" class=\"stack\">
-                        <input type=\"hidden\" name=\"csrfmiddlewaretoken\" value=\"{csrf_token}\" />
-                        <label class=\"input-wrap\">
-                            <span>Passwort</span>
-                            <input type=\"password\" name=\"password\" autocomplete=\"off\" placeholder=\"Passwort eingeben\" required />
-                        </label>
-                        <button type=\"submit\" class=\"cta\">Zugang freischalten</button>
-                    </form>
-                </section>
-        """
-
-        vote_cards = []
-        emoji_map = {
-                ArturVote.CHOICE_PIZZA: "🍕",
-                ArturVote.CHOICE_PASTA: "🍝",
-                ArturVote.CHOICE_CURRYWURST: "🌭",
-                ArturVote.CHOICE_FISH_BURGER: "🍔",
-                ArturVote.CHOICE_CUSTOM: "💡",
-        }
-        for key, label in ArturVote.CHOICE_OPTIONS:
-                vote_cards.append(
-                        f"""
-                        <label class=\"vote-card\" data-choice=\"{key}\">
-                            <input type=\"radio\" name=\"choice\" value=\"{key}\" required />
-                            <span class=\"emoji\">{emoji_map.get(key, '🍽️')}</span>
-                            <span class=\"title\">{label}</span>
-                        </label>
-                        """
-                )
-
-        vote_panel = f"""
-            <section class=\"card vote-card-shell\">
-                <div class=\"header-row\">
-                    <h1>was sollen wir morgen machen?</h1>
-                    <a href=\"{reverse('artur-results')}\" class=\"results-link\">Zu artur1 Ergebnisse</a>
-                </div>
-                <p class=\"subtitle\">Waehle dein Gericht aus. Jede Wahl wird sofort in artur1 als neuer Eintrag gelistet.</p>
-                {f'<div class="banner success">{success_message}</div>' if success_message else ''}
-                {f'<div class="banner error">{error_message}</div>' if error_message else ''}
-                <form method=\"post\" class=\"stack\" id=\"artur-vote-form\">
-                    <input type=\"hidden\" name=\"csrfmiddlewaretoken\" value=\"{csrf_token}\" />
-                    <div class=\"vote-grid\">
-                        {''.join(vote_cards)}
-                    </div>
-                    <label class=\"input-wrap\" id=\"custom-idea-wrap\">
-                        <span>Eigene Idee</span>
-                        <input type=\"text\" name=\"custom_idea\" maxlength=\"200\" placeholder=\"Schreib hier deine Idee...\" />
-                    </label>
-                    <button type=\"submit\" class=\"cta\">🚀 Auswahl absenden</button>
-                </form>
-            </section>
-        """
-
-        html = f"""
-<!DOCTYPE html>
-<html lang=\"de\">
-<head>
-    <meta charset=\"utf-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    <title>artur</title>
-    <style>
-        :root {{
-            --bg-a: #fff2d9;
-            --bg-b: #d9fff1;
-            --ink: #162126;
-            --card: rgba(255, 255, 255, 0.72);
-            --line: rgba(22, 33, 38, 0.12);
-            --accent: #ff6b35;
-            --accent-2: #0aa980;
-            --shadow: 0 20px 50px rgba(20, 32, 40, 0.12);
-        }}
-        * {{ box-sizing: border-box; }}
-        body {{
-            margin: 0;
-            min-height: 100vh;
-            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-            color: var(--ink);
-            background:
-                radial-gradient(circle at 15% 15%, rgba(255, 107, 53, 0.25), transparent 38%),
-                radial-gradient(circle at 80% 10%, rgba(10, 169, 128, 0.2), transparent 35%),
-                linear-gradient(135deg, var(--bg-a), var(--bg-b));
-            display: grid;
-            place-items: center;
-            padding: 24px;
-        }}
-        .card {{
-            width: min(900px, 100%);
-            border: 1px solid var(--line);
-            background: var(--card);
-            backdrop-filter: blur(7px);
-            border-radius: 24px;
-            box-shadow: var(--shadow);
-            padding: 26px;
-            animation: pop-in .45s ease-out;
-        }}
-        .gate-card {{ max-width: 520px; }}
-        h1 {{
-            margin: 0 0 10px;
-            font-size: clamp(1.6rem, 3.5vw, 2.3rem);
-            text-transform: lowercase;
-            letter-spacing: 0.02em;
-        }}
-        p {{ margin: 0 0 14px; line-height: 1.5; }}
-        .stack {{ display: grid; gap: 14px; }}
-        .input-wrap span {{ font-weight: 700; font-size: 0.92rem; display: block; margin-bottom: 6px; }}
-        .input-wrap input {{
-            width: 100%;
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 12px 13px;
-            font-size: 1rem;
-            background: rgba(255,255,255,0.9);
-        }}
-        .cta {{
-            border: 0;
-            border-radius: 14px;
-            padding: 13px 16px;
-            font-size: 1rem;
-            color: #fff;
-            background: linear-gradient(90deg, var(--accent), #ff8f3f, var(--accent-2));
-            cursor: pointer;
-            transition: transform .18s ease, box-shadow .18s ease;
-            box-shadow: 0 10px 24px rgba(255, 107, 53, 0.32);
-        }}
-        .cta:hover {{ transform: translateY(-1px) scale(1.01); }}
-        .header-row {{
-            display: flex;
-            gap: 14px;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 6px;
-        }}
-        .results-link {{
-            text-decoration: none;
-            color: #0f6f56;
-            font-weight: 700;
-            border-bottom: 2px solid rgba(15, 111, 86, 0.35);
-            padding-bottom: 2px;
-        }}
-        .subtitle {{ color: rgba(22, 33, 38, 0.78); }}
-        .vote-grid {{
-            display: grid;
-            gap: 12px;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        }}
-        .vote-card {{
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 16px 14px;
-            background: rgba(255,255,255,0.86);
-            display: grid;
-            justify-items: center;
-            gap: 8px;
-            cursor: pointer;
-            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
-            position: relative;
-            overflow: hidden;
-        }}
-        .vote-card::after {{
-            content: "";
-            position: absolute;
-            inset: auto -20% -48% -20%;
-            height: 60%;
-            background: radial-gradient(circle at center, rgba(255, 143, 63, 0.26), transparent 70%);
-            opacity: 0;
-            transition: opacity .2s ease;
-        }}
-        .vote-card:hover {{ transform: translateY(-2px); border-color: rgba(255, 107, 53, 0.4); }}
-        .vote-card:hover::after {{ opacity: 1; }}
-        .vote-card input {{ position: absolute; inset: 0; opacity: 0; cursor: pointer; }}
-        .vote-card .emoji {{ font-size: 1.5rem; }}
-        .vote-card .title {{ font-weight: 700; text-align: center; }}
-        .vote-card.is-selected {{ border-color: rgba(10, 169, 128, 0.55); box-shadow: 0 12px 28px rgba(10, 169, 128, 0.23); }}
-        .banner {{
-            border-radius: 12px;
-            padding: 10px 12px;
-            font-weight: 600;
-            margin-bottom: 12px;
-        }}
-        .banner.error {{ background: rgba(235, 59, 90, 0.12); color: #9e1f36; }}
-        .banner.success {{ background: rgba(10, 169, 128, 0.13); color: #0f6f56; }}
-        @keyframes pop-in {{
-            from {{ opacity: 0; transform: translateY(6px) scale(0.985); }}
-            to {{ opacity: 1; transform: translateY(0) scale(1); }}
-        }}
-        @media (max-width: 640px) {{
-            .card {{ padding: 18px; border-radius: 18px; }}
-            .vote-grid {{ grid-template-columns: 1fr 1fr; }}
-        }}
-    </style>
-</head>
-<body>
-    {vote_panel if has_access else password_panel}
-    <script>
-        (function() {{
-            const cards = Array.from(document.querySelectorAll('.vote-card'));
-            const customWrap = document.getElementById('custom-idea-wrap');
-            const customInput = customWrap ? customWrap.querySelector('input[name="custom_idea"]') : null;
-            const updateState = function() {{
-                let selected = null;
-                cards.forEach((card) => {{
-                    const input = card.querySelector('input[name="choice"]');
-                    const active = !!(input && input.checked);
-                    card.classList.toggle('is-selected', active);
-                    if (active) selected = input.value;
-                }});
-                if (!customWrap || !customInput) return;
-                const needsCustom = selected === 'eigene_idee';
-                customWrap.style.opacity = needsCustom ? '1' : '0.72';
-                customInput.required = needsCustom;
-            }};
-            cards.forEach((card) => {{
-                const input = card.querySelector('input[name="choice"]');
-                if (input) input.addEventListener('change', updateState);
-            }});
-            updateState();
-        }})();
-    </script>
-</body>
-</html>
-        """
-        return HttpResponse(html)
-
-
-def artur_results(request):
-        if not _artur_has_access(request):
-                return HttpResponseRedirect(reverse("artur"))
-
-        votes = ArturVote.objects.all()
-        rows = []
-        for vote in votes:
-                rows.append(
-                        f"""
-                        <li>
-                            <span class=\"prefix\">Nutzer waehlte</span>
-                            <strong>{_artur_vote_label(vote)}</strong>
-                            <time>{timezone.localtime(vote.created_at).strftime('%d.%m.%Y %H:%M')}</time>
-                        </li>
-                        """
-                )
-
-        html = f"""
-<!DOCTYPE html>
-<html lang=\"de\">
-<head>
-    <meta charset=\"utf-8\" />
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
-    <title>artur1</title>
-    <style>
-        :root {{
-            --bg: #f5fcff;
-            --ink: #15252d;
-            --line: rgba(21, 37, 45, 0.12);
-            --accent: #1a9ec5;
-            --accent-soft: rgba(26, 158, 197, 0.15);
-            --card: #ffffff;
-        }}
-        * {{ box-sizing: border-box; }}
-        body {{
-            margin: 0;
-            background:
-                radial-gradient(circle at 90% 15%, rgba(26, 158, 197, 0.16), transparent 34%),
-                radial-gradient(circle at 10% 80%, rgba(255, 171, 56, 0.17), transparent 28%),
-                var(--bg);
-            font-family: Verdana, "Segoe UI", sans-serif;
-            color: var(--ink);
-            min-height: 100vh;
-            padding: 24px;
-        }}
-        .wrap {{
-            width: min(960px, 100%);
-            margin: 0 auto;
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 22px;
-            box-shadow: 0 18px 40px rgba(20, 45, 55, 0.1);
-            padding: 24px;
-            animation: fade-up .35s ease-out;
-        }}
-        h1 {{ margin: 0 0 10px; font-size: clamp(1.5rem, 3.2vw, 2rem); text-transform: lowercase; }}
-        .top {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }}
-        .back {{
-            text-decoration: none;
-            font-weight: 700;
-            color: var(--accent);
-            border-bottom: 2px solid var(--accent-soft);
-            padding-bottom: 2px;
-        }}
-        ul {{ list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 10px; }}
-        li {{
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 12px;
-            display: grid;
-            gap: 4px;
-            background: linear-gradient(180deg, #fff, #fafdff);
-        }}
-        .prefix {{ font-size: 0.88rem; color: rgba(21, 37, 45, 0.66); }}
-        strong {{ font-size: 1.02rem; }}
-        time {{ font-size: 0.82rem; color: rgba(21, 37, 45, 0.58); }}
-        .empty {{
-            padding: 14px;
-            border: 1px dashed var(--line);
-            border-radius: 12px;
-            background: #fbfeff;
-            margin-top: 16px;
-        }}
-        @keyframes fade-up {{
-            from {{ opacity: 0; transform: translateY(6px); }}
-            to {{ opacity: 1; transform: translateY(0); }}
-        }}
-    </style>
-</head>
-<body>
-    <main class=\"wrap\">
-        <div class=\"top\">
-            <h1>artur1</h1>
-            <a class=\"back\" href=\"{reverse('artur')}\">Zurueck zu artur</a>
-        </div>
-        <p>Alle bisherigen Antworten auf die Frage: <strong>was sollen wir morgen machen?</strong></p>
-        {f'<ul>{"".join(rows)}</ul>' if rows else '<div class="empty">Noch keine Auswahl vorhanden.</div>'}
-    </main>
-</body>
-</html>
-        """
-        return HttpResponse(html)
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated, IsTeam])
@@ -4553,11 +4183,17 @@ def run_task_reminders(request):
     include_overdue = _bool_param(request.data.get("include_overdue"), True)
     include_due_soon = _bool_param(request.data.get("include_due_soon"), True)
     dry_run = _bool_param(request.data.get("dry_run"), False)
-    summary = send_task_reminders(
+    task_summary = send_task_reminders(
         days=days,
         include_overdue=include_overdue,
         include_due_soon=include_due_soon,
         dry_run=dry_run,
     )
-    summary["days"] = days
-    return Response(summary)
+    growpro_summary = send_growpro_reminders(dry_run=dry_run)
+    return Response(
+        {
+            "days": days,
+            "tasks": task_summary,
+            "growpro": growpro_summary,
+        }
+    )

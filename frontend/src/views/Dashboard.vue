@@ -24,14 +24,6 @@
       </div>
     </header>
 
-    <section v-if="isTeam" class="kpis">
-      <article v-for="item in kpis" :key="item.key" class="card kpi" :data-tone="item.tone">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <small class="muted">{{ item.hint }}</small>
-      </article>
-    </section>
-
     <section v-if="isTeam" class="layout-toolbar card">
       <div class="layout-tabs">
         <strong>Dashboard Ansicht</strong>
@@ -285,14 +277,6 @@ const heroText = computed(() => {
   if (pendingReviews.value.length > 0) return `${pendingReviews.value.length} abgeschlossene Tasks warten auf Review.`;
   return "Operations-Fokus: Prioritaet, Reviews, Fristen, Requests und Aktivitaetsfeed.";
 });
-
-const kpis = computed(() => [
-  { key: "tasks", label: "Offene Tasks", value: tasks.value.length, hint: `${overdueCount.value} überfällig · ${soonCount.value} zeitnah`, tone: overdueCount.value ? "danger" : soonCount.value ? "warning" : "ok" },
-  { key: "reviews", label: "Review Queue", value: reviewTasks.value.length + pendingReviews.value.length, hint: `${reviewTasks.value.length} REVIEW · ${pendingReviews.value.length} nicht geprueft`, tone: pendingReviews.value.length ? "warning" : "ok" },
-  { key: "projects", label: "Aktive Projekte", value: projectSummary.value.active, hint: `Gesamt ${projectSummary.value.total} · Archiviert ${projectSummary.value.archived}`, tone: "info" },
-  { key: "requests", label: "Offene Requests", value: requests.value.length, hint: "Schnelle Entscheidungen", tone: requests.value.length ? "warning" : "ok" },
-  { key: "growpro", label: "GrowPro Watch", value: growpro.value.length, hint: `${staleGrowproCount.value} stale`, tone: staleGrowproCount.value ? "danger" : "ok" },
-]);
 
 const widgetConfigs = computed(() => ({
   priorities: {
@@ -686,13 +670,6 @@ function copyInviteLink() {
 .eyebrow { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--brand); font-weight: 700; }
 .hero h1 { margin: 0; font-size: clamp(24px, 3vw, 34px); }
 .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: start; }
-.kpis { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-.kpi { display: grid; gap: 6px; }
-.kpi span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
-.kpi strong { font-size: 24px; }
-.kpi[data-tone="danger"] { border-color: rgba(248, 113, 113, 0.45); background: rgba(248, 113, 113, 0.08); }
-.kpi[data-tone="warning"] { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.08); }
-.kpi[data-tone="ok"] { border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
 .layout-toolbar {
   display: grid;
   gap: 12px;

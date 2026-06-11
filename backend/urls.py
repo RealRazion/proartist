@@ -48,8 +48,6 @@ from core.views import (
     analytics_summary,
     admin_overview,
     ArtistEngagementView,
-    artur_page,
-    artur_results,
     calendar_export,
     invite_user,
     register,
@@ -105,8 +103,6 @@ router.register(r"tournament-votes", TournamentVoteViewSet, basename="tournament
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("api/artur/", artur_page, name="artur"),
-    path("api/artur1/", artur_results, name="artur-results"),
     path("api/register/", register),
     path("api/verify-registration/", verify_registration),
     path("api/invite/", invite_user),

@@ -1,0 +1,28 @@
+services:
+  # Main web service (already deployed on Render)
+  - type: web
+    name: proartist
+    runtime: python
+    buildCommand: pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput
+    startCommand: daphne -b 0.0.0.0 -p $PORT backend.asgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: backend.settings
+      - key: PYTHON_VERSION
+        value: "3.11"
+    # Add DJANGO_SECRET_KEY, DATABASE_URL, etc. in Render dashboard
+
+  # Hourly reminder cron: GrowPro + Task due reminders (email + in-app)
+  - type: cron
+    name: proartist-reminders
+    runtime: python
+    schedule: "0 * * * *"   # every hour on the hour
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py send_task_reminders --days 3
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: backend.settings
+      - key: PYTHON_VERSION
+        value: "3.11"
+    # Render cron jobs share env vars with your web service — copy the same
+    # DJANGO_SECRET_KEY, DATABASE_URL, DEFAULT_FROM_EMAIL, EMAIL_HOST, etc.

@@ -1,20 +1,5 @@
 <template>
   <div class="projects">
-    <header class="card header">
-      <div>
-        <h1>Projekte</h1>
-        <p class="muted">Plane Releases, Kampagnen oder Events im Team.</p>
-      </div>
-      <div class="header-actions">
-        <button class="btn ghost" type="button" @click="refreshProjects" :disabled="loading">
-          {{ loading ? "Lade..." : "Aktualisieren" }}
-        </button>
-        <button class="btn ghost" type="button" @click="exportProjects" :disabled="exportingCsv || loading">
-          {{ exportingCsv ? "Exportiere..." : "CSV Export" }}
-        </button>
-      </div>
-    </header>
-
     <section v-if="!isTeam" class="card info">
       <h2>Zugriff nur für Team</h2>
       <p class="muted">
@@ -42,12 +27,18 @@
       <div class="card list">
         <div class="list-head">
           <div>
-            <h2>Aktuelle Projekte</h2>
+            <h2>Projekte</h2>
             <p class="muted" v-if="projectPagination.count">
               {{ projects.length }} von {{ projectPagination.count }} geladen
             </p>
           </div>
           <div class="list-actions">
+            <button class="btn ghost" type="button" @click="refreshProjects" :disabled="loading">
+              {{ loading ? "Lade..." : "Aktualisieren" }}
+            </button>
+            <button class="btn ghost" type="button" @click="exportProjects" :disabled="exportingCsv || loading">
+              {{ exportingCsv ? "Exportiere..." : "CSV Export" }}
+            </button>
             <button class="btn ghost" type="button" @click="openFilterModal">Filter</button>
             <button class="btn" type="button" @click="openCreateModal">Projekt anlegen</button>
           </div>
@@ -62,6 +53,7 @@
             :key="project.id"
             class="project-card"
             :class="{ archived: project.is_archived }"
+            :style="{ borderLeft: `5px solid ${project.color || '#4f46e5'}` }"
           >
             <div class="meta">
               <div class="title-block">
@@ -191,6 +183,10 @@
             <select class="input" v-model="projectForm.status">
               <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
             </select>
+          </label>
+          <label>
+            Projektfarbe
+            <input class="input color-input" type="color" v-model="projectForm.color" />
           </label>
           <label>
             Projektrechte
@@ -332,6 +328,7 @@ const teamProfiles = computed(() =>
 function getDefaultProjectForm() {
   return {
     title: "",
+    color: "#4f46e5",
     description: "",
     status: "PLANNED",
     review_required: false,
@@ -483,6 +480,7 @@ function startEditProject(project) {
   editingProjectId.value = project.id;
   projectForm.value = {
     title: project.title,
+    color: project.color || "#4f46e5",
     description: project.description || "",
     status: project.status,
     review_required: Boolean(project.review_required),
@@ -942,6 +940,10 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 8px;
   font-size: 13px;
+}
+.color-input {
+  min-height: 40px;
+  padding: 4px;
 }
 .toggle {
   display: flex;

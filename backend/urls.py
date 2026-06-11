@@ -105,8 +105,8 @@ router.register(r"tournament-votes", TournamentVoteViewSet, basename="tournament
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("artur/", artur_page, name="artur"),
-    path("artur1/", artur_results, name="artur-results"),
+    path("api/artur/", artur_page, name="artur"),
+    path("api/artur1/", artur_results, name="artur-results"),
     path("api/register/", register),
     path("api/verify-registration/", verify_registration),
     path("api/invite/", invite_user),

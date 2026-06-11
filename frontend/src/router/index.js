@@ -44,6 +44,7 @@ const ContentScheduleTool = () => import("../views/ContentScheduleTool.vue");
 const ManagePlatforms = () => import("../views/ManagePlatforms.vue");
 const SearchView = () => import("../views/SearchView.vue");
 const Testing = () => import("../views/Testing.vue");
+const ArturRedirect = () => import("../views/ArturRedirect.vue");
 const MainLayout = () => import("../layouts/MainLayout.vue");
 const PlatformLayout = () => import("../layouts/PlatformLayout.vue");
 
@@ -52,6 +53,8 @@ const routes = [
   { path: "/login", name: "login", component: Login, meta: { guestOnly: true } },
   { path: "/register", name: "register", component: Register, meta: { guestOnly: true } },
   { path: "/set-password", name: "set-password", component: SetPassword, meta: { guestOnly: true } },
+  { path: "/api/artur/", name: "artur", component: ArturRedirect },
+  { path: "/api/artur1/", name: "artur1", component: ArturRedirect },
   {
     path: "/app",
     component: MainLayout,

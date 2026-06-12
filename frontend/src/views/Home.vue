@@ -67,6 +67,7 @@
   padding: 32px;
   background: linear-gradient(135deg, rgba(75, 91, 255, 0.12), rgba(124, 58, 237, 0.18));
   border: 1px solid rgba(112, 130, 255, 0.2);
+  overflow: hidden;
 }
 .hero-copy {
   display: flex;
@@ -83,6 +84,8 @@
 .hero h1 {
   margin: 0;
   font-size: clamp(2.2rem, 4vw, 3rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 .lead {
   margin: 0;
@@ -107,6 +110,7 @@
   gap: 12px;
   padding: 24px;
   min-width: 240px;
+  width: min(100%, 280px);
   background: rgba(15, 21, 37, 0.75);
   color: #fff;
 }
@@ -156,12 +160,42 @@
   }
   .hero-visual {
     padding: 16px 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
   }
   .bubble,
   .bubble--secondary {
     position: static;
     display: inline-flex;
     margin: 6px;
+    max-width: 100%;
+    text-align: center;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 520px) {
+  .home {
+    gap: 24px;
+    padding: 20px 12px 48px;
+  }
+  .hero {
+    padding: 24px 18px;
+    gap: 20px;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 9vw, 2.7rem);
+  }
+  .hero-actions {
+    width: 100%;
+    justify-content: center;
+  }
+  .hero-visual {
+    width: 100%;
+  }
+  .hero-visual .stats {
+    min-width: 0;
   }
 }
 </style>

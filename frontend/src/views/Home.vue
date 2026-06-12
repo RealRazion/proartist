@@ -85,7 +85,7 @@
   margin: 0;
   font-size: clamp(2.2rem, 4vw, 3rem);
   line-height: 1.15;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .lead {
   margin: 0;
@@ -185,7 +185,7 @@
     gap: 20px;
   }
   .hero h1 {
-    font-size: clamp(2rem, 9vw, 2.7rem);
+    font-size: clamp(2rem, 8vw, 2.7rem);
   }
   .hero-actions {
     width: 100%;

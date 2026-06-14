@@ -19,6 +19,7 @@ from core.views import (
     FinanceEntryViewSet,
     FinanceMemberViewSet,
     FinanceProjectViewSet,
+    FinanceSavingsGoalViewSet,
     FinanceTipViewSet,
     GrowProGoalViewSet,
     ManagedPlatformViewSet,
@@ -88,6 +89,7 @@ router.register(r"manage-platforms", ManagedPlatformViewSet, basename="manage-pl
 router.register(r"contracts", ContractViewSet)
 router.register(r"payments", PaymentViewSet)
 router.register(r"finance-projects", FinanceProjectViewSet, basename="finance-projects")
+router.register(r"finance-savings-goals", FinanceSavingsGoalViewSet, basename="finance-savings-goals")
 router.register(r"finance-members", FinanceMemberViewSet, basename="finance-members")
 router.register(r"finance-entries", FinanceEntryViewSet, basename="finance-entries")
 router.register(r"debts", DebtViewSet, basename="debts")

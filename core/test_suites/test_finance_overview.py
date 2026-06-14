@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from core.models import FinanceEntry, FinanceProject, Profile
+from core.models import FinanceEntry, FinanceProject, FinanceSavingsGoal, Profile
 from core.serializers import (
     DebtPaymentActionSerializer,
     FinanceProjectListSerializer,
@@ -104,7 +104,39 @@ class FinanceOverviewLogicTests(TestCase):
         self.assertEqual(overview["monthly_fixed_costs"], 800.0)
         self.assertEqual(overview["monthly_outflow"], 819.99)
         self.assertEqual(overview["monthly_left"], 1180.01)
+        self.assertEqual(overview["monthly_debt_entries"], 0.0)
+        self.assertEqual(overview["monthly_debt_tracker"], 0.0)
         self.assertTrue(any(item["entry_type"] == "SUBSCRIPTION" for item in overview["due_soon"]))
+
+    def test_overview_tracks_savings_goal_totals(self):
+        user = get_user_model().objects.create_user(username="finance-goal-test", password="test12345")
+        profile = Profile.objects.create(user=user, name="Finance Goal Test")
+        project = FinanceProject.objects.create(owner=profile, title="Ziele", currency="EUR")
+
+        FinanceSavingsGoal.objects.create(
+            project=project,
+            title="Fuehrerschein",
+            target_amount=Decimal("3000.00"),
+            current_amount=Decimal("1200.00"),
+            is_completed=False,
+        )
+        FinanceSavingsGoal.objects.create(
+            project=project,
+            title="Studiengebuehr",
+            target_amount=Decimal("1500.00"),
+            current_amount=Decimal("1500.00"),
+            is_completed=True,
+        )
+
+        serializer = FinanceProjectListSerializer(
+            project,
+            context={"request": SimpleNamespace(query_params={"month": "2026-05"})},
+        )
+        overview = serializer.data["overview"]
+
+        self.assertEqual(overview["savings_goal_target_total"], 4500.0)
+        self.assertEqual(overview["savings_goal_current_total"], 2700.0)
+        self.assertEqual(overview["savings_goal_open_count"], 1)
 
 
 class DebtPaymentActionSerializerTests(TestCase):

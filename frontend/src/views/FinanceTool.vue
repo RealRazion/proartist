@@ -113,6 +113,10 @@
               <span>Dispo genutzt:</span>
               <strong>{{ formatCurrency(dispoUsed) }}</strong>
             </p>
+            <p class="metric-breakdown-row">
+              <span>Offene Sparziele:</span>
+              <strong>{{ overview.savings_goal_open_count || 0 }}</strong>
+            </p>
           </div>
         </article>
 
@@ -132,8 +136,12 @@
               <strong>{{ formatCurrency(monthlySubscriptions) }}</strong>
             </p>
             <p class="metric-breakdown-row">
-              <span>davon Kredite:</span>
+              <span>davon Schulden-Tracker:</span>
               <strong>{{ formatCurrency(monthlyCreditOutflow) }}</strong>
+            </p>
+            <p class="metric-breakdown-row" v-if="Number(overview.monthly_debt_entries || 0) > 0">
+              <span>davon alte Schulden-Posten:</span>
+              <strong>{{ formatCurrency(overview.monthly_debt_entries || 0) }}</strong>
             </p>
             <p class="metric-breakdown-row">
               <span>davon regelmäßig geplant:</span>
@@ -474,6 +482,111 @@
               </article>
 
               <DebtTracker :projectId="selectedProjectId" />
+            </section>
+
+            <section v-show="activeTab === 'goals'" class="goals-page">
+              <article class="panel goals-summary-panel">
+                <div class="panel-head goals-head">
+                  <h2>Sparziele</h2>
+                  <span class="badge">{{ savingsGoals.length }} Ziele</span>
+                </div>
+                <div class="goals-kpis">
+                  <article class="goal-kpi">
+                    <span class="info-label">Offen</span>
+                    <strong>{{ openSavingsGoals.length }}</strong>
+                  </article>
+                  <article class="goal-kpi">
+                    <span class="info-label">Fortschritt gesamt</span>
+                    <strong>{{ savingsCompletionRate }}%</strong>
+                  </article>
+                  <article class="goal-kpi">
+                    <span class="info-label">Zielsumme</span>
+                    <strong>{{ formatCurrency(overview.savings_goal_target_total || 0) }}</strong>
+                  </article>
+                  <article class="goal-kpi">
+                    <span class="info-label">Gespart</span>
+                    <strong>{{ formatCurrency(overview.savings_goal_current_total || 0) }}</strong>
+                  </article>
+                </div>
+              </article>
+
+              <div class="goals-layout">
+                <article class="panel goals-form-panel">
+                  <div class="panel-head">
+                    <h2>{{ editingGoalId ? "Sparziel bearbeiten" : "Neues Sparziel" }}</h2>
+                  </div>
+                  <form class="stack-form" @submit.prevent="saveSavingsGoal">
+                    <label>
+                      Titel
+                      <input v-model.trim="goalForm.title" class="input" placeholder="z. B. Führerschein" required />
+                    </label>
+                    <div class="grid two">
+                      <label>
+                        Zielbetrag
+                        <input v-model="goalForm.target_amount" class="input" type="number" min="0" step="0.01" required />
+                      </label>
+                      <label>
+                        Aktuell gespart
+                        <input v-model="goalForm.current_amount" class="input" type="number" min="0" step="0.01" />
+                      </label>
+                    </div>
+                    <label>
+                      Ziel-Datum
+                      <input v-model="goalForm.target_date" class="input" type="date" />
+                    </label>
+                    <label>
+                      Notiz
+                      <textarea v-model.trim="goalForm.notes" class="input textarea" rows="2" placeholder="optional"></textarea>
+                    </label>
+                    <label class="toggle">
+                      <input v-model="goalForm.is_completed" type="checkbox" />
+                      Bereits erreicht
+                    </label>
+                    <div class="modal-actions">
+                      <button class="btn ghost" type="button" @click="resetGoalForm">Zurücksetzen</button>
+                      <button class="btn" type="submit" :disabled="savingGoal">
+                        {{ savingGoal ? "Speichere..." : editingGoalId ? "Sparziel speichern" : "Sparziel anlegen" }}
+                      </button>
+                    </div>
+                  </form>
+                </article>
+
+                <article class="panel goals-list-panel">
+                  <div class="panel-head">
+                    <h2>Deine Sparziele</h2>
+                  </div>
+                  <div v-if="savingsGoals.length" class="goals-grid">
+                    <article v-for="goal in savingsGoals" :key="`goal-${goal.id}`" class="goal-card" :class="{ done: goal.is_completed }">
+                      <div class="goal-card-head">
+                        <strong>{{ goal.title }}</strong>
+                        <span class="type-badge" :data-type="goal.is_completed ? 'INCOME' : 'SAVING'">
+                          {{ goal.is_completed ? "Erreicht" : "Offen" }}
+                        </span>
+                      </div>
+                      <p class="muted small goal-due">{{ goal.target_date ? formatDate(goal.target_date) : "Kein Zieldatum" }}</p>
+                      <div class="goal-progress-amount">
+                        <strong>{{ formatCurrency(goal.current_amount) }}</strong>
+                        <span class="muted small">von {{ formatCurrency(goal.target_amount) }}</span>
+                      </div>
+                      <div class="progress-bar goal-progress">
+                        <span :style="{ width: `${progressPercent(goal.current_amount, goal.target_amount)}%` }"></span>
+                      </div>
+                      <div class="goal-card-footer">
+                        <span class="goal-percent">{{ progressPercent(goal.current_amount, goal.target_amount).toFixed(0) }}%</span>
+                        <div class="entry-actions">
+                          <button class="btn ghost sm" type="button" @click="editSavingsGoal(goal)">Bearbeiten</button>
+                          <button class="btn ghost sm" type="button" @click="toggleSavingsGoalCompleted(goal)">
+                            {{ goal.is_completed ? "Öffnen" : "Erledigt" }}
+                          </button>
+                          <button class="btn ghost sm danger" type="button" @click="removeSavingsGoal(goal)">Löschen</button>
+                        </div>
+                      </div>
+                      <p v-if="goal.notes" class="muted small goal-note">{{ goal.notes }}</p>
+                    </article>
+                  </div>
+                  <p v-else class="muted empty-hint">Noch keine Sparziele angelegt.</p>
+                </article>
+              </div>
             </section>
 
             <section v-show="activeTab === 'subscriptions'" class="subscriptions-page">
@@ -1026,6 +1139,7 @@ const loading = ref(false);
 const savingProject = ref(false);
 const savingMember = ref(false);
 const savingEntry = ref(false);
+const savingGoal = ref(false);
 const monthlyNote = ref("");
 const entryTemplates = ref(loadEntryTemplates());
 const showFab = ref(false);
@@ -1036,6 +1150,7 @@ const plannerEntryFilter = ref("ALL");
 const allEntriesFilter = ref("ALL");
 const activeTab = ref("planner");
 const editingEntryId = ref(null);
+const editingGoalId = ref(null);
 const membersPanelOpen = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
@@ -1063,14 +1178,12 @@ const topbarExpanded = ref(false);
 const showBalanceEdit = ref(false);
 const balanceOverrideInput = ref(null);
 
-const tabs = ["planner", "daily", "debts", "subscriptions", "all-entries", "tips"];
+const tabs = ["planner", "daily", "debts", "goals"];
 const tabLabels = {
   planner: "Planer",
   daily: "Tägliche Ausgaben",
   debts: "Schulden",
-  subscriptions: "Abos",
-  "all-entries": "Alle Posten",
-  tips: "Tipps und Einnahmequellen",
+  goals: "Sparziele",
 };
 const tipTypeLabels = {
   CASHBACK: "Cashback",
@@ -1129,6 +1242,7 @@ const entryFilters = [
 const projectForm = ref(buildProjectForm());
 const memberForm = ref(buildMemberForm());
 const entryForm = ref(buildEntryForm());
+const goalForm = ref(buildGoalForm());
 const dailyExpenseForm = ref(buildDailyExpenseForm());
 
 function buildProjectForm(data = {}) {
@@ -1179,9 +1293,28 @@ function buildDailyExpenseForm(data = {}) {
   };
 }
 
+function buildGoalForm(data = {}) {
+  return {
+    title: data.title || "",
+    target_amount: data.target_amount ?? "",
+    current_amount: data.current_amount ?? 0,
+    target_date: data.target_date || "",
+    notes: data.notes || "",
+    is_completed: Boolean(data.is_completed),
+  };
+}
+
 const overview = computed(() => project.value?.overview || {});
 const members = computed(() => project.value?.members || []);
 const entries = computed(() => project.value?.entries || []);
+const savingsGoals = computed(() => project.value?.savings_goals || []);
+const openSavingsGoals = computed(() => savingsGoals.value.filter((goal) => !goal.is_completed));
+const savingsCompletionRate = computed(() => {
+  const target = Number(overview.value.savings_goal_target_total || 0);
+  const current = Number(overview.value.savings_goal_current_total || 0);
+  if (target <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((current / target) * 100)));
+});
 const currency = computed(() => project.value?.currency || "EUR");
 const currentBalance = computed(() => Number(project.value?.current_balance ?? overview.value?.current_balance ?? 0));
 const currentMonthLabel = computed(() => new Date().toISOString().slice(0, 7));
@@ -1194,7 +1327,7 @@ const dueSoonPreview = computed(() => {
   const source = Array.isArray(overview.value?.due_soon) ? overview.value.due_soon : [];
   return source.slice(0, 5);
 });
-const monthlyCreditOutflow = computed(() => Number(overview.value.monthly_credit || 0));
+const monthlyCreditOutflow = computed(() => Number(overview.value.monthly_debt_tracker || 0));
 const projectedBalanceWithoutDispo = computed(() => Number(overview.value.projected_balance || 0));
 const projectedBalanceWithDispo = computed(() => {
   const fromOverview = overview.value.projected_balance_with_dispo;
@@ -2091,6 +2224,70 @@ async function removeEntry(entry) {
     setSuccess(`Posten "${entry.title}" gelöscht.`);
   } catch (error) {
     setError(getApiErrorMessage(error, "Posten konnte nicht gelöscht werden."));
+  }
+}
+
+function resetGoalForm() {
+  editingGoalId.value = null;
+  goalForm.value = buildGoalForm();
+}
+
+function editSavingsGoal(goal) {
+  editingGoalId.value = goal.id;
+  goalForm.value = buildGoalForm(goal);
+}
+
+async function saveSavingsGoal() {
+  if (!selectedProjectId.value) return;
+  savingGoal.value = true;
+  try {
+    const payload = {
+      project: selectedProjectId.value,
+      title: goalForm.value.title,
+      target_amount: toAmount(goalForm.value.target_amount),
+      current_amount: toAmount(goalForm.value.current_amount),
+      target_date: goalForm.value.target_date || null,
+      notes: goalForm.value.notes,
+      is_completed: goalForm.value.is_completed,
+    };
+    if (editingGoalId.value) {
+      await api.patch(`finance-savings-goals/${editingGoalId.value}/`, payload);
+    } else {
+      await api.post("finance-savings-goals/", payload);
+    }
+    resetGoalForm();
+    await refreshCurrent();
+    setSuccess("Sparziel gespeichert.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Sparziel konnte nicht gespeichert werden."));
+  } finally {
+    savingGoal.value = false;
+  }
+}
+
+async function toggleSavingsGoalCompleted(goal) {
+  try {
+    await api.patch(`finance-savings-goals/${goal.id}/`, { is_completed: !goal.is_completed });
+    await refreshCurrent();
+    setSuccess(goal.is_completed ? "Sparziel wieder geöffnet." : "Sparziel als erreicht markiert.");
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Sparziel konnte nicht aktualisiert werden."));
+  }
+}
+
+async function removeSavingsGoal(goal) {
+  if (!window.confirm(`Sparziel "${goal.title}" wirklich löschen?`)) {
+    return;
+  }
+  try {
+    await api.delete(`finance-savings-goals/${goal.id}/`);
+    if (editingGoalId.value === goal.id) {
+      resetGoalForm();
+    }
+    await refreshCurrent();
+    setSuccess(`Sparziel "${goal.title}" gelöscht.`);
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Sparziel konnte nicht gelöscht werden."));
   }
 }
 
@@ -3056,6 +3253,98 @@ onMounted(async () => {
   margin-top: 28px;
 }
 
+.goals-page {
+  display: grid;
+  gap: 14px;
+}
+
+.goals-head {
+  align-items: center;
+}
+
+.goals-kpis {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.goal-kpi {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--brand) 9%, transparent), var(--surface));
+  display: grid;
+  gap: 4px;
+}
+
+.goals-layout {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.4fr);
+}
+
+.goals-list-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.goals-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.goal-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.goal-card.done {
+  background: linear-gradient(160deg, color-mix(in srgb, var(--status-done) 10%, transparent), var(--surface));
+}
+
+.goal-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.goal-due {
+  margin: 0;
+}
+
+.goal-progress-amount {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.goal-progress {
+  height: 9px;
+}
+
+.goal-card-footer {
+  display: grid;
+  gap: 8px;
+}
+
+.goal-percent {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.goal-note {
+  margin: 0;
+}
+
 .daily-header {
   display: flex;
   justify-content: space-between;
@@ -3179,6 +3468,14 @@ onMounted(async () => {
 }
 
 @media (max-width: 760px) {
+  .goals-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .goals-layout {
+    grid-template-columns: 1fr;
+  }
+
   .daily-header {
     flex-direction: column;
     align-items: stretch;

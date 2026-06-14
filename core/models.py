@@ -433,6 +433,26 @@ class DailyExpense(models.Model):
         return f"{self.date}: {self.title} - {self.amount}€"
 
 
+class FinanceSavingsGoal(models.Model):
+    """Custom savings goals such as driving license, tuition, etc."""
+
+    project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="savings_goals")
+    title = models.CharField(max_length=160)
+    target_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    current_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    target_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    is_completed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["is_completed", "target_date", "title", "created_at"]
+
+    def __str__(self):
+        return f"{self.project.title}: {self.title}"
+
+
 class Release(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE,related_name="releases")
     title = models.CharField(max_length=200)

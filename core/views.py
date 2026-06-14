@@ -46,6 +46,7 @@ from .models import (
     FinanceEntry,
     FinanceMember,
     FinanceProject,
+    FinanceSavingsGoal,
     FinanceTip,
     GrowProGoal,
     GrowProUpdate,
@@ -104,6 +105,7 @@ from .serializers import (
     FinanceMemberSerializer,
     FinanceProjectListSerializer,
     FinanceProjectSerializer,
+    FinanceSavingsGoalSerializer,
     FinanceTipSerializer,
     GrowProGoalSerializer,
     GrowProUpdateSerializer,
@@ -2125,7 +2127,7 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
         return (
             FinanceProject.objects
             .filter(owner=self.request.user.profile)
-            .prefetch_related("members", "entries__member", "debts")
+            .prefetch_related("members", "entries__member", "debts", "savings_goals")
             .order_by("-updated_at", "-created_at")
         )
 
@@ -2266,6 +2268,29 @@ class FinanceMemberViewSet(viewsets.ModelViewSet):
             .select_related("project")
             .filter(project__owner=self.request.user.profile)
             .order_by("project__title", "sort_order", "name")
+        )
+        project_id = self.request.query_params.get("project")
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        return qs
+
+    def perform_create(self, serializer):
+        project = serializer.validated_data["project"]
+        if project.owner_id != self.request.user.profile.id:
+            raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")
+        serializer.save()
+
+
+class FinanceSavingsGoalViewSet(viewsets.ModelViewSet):
+    serializer_class = FinanceSavingsGoalSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = (
+            FinanceSavingsGoal.objects
+            .select_related("project")
+            .filter(project__owner=self.request.user.profile)
+            .order_by("is_completed", "target_date", "title", "created_at")
         )
         project_id = self.request.query_params.get("project")
         if project_id:

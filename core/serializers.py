@@ -22,6 +22,7 @@ from .models import (
     FinanceEntry,
     FinanceMember,
     FinanceProject,
+    FinanceSavingsGoal,
     FinanceTip,
     GrowProGoal,
     GrowProUpdate,
@@ -1002,6 +1003,47 @@ class DailyExpenseSerializer(serializers.ModelSerializer):
         return obj.member.name if obj.member else None
 
 
+class FinanceSavingsGoalSerializer(serializers.ModelSerializer):
+    progress_percent = serializers.SerializerMethodField()
+    remaining_amount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FinanceSavingsGoal
+        fields = [
+            "id",
+            "project",
+            "title",
+            "target_amount",
+            "current_amount",
+            "remaining_amount",
+            "progress_percent",
+            "target_date",
+            "notes",
+            "is_completed",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "remaining_amount",
+            "progress_percent",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_remaining_amount(self, obj):
+        remaining = max(Decimal("0.00"), _money(obj.target_amount) - _money(obj.current_amount))
+        return _to_float(remaining)
+
+    def get_progress_percent(self, obj):
+        target = _money(obj.target_amount)
+        if target <= Decimal("0.00"):
+            return 0
+        progress = (_money(obj.current_amount) / target) * Decimal("100")
+        progress = max(Decimal("0.00"), min(Decimal("100.00"), progress))
+        return float(progress.quantize(DECIMAL_2, rounding=ROUND_HALF_UP))
+
+
 class FinanceProjectListSerializer(serializers.ModelSerializer):
     members = FinanceMemberSerializer(many=True, read_only=True)
     overview = serializers.SerializerMethodField()
@@ -1089,6 +1131,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
         member_totals = {}
         due_items = []
         month_entry_count = 0
+        monthly_debt_from_entries = Decimal("0.00")
 
         for member in obj.members.all():
             member_totals[member.id] = {
@@ -1111,6 +1154,8 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             if monthly_amount > 0:
                 month_entry_count += 1
             totals[entry.entry_type] = totals.get(entry.entry_type, Decimal("0.00")) + monthly_amount
+            if entry.entry_type == "DEBT":
+                monthly_debt_from_entries += monthly_amount
             if entry.category:
                 category_totals[entry.category] = category_totals.get(entry.category, Decimal("0.00")) + monthly_amount
 
@@ -1140,6 +1185,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
 
         total_remaining_debt = Decimal("0.00")
         total_remaining_credit = Decimal("0.00")
+        monthly_debt_from_tracker = Decimal("0.00")
         monthly_credit_total = Decimal("0.00")
         month_debt_count = 0
         for debt in debts:
@@ -1152,6 +1198,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             if monthly_amount > 0:
                 month_debt_count += 1
                 totals["DEBT"] += monthly_amount
+                monthly_debt_from_tracker += monthly_amount
                 category_label = "Kredite" if debt.debt_kind == "CREDIT" else "Schulden"
                 category_totals[category_label] = category_totals.get(category_label, Decimal("0.00")) + monthly_amount
                 if debt.debt_kind == "CREDIT":
@@ -1187,6 +1234,17 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
                 bucket["net"] -= expense.amount
 
         month_daily_expense_count = len(daily_expenses)
+        savings_goals = list(obj.savings_goals.all())
+        savings_goal_target_total = Decimal("0.00")
+        savings_goal_current_total = Decimal("0.00")
+        savings_goal_open_count = 0
+        for goal in savings_goals:
+            target_amount = _money(goal.target_amount)
+            current_amount = _money(goal.current_amount)
+            savings_goal_target_total += target_amount
+            savings_goal_current_total += current_amount
+            if not goal.is_completed and current_amount < target_amount:
+                savings_goal_open_count += 1
         has_month_data = bool(month_entry_count or month_debt_count or month_daily_expense_count)
         monthly_outflow = (
             totals["FIXED"]
@@ -1221,6 +1279,8 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "monthly_subscriptions": _to_float(totals["SUBSCRIPTION"]),
             "monthly_variable_costs": _to_float(totals["VARIABLE"]),
             "monthly_debt": _to_float(totals["DEBT"]),
+            "monthly_debt_entries": _to_float(monthly_debt_from_entries),
+            "monthly_debt_tracker": _to_float(monthly_debt_from_tracker),
             "monthly_credit": _to_float(monthly_credit_total),
             "monthly_savings": _to_float(totals["SAVING"]),
             "monthly_daily_expenses": _to_float(daily_expense_total),
@@ -1239,6 +1299,9 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "monthly_savings_target": _to_float(obj.monthly_savings_target),
             "emergency_buffer_target": _to_float(obj.emergency_buffer_target),
             "buffer_gap": _to_float(buffer_gap),
+            "savings_goal_target_total": _to_float(savings_goal_target_total),
+            "savings_goal_current_total": _to_float(savings_goal_current_total),
+            "savings_goal_open_count": savings_goal_open_count,
             "due_soon": sorted(due_items, key=lambda item: item["due_date"])[:6],
             "member_totals": [
                 {
@@ -1258,10 +1321,11 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
 
 class FinanceProjectSerializer(FinanceProjectListSerializer):
     entries = FinanceEntrySerializer(many=True, read_only=True)
+    savings_goals = FinanceSavingsGoalSerializer(many=True, read_only=True)
 
     class Meta(FinanceProjectListSerializer.Meta):
-        fields = FinanceProjectListSerializer.Meta.fields[:-2] + ["entries", "created_at", "updated_at"]
-        read_only_fields = FinanceProjectListSerializer.Meta.read_only_fields + ["entries"]
+        fields = FinanceProjectListSerializer.Meta.fields[:-2] + ["entries", "savings_goals", "created_at", "updated_at"]
+        read_only_fields = FinanceProjectListSerializer.Meta.read_only_fields + ["entries", "savings_goals"]
 
 
 class DebtPaymentSerializer(serializers.ModelSerializer):

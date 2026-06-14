@@ -46,7 +46,10 @@
         :class="['card profile-card', { compact: compactCards }]"
       >
         <div class="profile-header">
-          <div class="avatar">{{ profile.initials }}</div>
+          <div class="avatar-wrap">
+            <img v-if="profile.avatar_url" :src="asAbsoluteMediaUrl(profile.avatar_url)" :alt="profile.name || profile.username" class="avatar" />
+            <img v-else :src="anonymousAvatar" alt="Anonym" class="avatar" />
+          </div>
           <div>
             <h2>
               {{ profile.name || profile.username }}
@@ -171,13 +174,13 @@
 <script setup>
 import { ref, computed, onMounted, watch, onBeforeUnmount } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import api from "../api";
+import api, { toAbsoluteMediaUrl } from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 
 const router = useRouter();
 const route = useRoute();
-const { profile: me, fetchProfile } = useCurrentProfile();
+const { profile: me, fetchProfile, isAdmin } = useCurrentProfile();
 const { showToast } = useToast();
 
 const COMPACT_KEY = "profiles:compactMode";
@@ -202,8 +205,18 @@ const manage = ref({
   error: "",
 });
 
-const isTeam = computed(() => (me.value?.roles || []).some((r) => r.key === "TEAM"));
-const adminMode = computed(() => isTeam.value && String(route.query.admin || "") === "1");
+const isTeam = computed(() => (me.value?.roles || []).some((r) => ["TEAM", "ADMIN"].includes(r.key)));
+const adminMode = computed(() => isAdmin.value && String(route.query.admin || "") === "1");
+
+const anonymousAvatar =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'>
+      <rect width='120' height='120' fill='#e8ecf3'/>
+      <circle cx='60' cy='44' r='22' fill='#b8c2d1'/>
+      <rect x='24' y='74' width='72' height='34' rx='17' fill='#c9d2df'/>
+    </svg>`
+  );
 
 if (typeof window !== "undefined") {
   const saved = window.localStorage.getItem(COMPACT_KEY);
@@ -211,7 +224,9 @@ if (typeof window !== "undefined") {
 }
 
 const roleLabels = {
+  ADMIN: "Admin",
   ARTIST: "Artist",
+  MEMBER: "Member",
   PROD: "Producer",
   VIDEO: "Videograf",
   MERCH: "Merchandiser",
@@ -221,7 +236,9 @@ const roleLabels = {
 };
 
 const roleFilterLabels = {
+  ADMIN: "Admins",
   ARTIST: "Artists",
+  MEMBER: "Members",
   PROD: "Producer",
   VIDEO: "Videografen",
   MERCH: "Merch",
@@ -230,7 +247,7 @@ const roleFilterLabels = {
   TEAM: "Team",
 };
 
-const roleFilterOrder = ["ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC", "TEAM"];
+const roleFilterOrder = ["ADMIN", "TEAM", "ARTIST", "MEMBER", "PROD", "VIDEO", "MERCH", "MKT", "LOC"];
 
 const roleFilterOptions = computed(() => {
   const keys = new Set();
@@ -318,7 +335,9 @@ function isTeamMember(profile) {
   return (profile.roles || []).some((role) => role.key === "TEAM");
 }
 
-const canManageTeam = (profile) => isTeam.value && profile.id !== me.value?.id;
+const canManageTeam = (profile) => isAdmin.value && profile.id !== me.value?.id;
+
+const asAbsoluteMediaUrl = (value) => toAbsoluteMediaUrl(value);
 
 async function toggleTeam(profile, add) {
   if (!canManageTeam(profile)) return;
@@ -600,7 +619,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px;
+  padding: 16px;
   position: relative;
 }
 .profile-card.compact {
@@ -629,7 +648,7 @@ onBeforeUnmount(() => {
 }
 .profile-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -639,23 +658,22 @@ onBeforeUnmount(() => {
 .team-actions {
   margin-left: auto;
 }
-.avatar {
-  width: 40px;
-  height: 40px;
+.avatar-wrap {
+  width: 96px;
+  aspect-ratio: 1 / 1;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 18px;
+  overflow: hidden;
+  background: #e8ecf3;
 }
-.profile-card.compact .avatar {
-  width: 36px;
-  height: 36px;
+.avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.profile-card.compact .avatar-wrap {
+  width: 72px;
   border-radius: 12px;
-  font-size: 16px;
 }
 .profiles.compact .footer {
   flex-direction: column;

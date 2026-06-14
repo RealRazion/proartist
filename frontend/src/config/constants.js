@@ -30,23 +30,27 @@ export const PRIORITY_LABELS = {
 
 // User Roles
 export const ROLE_KEYS = {
+  ADMIN: 'ADMIN',
   TEAM: 'TEAM',
   ARTIST: 'ARTIST',
-  PRODUCER: 'PRODUCER',
-  LOCATION: 'LOCATION',
+  PROD: 'PROD',
+  LOC: 'LOC',
   VIDEO: 'VIDEO',
   MERCH: 'MERCH',
   MKT: 'MKT',
+  MEMBER: 'MEMBER',
 };
 
 export const ROLE_LABELS = {
-  TEAM: 'Team Admin',
+  ADMIN: 'Admin',
+  TEAM: 'Team',
   ARTIST: 'Artist',
-  PRODUCER: 'Producer',
-  LOCATION: 'Location',
+  PROD: 'Producer',
+  LOC: 'Location',
   VIDEO: 'Video',
   MERCH: 'Merchandise',
   MKT: 'Marketing',
+  MEMBER: 'Member',
 };
 
 // Project Status

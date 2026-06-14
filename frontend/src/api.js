@@ -28,6 +28,14 @@ function resolveBaseUrl() {
 }
 
 const baseURL = resolveBaseUrl();
+const origin = new URL(baseURL).origin;
+
+export function toAbsoluteMediaUrl(value) {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/")) return `${origin}${value}`;
+  return `${origin}/${value}`;
+}
 
 const api = axios.create({ baseURL });
 const { showToast } = useToast();

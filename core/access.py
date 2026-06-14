@@ -29,7 +29,7 @@ class ProjectAccessValidator:
         """Prüft ob Profile ein Team-Profile ist"""
         if profile is None:
             return False
-        return profile.roles.filter(key='TEAM').exists()
+        return profile.roles.filter(key__in=['TEAM', 'ADMIN']).exists()
     
     @staticmethod
     def _is_project_owner(profile, project):

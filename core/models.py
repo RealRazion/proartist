@@ -4,6 +4,7 @@ from django.db import models
 from django.conf import settings
 
 ROLE_CHOICES = [
+    ("ADMIN","Administrator"),
     ("TEAM","Team/Admin"),
     ("ARTIST","Artist / Rapper / Sänger"),
     ("PROD","Producer"),
@@ -25,6 +26,7 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     name = models.CharField(max_length=150, blank=True,default="")
     roles = models.ManyToManyField(Role, blank=True)
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     iban = models.CharField(max_length=34, blank=True)
     socials = models.JSONField(default=dict, blank=True)     # {"instagram":"...", ...}
     genre = models.CharField(max_length=80, blank=True)
@@ -972,4 +974,31 @@ class ManagedPlatform(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class RoleAccessPolicy(models.Model):
+    ROLE_KEY_CHOICES = [
+        ("ADMIN", "Administrator"),
+        ("TEAM", "Team"),
+        ("ARTIST", "Artist"),
+        ("MEMBER", "Member"),
+    ]
+
+    role_key = models.CharField(max_length=20, choices=ROLE_KEY_CHOICES, unique=True)
+    access_rules = models.JSONField(default=dict, blank=True)
+    updated_by = models.ForeignKey(
+        Profile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="role_access_policy_updates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["role_key"]
+
+    def __str__(self):
+        return f"{self.role_key} access"
 

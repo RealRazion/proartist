@@ -34,7 +34,7 @@ def _mark_thread_read(thread_id, reader):
 
 @database_sync_to_async
 def _profile_is_team(profile_id):
-    return Profile.objects.filter(id=profile_id, roles__key="TEAM").exists()
+    return Profile.objects.filter(id=profile_id, roles__key__in=["TEAM", "ADMIN"]).exists()
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):

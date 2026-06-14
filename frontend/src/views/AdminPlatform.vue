@@ -91,7 +91,7 @@ import api from "../api";
 
 const router = useRouter();
 const { showToast } = useToast();
-const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
+const { profile: me, isAdmin, fetchProfile } = useCurrentProfile();
 
 const systemStats = ref({
   totalUsers: 0,
@@ -111,13 +111,13 @@ const adminTools = [
     features: ["Presets", "Speed", "Timeline FX"],
   },
   {
-    key: "users",
-    title: "Nutzer-Management",
+    key: "user-role-management",
+    title: "Nutzer- und Rollenverwaltung",
     category: "Verwaltung",
-    description: "Nutzerkonten verwalten, sperren, entsperren und Rollen zuweisen.",
-    buttonLabel: "Verwalten",
+    description: "Eigenständige Plattform für Nutzerverwaltung, Rollenhierarchie und Rechte-Matrix.",
+    buttonLabel: "Öffnen",
     icon: "👥",
-    features: ["Sperren", "Rollen", "Profile"],
+    features: ["Admin > Team", "Rollen", "Rechte"],
   },
   {
     key: "platforms",
@@ -187,7 +187,7 @@ const adminTools = [
 function openTool(tool) {
   const mapping = {
     "arena-animations": "/platforms/admin/tournament-animations",
-    users: "/app/profiles?admin=1",
+    "user-role-management": "/platforms/admin/user-role-management",
     platforms: "/platforms/manage-platforms",
     "artist-view": "/platforms/contests?artistView=1",
     analytics: "/app/analytics",
@@ -224,7 +224,7 @@ async function loadSystemStats() {
 
 onMounted(async () => {
   await fetchProfile();
-  if (isTeam.value) {
+  if (isAdmin.value) {
     await loadSystemStats();
   }
 });

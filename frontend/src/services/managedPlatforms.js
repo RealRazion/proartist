@@ -35,6 +35,7 @@ const ROUTE_TO_PLATFORM_SLUG = {
   "platform-plugin-guides": "plugin-guides",
   "platform-api-center": "api-center",
   "admin-platform": "admin",
+  "admin-user-role-management": "admin",
   "manage-platforms": "manage-platforms",
 };
 

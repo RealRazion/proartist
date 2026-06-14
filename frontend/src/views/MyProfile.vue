@@ -22,6 +22,24 @@
           </div>
         </div>
       </div>
+      <div class="avatar-editor">
+        <div class="avatar-frame">
+          <img v-if="avatarPreview" :src="avatarPreview" alt="Profilbild" class="avatar-image" />
+          <img v-else :src="anonymousAvatar" alt="Anonym" class="avatar-image" />
+        </div>
+        <label class="btn ghost tiny file-btn">
+          Bild wählen
+          <input type="file" accept="image/*" @change="onAvatarFile" />
+        </label>
+        <div class="avatar-actions">
+          <button class="btn tiny" type="button" @click="saveAvatar" :disabled="avatarUploading || !avatarFile">
+            {{ avatarUploading ? "Upload..." : "Speichern" }}
+          </button>
+          <button class="btn ghost tiny" type="button" @click="removeAvatar" :disabled="avatarUploading">
+            Entfernen
+          </button>
+        </div>
+      </div>
       <div class="hero-actions">
         <button class="btn ghost" type="button" @click="hydrateForm" :disabled="saving">Zurücksetzen</button>
         <button class="btn" type="button" @click="saveProfile" :disabled="saving">
@@ -170,7 +188,7 @@
 
 <script setup>
 import { reactive, ref, onMounted, computed, watch } from "vue";
-import api from "../api";
+import api, { toAbsoluteMediaUrl } from "../api";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 
@@ -182,6 +200,8 @@ const examples = ref([]);
 const loadingExamples = ref(false);
 const saving = ref(false);
 const uploading = ref(false);
+const avatarUploading = ref(false);
+const avatarFile = ref(null);
 
 const socialKeys = ["instagram", "youtube", "soundcloud", "tiktok", "spotify"];
 const socialMeta = {
@@ -218,6 +238,16 @@ const notificationOptions = [
     hint: "E-Mail bei neuen veröffentlichten Plattform-News.",
   },
 ];
+
+const anonymousAvatar =
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'>
+      <rect width='120' height='120' fill='#e8ecf3'/>
+      <circle cx='60' cy='44' r='22' fill='#b8c2d1'/>
+      <rect x='24' y='74' width='72' height='34' rx='17' fill='#c9d2df'/>
+    </svg>`
+  );
 
 const roleLabels = {
   ARTIST: "Artist",
@@ -256,6 +286,15 @@ const roleSummary = computed(() => {
     .map((role) => roleLabels[role.key] || role.key);
   if (!selected.length) return "Keine";
   return selected.join(", ");
+});
+
+const avatarPreview = computed(() => {
+  if (avatarFile.value) {
+    return URL.createObjectURL(avatarFile.value);
+  }
+  const raw = me.value?.avatar_url;
+  if (!raw) return "";
+  return toAbsoluteMediaUrl(raw);
 });
 
 function createDefaultSocials() {
@@ -339,6 +378,43 @@ function resetExample() {
 
 function onExampleFile(event) {
   example.file = event.target.files?.[0] || null;
+}
+
+function onAvatarFile(event) {
+  avatarFile.value = event.target.files?.[0] || null;
+}
+
+async function saveAvatar() {
+  if (!avatarFile.value) return;
+  avatarUploading.value = true;
+  try {
+    const formData = new FormData();
+    formData.append("avatar", avatarFile.value);
+    await api.post("profiles/me/avatar/", formData, { headers: { "Content-Type": "multipart/form-data" } });
+    avatarFile.value = null;
+    await fetchProfile(true);
+    showToast("Profilbild gespeichert", "success");
+  } catch (err) {
+    console.error("Avatar upload failed", err);
+    showToast("Profilbild konnte nicht gespeichert werden", "error");
+  } finally {
+    avatarUploading.value = false;
+  }
+}
+
+async function removeAvatar() {
+  avatarUploading.value = true;
+  try {
+    await api.post("profiles/me/avatar/", { clear: true });
+    avatarFile.value = null;
+    await fetchProfile(true);
+    showToast("Profilbild entfernt", "success");
+  } catch (err) {
+    console.error("Avatar remove failed", err);
+    showToast("Profilbild konnte nicht entfernt werden", "error");
+  } finally {
+    avatarUploading.value = false;
+  }
 }
 
 async function uploadExample() {
@@ -438,6 +514,41 @@ onMounted(async () => {
   flex-direction: column;
   gap: 10px;
   align-items: stretch;
+}
+.avatar-editor {
+  display: grid;
+  gap: 10px;
+  align-self: start;
+}
+.avatar-frame {
+  width: 140px;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #e8ecf3;
+  border: 1px solid var(--border);
+}
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.file-btn {
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+.file-btn input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.avatar-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 .profile-form {
   display: grid;
@@ -591,9 +702,11 @@ onMounted(async () => {
   .hero {
     grid-template-columns: 1fr;
   }
+  .avatar-editor {
+    order: 2;
+  }
   .hero-actions {
     width: 100%;
-    grid-row: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
   }

@@ -1,8 +1,20 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
+def has_role(profile, *role_keys):
+    return bool(profile and profile.roles.filter(key__in=role_keys).exists())
+
+
+def is_admin_profile(profile):
+    if not profile:
+        return False
+    if getattr(getattr(profile, "user", None), "is_superuser", False):
+        return True
+    return has_role(profile, "ADMIN")
+
+
 def is_team_profile(profile):
-    return bool(profile and profile.roles.filter(key="TEAM").exists())
+    return has_role(profile, "TEAM", "ADMIN")
 
 
 def can_view_project(profile, project):
@@ -54,6 +66,15 @@ class IsTeam(BasePermission):
         p = getattr(u, "profile", None)
         if not p: return False
         return is_team_profile(p)
+
+
+class IsAdmin(BasePermission):
+    def has_permission(self, request, view):
+        u = request.user
+        if not u or not u.is_authenticated:
+            return False
+        p = getattr(u, "profile", None)
+        return is_admin_profile(p)
 
 class IsTeamOrReadOnly(BasePermission):
     def has_permission(self, request, view):

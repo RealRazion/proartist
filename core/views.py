@@ -64,6 +64,7 @@ from .models import (
     RankedSeasonSettings,
     RankTierConfig,
     Role,
+    RoleAccessPolicy,
     SystemIntegration,
     Task,
     TaskAttachment,
@@ -78,6 +79,7 @@ from .models import (
 )
 from .serializers import _monthly_amount, _debt_monthly_amount
 from .permissions import (
+    IsAdmin,
     IsTeam,
     IsTeamOrReadOnly,
     can_comment_on_project_tasks,
@@ -117,6 +119,7 @@ from .serializers import (
     RegistrationRequestSerializer,
     RankedSeasonSettingsSerializer,
     RankTierConfigSerializer,
+    RoleAccessPolicySerializer,
     RequestSerializer,
     RoleSerializer,
     SongSerializer,
@@ -545,7 +548,7 @@ def _create_invite_for_email(email, name="", role_keys=None, send_email=True):
     return {"user": user, "profile": None, "username": username, "invite_link": link}
 
 @api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated, IsTeam])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
 @throttle_classes([InviteUserRateThrottle])
 def invite_user(request):
     email = (request.data.get("email") or "").strip().lower()
@@ -601,7 +604,7 @@ def set_password(request):
 class RegistrationRequestViewSet(viewsets.ModelViewSet):
     queryset = RegistrationRequest.objects.all().order_by("-created_at")
     serializer_class = RegistrationRequestSerializer
-    permission_classes = [permissions.IsAuthenticated, IsTeam]
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
 
     @action(detail=True, methods=["POST"])
     def invite(self, request, pk=None):
@@ -625,6 +628,7 @@ class RoleViewSet(viewsets.ModelViewSet):
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset=Profile.objects.select_related("user").prefetch_related("roles").all()
     serializer_class=ProfileSerializer; permission_classes=[permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @action(detail=False, methods=["GET"])
     def me(self, request):
@@ -650,7 +654,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=["POST"], permission_classes=[permissions.IsAuthenticated, IsTeam])
+    @action(detail=True, methods=["POST"], permission_classes=[permissions.IsAuthenticated, IsAdmin])
     def lock(self, request, pk=None):
         profile = self.get_object()
         locked = _bool_param(request.data.get("locked"), True)
@@ -659,7 +663,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
         user.save(update_fields=["is_active"])
         return Response({"locked": locked})
 
-    @action(detail=True, methods=["POST"], url_path="team-role", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    @action(detail=True, methods=["POST"], url_path="team-role", permission_classes=[permissions.IsAuthenticated, IsAdmin])
     def team_role(self, request, pk=None):
         profile = self.get_object()
         should_add = _bool_param(request.data.get("add"), True)
@@ -668,7 +672,44 @@ class ProfileViewSet(viewsets.ModelViewSet):
             profile.roles.add(team_role)
         else:
             profile.roles.remove(team_role)
-        return Response({"is_team_member": profile.roles.filter(key="TEAM").exists()})
+        return Response({"is_team_member": profile.roles.filter(key__in=["TEAM", "ADMIN"]).exists()})
+
+    @action(detail=False, methods=["POST"], url_path="me/avatar", permission_classes=[permissions.IsAuthenticated])
+    def me_avatar(self, request):
+        profile = getattr(request.user, "profile", None)
+        if not profile:
+            return Response({"detail": "Profil nicht gefunden."}, status=status.HTTP_404_NOT_FOUND)
+        clear = _bool_param(request.data.get("clear"), False)
+        avatar = request.FILES.get("avatar")
+        if clear:
+            if profile.avatar:
+                profile.avatar.delete(save=False)
+            profile.avatar = None
+            profile.save(update_fields=["avatar"])
+            return Response({"avatar_url": None})
+        if not avatar:
+            return Response({"detail": "avatar file erforderlich"}, status=status.HTTP_400_BAD_REQUEST)
+        profile.avatar = avatar
+        profile.save(update_fields=["avatar"])
+        serializer = self.get_serializer(profile)
+        return Response({"avatar_url": serializer.data.get("avatar_url")})
+
+
+class RoleAccessPolicyViewSet(viewsets.ModelViewSet):
+    queryset = RoleAccessPolicy.objects.select_related("updated_by__user").all()
+    serializer_class = RoleAccessPolicySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsAdmin()]
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=getattr(self.request.user, "profile", None))
+
+    def perform_create(self, serializer):
+        serializer.save(updated_by=getattr(self.request.user, "profile", None))
 
 # --- Paginierung ---
 class StandardPagination(PageNumberPagination):
@@ -1680,7 +1721,7 @@ class ProjectAttachmentViewSet(viewsets.ModelViewSet):
         if project_id:
             qs = qs.filter(project_id=project_id)
         me = getattr(self.request.user, "profile", None)
-        if me and not me.roles.filter(key="TEAM").exists():
+        if me and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             qs = qs.filter(project__participants=me)
         return qs
 
@@ -1816,7 +1857,7 @@ class SongViewSet(viewsets.ModelViewSet):
             statuses = [s.strip().upper() for s in status_param.split(",") if s.strip()]
             if statuses and "ALL" not in statuses:
                 qs = qs.filter(status__in=statuses)
-        if me and not me.roles.filter(key="TEAM").exists():
+        if me and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             qs = qs.filter(profile=me)
         profile_id = self.request.query_params.get("profile")
         if profile_id:
@@ -1866,7 +1907,7 @@ class SongViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         me = self.request.user.profile
         data = serializer.validated_data
-        if not me.roles.filter(key="TEAM").exists():
+        if not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             data.pop("project", None)
         song = serializer.save()
         log_activity(
@@ -1890,14 +1931,14 @@ class SongViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         song = self.get_object()
         me = request.user.profile
-        if song.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+        if song.profile_id != me.id and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             return Response({"detail": "Nicht erlaubt"}, status=403)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         song = self.get_object()
         me = request.user.profile
-        if song.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+        if song.profile_id != me.id and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             return Response({"detail": "Nicht erlaubt"}, status=403)
         return super().destroy(request, *args, **kwargs)
 
@@ -1924,7 +1965,7 @@ class SongVersionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         song = serializer.validated_data["song"]
         me = self.request.user.profile
-        if song.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+        if song.profile_id != me.id and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             raise PermissionDenied("Nicht erlaubt")
         version = serializer.save()
         log_activity(
@@ -1948,7 +1989,7 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
             "assigned_team__user",
         ).prefetch_related("updates__created_by__user")
         me = self.request.user.profile
-        if not me.roles.filter(key="TEAM").exists():
+        if not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             qs = qs.filter(profile=me)
         return qs
 
@@ -1991,7 +2032,7 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         me = self.request.user.profile
         data = serializer.validated_data
-        if not me.roles.filter(key="TEAM").exists():
+        if not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             data["profile"] = me
             data["created_by"] = me
         goal = serializer.save(created_by=me)
@@ -2018,7 +2059,7 @@ class GrowProGoalViewSet(viewsets.ModelViewSet):
     def log_value(self, request, pk=None):
         goal = self.get_object()
         me = request.user.profile
-        if goal.profile_id != me.id and not me.roles.filter(key="TEAM").exists():
+        if goal.profile_id != me.id and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             return Response({"detail": "Nicht erlaubt"}, status=403)
         try:
             value = float(request.data.get("value"))
@@ -2393,20 +2434,20 @@ class BookingViewSet(viewsets.ModelViewSet):
         me = getattr(self.request.user, "profile", None)
         if not me:
             return qs.none()
-        if me.roles.filter(key="TEAM").exists():
+        if me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             return qs
         return qs.filter(profile=me)
 
     def perform_create(self, serializer):
         me = self.request.user.profile
-        if me.roles.filter(key="TEAM").exists():
+        if me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             serializer.save()
             return
         serializer.save(profile=me)
 
     def perform_update(self, serializer):
         me = self.request.user.profile
-        if me.roles.filter(key="TEAM").exists():
+        if me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             serializer.save()
             return
         serializer.save(profile=me)
@@ -3375,7 +3416,7 @@ class PluginGuideViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         me = getattr(self.request.user, "profile", None)
-        if not me or not me.roles.filter(key="TEAM").exists():
+        if not me or not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             qs = qs.filter(is_published=True)
         return qs
 
@@ -3647,6 +3688,16 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
         self._sync_platform_catalog()
         me = getattr(request.user, "profile", None)
         is_team_user = is_team_profile(me)
+        is_admin_user = bool(me and (me.roles.filter(key="ADMIN").exists() or getattr(request.user, "is_superuser", False)))
+        role_keys = set(me.roles.values_list("key", flat=True)) if me else set()
+        if not role_keys:
+            role_keys = {"MEMBER"}
+        if is_admin_user:
+            role_keys.add("ADMIN")
+        policy_map = {
+            row.role_key: (row.access_rules or {})
+            for row in RoleAccessPolicy.objects.all()
+        }
         rows = []
         for platform in ManagedPlatform.objects.all().order_by("name"):
             if platform.status == "LOCKED":
@@ -3655,6 +3706,16 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                 accessible = is_team_user
             else:
                 accessible = is_team_user or platform.allow_non_team_users
+
+            if not is_admin_user:
+                explicit_role_rules = []
+                for role_key in role_keys:
+                    rules = policy_map.get(role_key) or {}
+                    if platform.slug in rules:
+                        explicit_role_rules.append(bool(rules.get(platform.slug)))
+                if explicit_role_rules:
+                    accessible = any(explicit_role_rules)
+
             rows.append(
                 {
                     "id": platform.id,
@@ -3666,6 +3727,8 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                     "allow_non_team_users": platform.allow_non_team_users,
                     "is_accessible": accessible,
                     "is_team_user": is_team_user,
+                    "is_admin_user": is_admin_user,
+                    "role_keys": sorted(role_keys),
                     "is_system_defined": is_system_platform(platform.slug),
                 }
             )
@@ -3687,7 +3750,7 @@ class NewsPostViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         me = getattr(self.request.user, "profile", None)
-        if not me or not me.roles.filter(key="TEAM").exists():
+        if not me or not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             qs = qs.filter(is_published=True)
         return qs
 
@@ -3770,7 +3833,7 @@ class FinanceTipViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         me = getattr(self.request.user, "profile", None)
-        if not me or not me.roles.filter(key="TEAM").exists():
+        if not me or not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             qs = qs.filter(is_published=True)
         return qs
 
@@ -3967,7 +4030,7 @@ def stats(request):
     for row in Role.objects.annotate(c=Count("profile")).values("key","c"):
         counts[row["key"]] = row["c"]
     me = request.user.profile
-    if me.roles.filter(key="TEAM").exists():
+    if me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
         open_requests = Request.objects.filter(status="OPEN").count()
         active_contracts = Contract.objects.filter(status="ACTIVE").count()
         due_payments = Payment.objects.filter(status="DUE").count()
@@ -3978,7 +4041,7 @@ def stats(request):
     return Response({"roles":counts,"open_requests":open_requests,"active_contracts":active_contracts,"due_payments":due_payments})
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated, IsTeam])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
 def admin_overview(request):
     today = timezone.now().date()
     last_week = timezone.now() - timedelta(days=7)
@@ -4004,7 +4067,7 @@ def admin_overview(request):
     )
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated, IsTeam])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
 def analytics_summary(request):
     today = timezone.now().date()
     soon_days = int(request.query_params.get("soon_days", 7) or 7)
@@ -4142,7 +4205,7 @@ class ArtistEngagementView(APIView):
 def calendar_export(request):
     me = request.user.profile
     today = timezone.now().date()
-    if me.roles.filter(key="TEAM").exists():
+    if me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
         tasks = Task.objects.filter(is_archived=False, due_date__isnull=False).order_by("due_date")[:200]
     else:
         tasks = Task.objects.filter(

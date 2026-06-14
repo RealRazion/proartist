@@ -14,7 +14,7 @@ TASK_PRIORITY_SCORE = {
 
 
 def _team_profiles():
-    return Profile.objects.filter(roles__key="TEAM").distinct()
+    return Profile.objects.filter(roles__key__in=["TEAM", "ADMIN"]).distinct()
 
 
 def _resolve_member_point_cap(profile):

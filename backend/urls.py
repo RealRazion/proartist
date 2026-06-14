@@ -33,6 +33,7 @@ from core.views import (
     ReleaseViewSet,
     RequestViewSet,
     RoleViewSet,
+    RoleAccessPolicyViewSet,
     SongViewSet,
     SongVersionViewSet,
     SystemIntegrationViewSet,
@@ -63,6 +64,7 @@ from core.views import (
 
 router = routers.DefaultRouter()
 router.register(r"roles", RoleViewSet)
+router.register(r"role-access-policies", RoleAccessPolicyViewSet, basename="role-access-policies")
 router.register(r"profiles", ProfileViewSet)
 router.register(r"notifications", NotificationViewSet, basename="notifications")
 router.register(r"examples", ExampleViewSet)

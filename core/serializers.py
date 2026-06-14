@@ -39,6 +39,7 @@ from .models import (
     RankedSeasonSettings,
     RankTierConfig,
     RegistrationRequest,
+    RoleAccessPolicy,
     Role,
     Song,
     SongVersion,
@@ -259,6 +260,13 @@ class RoleSerializer(serializers.ModelSerializer):
         fields = ["id", "key"]
 
 
+class RoleAccessPolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoleAccessPolicy
+        fields = ["id", "role_key", "access_rules", "updated_by", "created_at", "updated_at"]
+        read_only_fields = ["updated_by", "created_at", "updated_at"]
+
+
 class ExampleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Example
@@ -286,6 +294,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     email = serializers.SerializerMethodField()
     is_locked = serializers.SerializerMethodField()
     is_team_member = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
@@ -304,6 +313,8 @@ class ProfileSerializer(serializers.ModelSerializer):
             "role_ids",
             "is_locked",
             "is_team_member",
+            "avatar",
+            "avatar_url",
             "onboarding_uploaded_example",
             "created_at",
         ]
@@ -314,6 +325,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             "roles",
             "is_locked",
             "is_team_member",
+            "avatar_url",
             "onboarding_uploaded_example",
             "created_at",
         ]
@@ -323,8 +335,9 @@ class ProfileSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if roles is not None and request:
             requester_profile = getattr(request.user, "profile", None)
-            if not requester_profile or not requester_profile.roles.filter(key="TEAM").exists():
-                roles = [role for role in roles if role.key != "TEAM"]
+            is_admin = bool(requester_profile and requester_profile.roles.filter(key="ADMIN").exists())
+            if not is_admin:
+                roles = [role for role in roles if role.key not in {"TEAM", "ADMIN"}]
                 validated_data["roles"] = roles
         return super().update(instance, validated_data)
 
@@ -335,12 +348,21 @@ class ProfileSerializer(serializers.ModelSerializer):
         return not user.is_active
 
     def get_is_team_member(self, obj):
-        return obj.roles.filter(key="TEAM").exists()
+        return obj.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
+
+    def get_avatar_url(self, obj):
+        avatar = getattr(obj, "avatar", None)
+        if not avatar:
+            return None
+        try:
+            return avatar.url
+        except Exception:
+            return None
 
     def get_email(self, obj):
         request = self.context.get("request")
         me = getattr(getattr(request, "user", None), "profile", None) if request else None
-        if not me or not me.roles.filter(key="TEAM").exists():
+        if not me or not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             return None
         return getattr(obj.user, "email", "")
 
@@ -768,7 +790,7 @@ class SongSerializer(serializers.ModelSerializer):
         me = getattr(getattr(request, "user", None), "profile", None) if request else None
         if not me:
             return attrs
-        is_team = me.roles.filter(key="TEAM").exists()
+        is_team = me.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
         if not is_team:
             if "project" in attrs:
                 raise serializers.ValidationError({"project": "Nur Team darf Projekte zuweisen"})
@@ -843,12 +865,12 @@ class GrowProGoalSerializer(serializers.ModelSerializer):
         me = getattr(getattr(request, "user", None), "profile", None) if request else None
         if not me:
             return attrs
-        is_team = me.roles.filter(key="TEAM").exists()
+        is_team = me.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
         if not is_team:
             attrs["profile"] = me
             attrs.pop("assigned_team", None)
         assigned_team = attrs.get("assigned_team")
-        if assigned_team and not assigned_team.roles.filter(key="TEAM").exists():
+        if assigned_team and not assigned_team.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
             raise serializers.ValidationError({"assigned_team_id": "Nur Team-Mitglieder können zugewiesen werden."})
         if self.instance is None and not attrs.get("metric"):
             title = (attrs.get("title") or "").strip()

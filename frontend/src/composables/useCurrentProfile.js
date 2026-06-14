@@ -25,7 +25,11 @@ async function fetchProfile(force = false) {
 }
 
 const isTeam = computed(() =>
-  (profile.value?.roles || []).some((role) => role.key === "TEAM")
+  (profile.value?.roles || []).some((role) => ["TEAM", "ADMIN"].includes(role.key))
+);
+
+const isAdmin = computed(() =>
+  (profile.value?.roles || []).some((role) => role.key === "ADMIN")
 );
 
 function clearProfile() {
@@ -41,6 +45,7 @@ export function useCurrentProfile() {
     loaded,
     error,
     isTeam,
+    isAdmin,
     fetchProfile,
     clearProfile,
   };

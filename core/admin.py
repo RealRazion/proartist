@@ -16,6 +16,7 @@ from .models import (
     Project,
     ProjectAttachment,
     RegistrationRequest,
+    RoleAccessPolicy,
     SystemIntegration,
     Task,
     TaskAttachment,
@@ -39,6 +40,7 @@ admin.site.register(NewsPost)
 admin.site.register(FinanceTip)
 admin.site.register(PluginGuide)
 admin.site.register(RegistrationRequest)
+admin.site.register(RoleAccessPolicy)
 admin.site.register(SystemIntegration)
 admin.site.register(ManagedPlatform)
 admin.site.register(FinanceProject)

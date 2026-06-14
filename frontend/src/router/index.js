@@ -29,6 +29,7 @@ const Points = () => import("../views/Points.vue");
 const ApiCenter = () => import("../views/ApiCenter.vue");
 const PlatformLanding = () => import("../views/PlatformLanding.vue");
 const AdminPlatform = () => import("../views/AdminPlatform.vue");
+const UserRoleManagement = () => import("../views/UserRoleManagement.vue");
 const TournamentAnimationLab = () => import("../views/TournamentAnimationLab.vue");
 const ContestLanding = () => import("../views/ContestLanding.vue");
 const MusicLanding = () => import("../views/MusicLanding.vue");
@@ -110,6 +111,7 @@ const routes = [
       { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
       { path: "todo", name: "platform-todo", component: TodoLanding, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },
+      { path: "admin/user-role-management", name: "admin-user-role-management", component: UserRoleManagement, meta: { requiresAuth: true } },
       { path: "admin/tournament-animations", name: "admin-tournament-animations", component: TournamentAnimationLab, meta: { requiresAuth: true } },
       { path: "manage-platforms", name: "manage-platforms", component: ManagePlatforms, meta: { requiresAuth: true } },
     ],

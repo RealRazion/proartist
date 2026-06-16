@@ -47,6 +47,17 @@
         <div v-if="successMessage" class="feedback-pill success">{{ successMessage }}</div>
       </section>
 
+      <section v-if="overviewAlerts.length" class="feedback-bar">
+        <div
+          v-for="alert in overviewAlerts"
+          :key="alert.code"
+          class="feedback-pill"
+          :class="alert.level === 'danger' ? 'error' : 'warning'"
+        >
+          {{ alert.message }}
+        </div>
+      </section>
+
       <div class="tab-nav">
         <button
           v-for="tab in tabs"
@@ -63,17 +74,21 @@
         <article class="metric-card balance-card">
           <div class="metric-top">
             <div>
-              <span class="metric-label">Frei im Monat</span>
-              <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
+              <span class="metric-label">Berechnetes Saldo</span>
+              <strong>{{ formatCurrency(calculatedSaldo) }}</strong>
             </div>
             <span class="metric-pill">{{ overview.snapshot_month }}</span>
           </div>
-          <p class="metric-note">Einnahmen minus Ausgaben, Abos, Sparen und Schuldentilgung. Hier siehst du direkt, ob der Monat aufgeht.</p>
+          <p class="metric-note">Trennung zwischen Soll-Planung und echten Zahlungen aus dem Schuldenmanager.</p>
           <div class="metric-progress">
             <span class="metric-pill small">{{ overview.people_count }} Personen</span>
             <span class="metric-pill small">{{ overview.active_entry_count || 0 }} aktive Posten</span>
           </div>
           <div class="metric-breakdown">
+            <p class="metric-breakdown-row">
+              <span>Echtes Saldo:</span>
+              <strong>{{ formatCurrency(actualSaldo) }}</strong>
+            </p>
             <p class="metric-breakdown-row current-balance-row">
               <span>Aktueller Kontostand:</span>
               <span class="balance-override-group">
@@ -104,6 +119,10 @@
             <p class="metric-breakdown-row">
               <span>Saldo ohne Dispo:</span>
               <strong>{{ formatCurrency(projectedBalanceWithoutDispo) }}</strong>
+            </p>
+            <p class="metric-breakdown-row">
+              <span>Echter Saldo ohne Dispo:</span>
+              <strong>{{ formatCurrency(actualProjectedBalanceWithoutDispo) }}</strong>
             </p>
             <p class="metric-breakdown-row">
               <span>Saldo mit Dispo:</span>
@@ -138,6 +157,10 @@
             <p class="metric-breakdown-row">
               <span>davon Schulden-Tracker:</span>
               <strong>{{ formatCurrency(monthlyCreditOutflow) }}</strong>
+            </p>
+            <p class="metric-breakdown-row">
+              <span>davon echte Zahlungen:</span>
+              <strong>{{ formatCurrency(actualDebtPaidOutflow) }}</strong>
             </p>
             <p class="metric-breakdown-row" v-if="Number(overview.monthly_debt_entries || 0) > 0">
               <span>davon alte Schulden-Posten:</span>
@@ -194,6 +217,124 @@
       <section class="tab-panel">
         <div class="workspace-shell">
           <main class="workspace-main">
+            <section v-show="activeTab === 'overview'" class="overview-page">
+              <article class="panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>KPI Widgets</h2>
+                    <p class="muted">Reihenfolge per Drag-and-drop, Sichtbarkeit per Schalter.</p>
+                  </div>
+                  <button class="btn ghost sm" type="button" @click="showOverviewWidgetConfig = true">Widgets anpassen</button>
+                </div>
+                <div class="status-grid">
+                  <div
+                    v-for="widget in activeOverviewWidgets"
+                    :key="`kpi-${widget.id}`"
+                    draggable="true"
+                    @dragstart="onOverviewWidgetDragStart(widget.id)"
+                    @dragover.prevent
+                    @drop="onOverviewWidgetDrop(widget.id)"
+                  >
+                    <span class="info-label">{{ widget.label }}</span>
+                    <strong>{{ widget.value }}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <div class="planner-grid">
+                <article class="panel chart-panel">
+                  <div class="panel-head panel-head-space">
+                    <div>
+                      <h2>Uebersicht</h2>
+                      <p class="muted">Alles Wichtige in einem Dashboard statt einzelner, starrer Widgets.</p>
+                    </div>
+                    <button class="btn ghost sm" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
+                  </div>
+
+                  <div class="performance-cards">
+                    <div class="performance-item income">
+                      <span>Berechnetes Saldo</span>
+                      <strong>{{ formatCurrency(calculatedSaldo) }}</strong>
+                    </div>
+                    <div class="performance-item outcome">
+                      <span>Echtes Saldo</span>
+                      <strong>{{ formatCurrency(actualSaldo) }}</strong>
+                    </div>
+                    <div class="performance-item balance">
+                      <span>Abweichung</span>
+                      <strong>{{ formatCurrency(saldoDelta) }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="status-grid">
+                    <div>
+                      <span class="info-label">Schulden geplant</span>
+                      <strong>{{ formatCurrency(monthlyCreditOutflow) }}</strong>
+                    </div>
+                    <div>
+                      <span class="info-label">Schulden echt bezahlt</span>
+                      <strong>{{ formatCurrency(actualDebtPaidOutflow) }}</strong>
+                    </div>
+                    <div>
+                      <span class="info-label">Differenz</span>
+                      <strong>{{ formatCurrency(actualDebtPaidOutflow - monthlyCreditOutflow) }}</strong>
+                    </div>
+                    <div>
+                      <span class="info-label">Offene Restschuld</span>
+                      <strong>{{ formatCurrency(overview.total_debt || 0) }}</strong>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="panel summary-split-panel">
+                  <div class="panel-head panel-head-space">
+                    <div>
+                      <h2>Kurzmonitor</h2>
+                      <p class="muted">Konzentriert auf die Zahlen, die Entscheidungen beeinflussen.</p>
+                    </div>
+                  </div>
+                  <div class="summary-split-grid">
+                    <section class="summary-column">
+                      <h3>Budget</h3>
+                      <ul class="summary-sublist">
+                        <li class="summary-subitem"><span>Einnahmen</span><strong>{{ formatCurrency(overview.monthly_income) }}</strong></li>
+                        <li class="summary-subitem"><span>Ausgaben (berechnet)</span><strong>{{ formatCurrency(overview.monthly_outflow) }}</strong></li>
+                        <li class="summary-subitem"><span>Ausgaben (echt)</span><strong>{{ formatCurrency(overview.monthly_outflow_actual || overview.monthly_outflow) }}</strong></li>
+                      </ul>
+                    </section>
+                    <section class="summary-column">
+                      <h3>Liquiditaet</h3>
+                      <ul class="summary-sublist">
+                        <li class="summary-subitem"><span>Kontostand jetzt</span><strong>{{ formatCurrency(currentBalance) }}</strong></li>
+                        <li class="summary-subitem"><span>Projektion berechnet</span><strong>{{ formatCurrency(projectedBalanceWithoutDispo) }}</strong></li>
+                        <li class="summary-subitem"><span>Projektion echt</span><strong>{{ formatCurrency(actualProjectedBalanceWithoutDispo) }}</strong></li>
+                      </ul>
+                    </section>
+                  </div>
+                </article>
+              </div>
+
+              <div v-if="showOverviewWidgetConfig" class="modal-backdrop" @click.self="showOverviewWidgetConfig = false">
+                <div class="modal card">
+                  <h3>Dashboard Widgets</h3>
+                  <p class="muted">Aktiviere oder deaktiviere Widgets. Reihenfolge per Drag-and-drop in der Uebersicht.</p>
+                  <div class="picker-grid">
+                    <label v-for="widget in overviewWidgetDefinitions" :key="`cfg-${widget.id}`" class="picker-item">
+                      <input
+                        type="checkbox"
+                        :checked="!hiddenOverviewWidgets.includes(widget.id)"
+                        @change="toggleOverviewWidget(widget.id)"
+                      />
+                      <span>{{ widget.label }}</span>
+                    </label>
+                  </div>
+                  <div class="modal-actions">
+                    <button class="btn" type="button" @click="showOverviewWidgetConfig = false">Fertig</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <section v-show="activeTab === 'planner'" class="planner-page">
               <div class="planner-grid">
                 <article class="panel chart-panel">
@@ -477,6 +618,89 @@
                     <span v-if="dueUrgencyClass(entry, currentMonthLabel)" :class="['debt-due-badge', dueUrgencyClass(entry, currentMonthLabel)]">
                       Fällig: {{ dueLabel(entry) }}
                     </span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>Priorisierung</h2>
+                    <p class="muted">Snowball/Avalanche als direkte Reihenfolge.</p>
+                  </div>
+                  <button class="btn ghost sm" type="button" @click="loadDebtInsights" :disabled="loadingDebtInsights">
+                    {{ loadingDebtInsights ? 'Lade...' : 'Neu laden' }}
+                  </button>
+                </div>
+                <div class="summary-split-grid">
+                  <section class="summary-column">
+                    <h3>Snowball</h3>
+                    <ul v-if="debtPriorities.snowball.length" class="summary-sublist">
+                      <li v-for="item in debtPriorities.snowball.slice(0, 5)" :key="`snow-${item.id}`" class="summary-subitem">
+                        <span>{{ item.name }}</span>
+                        <strong>{{ formatCurrency(item.remaining) }}</strong>
+                      </li>
+                    </ul>
+                    <p v-else class="muted small">Keine aktiven Schulden vorhanden.</p>
+                  </section>
+                  <section class="summary-column">
+                    <h3>Avalanche</h3>
+                    <ul v-if="debtPriorities.avalanche.length" class="summary-sublist">
+                      <li v-for="item in debtPriorities.avalanche.slice(0, 5)" :key="`ava-${item.id}`" class="summary-subitem">
+                        <span>{{ item.name }}</span>
+                        <strong>{{ item.payment_pressure }}%</strong>
+                      </li>
+                    </ul>
+                    <p v-else class="muted small">Keine Priorisierung verfuegbar.</p>
+                  </section>
+                </div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head panel-head-space">
+                  <div>
+                    <h2>Simulation</h2>
+                    <p class="muted">Was passiert bei Extrazahlung oder Ratenpause.</p>
+                  </div>
+                </div>
+                <div class="grid two">
+                  <label>
+                    Schuld
+                    <select v-model="debtSimulationForm.debt_id" class="input">
+                      <option value="">Bitte wählen</option>
+                      <option v-for="debt in debtTrackerItems" :key="`sim-${debt.id}`" :value="debt.id">{{ debt.name }}</option>
+                    </select>
+                  </label>
+                  <label>
+                    Extra-Zahlung
+                    <input v-model="debtSimulationForm.extra_payment" class="input" type="number" step="0.01" min="0" />
+                  </label>
+                </div>
+                <label class="toggle">
+                  <input v-model="debtSimulationForm.pause_month" type="checkbox" />
+                  Rate fuer den naechsten Monat aussetzen
+                </label>
+                <div class="modal-actions">
+                  <button class="btn" type="button" @click="runDebtSimulation" :disabled="loadingDebtSimulation">
+                    {{ loadingDebtSimulation ? 'Berechne...' : 'Simulation starten' }}
+                  </button>
+                </div>
+                <div v-if="debtSimulation" class="status-grid">
+                  <div>
+                    <span class="info-label">Monate bis abbezahlt</span>
+                    <strong>{{ debtSimulation.scenario.months_to_close ?? 'offen' }}</strong>
+                  </div>
+                  <div>
+                    <span class="info-label">Saldo-Effekt / Monat</span>
+                    <strong>{{ formatCurrency(debtSimulation.scenario.monthly_saldo_impact) }}</strong>
+                  </div>
+                  <div>
+                    <span class="info-label">Plan-Saldo nach Szenario</span>
+                    <strong>{{ formatCurrency(debtSimulation.scenario.planned_saldo_after) }}</strong>
+                  </div>
+                  <div>
+                    <span class="info-label">Echt-Saldo nach Szenario</span>
+                    <strong>{{ formatCurrency(debtSimulation.scenario.actual_saldo_after) }}</strong>
                   </div>
                 </div>
               </article>
@@ -1148,7 +1372,7 @@ const project = ref(null);
 const selectedProjectId = ref(null);
 const plannerEntryFilter = ref("ALL");
 const allEntriesFilter = ref("ALL");
-const activeTab = ref("planner");
+const activeTab = ref("overview");
 const editingEntryId = ref(null);
 const editingGoalId = ref(null);
 const membersPanelOpen = ref(false);
@@ -1177,9 +1401,20 @@ const localStoredCategories = ref(loadStoredCategories());
 const topbarExpanded = ref(false);
 const showBalanceEdit = ref(false);
 const balanceOverrideInput = ref(null);
+const loadingDebtInsights = ref(false);
+const debtPriorities = ref({ snowball: [], avalanche: [], recommended_strategy: "snowball" });
+const debtTrackerItems = ref([]);
+const debtSimulation = ref(null);
+const loadingDebtSimulation = ref(false);
+const debtSimulationForm = ref({ debt_id: "", extra_payment: 0, pause_month: false });
+const showOverviewWidgetConfig = ref(false);
+const draggingOverviewWidgetId = ref(null);
+const hiddenOverviewWidgets = ref([]);
+const overviewWidgetOrder = ref([]);
 
-const tabs = ["planner", "daily", "debts", "goals"];
+const tabs = ["overview", "planner", "daily", "debts", "goals"];
 const tabLabels = {
+  overview: "Uebersicht",
   planner: "Planer",
   daily: "Tägliche Ausgaben",
   debts: "Schulden",
@@ -1191,6 +1426,15 @@ const tipTypeLabels = {
   REFERRAL: "Empfehlungsprämie",
   OTHER: "Sonstiges",
 };
+
+const OVERVIEW_WIDGET_DEFAULT_ORDER = [
+  "calculated_saldo",
+  "actual_saldo",
+  "saldo_delta",
+  "debt_planned",
+  "debt_actual",
+  "remaining_debt",
+];
 
 const memberRoleLabels = {
   PRIMARY: "Hauptperson",
@@ -1327,8 +1571,14 @@ const dueSoonPreview = computed(() => {
   const source = Array.isArray(overview.value?.due_soon) ? overview.value.due_soon : [];
   return source.slice(0, 5);
 });
+const overviewAlerts = computed(() => Array.isArray(overview.value?.alerts) ? overview.value.alerts : []);
 const monthlyCreditOutflow = computed(() => Number(overview.value.monthly_debt_tracker || 0));
+const actualDebtPaidOutflow = computed(() => Number(overview.value.monthly_debt_paid_actual || 0));
+const calculatedSaldo = computed(() => Number(overview.value.monthly_left || 0));
+const actualSaldo = computed(() => Number(overview.value.monthly_left_actual ?? overview.value.monthly_left ?? 0));
+const saldoDelta = computed(() => actualSaldo.value - calculatedSaldo.value);
 const projectedBalanceWithoutDispo = computed(() => Number(overview.value.projected_balance || 0));
+const actualProjectedBalanceWithoutDispo = computed(() => Number(overview.value.projected_balance_actual ?? overview.value.projected_balance ?? 0));
 const projectedBalanceWithDispo = computed(() => {
   const fromOverview = overview.value.projected_balance_with_dispo;
   if (fromOverview !== undefined && fromOverview !== null) {
@@ -1351,6 +1601,87 @@ const dispoUsed = computed(() => {
   const deficitWithoutDispo = Math.max(0, -projectedBalanceWithoutDispo.value);
   return Math.min(dispoLimit, deficitWithoutDispo);
 });
+
+const overviewWidgetDefinitions = computed(() => [
+  { id: "calculated_saldo", label: "Berechnetes Saldo", value: formatCurrency(calculatedSaldo.value) },
+  { id: "actual_saldo", label: "Echtes Saldo", value: formatCurrency(actualSaldo.value) },
+  { id: "saldo_delta", label: "Saldo Abweichung", value: formatCurrency(saldoDelta.value) },
+  { id: "debt_planned", label: "Schulden geplant", value: formatCurrency(monthlyCreditOutflow.value) },
+  { id: "debt_actual", label: "Schulden echt bezahlt", value: formatCurrency(actualDebtPaidOutflow.value) },
+  { id: "remaining_debt", label: "Offene Restschuld", value: formatCurrency(overview.value.total_debt || 0) },
+]);
+
+const activeOverviewWidgets = computed(() => {
+  const hidden = new Set(hiddenOverviewWidgets.value);
+  const byId = new Map(overviewWidgetDefinitions.value.map((item) => [item.id, item]));
+  const ordered = [];
+  overviewWidgetOrder.value.forEach((id) => {
+    if (!hidden.has(id) && byId.has(id)) {
+      ordered.push(byId.get(id));
+      byId.delete(id);
+    }
+  });
+  byId.forEach((item, id) => {
+    if (!hidden.has(id)) {
+      ordered.push(item);
+    }
+  });
+  return ordered;
+});
+
+function normalizeOverviewWidgetSettings() {
+  const allowed = new Set(overviewWidgetDefinitions.value.map((item) => item.id));
+  const profileOrder = readFinanceProfileSetting("overviewWidgetOrder");
+  const profileHidden = readFinanceProfileSetting("overviewWidgetHidden");
+
+  const order = Array.isArray(profileOrder)
+    ? profileOrder.filter((id) => allowed.has(id))
+    : OVERVIEW_WIDGET_DEFAULT_ORDER.filter((id) => allowed.has(id));
+  const hidden = Array.isArray(profileHidden)
+    ? profileHidden.filter((id) => allowed.has(id))
+    : [];
+
+  overviewWidgetOrder.value = order.length ? order : OVERVIEW_WIDGET_DEFAULT_ORDER.filter((id) => allowed.has(id));
+  hiddenOverviewWidgets.value = hidden;
+}
+
+function persistOverviewWidgetSettings() {
+  persistFinanceProfileSetting({
+    overviewWidgetOrder: [...overviewWidgetOrder.value],
+    overviewWidgetHidden: [...hiddenOverviewWidgets.value],
+  });
+}
+
+function toggleOverviewWidget(id) {
+  if (hiddenOverviewWidgets.value.includes(id)) {
+    hiddenOverviewWidgets.value = hiddenOverviewWidgets.value.filter((item) => item !== id);
+  } else {
+    hiddenOverviewWidgets.value = [...hiddenOverviewWidgets.value, id];
+  }
+  persistOverviewWidgetSettings();
+}
+
+function onOverviewWidgetDragStart(widgetId) {
+  draggingOverviewWidgetId.value = widgetId;
+}
+
+function onOverviewWidgetDrop(targetId) {
+  const draggedId = draggingOverviewWidgetId.value;
+  draggingOverviewWidgetId.value = null;
+  if (!draggedId || draggedId === targetId) {
+    return;
+  }
+  const order = [...overviewWidgetOrder.value];
+  const fromIndex = order.indexOf(draggedId);
+  const toIndex = order.indexOf(targetId);
+  if (fromIndex < 0 || toIndex < 0) {
+    return;
+  }
+  order.splice(fromIndex, 1);
+  order.splice(toIndex, 0, draggedId);
+  overviewWidgetOrder.value = order;
+  persistOverviewWidgetSettings();
+}
 
 function isValidMonth(value) {
   return typeof value === "string" && /^\d{4}-\d{2}$/.test(value);
@@ -1994,6 +2325,7 @@ async function loadProjectDetail(projectId) {
     forecast.value = null;
     comparison.value = null;
     clearFeedback();
+    await loadDebtInsights();
     if (activeTab.value === "daily") {
       await loadDailyExpenses();
     }
@@ -2031,8 +2363,63 @@ async function syncProjectSelection() {
 
 async function refreshCurrent() {
   await syncProjectSelection();
+  await loadDebtInsights();
   if (activeTab.value === "tips") {
     await loadFinanceTips();
+  }
+}
+
+async function loadDebtTrackerItems() {
+  if (!selectedProjectId.value) {
+    debtTrackerItems.value = [];
+    return;
+  }
+  try {
+    const { data } = await api.get(`debts/?project=${selectedProjectId.value}`);
+    debtTrackerItems.value = Array.isArray(data) ? data : data?.results || [];
+  } catch {
+    debtTrackerItems.value = [];
+  }
+}
+
+async function loadDebtInsights() {
+  if (!selectedProjectId.value) {
+    debtPriorities.value = { snowball: [], avalanche: [], recommended_strategy: "snowball" };
+    return;
+  }
+  loadingDebtInsights.value = true;
+  try {
+    await loadDebtTrackerItems();
+    const { data } = await api.get(`finance-projects/${selectedProjectId.value}/debt-priorities/`);
+    debtPriorities.value = {
+      snowball: data?.snowball || [],
+      avalanche: data?.avalanche || [],
+      recommended_strategy: data?.recommended_strategy || "snowball",
+    };
+  } catch {
+    debtPriorities.value = { snowball: [], avalanche: [], recommended_strategy: "snowball" };
+  } finally {
+    loadingDebtInsights.value = false;
+  }
+}
+
+async function runDebtSimulation() {
+  if (!selectedProjectId.value || !debtSimulationForm.value.debt_id) {
+    setError("Bitte zuerst eine Schuld fuer die Simulation auswaehlen.");
+    return;
+  }
+  loadingDebtSimulation.value = true;
+  try {
+    const { data } = await api.post(`finance-projects/${selectedProjectId.value}/debt-simulate/`, {
+      debt_id: debtSimulationForm.value.debt_id,
+      extra_payment: toAmount(debtSimulationForm.value.extra_payment || 0),
+      pause_month: debtSimulationForm.value.pause_month,
+    });
+    debtSimulation.value = data;
+  } catch (error) {
+    setError(getApiErrorMessage(error, "Simulation konnte nicht berechnet werden."));
+  } finally {
+    loadingDebtSimulation.value = false;
   }
 }
 
@@ -2515,6 +2902,7 @@ async function exportOverview() {
 
 onMounted(async () => {
   await fetchProfile();
+  normalizeOverviewWidgetSettings();
 
   const profileCategories = readFinanceProfileSetting("categorySuggestions");
   if (Array.isArray(profileCategories)) {
@@ -3614,6 +4002,15 @@ onMounted(async () => {
 .feedback-pill.success {
   background: var(--finance-success-bg);
   color: var(--finance-success-text);
+}
+
+.feedback-pill.warning {
+  background: var(--finance-warning-bg);
+  color: var(--finance-warning-text);
+}
+
+.overview-page .status-grid > div[draggable="true"] {
+  cursor: grab;
 }
 
 .summary-band {

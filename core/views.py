@@ -41,11 +41,14 @@ from .models import (
     ContentScheduleItem,
     Contract,
     DailyExpense,
+    Debt,
+    DebtPayment,
     Event,
     Example,
     FinanceEntry,
     FinanceMember,
     FinanceProject,
+    FinanceAuditLog,
     FinanceSavingsGoal,
     FinanceTip,
     GrowProGoal,
@@ -2231,6 +2234,93 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
             "project_start_month": start.strftime("%Y-%m"),
         })
 
+    @action(detail=True, methods=["GET"], url_path="debt-priorities")
+    def debt_priorities(self, request, pk=None):
+        project = self.get_object()
+        debts = list(project.debts.filter(status="ACTIVE"))
+
+        base = []
+        for debt in debts:
+            remaining = Decimal(debt.remaining_amount or 0)
+            if remaining <= 0:
+                continue
+            monthly = Decimal(debt.scheduled_payment_amount or 0)
+            pressure = float((monthly / remaining * Decimal("100")).quantize(Decimal("0.01"))) if remaining > 0 else 0.0
+            base.append(
+                {
+                    "id": debt.id,
+                    "name": debt.name,
+                    "debt_kind": debt.debt_kind,
+                    "remaining": float(remaining),
+                    "monthly_payment": float(monthly),
+                    "payment_pressure": pressure,
+                }
+            )
+
+        snowball = sorted(base, key=lambda item: (item["remaining"], -item["payment_pressure"]))
+        avalanche = sorted(base, key=lambda item: (-item["payment_pressure"], item["remaining"]))
+
+        return Response(
+            {
+                "snowball": snowball,
+                "avalanche": avalanche,
+                "recommended_strategy": "snowball" if len(snowball) <= 3 else "avalanche",
+            }
+        )
+
+    @action(detail=True, methods=["POST"], url_path="debt-simulate")
+    def debt_simulate(self, request, pk=None):
+        project = self.get_object()
+        debt_id = request.data.get("debt_id")
+        if not debt_id:
+            return Response({"detail": "debt_id is required."}, status=400)
+
+        debt = get_object_or_404(project.debts.all(), pk=debt_id)
+        remaining = Decimal(debt.remaining_amount or 0)
+        scheduled = Decimal(debt.scheduled_payment_amount or 0)
+        extra_payment = Decimal(str(request.data.get("extra_payment") or 0))
+        pause_month = bool(request.data.get("pause_month", False))
+
+        effective_payment = max(Decimal("0.00"), scheduled + extra_payment)
+        if remaining <= 0:
+            months_to_close = 0
+        elif effective_payment <= 0:
+            months_to_close = None
+        else:
+            months_to_close = int(remaining / effective_payment)
+            if remaining % effective_payment:
+                months_to_close += 1
+            if pause_month:
+                months_to_close += 1
+
+        overview = self.get_serializer(project).data.get("overview", {})
+        planned_saldo = Decimal(str(overview.get("monthly_left") or 0))
+        actual_saldo = Decimal(str(overview.get("monthly_left_actual", overview.get("monthly_left") or 0))
+                              )
+        monthly_impact = (scheduled - effective_payment)
+        if pause_month:
+            monthly_impact += scheduled
+
+        return Response(
+            {
+                "debt": {
+                    "id": debt.id,
+                    "name": debt.name,
+                    "remaining": float(remaining),
+                    "scheduled_payment": float(scheduled),
+                },
+                "scenario": {
+                    "extra_payment": float(extra_payment),
+                    "pause_month": pause_month,
+                    "effective_payment": float(effective_payment),
+                    "months_to_close": months_to_close,
+                    "monthly_saldo_impact": float(monthly_impact),
+                    "planned_saldo_after": float(planned_saldo + monthly_impact),
+                    "actual_saldo_after": float(actual_saldo + monthly_impact),
+                },
+            }
+        )
+
     @action(detail=True, methods=["GET"], url_path="export-overview")
     def export_overview(self, request, pk=None):
         project = self.get_object()
@@ -2335,7 +2425,6 @@ class DebtViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        from .models import Debt
         qs = (
             Debt.objects
             .select_related("project")
@@ -2349,22 +2438,102 @@ class DebtViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        from .models import Debt
         project = serializer.validated_data["project"]
         if project.owner_id != self.request.user.profile.id:
             raise PermissionDenied("Kein Zugriff auf dieses Finanzprojekt.")
         serializer.save()
 
+    def perform_update(self, serializer):
+        debt = self.get_object()
+        previous = self._snapshot_debt(debt)
+        updated = serializer.save()
+        override_fields = {
+            "total_amount",
+            "amount_paid",
+            "monthly_payment",
+            "due_day",
+            "next_due_date",
+            "status",
+            "start_date",
+        }
+        if override_fields.intersection(set(self.request.data.keys())):
+            self._create_audit_log(
+                debt=updated,
+                action_type="MANUAL_OVERRIDE",
+                reason=self.request.data.get("override_reason") or "",
+                previous_state={"debt": previous},
+                new_state={"debt": self._snapshot_debt(updated)},
+            )
+
+    def _snapshot_debt(self, debt):
+        return {
+            "id": debt.id,
+            "total_amount": str(Decimal(debt.total_amount or 0)),
+            "amount_paid": str(Decimal(debt.amount_paid or 0)),
+            "monthly_payment": str(Decimal(debt.monthly_payment or 0)) if debt.monthly_payment is not None else None,
+            "due_day": debt.due_day,
+            "next_due_date": debt.next_due_date.isoformat() if debt.next_due_date else None,
+            "status": debt.status,
+            "paid_off_date": debt.paid_off_date.isoformat() if debt.paid_off_date else None,
+        }
+
+    def _snapshot_payment(self, payment):
+        if not payment:
+            return None
+        return {
+            "id": payment.id,
+            "amount": str(Decimal(payment.amount or 0)),
+            "payment_date": payment.payment_date.isoformat() if payment.payment_date else None,
+            "notes": payment.notes or "",
+        }
+
+    def _apply_debt_snapshot(self, debt, snapshot):
+        if not snapshot:
+            return
+        debt.total_amount = Decimal(snapshot.get("total_amount") or debt.total_amount or 0)
+        debt.amount_paid = Decimal(snapshot.get("amount_paid") or debt.amount_paid or 0)
+        monthly_payment = snapshot.get("monthly_payment")
+        debt.monthly_payment = Decimal(monthly_payment) if monthly_payment not in (None, "") else None
+        debt.due_day = snapshot.get("due_day")
+        debt.status = snapshot.get("status") or debt.status
+        next_due_raw = snapshot.get("next_due_date")
+        paid_off_raw = snapshot.get("paid_off_date")
+        debt.next_due_date = parse_date(next_due_raw) if next_due_raw else None
+        debt.paid_off_date = parse_date(paid_off_raw) if paid_off_raw else None
+        debt.save(
+            update_fields=[
+                "total_amount",
+                "amount_paid",
+                "monthly_payment",
+                "due_day",
+                "status",
+                "next_due_date",
+                "paid_off_date",
+                "updated_at",
+            ]
+        )
+
+    def _create_audit_log(self, debt, action_type, reason="", payment=None, previous_state=None, new_state=None):
+        FinanceAuditLog.objects.create(
+            project=debt.project,
+            debt=debt,
+            payment=payment,
+            actor=getattr(self.request.user, "profile", None),
+            action_type=action_type,
+            reason=reason or "",
+            previous_state=previous_state or {},
+            new_state=new_state or {},
+        )
+
     @action(detail=True, methods=["post"], url_path="record-payment")
     def record_payment(self, request, pk=None):
-        from .models import Debt, DebtPayment
-
         debt = self.get_object()
         payload = DebtPaymentActionSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         data = payload.validated_data
 
         decision = data["decision"]
+        previous_debt = self._snapshot_debt(debt)
         with transaction.atomic():
             if decision == "paid":
                 amount = Decimal(data.get("amount") or 0)
@@ -2392,19 +2561,181 @@ class DebtViewSet(viewsets.ModelViewSet):
                 debt.notes = debt.notes or ""
                 debt.save(update_fields=["amount_paid", "status", "paid_off_date", "next_due_date", "notes", "updated_at"])
 
-                DebtPayment.objects.create(
+                payment = DebtPayment.objects.create(
                     debt=debt,
                     amount=amount,
                     payment_date=payment_date,
                     notes=data.get("notes") or "",
                 )
-            else:
+                self._create_audit_log(
+                    debt=debt,
+                    payment=payment,
+                    action_type="PAYMENT_CREATED",
+                    reason=data.get("notes") or "",
+                    previous_state={"debt": previous_debt},
+                    new_state={"debt": self._snapshot_debt(debt), "payment": self._snapshot_payment(payment)},
+                )
+            elif decision == "missed":
                 reschedule_date = data.get("reschedule_date") or debt.next_due_date
                 debt.status = "ACTIVE"
                 debt.paid_off_date = None
                 debt.next_due_date = reschedule_date
-                debt.total_amount = Decimal(debt.total_amount or 0) + Decimal(debt.scheduled_payment_amount or 0)
-                debt.save(update_fields=["status", "paid_off_date", "next_due_date", "total_amount", "updated_at"])
+                debt.save(update_fields=["status", "paid_off_date", "next_due_date", "updated_at"])
+                self._create_audit_log(
+                    debt=debt,
+                    action_type="PAYMENT_MISSED",
+                    reason=data.get("notes") or "",
+                    previous_state={"debt": previous_debt},
+                    new_state={"debt": self._snapshot_debt(debt)},
+                )
+            else:
+                from .serializers import _advance_debt_due_date
+
+                debt.status = "ACTIVE"
+                debt.paid_off_date = None
+                debt.next_due_date = _advance_debt_due_date(debt, debt.next_due_date)
+                debt.save(update_fields=["status", "paid_off_date", "next_due_date", "updated_at"])
+                self._create_audit_log(
+                    debt=debt,
+                    action_type="PAYMENT_SKIPPED",
+                    reason=data.get("notes") or "",
+                    previous_state={"debt": previous_debt},
+                    new_state={"debt": self._snapshot_debt(debt)},
+                )
+
+        return Response(self.get_serializer(debt).data)
+
+    @action(detail=True, methods=["patch"], url_path=r"payment/(?P<payment_id>[^/.]+)")
+    def update_payment(self, request, pk=None, payment_id=None):
+        debt = self.get_object()
+        payment = get_object_or_404(debt.payments.all(), pk=payment_id)
+        previous_debt = self._snapshot_debt(debt)
+        previous_payment = self._snapshot_payment(payment)
+
+        amount_raw = request.data.get("amount", payment.amount)
+        payment_date_raw = request.data.get("payment_date", payment.payment_date)
+        notes = request.data.get("notes", payment.notes or "")
+
+        amount = Decimal(amount_raw or 0)
+        if amount <= 0:
+            raise PermissionDenied("Der Zahlungsbetrag muss groesser als 0 sein.")
+
+        if isinstance(payment_date_raw, str):
+            payment_date = parse_date(payment_date_raw)
+        else:
+            payment_date = payment_date_raw
+        if not payment_date:
+            raise PermissionDenied("Das Zahlungsdatum ist ungueltig.")
+
+        with transaction.atomic():
+            old_amount = Decimal(payment.amount or 0)
+            total_amount = Decimal(debt.total_amount or 0)
+
+            payment.amount = amount
+            payment.payment_date = payment_date
+            payment.notes = notes or ""
+            payment.save(update_fields=["amount", "payment_date", "notes"])
+
+            new_amount_paid = Decimal(debt.amount_paid or 0) - old_amount + amount
+            new_amount_paid = max(Decimal("0"), min(new_amount_paid, total_amount))
+
+            debt.amount_paid = new_amount_paid
+            debt.status = "PAID_OFF" if new_amount_paid >= total_amount else "ACTIVE"
+            debt.paid_off_date = payment_date if debt.status == "PAID_OFF" else None
+            debt.save(update_fields=["amount_paid", "status", "paid_off_date", "updated_at"])
+
+            self._create_audit_log(
+                debt=debt,
+                payment=payment,
+                action_type="PAYMENT_UPDATED",
+                reason=notes or "",
+                previous_state={"debt": previous_debt, "payment": previous_payment},
+                new_state={"debt": self._snapshot_debt(debt), "payment": self._snapshot_payment(payment)},
+            )
+
+        return Response(self.get_serializer(debt).data)
+
+    @action(detail=True, methods=["delete"], url_path=r"payment/(?P<payment_id>[^/.]+)")
+    def delete_payment(self, request, pk=None, payment_id=None):
+        debt = self.get_object()
+        payment = get_object_or_404(debt.payments.all(), pk=payment_id)
+        previous_debt = self._snapshot_debt(debt)
+        previous_payment = self._snapshot_payment(payment)
+
+        with transaction.atomic():
+            payment_amount = Decimal(payment.amount or 0)
+            payment.delete()
+
+            total_amount = Decimal(debt.total_amount or 0)
+            new_amount_paid = Decimal(debt.amount_paid or 0) - payment_amount
+            new_amount_paid = max(Decimal("0"), min(new_amount_paid, total_amount))
+
+            debt.amount_paid = new_amount_paid
+            debt.status = "PAID_OFF" if new_amount_paid >= total_amount else "ACTIVE"
+            debt.paid_off_date = timezone.now().date() if debt.status == "PAID_OFF" else None
+            debt.save(update_fields=["amount_paid", "status", "paid_off_date", "updated_at"])
+
+            self._create_audit_log(
+                debt=debt,
+                action_type="PAYMENT_DELETED",
+                previous_state={"debt": previous_debt, "payment": previous_payment},
+                new_state={"debt": self._snapshot_debt(debt)},
+            )
+
+        return Response(self.get_serializer(debt).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="undo-last")
+    def undo_last_action(self, request, pk=None):
+        debt = self.get_object()
+        undo_window_start = timezone.now() - timedelta(minutes=10)
+        log_entry = (
+            debt.audit_logs.filter(is_undone=False, created_at__gte=undo_window_start)
+            .order_by("-created_at")
+            .first()
+        )
+        if not log_entry:
+            return Response({"detail": "Keine rueckgaengig machbare Aktion in den letzten 10 Minuten gefunden."}, status=400)
+
+        with transaction.atomic():
+            action_type = log_entry.action_type
+            previous_debt = (log_entry.previous_state or {}).get("debt")
+            previous_payment = (log_entry.previous_state or {}).get("payment")
+            new_payment = (log_entry.new_state or {}).get("payment")
+
+            if action_type == "PAYMENT_CREATED" and new_payment:
+                payment_id = new_payment.get("id")
+                payment = debt.payments.filter(id=payment_id).first()
+                if payment:
+                    payment.delete()
+                if previous_debt:
+                    self._apply_debt_snapshot(debt, previous_debt)
+            elif action_type == "PAYMENT_DELETED" and previous_payment:
+                recreated = DebtPayment.objects.create(
+                    debt=debt,
+                    amount=Decimal(previous_payment.get("amount") or 0),
+                    payment_date=parse_date(previous_payment.get("payment_date")) or timezone.now().date(),
+                    notes=previous_payment.get("notes") or "",
+                )
+                if previous_debt:
+                    self._apply_debt_snapshot(debt, previous_debt)
+                log_entry.payment = recreated
+            elif action_type == "PAYMENT_UPDATED" and previous_payment:
+                payment_id = (new_payment or {}).get("id") or previous_payment.get("id")
+                payment = debt.payments.filter(id=payment_id).first()
+                if payment:
+                    payment.amount = Decimal(previous_payment.get("amount") or 0)
+                    payment.payment_date = parse_date(previous_payment.get("payment_date")) or payment.payment_date
+                    payment.notes = previous_payment.get("notes") or ""
+                    payment.save(update_fields=["amount", "payment_date", "notes"])
+                if previous_debt:
+                    self._apply_debt_snapshot(debt, previous_debt)
+            else:
+                if previous_debt:
+                    self._apply_debt_snapshot(debt, previous_debt)
+
+            log_entry.is_undone = True
+            log_entry.undone_at = timezone.now()
+            log_entry.save(update_fields=["is_undone", "undone_at", "payment"])
 
         return Response(self.get_serializer(debt).data)
 

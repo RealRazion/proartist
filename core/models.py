@@ -407,6 +407,35 @@ class DebtPayment(models.Model):
         return f"{self.debt.name}: {self.amount} on {self.payment_date}"
 
 
+class FinanceAuditLog(models.Model):
+    ACTION_CHOICES = [
+        ("PAYMENT_CREATED", "Payment created"),
+        ("PAYMENT_UPDATED", "Payment updated"),
+        ("PAYMENT_DELETED", "Payment deleted"),
+        ("PAYMENT_SKIPPED", "Payment skipped"),
+        ("PAYMENT_MISSED", "Payment missed"),
+        ("MANUAL_OVERRIDE", "Manual override"),
+    ]
+
+    project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="audit_logs")
+    debt = models.ForeignKey(Debt, on_delete=models.SET_NULL, null=True, blank=True, related_name="audit_logs")
+    payment = models.ForeignKey(DebtPayment, on_delete=models.SET_NULL, null=True, blank=True, related_name="audit_logs")
+    actor = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="finance_audit_logs")
+    action_type = models.CharField(max_length=32, choices=ACTION_CHOICES)
+    reason = models.TextField(blank=True)
+    previous_state = models.JSONField(default=dict, blank=True)
+    new_state = models.JSONField(default=dict, blank=True)
+    is_undone = models.BooleanField(default=False)
+    undone_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.action_type} ({self.project_id})"
+
+
 class DailyExpense(models.Model):
     """Track daily expenses like groceries, coffee, etc."""
     project = models.ForeignKey(FinanceProject, on_delete=models.CASCADE, related_name="daily_expenses")

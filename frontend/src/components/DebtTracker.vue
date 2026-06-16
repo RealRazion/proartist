@@ -165,6 +165,15 @@
             >
               {{ getDueState(debt) === 'UPCOMING' ? 'Zahlung planen' : 'Bezahlt?' }}
             </button>
+            <button
+              v-if="debt.status === 'ACTIVE' && !debt.is_fully_paid && debt.payment_type === 'INSTALLMENT'"
+              class="btn sm ghost"
+              type="button"
+              @click="skipDebtMonth(debt)"
+            >
+              Rate aussetzen
+            </button>
+            <button class="btn sm ghost" type="button" @click="undoLastDebtAction(debt)">Undo (10 Min)</button>
             <button class="btn sm ghost danger" type="button" @click="removeDebt(debt)">Loeschen</button>
           </div>
         </article>
@@ -190,7 +199,13 @@
             <strong>{{ payment.debtName }}</strong>
             <p class="muted tiny">{{ formatDate(payment.date) }}{{ payment.note ? ` · ${payment.note}` : '' }}</p>
           </div>
-          <strong class="payment-history-amount">{{ formatCurrency(payment.amount) }}</strong>
+          <div class="payment-history-side">
+            <strong class="payment-history-amount">{{ formatCurrency(payment.amount) }}</strong>
+            <div v-if="payment.isStructured" class="payment-history-actions">
+              <button class="btn sm ghost" type="button" @click="openPaymentEdit(payment)">Bearbeiten</button>
+              <button class="btn sm ghost danger" type="button" @click="deletePaymentRecord(payment)">Loeschen</button>
+            </div>
+          </div>
         </li>
       </ul>
     </section>
@@ -334,6 +349,11 @@
             ></textarea>
           </label>
 
+          <label v-if="editingDebtId">
+            Aenderungsgrund (Audit)
+            <input v-model.trim="debtForm.override_reason" class="input" placeholder="z.B. Zahlung falsch markiert" />
+          </label>
+
           <div class="modal-actions">
             <button class="btn" type="submit" :disabled="savingDebt">
               {{ savingDebt ? 'Speichere...' : editingDebtId ? 'Speichern' : 'HinzufÜgen' }}
@@ -347,7 +367,7 @@
     <div v-if="showPaymentRecordingModal" class="modal-overlay" @click="closePaymentModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h2>FÄlligkeit prÜfen: {{ selectedDebtForPayment?.name }}</h2>
+          <h2>{{ editingPaymentId ? 'Zahlung bearbeiten' : 'FÄlligkeit prÜfen' }}: {{ selectedDebtForPayment?.name }}</h2>
           <button class="btn close-btn" type="button" @click="closePaymentModal">x</button>
         </div>
 
@@ -368,6 +388,7 @@
             <select v-model="paymentForm.decision" class="input">
               <option value="paid">Ja, bezahlt</option>
               <option value="missed">Nein, noch offen</option>
+              <option value="skip_month">Rate diesen Monat aussetzen</option>
             </select>
           </label>
 
@@ -411,7 +432,7 @@
 
           <div class="modal-actions">
             <button class="btn" type="submit" :disabled="savingPayment">
-              {{ savingPayment ? 'Speichere...' : 'Speichern' }}
+              {{ savingPayment ? 'Speichere...' : editingPaymentId ? 'Zahlung aktualisieren' : 'Speichern' }}
             </button>
             <button class="btn ghost" type="button" @click="closePaymentModal">Abbrechen</button>
           </div>
@@ -535,6 +556,7 @@ const showAddDebtModal = ref(false);
 const showPaymentRecordingModal = ref(false);
 const showKlarnaCalculator = ref(false);
 const editingDebtId = ref(null);
+const editingPaymentId = ref(null);
 const selectedDebtForPayment = ref(null);
 const selectedDebtKind = ref('DEBT');
 
@@ -569,6 +591,7 @@ function buildDebtForm(data = {}) {
     status: data.status || 'ACTIVE',
     start_date: data.start_date || todayIso(),
     notes: data.notes || '',
+    override_reason: '',
   };
 }
 
@@ -580,6 +603,21 @@ function buildPaymentForm(debt = null) {
     date: todayIso(),
     reschedule_date: '',
     notes: '',
+  };
+}
+
+function buildPaymentEditForm(payment = null) {
+  if (!payment) {
+    return {
+      amount: '',
+      payment_date: todayIso(),
+      notes: '',
+    };
+  }
+  return {
+    amount: Number(payment.amount || 0).toFixed(2),
+    payment_date: payment.date || todayIso(),
+    notes: payment.note || '',
   };
 }
 
@@ -788,12 +826,16 @@ const debtPayments = computed(() =>
             date: payment.payment_date,
             amount: parseEuroAmount(payment.amount),
             note: payment.notes || '',
+            isStructured: true,
           }))
         : [];
       if (structuredPayments.length) {
         return structuredPayments;
       }
-      return parsePaidPaymentsFromNotes(debt.notes, debt);
+      return parsePaidPaymentsFromNotes(debt.notes, debt).map((payment) => ({
+        ...payment,
+        isStructured: false,
+      }));
     })
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
 );
@@ -1063,6 +1105,7 @@ function showPaymentModal(debt) {
 function closePaymentModal() {
   showPaymentRecordingModal.value = false;
   selectedDebtForPayment.value = null;
+  editingPaymentId.value = null;
   paymentForm.value = buildPaymentForm();
 }
 
@@ -1074,16 +1117,82 @@ async function recordPayment() {
 
   savingPayment.value = true;
   try {
-    await api.post(`debts/${debt.id}/record-payment/`, {
-      ...paymentForm.value,
-      amount: paymentForm.value.decision === 'paid' ? parseAmount(paymentForm.value.amount) : null,
-    });
+    if (editingPaymentId.value) {
+      await api.patch(`debts/${debt.id}/payment/${editingPaymentId.value}/`, {
+        amount: parseAmount(paymentForm.value.amount),
+        payment_date: paymentForm.value.date,
+        notes: paymentForm.value.notes || '',
+      });
+    } else {
+      await api.post(`debts/${debt.id}/record-payment/`, {
+        ...paymentForm.value,
+        amount: paymentForm.value.decision === 'paid' ? parseAmount(paymentForm.value.amount) : null,
+      });
+    }
     closePaymentModal();
     await loadDebts();
   } catch (error) {
     alert(getApiErrorMessage(error, 'FÄlligkeit konnte nicht aktualisiert werden.'));
   } finally {
     savingPayment.value = false;
+  }
+}
+
+function openPaymentEdit(payment) {
+  const debt = debts.value.find((entry) => entry.id === payment.debtId);
+  if (!debt) {
+    alert('Zahlungseintrag konnte nicht gefunden werden.');
+    return;
+  }
+
+  const form = buildPaymentEditForm(payment);
+  selectedDebtForPayment.value = debt;
+  editingPaymentId.value = payment.id;
+  paymentForm.value = {
+    decision: 'paid',
+    amount: form.amount,
+    date: form.payment_date,
+    reschedule_date: '',
+    notes: form.notes,
+  };
+  showPaymentRecordingModal.value = true;
+}
+
+async function deletePaymentRecord(payment) {
+  if (!window.confirm('Diesen Zahlungseintrag wirklich loeschen?')) {
+    return;
+  }
+
+  try {
+    await api.delete(`debts/${payment.debtId}/payment/${payment.id}/`);
+    await loadDebts();
+  } catch (error) {
+    alert(getApiErrorMessage(error, 'Zahlung konnte nicht geloescht werden.'));
+  }
+}
+
+async function skipDebtMonth(debt) {
+  if (!window.confirm(`Rate von "${debt.name}" fuer diesen Monat aussetzen?`)) {
+    return;
+  }
+
+  try {
+    await api.post(`debts/${debt.id}/record-payment/`, {
+      decision: 'skip_month',
+      notes: 'Monatliche Rate ausgesetzt',
+    });
+    await loadDebts();
+  } catch (error) {
+    alert(getApiErrorMessage(error, 'Monat konnte nicht ausgesetzt werden.'));
+  }
+}
+
+async function undoLastDebtAction(debt) {
+  try {
+    await api.post(`debts/${debt.id}/undo-last/`);
+    await loadDebts();
+  } catch (error) {
+    alert(getApiErrorMessage(error, 'Keine rueckgaengige Aktion verfuegbar.'));
   }
 }
 
@@ -1321,6 +1430,17 @@ watch(
 .payment-history-amount {
   color: #7c3aed;
   white-space: nowrap;
+}
+
+.payment-history-side {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.payment-history-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .highlight-label {

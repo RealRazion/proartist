@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
-from core.models import FinanceEntry, FinanceProject, FinanceSavingsGoal, Profile
+from core.models import Debt, DebtPayment, FinanceEntry, FinanceProject, FinanceSavingsGoal, Profile
 from core.serializers import (
     DebtPaymentActionSerializer,
     FinanceProjectListSerializer,
@@ -106,6 +106,8 @@ class FinanceOverviewLogicTests(TestCase):
         self.assertEqual(overview["monthly_left"], 1180.01)
         self.assertEqual(overview["monthly_debt_entries"], 0.0)
         self.assertEqual(overview["monthly_debt_tracker"], 0.0)
+        self.assertEqual(overview["monthly_debt_paid_actual"], 0.0)
+        self.assertEqual(overview["monthly_left_actual"], 1180.01)
         self.assertTrue(any(item["entry_type"] == "SUBSCRIPTION" for item in overview["due_soon"]))
 
     def test_overview_tracks_savings_goal_totals(self):
@@ -138,6 +140,50 @@ class FinanceOverviewLogicTests(TestCase):
         self.assertEqual(overview["savings_goal_current_total"], 2700.0)
         self.assertEqual(overview["savings_goal_open_count"], 1)
 
+    def test_overview_emits_alert_for_high_saldo_delta(self):
+        user = get_user_model().objects.create_user(username="finance-alert-test", password="test12345")
+        profile = Profile.objects.create(user=user, name="Finance Alert Test")
+        project = FinanceProject.objects.create(
+            owner=profile,
+            title="Alert Budget",
+            currency="EUR",
+            current_balance=Decimal("500.00"),
+        )
+        FinanceEntry.objects.create(
+            project=project,
+            title="Gehalt",
+            entry_type="INCOME",
+            amount=Decimal("1200.00"),
+            frequency="MONTHLY",
+            due_day=1,
+            is_active=True,
+        )
+        debt = Debt.objects.create(
+            project=project,
+            name="Kreditkarte",
+            payment_type="INSTALLMENT",
+            total_amount=Decimal("1000.00"),
+            amount_paid=Decimal("100.00"),
+            monthly_payment=Decimal("300.00"),
+            due_day=5,
+            status="ACTIVE",
+            start_date=date(2026, 5, 1),
+        )
+        DebtPayment.objects.create(
+            debt=debt,
+            amount=Decimal("20.00"),
+            payment_date=date(2026, 5, 10),
+            notes="Teilzahlung",
+        )
+
+        serializer = FinanceProjectListSerializer(
+            project,
+            context={"request": SimpleNamespace(query_params={"month": "2026-05"})},
+        )
+        overview = serializer.data["overview"]
+
+        self.assertTrue(any(item["code"] == "SALDO_DELTA_HIGH" for item in overview["alerts"]))
+
 
 class DebtPaymentActionSerializerTests(TestCase):
     def test_accepts_blank_reschedule_date(self):
@@ -155,3 +201,9 @@ class DebtPaymentActionSerializerTests(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["date"], date(2026, 6, 1))
+
+    def test_accepts_skip_month_decision(self):
+        serializer = DebtPaymentActionSerializer(data={"decision": "skip_month"})
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["decision"], "skip_month")

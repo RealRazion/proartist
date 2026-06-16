@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.utils import timezone
 from rest_framework import serializers
 from django.db import transaction
+from django.db.models import Sum
 
 from .models import (
     ActivityEntry,
@@ -1254,13 +1255,48 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             + totals["SAVING"]
             + daily_expense_total
         )
+        monthly_debt_paid_actual = _money(
+            DebtPayment.objects.filter(
+                debt__project=obj,
+                payment_date__gte=current_month_start,
+                payment_date__lt=next_month_start,
+            ).aggregate(total=Sum("amount"))["total"]
+        )
+        monthly_outflow_actual = monthly_outflow - monthly_debt_from_tracker + monthly_debt_paid_actual
         monthly_left = totals["INCOME"] - monthly_outflow
+        monthly_left_actual = totals["INCOME"] - monthly_outflow_actual
         projected_balance = _money(obj.current_balance) + monthly_left
+        projected_balance_actual = _money(obj.current_balance) + monthly_left_actual
         dispo_limit = _money(obj.dispo_limit)
         dispo_used = _money(getattr(obj, "dispo_used", 0))
         dispo_remaining = max(Decimal("0.00"), dispo_limit - dispo_used)
         projected_balance_with_dispo = projected_balance + dispo_remaining
+        projected_balance_with_dispo_actual = projected_balance_actual + dispo_remaining
         buffer_gap = max(Decimal("0.00"), _money(obj.emergency_buffer_target) - _money(obj.current_balance))
+        alerts = []
+
+        saldo_reference = abs(monthly_left) if monthly_left != 0 else Decimal("1.00")
+        saldo_delta = abs(monthly_left_actual - monthly_left)
+        saldo_delta_ratio = (saldo_delta / saldo_reference) if saldo_reference > 0 else Decimal("0.00")
+        if saldo_delta_ratio >= Decimal("0.10"):
+            alerts.append(
+                {
+                    "code": "SALDO_DELTA_HIGH",
+                    "level": "warning",
+                    "message": "Echtes Saldo weicht um mehr als 10% vom berechneten Saldo ab.",
+                    "delta": _to_float(saldo_delta),
+                }
+            )
+
+        if projected_balance_actual < Decimal("0.00"):
+            alerts.append(
+                {
+                    "code": "NEGATIVE_BALANCE_RISK",
+                    "level": "danger",
+                    "message": "Die echte Projektion liegt im Minus.",
+                    "delta": _to_float(projected_balance_actual),
+                }
+            )
 
         member_rows = list(member_totals.values())
         if shared_bucket["income"] or shared_bucket["outflow"]:
@@ -1281,11 +1317,14 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "monthly_debt": _to_float(totals["DEBT"]),
             "monthly_debt_entries": _to_float(monthly_debt_from_entries),
             "monthly_debt_tracker": _to_float(monthly_debt_from_tracker),
+            "monthly_debt_paid_actual": _to_float(monthly_debt_paid_actual),
             "monthly_credit": _to_float(monthly_credit_total),
             "monthly_savings": _to_float(totals["SAVING"]),
             "monthly_daily_expenses": _to_float(daily_expense_total),
             "monthly_outflow": _to_float(monthly_outflow),
+            "monthly_outflow_actual": _to_float(monthly_outflow_actual),
             "monthly_left": _to_float(monthly_left),
+            "monthly_left_actual": _to_float(monthly_left_actual),
             "total_remaining_debt": _to_float(total_remaining_debt),
             "total_debt": _to_float(total_remaining_debt),
             "total_remaining_credit": _to_float(total_remaining_credit),
@@ -1295,13 +1334,16 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "dispo_used": _to_float(dispo_used),
             "dispo_remaining": _to_float(dispo_remaining),
             "projected_balance": _to_float(projected_balance),
+            "projected_balance_actual": _to_float(projected_balance_actual),
             "projected_balance_with_dispo": _to_float(projected_balance_with_dispo),
+            "projected_balance_with_dispo_actual": _to_float(projected_balance_with_dispo_actual),
             "monthly_savings_target": _to_float(obj.monthly_savings_target),
             "emergency_buffer_target": _to_float(obj.emergency_buffer_target),
             "buffer_gap": _to_float(buffer_gap),
             "savings_goal_target_total": _to_float(savings_goal_target_total),
             "savings_goal_current_total": _to_float(savings_goal_current_total),
             "savings_goal_open_count": savings_goal_open_count,
+            "alerts": alerts,
             "due_soon": sorted(due_items, key=lambda item: item["due_date"])[:6],
             "member_totals": [
                 {
@@ -1336,7 +1378,7 @@ class DebtPaymentSerializer(serializers.ModelSerializer):
 
 
 class DebtPaymentActionSerializer(serializers.Serializer):
-    decision = serializers.ChoiceField(choices=[("paid", "paid"), ("missed", "missed")])
+    decision = serializers.ChoiceField(choices=[("paid", "paid"), ("missed", "missed"), ("skip_month", "skip_month")])
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
     date = serializers.DateField(required=False, allow_null=True)
     reschedule_date = serializers.DateField(required=False, allow_null=True)
@@ -1365,6 +1407,7 @@ class DebtPaymentActionSerializer(serializers.Serializer):
 
 class DebtSerializer(serializers.ModelSerializer):
     payments = serializers.SerializerMethodField()
+    override_reason = serializers.CharField(required=False, allow_blank=True, write_only=True)
     debt_kind = serializers.ChoiceField(choices=Debt.DEBT_KINDS, required=False)
     payment_type = serializers.ChoiceField(choices=Debt.PAYMENT_TYPES, required=False)
     monthly_payment = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)
@@ -1402,6 +1445,7 @@ class DebtSerializer(serializers.ModelSerializer):
             "due_state",
             "payments",
             "notes",
+            "override_reason",
             "created_at",
             "updated_at",
         ]
@@ -1416,6 +1460,14 @@ class DebtSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def create(self, validated_data):
+        validated_data.pop("override_reason", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("override_reason", None)
+        return super().update(instance, validated_data)
 
     def get_payment_percentage(self, obj):
         total = float(obj.total_amount or 0)

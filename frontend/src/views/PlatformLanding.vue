@@ -4,7 +4,7 @@
     <section class="hero-section">
       <div class="hero-content">
         <div class="hero-text">
-          <h1 class="hero-title">Willkommen im UNYQ Hub</h1>
+          <h1 class="hero-title">Willkommen{{ displayName ? `, ${displayName}` : "" }} im UNYQ Hub</h1>
           <p class="hero-subtitle">
             Dein zentraler Zugang zu allen UNYQ-Plattformen. Entdecke Tools und Funktionen, die auf deine Rolle zugeschnitten sind.
           </p>
@@ -93,7 +93,7 @@
                   👀 {{ hubBadges.pendingReviews }} Review
                 </span>
                 <span v-if="platform.key === 'dashboard' && hubBadges.staleGrowpro" class="platform-tag badge-danger">
-                  ⏰ {{ hubBadges.staleGrowpro }} GrowPro stale
+                  ⏰ {{ hubBadges.staleGrowpro }} GrowPro fällig
                 </span>
               </div>
             </div>
@@ -201,6 +201,7 @@ const totalUsers = computed(() => stats.value.totalUsers);
 const activeProjects = computed(() => stats.value.activeProjects);
 const pendingTasks = computed(() => stats.value.pendingTasks);
 const upcomingEvents = computed(() => stats.value.upcomingEvents);
+const displayName = computed(() => (me.value?.name || me.value?.username || "").trim().split(" ")[0] || "");
 const unreadNotificationBadge = computed(() => (unreadNotifications.value > 99 ? "99+" : String(unreadNotifications.value)));
 
 function asList(payload) {
@@ -541,15 +542,25 @@ async function loadHubBadges() {
       api.get("tasks/", { params: { status: "DONE", review_status: "NOT_REVIEWED", include_done: 1, include_archived: 0, page_size: 1 } }).catch(() => null),
       api.get("growpro/", { params: { status: "ACTIVE,ON_HOLD", page_size: 200 } }).catch(() => null),
     ]);
-    const today = new Date().toISOString().slice(0, 10);
     const taskCount = tasksRes?.data?.count ?? (Array.isArray(tasksRes?.data) ? tasksRes.data.length : 0);
     const overdueCount = await api.get("analytics/summary/").then((r) => r.data?.overdue_tasks || 0).catch(() => 0);
     const reviewCount = reviewRes?.data?.count ?? (Array.isArray(reviewRes?.data) ? reviewRes.data.length : 0);
     const growproItems = Array.isArray(growproRes?.data) ? growproRes.data : growproRes?.data?.results || [];
     const now = Date.now();
+    const baselineDate = new Date();
+    baselineDate.setHours(0, 0, 0, 0);
     const staleCount = growproItems.filter((goal) => {
+      if (["DONE", "ARCHIVED"].includes(goal?.status)) return false;
       const last = goal.last_logged_at ? new Date(goal.last_logged_at).getTime() : null;
-      return !last || (now - last) / (1000 * 60 * 60) > 72;
+      const stale = !last || (now - last) / (1000 * 60 * 60) > 72;
+
+      const due = goal?.due_date ? new Date(goal.due_date) : null;
+      const dueState = due && !Number.isNaN(due.getTime())
+        ? Math.round((new Date(due.setHours(0, 0, 0, 0)).getTime() - baselineDate.getTime()) / 86400000)
+        : null;
+      const dueNeedsAttention = dueState !== null ? dueState <= 2 : false;
+
+      return stale || dueNeedsAttention;
     }).length;
     hubBadges.value = {
       openTasks: Math.min(99, taskCount),
@@ -907,7 +918,7 @@ onMounted(async () => {
 }
 
 .platform-tag.status {
-  color: #0f172a;
+  color: #1f2937;
   background: rgba(148, 163, 184, 0.2);
 }
 
@@ -922,12 +933,12 @@ onMounted(async () => {
 }
 
 .platform-tag.status.status-preview {
-  color: #7f1d1d;
+  color: #9f1239;
   background: rgba(248, 113, 113, 0.22);
 }
 
 .platform-tag.status.status-maintenance {
-  color: #92400e;
+  color: #78350f;
   background: rgba(251, 191, 36, 0.25);
 }
 
@@ -947,8 +958,67 @@ onMounted(async () => {
 }
 
 .platform-tag.badge-danger {
-  color: #7f1d1d;
+  color: #991b1b;
   background: rgba(239, 68, 68, 0.2);
+}
+
+:global(.dark) .platform-tag {
+  background: rgba(59, 130, 246, 0.2);
+  color: #bfdbfe;
+}
+
+:global(.dark) .platform-tag.version {
+  background: rgba(148, 163, 184, 0.18);
+  color: #e2e8f0;
+}
+
+:global(.dark) .platform-tag.status {
+  color: #e5e7eb;
+  background: rgba(100, 116, 139, 0.3);
+}
+
+:global(.dark) .platform-tag.status.status-live {
+  color: #86efac;
+  background: rgba(16, 185, 129, 0.25);
+}
+
+:global(.dark) .platform-tag.status.status-beta {
+  color: #fdba74;
+  background: rgba(251, 146, 60, 0.25);
+}
+
+:global(.dark) .platform-tag.status.status-preview {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.25);
+}
+
+:global(.dark) .platform-tag.status.status-maintenance {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.28);
+}
+
+:global(.dark) .platform-tag.status.status-locked {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.25);
+}
+
+:global(.dark) .platform-tag.notif-badge {
+  color: #fdba74;
+  background: rgba(249, 115, 22, 0.26);
+}
+
+:global(.dark) .platform-tag.badge-warning {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.26);
+}
+
+:global(.dark) .platform-tag.badge-danger {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.26);
+}
+
+:global(.dark) .platform-note {
+  color: #fdba74;
 }
 
 .platform-description {

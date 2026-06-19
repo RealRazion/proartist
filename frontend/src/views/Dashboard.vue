@@ -21,25 +21,26 @@
       </div>
     </header>
 
-    <!-- â•â•â• TEAM VIEW â•â•â• -->
+    <!-- TEAM VIEW -->
     <template v-if="isTeam">
 
       <!-- Alles OK -->
-      <section class="card ok-banner" v-if="!loading && urgentItems.length === 0">
-        <span class="ok-check">âœ“</span>
+      <section class="card ok-banner" v-if="!loading && totalAttentionCount === 0">
+        <span class="ok-check">✓</span>
         <div>
-          <strong>Alles im grÃ¼nen Bereich</strong>
-          <p class="muted">Keine Ã¼berfÃ¤lligen Tasks, offene Reviews oder ausstehenden Requests.</p>
+          <strong>Alles im grünen Bereich</strong>
+          <p class="muted">Keine überfälligen Tasks, offenen Reviews, Requests oder fälligen GrowPro-Ziele.</p>
         </div>
-        <button class="btn ghost" type="button" @click="goTo('tasks')">Task Board â†’</button>
+        <button class="btn ghost" type="button" @click="goTo('tasks')">Task Board →</button>
       </section>
 
       <!-- Handlungsbedarf -->
-      <section class="card section" v-if="urgentItems.length">
+      <section class="card section" v-if="totalAttentionCount">
         <div class="section-head">
-          <h2>Braucht deine Aufmerksamkeit <span class="count-badge">{{ urgentItems.length }}</span></h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Task Board â†’</button>
+          <h2>Braucht deine Aufmerksamkeit <span class="count-badge">{{ totalAttentionCount }}</span></h2>
+          <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Task Board →</button>
         </div>
+        <p class="attention-hint">Du hast {{ totalAttentionCount }} Angelegenheiten, die deine Aufmerksamkeit brauchen!</p>
         <ul class="item-list">
           <li v-for="item in urgentItems" :key="item.key" :data-urgency="item.urgency">
             <div class="item-body">
@@ -62,11 +63,11 @@
         </ul>
       </section>
 
-      <!-- Diese Woche fÃ¤llig -->
+      <!-- Diese Woche fällig -->
       <section class="card section" v-if="thisWeekItems.length">
         <div class="section-head">
-          <h2>Diese Woche fÃ¤llig</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Alle Tasks â†’</button>
+          <h2>Diese Woche fällig</h2>
+          <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Alle Tasks →</button>
         </div>
         <ul class="item-list compact">
           <li v-for="item in thisWeekItems" :key="item.key">
@@ -76,7 +77,7 @@
             </div>
             <div class="item-actions">
               <span class="badge" :data-tone="item.tone">{{ item.dateLabel }}</span>
-              <button class="btn ghost tiny" type="button" @click="goToRoute(item.route)">Ã–ffnen</button>
+              <button class="btn ghost tiny" type="button" @click="goToRoute(item.route)">Öffnen</button>
             </div>
           </li>
         </ul>
@@ -86,19 +87,19 @@
       <section class="card section" v-if="growproAttentionItems.length">
         <div class="section-head">
           <h2>GrowPro: Update nötig</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('growpro')">Alle Ziele â†’</button>
+          <button class="btn ghost tiny" type="button" @click="goTo('growpro')">Alle Ziele →</button>
         </div>
         <ul class="item-list compact">
           <li v-for="goal in growproAttentionItems" :key="goal.id">
             <div class="item-body">
               <strong class="item-title">{{ goal.title }}</strong>
-              <span class="item-sub">{{ goal.due_date ? `Frist: ${formatDate(goal.due_date)}` : "Kein FÃ¤lligkeitsdatum" }}</span>
+              <span class="item-sub">{{ goal.due_date ? `Frist: ${formatDate(goal.due_date)}` : "Kein Fälligkeitsdatum" }}</span>
             </div>
             <div class="item-actions">
               <span class="badge" :data-tone="isGrowproStale(goal) ? 'soon' : dueState(goal.due_date)">
                 {{ isGrowproStale(goal) ? "Update fehlt" : dueLabel(goal.due_date) }}
               </span>
-              <button class="btn ghost tiny" type="button" @click="goTo('growpro')">Ã–ffnen</button>
+              <button class="btn ghost tiny" type="button" @click="goTo('growpro')">Öffnen</button>
             </div>
           </li>
         </ul>
@@ -106,7 +107,7 @@
 
     </template>
 
-    <!-- â•â•â• ARTIST VIEW â•â•â• -->
+    <!-- ARTIST VIEW -->
     <template v-else>
 
       <!-- Erste Schritte (nur solange nicht abgeschlossen) -->
@@ -118,12 +119,12 @@
         <ul class="item-list">
           <li v-for="item in onboarding" :key="item.key" :class="{ done: item.done }">
             <div class="item-body">
-              <span class="step-check">{{ item.done ? "âœ“" : "â—‹" }}</span>
+              <span class="step-check">{{ item.done ? "✓" : "○" }}</span>
               <strong class="item-title">{{ item.label }}</strong>
               <span class="item-sub">{{ item.hint }}</span>
             </div>
             <div class="item-actions">
-              <button v-if="item.cta && !item.done" class="btn ghost tiny" type="button" @click="item.cta()">Jetzt â†’</button>
+              <button v-if="item.cta && !item.done" class="btn ghost tiny" type="button" @click="item.cta()">Jetzt →</button>
             </div>
           </li>
         </ul>
@@ -133,7 +134,7 @@
       <section class="card section">
         <div class="section-head">
           <h2>Meine Projekte</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('projects')">Alle anzeigen â†’</button>
+          <button class="btn ghost tiny" type="button" @click="goTo('projects')">Alle anzeigen →</button>
         </div>
         <ul v-if="projects.length" class="project-grid">
           <li
@@ -147,7 +148,7 @@
               <strong>{{ project.title }}</strong>
               <span class="item-sub">{{ statusLabel(project.status) }}</span>
             </div>
-            <span class="project-arrow">â†’</span>
+            <span class="project-arrow">→</span>
           </li>
         </ul>
         <div class="empty-hint" v-else>
@@ -160,7 +161,7 @@
       <section class="card section" v-if="growpro.length">
         <div class="section-head">
           <h2>GrowPro Ziele</h2>
-          <button class="btn ghost tiny" type="button" @click="goTo('growpro')">Alle â†’</button>
+          <button class="btn ghost tiny" type="button" @click="goTo('growpro')">Alle →</button>
         </div>
         <ul class="item-list compact">
           <li v-for="goal in growpro.slice(0, 5)" :key="goal.id">
@@ -170,7 +171,7 @@
             </div>
             <div class="item-actions">
               <span class="badge" :data-tone="isGrowproStale(goal) ? 'soon' : (goal.due_date ? dueState(goal.due_date) : 'ok')">
-                {{ isGrowproStale(goal) ? "Update fÃ¤llig" : (goal.due_date ? dueLabel(goal.due_date) : "Aktiv") }}
+                {{ isGrowproStale(goal) ? "Update fällig" : (goal.due_date ? dueLabel(goal.due_date) : "Aktiv") }}
               </span>
             </div>
           </li>
@@ -258,7 +259,7 @@ const priorityMap = { LOW: "Niedrig", MEDIUM: "Mittel", HIGH: "Hoch", CRITICAL: 
 const requestTypes = { COLLAB: "Collab-Anfrage", BOOK: "Booking-Anfrage", OTHER: "Anfrage" };
 const statusMap = { PLANNED: "Geplant", IN_PROGRESS: "In Arbeit", REVIEW: "Review", DONE: "Abgeschlossen", ON_HOLD: "Pausiert" };
 
-// â”€â”€ Greetings & Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Greetings & Hero
 const greeting = computed(() => {
   const h = new Date().getHours();
   if (h < 11) return "Guten Morgen";
@@ -272,7 +273,8 @@ const heroHasIssues = computed(() => {
   if (!isTeam.value) return false;
   return tasks.value.some(t => dueState(t.due_date) === "overdue") ||
     pendingReviews.value.length > 0 ||
-    requests.value.length > 0;
+    requests.value.length > 0 ||
+    growproAttentionItems.value.length > 0;
 });
 
 const heroSubline = computed(() => {
@@ -280,18 +282,22 @@ const heroSubline = computed(() => {
   const overdue = tasks.value.filter(t => dueState(t.due_date) === "overdue").length;
   const reviewCount = new Set([...reviewTasks.value, ...pendingReviews.value].map(t => t.id)).size;
   const reqCount = requests.value.length;
+  const growproDue = growproAttentionItems.value.length;
   const parts = [];
-  if (overdue > 0) parts.push(`${overdue} Task${overdue > 1 ? "s" : ""} Ã¼berfÃ¤llig`);
+  if (overdue > 0) parts.push(`${overdue} Task${overdue > 1 ? "s" : ""} überfällig`);
   if (reviewCount > 0) parts.push(`${reviewCount} warten auf Review`);
   if (reqCount > 0) parts.push(`${reqCount} offene${reqCount !== 1 ? "" : "r"} Request`);
-  return parts.length ? parts.join(" Â· ") : "Alles im grÃ¼nen Bereich. Weiter so!";
+  if (growproDue > 0) parts.push(`${growproDue} GrowPro fällig`);
+  return parts.length ? parts.join(" · ") : "Alles im grünen Bereich. Weiter so!";
 });
 
-// â”€â”€ Urgent items (team) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const totalAttentionCount = computed(() => urgentItems.value.length + growproAttentionItems.value.length);
+
+// Urgent items (team)
 const urgentItems = computed(() => {
   const items = [];
 
-  // 1) ÃœberfÃ¤llige Tasks (zuerst)
+  // 1) Überfällige Tasks (zuerst)
   tasks.value
     .filter(t => dueState(t.due_date) === "overdue")
     .slice(0, 6)
@@ -299,17 +305,17 @@ const urgentItems = computed(() => {
       items.push({
         key: `overdue-${task.id}`,
         cat: "overdue",
-        catLabel: "ÃœberfÃ¤llig",
+        catLabel: "Überfällig",
         urgency: "high",
         title: task.title,
         sub: task.project_title || "Kein Projekt",
         tone: "overdue",
         toneLabel: formatDate(task.due_date),
-        actions: [{ text: "Ã–ffnen", ghost: true, fn: () => openTask(task) }],
+        actions: [{ text: "Öffnen", ghost: true, fn: () => openTask(task) }],
       });
     });
 
-  // 2) Tasks die reviewed werden mÃ¼ssen
+  // 2) Tasks die reviewed werden müssen
   const reviewSet = new Map();
   [...reviewTasks.value, ...pendingReviews.value].forEach(t => {
     if (!reviewSet.has(t.id)) reviewSet.set(t.id, t);
@@ -325,9 +331,9 @@ const urgentItems = computed(() => {
       tone: "soon",
       toneLabel: "Warten auf Freigabe",
       actions: [
-        { text: "Ã–ffnen", ghost: true, fn: () => openTask(task) },
+        { text: "Öffnen", ghost: true, fn: () => openTask(task) },
         {
-          text: reviewSaving.value[task.id] ? "..." : "Als geprÃ¼ft markieren",
+          text: reviewSaving.value[task.id] ? "..." : "Als geprüft markieren",
           ghost: false,
           fn: () => markReviewed(task),
           disabled: !!reviewSaving.value[task.id],
@@ -344,7 +350,7 @@ const urgentItems = computed(() => {
       catLabel: "Request",
       urgency: "low",
       title: requestTypeLabel(req.req_type),
-      sub: `${req.sender_name} â†’ ${req.receiver_name}`,
+      sub: `${req.sender_name} → ${req.receiver_name}`,
       tone: "info",
       toneLabel: "Offen",
       actions: [
@@ -357,7 +363,7 @@ const urgentItems = computed(() => {
   return items;
 });
 
-// â”€â”€ Diese Woche fÃ¤llig (team) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Diese Woche fällig (team)
 const thisWeekItems = computed(() => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const in7 = new Date(today); in7.setDate(today.getDate() + 7);
@@ -381,19 +387,19 @@ const thisWeekItems = computed(() => {
     }));
 });
 
-// â”€â”€ GrowPro Handlungsbedarf (team) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// GrowPro Handlungsbedarf (team)
 const growproAttentionItems = computed(() =>
   growpro.value
     .filter(g => isGrowproStale(g) || ["overdue", "soon"].includes(dueState(g.due_date)))
     .slice(0, 6)
 );
 
-// â”€â”€ Onboarding (artist) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Onboarding (artist)
 const onboarding = computed(() => {
   const hasRoles = (me.value?.roles || []).length > 0;
   const hasExample = examples.value.length > 0;
   return [
-    { key: "profile", label: "Profil vervollstÃ¤ndigen", hint: "Name, Genre, Stadt und Socials eintragen.", done: Boolean(me.value?.name && me.value?.city), cta: () => goTo("me") },
+    { key: "profile", label: "Profil vervollständigen", hint: "Name, Genre, Stadt und Socials eintragen.", done: Boolean(me.value?.name && me.value?.city), cta: () => goTo("me") },
     { key: "roles", label: "Rollen hinterlegen", hint: "Bestimmt deine Sichtbarkeit im Team.", done: hasRoles, cta: () => goTo("me") },
     { key: "example", label: "Beispiel hochladen", hint: "Track, Video oder Referenz teilen.", done: hasExample, cta: () => goTo("me") },
   ];
@@ -401,7 +407,7 @@ const onboarding = computed(() => {
 
 const onboardingIncomplete = computed(() => onboarding.value.some(i => !i.done));
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Helpers
 function normalizeList(payload) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.results)) return payload.results;
@@ -433,8 +439,8 @@ function dueState(value) {
 function dueLabel(value) {
   if (!value) return "Kein Termin";
   const state = dueState(value);
-  if (state === "overdue") return "ÃœberfÃ¤llig";
-  if (state === "soon") return "Bald fÃ¤llig";
+  if (state === "overdue") return "Überfällig";
+  if (state === "soon") return "Bald fällig";
   return formatDate(value);
 }
 
@@ -466,7 +472,7 @@ function openTask(task) {
   router.push({ name: "tasks", query: { taskId: task.id } });
 }
 
-// â”€â”€ Data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Data loading
 async function loadTeamData() {
   const [tasksRes, reviewRes, pendingRes, reqRes, gpRes] = await Promise.all([
     api.get("tasks/", { params: { status: "OPEN,IN_PROGRESS,REVIEW", include_done: 0, include_archived: 0, ordering: "due_date", page_size: 200 } }).catch(() => ({ data: [] })),
@@ -507,7 +513,7 @@ async function refresh() {
 
 onMounted(refresh);
 
-// â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Actions
 async function markReviewed(task) {
   if (!task?.id) return;
   reviewSaving.value = { ...reviewSaving.value, [task.id]: true };
@@ -605,6 +611,7 @@ function copyInviteLink() {
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .section-head h2 { margin: 0; font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .count-badge { display: inline-flex; align-items: center; justify-content: center; background: var(--brand); color: #fff; border-radius: 999px; font-size: 11px; font-weight: 700; min-width: 20px; height: 20px; padding: 0 6px; }
+.attention-hint { margin: -4px 0 2px; font-size: 13px; color: var(--muted); }
 
 /* OK Banner */
 .ok-banner { display: flex; align-items: center; gap: 16px; padding: 16px 20px; background: rgba(34,197,94,0.08); border-color: rgba(34,197,94,0.3); }

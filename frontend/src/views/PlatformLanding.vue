@@ -973,48 +973,57 @@ onMounted(async () => {
 }
 
 :global(.dark) .platform-tag.status {
-  color: #e5e7eb;
-  background: rgba(100, 116, 139, 0.3);
+  color: #f1f5f9;
+  background: rgba(71, 85, 105, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.35);
 }
 
 :global(.dark) .platform-tag.status.status-live {
-  color: #86efac;
-  background: rgba(16, 185, 129, 0.25);
+  color: #bbf7d0;
+  background: rgba(5, 150, 105, 0.36);
+  border-color: rgba(52, 211, 153, 0.45);
 }
 
 :global(.dark) .platform-tag.status.status-beta {
-  color: #fdba74;
-  background: rgba(251, 146, 60, 0.25);
+  color: #fed7aa;
+  background: rgba(194, 65, 12, 0.36);
+  border-color: rgba(251, 146, 60, 0.45);
 }
 
 :global(.dark) .platform-tag.status.status-preview {
-  color: #fda4af;
-  background: rgba(244, 63, 94, 0.25);
+  color: #fecdd3;
+  background: rgba(190, 24, 93, 0.36);
+  border-color: rgba(244, 114, 182, 0.45);
 }
 
 :global(.dark) .platform-tag.status.status-maintenance {
-  color: #fde68a;
-  background: rgba(245, 158, 11, 0.28);
+  color: #fef3c7;
+  background: rgba(180, 83, 9, 0.42);
+  border-color: rgba(251, 191, 36, 0.5);
 }
 
 :global(.dark) .platform-tag.status.status-locked {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.25);
+  color: #fee2e2;
+  background: rgba(153, 27, 27, 0.4);
+  border-color: rgba(248, 113, 113, 0.45);
 }
 
 :global(.dark) .platform-tag.notif-badge {
-  color: #fdba74;
-  background: rgba(249, 115, 22, 0.26);
+  color: #ffedd5;
+  background: rgba(194, 65, 12, 0.4);
+  border: 1px solid rgba(251, 146, 60, 0.45);
 }
 
 :global(.dark) .platform-tag.badge-warning {
-  color: #fde68a;
-  background: rgba(245, 158, 11, 0.26);
+  color: #fef3c7;
+  background: rgba(180, 83, 9, 0.42);
+  border: 1px solid rgba(251, 191, 36, 0.5);
 }
 
 :global(.dark) .platform-tag.badge-danger {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.26);
+  color: #fee2e2;
+  background: rgba(153, 27, 27, 0.4);
+  border: 1px solid rgba(248, 113, 113, 0.45);
 }
 
 :global(.dark) .platform-note {

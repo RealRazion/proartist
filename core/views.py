@@ -33,6 +33,7 @@ from rest_framework.views import APIView
 
 from .models import (
     ROLE_CHOICES,
+    Achievement,
     ActivityEntry,
     AutomationRule,
     Booking,
@@ -60,6 +61,7 @@ from .models import (
     PluginGuide,
     PluginGuideImage,
     Profile,
+    ProfileAchievement,
     Project,
     ProjectAttachment,
     RegistrationRequest,
@@ -92,6 +94,7 @@ from .permissions import (
     is_team_profile,
 )
 from .serializers import (
+    AchievementSerializer,
     ActivityEntrySerializer,
     AutomationRuleSerializer,
     BookingSerializer,
@@ -117,6 +120,7 @@ from .serializers import (
     ManagedPlatformSerializer,
     PaymentSerializer,
     PluginGuideSerializer,
+    ProfileAchievementSerializer,
     ProfileSerializer,
     ProjectAttachmentSerializer,
     ProjectSerializer,
@@ -2867,9 +2871,9 @@ class TournamentViewSet(viewsets.ModelViewSet):
             "max_losses_without_penalty": 0,
         },
         {
-            "tier_key": "RUBIN",
-            "display_name": "Rubin",
-            "accent": "#d72663",
+            "tier_key": "LEGENDAER",
+            "display_name": "Legendär",
+            "accent": "#ff1493",
             "min_points": 4200,
             "max_points": None,
             "win_points": 170,
@@ -4377,6 +4381,36 @@ class SearchView(APIView):
                 results = [r for r in results if parse_date(r["created_at"]) >= start.date()]
 
         return Response({"results": results})
+
+
+class AchievementViewSet(viewsets.ModelViewSet):
+    queryset = Achievement.objects.all().order_by("type", "title")
+    serializer_class = AchievementSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsTeam()]
+
+
+class ProfileAchievementViewSet(viewsets.ModelViewSet):
+    serializer_class = ProfileAchievementSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        profile = self.request.user.profile
+        queryset = profile.achievements.all().select_related("achievement").order_by("-earned_at")
+        return queryset
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsTeam()]
+
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user.profile)
+
 
 # --- Stats (rollenbasiert) ---
 @api_view(["GET"])

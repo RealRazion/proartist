@@ -1,0 +1,13 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="goldGrad" cx="50%" cy="40%">
+      <stop offset="0%" style="stop-color:#ffed4e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#cc9900;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  <circle cx="100" cy="100" r="95" fill="url(#goldGrad)" stroke="#9b7200" stroke-width="3"/>
+  <path d="M 100 25 L 150 65 L 205 65 L 160 110 L 195 165 L 100 110 L 5 165 L 40 110 L -5 65 L 50 65 Z" fill="#ffd700" stroke="#ffe000" stroke-width="2"/>
+  <path d="M 100 35 L 140 65 L 150 55 L 110 35 Z" fill="#fffacd"/>
+  <circle cx="100" cy="100" r="45" fill="none" stroke="#fffacd" stroke-width="2" opacity="0.8"/>
+  <text x="100" y="180" font-size="20" font-weight="bold" text-anchor="middle" fill="#fff">GOLD</text>
+</svg>

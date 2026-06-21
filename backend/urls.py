@@ -5,6 +5,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from core.views import (
+    AchievementViewSet,
     ActivityFeedView,
     AutomationRuleViewSet,
     BookingViewSet,
@@ -27,6 +28,7 @@ from core.views import (
     NotificationViewSet,
     PaymentViewSet,
     PluginGuideViewSet,
+    ProfileAchievementViewSet,
     ProfileViewSet,
     ProjectAttachmentViewSet,
     ProjectViewSet,
@@ -64,6 +66,8 @@ from core.views import (
 )
 
 router = routers.DefaultRouter()
+router.register(r"achievements", AchievementViewSet, basename="achievements")
+router.register(r"my-achievements", ProfileAchievementViewSet, basename="my-achievements")
 router.register(r"roles", RoleViewSet)
 router.register(r"role-access-policies", RoleAccessPolicyViewSet, basename="role-access-policies")
 router.register(r"profiles", ProfileViewSet)

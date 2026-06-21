@@ -572,7 +572,7 @@ class RankTierConfig(models.Model):
         ("SILBER", "Silber"),
         ("GOLD", "Gold"),
         ("PLATIN", "Platin"),
-        ("RUBIN", "Rubin"),
+        ("LEGENDAER", "Legendär"),
     ]
 
     tier_key = models.CharField(max_length=16, choices=TIER_CHOICES, unique=True)
@@ -1050,4 +1050,48 @@ class RoleAccessPolicy(models.Model):
 
     def __str__(self):
         return f"{self.role_key} access"
+
+
+class Achievement(models.Model):
+    TYPE_CHOICES = [
+        ("MILESTONE", "Meilenstein"),
+        ("BADGE", "Abzeichen"),
+        ("SPECIAL", "Spezial"),
+        ("SEASONAL", "Saisonal"),
+    ]
+
+    key = models.SlugField(unique=True)
+    type = models.CharField(max_length=12, choices=TYPE_CHOICES, default="BADGE")
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    icon_svg = models.TextField(blank=True, help_text="SVG content für Icon")
+    icon_color = models.CharField(max_length=7, default="#FFD700")
+    is_hidden = models.BooleanField(default=False)
+    rarity = models.CharField(
+        max_length=10,
+        choices=[("COMMON", "Häufig"), ("RARE", "Selten"), ("EPIC", "Episch"), ("LEGENDARY", "Legendär")],
+        default="COMMON",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["type", "title"]
+
+    def __str__(self):
+        return self.title
+
+
+class ProfileAchievement(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="achievements")
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE, related_name="earned_by")
+    earned_at = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-earned_at"]
+        unique_together = ["profile", "achievement"]
+
+    def __str__(self):
+        return f"{self.profile} → {self.achievement}"
 

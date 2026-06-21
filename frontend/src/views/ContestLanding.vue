@@ -36,9 +36,9 @@
         <p v-if="artistPreview" class="preview-badge">Artist View aktiv – Admin Controls sind ausgeblendet.</p>
       </div>
       <div class="hero-right">
-        <div class="hero-stat"><strong>{{ rankedOverview.season || '-' }}</strong><span>Season</span></div>
         <div class="hero-stat"><strong>{{ tournaments.length }}</strong><span>Turniere</span></div>
         <div class="hero-stat"><strong>{{ battles.length }}</strong><span>Battles</span></div>
+        <div class="hero-stat"><strong>{{ topRankedRows.length }}</strong><span>Im Ranking</span></div>
       </div>
 
       <div class="hero-progress" id="rank-progress">
@@ -237,11 +237,11 @@ import { useRoute, useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
-import bronzeRank from "../assets/ranks/bronze.svg";
-import silberRank from "../assets/ranks/silber.svg";
-import goldRank from "../assets/ranks/gold.svg";
-import platinRank from "../assets/ranks/platin.svg";
-import rubinRank from "../assets/ranks/rubin.svg";
+import bronzeRank from "../assets/ranks/bronze-icon.svg";
+import silberRank from "../assets/ranks/silber-icon.svg";
+import goldRank from "../assets/ranks/gold-icon.svg";
+import platinRank from "../assets/ranks/platin-icon.svg";
+import legendarRank from "../assets/ranks/legendaer-icon.svg";
 
 const router = useRouter();
 const route = useRoute();
@@ -427,7 +427,7 @@ function recurrenceLabel(mode) {
 
 function rankArtwork(tierKey) {
   const key = String(tierKey || "BRONZE").toUpperCase();
-  const map = { BRONZE: bronzeRank, SILBER: silberRank, GOLD: goldRank, PLATIN: platinRank, RUBIN: rubinRank };
+  const map = { BRONZE: bronzeRank, SILBER: silberRank, GOLD: goldRank, PLATIN: platinRank, LEGENDAER: legendarRank };
   return map[key] || bronzeRank;
 }
 

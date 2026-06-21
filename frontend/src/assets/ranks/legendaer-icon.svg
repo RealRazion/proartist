@@ -1,0 +1,22 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="legendaryGrad" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#ff85eb;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff1493;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b0a5a;stop-opacity:1" />
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <circle cx="100" cy="100" r="95" fill="url(#legendaryGrad)" stroke="#ff1493" stroke-width="4" filter="url(#glow)"/>
+  <path d="M 100 15 L 170 50 L 225 50 L 170 100 L 205 175 L 100 120 L -5 175 L 30 100 L -25 50 L 30 50 Z" fill="#ffb6d9" stroke="#ff69b4" stroke-width="2" opacity="0.9"/>
+  <path d="M 100 25 L 155 55 L 210 55 L 160 100 L 190 165 L 100 115 L 10 165 L 40 100 L -10 55 L 45 55 Z" fill="none" stroke="#ffff00" stroke-width="1.5" opacity="0.8"/>
+  <circle cx="100" cy="100" r="45" fill="none" stroke="#ff69b4" stroke-width="3" opacity="0.7"/>
+  <circle cx="100" cy="100" r="30" fill="none" stroke="#ffb6d9" stroke-width="2" opacity="0.5"/>
+  <text x="100" y="185" font-size="18" font-weight="bold" text-anchor="middle" fill="#fff" letter-spacing="2">LEGENDÄR</text>
+</svg>

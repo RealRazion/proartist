@@ -8,6 +8,7 @@ from django.db import transaction
 from django.db.models import Sum
 
 from .models import (
+    Achievement,
     ActivityEntry,
     AutomationRule,
     Booking,
@@ -32,6 +33,7 @@ from .models import (
     ManagedPlatform,
     Payment,
     Profile,
+    ProfileAchievement,
     PluginGuideImage,
     ProjectAttachment,
     PluginGuide,
@@ -2099,3 +2101,44 @@ class ContentScheduleItemSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["profile", "created_at", "updated_at"]
+
+
+class AchievementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Achievement
+        fields = [
+            "id",
+            "key",
+            "type",
+            "title",
+            "description",
+            "icon_svg",
+            "icon_color",
+            "is_hidden",
+            "rarity",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class ProfileAchievementSerializer(serializers.ModelSerializer):
+    achievement = AchievementSerializer(read_only=True)
+    achievement_id = serializers.PrimaryKeyRelatedField(
+        queryset=Achievement.objects.all(),
+        write_only=True,
+        source="achievement",
+    )
+
+    class Meta:
+        model = ProfileAchievement
+        fields = [
+            "id",
+            "profile",
+            "achievement",
+            "achievement_id",
+            "earned_at",
+            "metadata",
+        ]
+        read_only_fields = ["id", "profile", "earned_at"]
+

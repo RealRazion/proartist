@@ -1,0 +1,13 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="platinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e5e8ed;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4a5c7c;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="95" fill="url(#platinGrad)" stroke="#2a3c5c" stroke-width="3"/>
+  <path d="M 100 20 L 160 60 L 215 60 L 165 105 L 200 170 L 100 115 L 0 170 L 35 105 L -15 60 L 40 60 Z" fill="#d4d4e8" stroke="#8fa3c8" stroke-width="2"/>
+  <circle cx="100" cy="100" r="50" fill="none" stroke="#8fa3c8" stroke-width="3" opacity="0.6"/>
+  <circle cx="100" cy="100" r="35" fill="none" stroke="#d4d4e8" stroke-width="2" opacity="0.4"/>
+  <text x="100" y="180" font-size="18" font-weight="bold" text-anchor="middle" fill="#fff">PLATIN</text>
+</svg>

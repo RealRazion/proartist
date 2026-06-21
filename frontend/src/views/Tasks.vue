@@ -512,7 +512,7 @@ function projectThemeStyle(projectId) {
     { border: "#14b8a6", bg: "rgba(20, 184, 166, 0.09)" },
   ];
   let hash = 0;
-  const seed = String(categoryId || "uncategorized");
+  const seed = String(projectId || "no-project");
   for (let i = 0; i < seed.length; i += 1) {
     hash = (hash << 5) - hash + seed.charCodeAt(i);
     hash |= 0;

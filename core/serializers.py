@@ -47,6 +47,7 @@ from .models import (
     Role,
     Song,
     SongVersion,
+    Album,
     SystemIntegration,
     Task,
     TaskAttachment,
@@ -707,6 +708,7 @@ class SongVersionSerializer(serializers.ModelSerializer):
             "id",
             "song",
             "version_number",
+            "version_type",
             "file",
             "file_url",
             "file_name",
@@ -764,6 +766,7 @@ class SongSerializer(serializers.ModelSerializer):
     profile = ProfileMiniSerializer(read_only=True)
     versions = SongVersionSerializer(many=True, read_only=True)
     project_title = serializers.SerializerMethodField()
+    cover_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Song
@@ -781,13 +784,20 @@ class SongSerializer(serializers.ModelSerializer):
             "tags",
             "release_date",
             "status",
+            "cover",
+            "cover_url",
             "created_at",
             "versions",
         ]
-        read_only_fields = ["id", "profile", "project_title", "created_at", "versions"]
+        read_only_fields = ["id", "profile", "project_title", "cover_url", "created_at", "versions"]
 
     def get_project_title(self, obj):
         return obj.project.title if obj.project else None
+
+    def get_cover_url(self, obj):
+        if obj.cover and hasattr(obj.cover, "url"):
+            return obj.cover.url
+        return None
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -821,6 +831,52 @@ class GrowProUpdateSerializer(serializers.ModelSerializer):
         model = GrowProUpdate
         fields = ["id", "goal", "value", "note", "created_by", "created_at"]
         read_only_fields = ["id", "created_by", "created_at"]
+
+
+class AlbumSerializer(serializers.ModelSerializer):
+    profile = ProfileMiniSerializer(read_only=True)
+    cover_url = serializers.SerializerMethodField()
+    song_count = serializers.SerializerMethodField()
+    songs = serializers.PrimaryKeyRelatedField(many=True, queryset=Song.objects.all(), required=False)
+
+    class Meta:
+        model = Album
+        fields = [
+            "id",
+            "profile",
+            "title",
+            "description",
+            "cover",
+            "cover_url",
+            "songs",
+            "song_count",
+            "release_date",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "profile", "cover_url", "song_count", "created_at", "updated_at"]
+
+    def get_cover_url(self, obj):
+        if obj.cover and hasattr(obj.cover, "url"):
+            return obj.cover.url
+        return None
+
+    def get_song_count(self, obj):
+        return obj.songs.count()
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        me = getattr(getattr(request, "user", None), "profile", None) if request else None
+        if not me:
+            return attrs
+        # Ensure user only adds their own songs to an album
+        songs = attrs.get("songs", [])
+        is_team = me.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
+        if not is_team:
+            for song in songs:
+                if song.profile_id != me.id:
+                    raise serializers.ValidationError({"songs": "Du kannst nur eigene Songs zu einem Album hinzufügen."})
+        return attrs
 
 
 class GrowProGoalSerializer(serializers.ModelSerializer):

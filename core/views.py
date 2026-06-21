@@ -82,6 +82,7 @@ from .models import (
     TournamentVote,
     Song,
     SongVersion,
+    Album,
 )
 from .serializers import _monthly_amount, _debt_monthly_amount
 from .permissions import (
@@ -133,6 +134,7 @@ from .serializers import (
     RoleSerializer,
     SongSerializer,
     SongVersionSerializer,
+    AlbumSerializer,
     SystemIntegrationSerializer,
     TaskAttachmentSerializer,
     TaskCommentSerializer,
@@ -1854,6 +1856,7 @@ class SongViewSet(viewsets.ModelViewSet):
     serializer_class = SongSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         qs = Song.objects.select_related("profile__user", "project").prefetch_related("versions")
@@ -1984,6 +1987,46 @@ class SongVersionViewSet(viewsets.ModelViewSet):
             severity="INFO",
             project=song.project,
         )
+
+
+class AlbumViewSet(viewsets.ModelViewSet):
+    serializer_class = AlbumSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = StandardPagination
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        me = getattr(self.request.user, "profile", None)
+        qs = Album.objects.select_related("profile__user").prefetch_related("songs")
+        if not me:
+            return qs.none()
+        is_team = me.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
+        if not is_team:
+            qs = qs.filter(profile=me)
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
+        profile_id = self.request.query_params.get("profile")
+        if profile_id:
+            qs = qs.filter(profile_id=profile_id)
+        return qs.order_by("-created_at")
+
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user.profile)
+
+    def update(self, request, *args, **kwargs):
+        album = self.get_object()
+        me = request.user.profile
+        if album.profile_id != me.id and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
+            return Response({"detail": "Nicht erlaubt"}, status=403)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        album = self.get_object()
+        me = request.user.profile
+        if album.profile_id != me.id and not me.roles.filter(key__in=["TEAM", "ADMIN"]).exists():
+            return Response({"detail": "Nicht erlaubt"}, status=403)
+        return super().destroy(request, *args, **kwargs)
 
 
 class GrowProGoalViewSet(viewsets.ModelViewSet):

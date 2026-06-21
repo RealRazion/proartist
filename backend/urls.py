@@ -39,6 +39,7 @@ from core.views import (
     RoleAccessPolicyViewSet,
     SongViewSet,
     SongVersionViewSet,
+    AlbumViewSet,
     SystemIntegrationViewSet,
     TaskAttachmentViewSet,
     TaskCommentViewSet,
@@ -85,6 +86,7 @@ router.register(r"task-attachments", TaskAttachmentViewSet, basename="task-attac
 router.register(r"task-comments", TaskCommentViewSet, basename="task-comments")
 router.register(r"songs", SongViewSet, basename="songs")
 router.register(r"song-versions", SongVersionViewSet, basename="song-versions")
+router.register(r"albums", AlbumViewSet, basename="albums")
 router.register(r"growpro", GrowProGoalViewSet, basename="growpro-goals")
 router.register(r"plugin-guides", PluginGuideViewSet, basename="plugin-guides")
 router.register(r"automation-rules", AutomationRuleViewSet, basename="automation-rules")

@@ -266,81 +266,6 @@
       </div>
     </section>
 
-    <!-- TOURNAMENT DETAIL MODAL -->
-    <div v-if="selectedTournamentDetail" class="modal-overlay" @click.self="selectedTournamentDetail = null">
-      <article class="modal-card">
-        <header class="modal-header">
-          <h2>{{ selectedTournamentDetail.title }}</h2>
-          <button class="btn ghost small" @click="selectedTournamentDetail = null">✕</button>
-        </header>
-
-        <div class="modal-content">
-          <img
-            v-if="selectedTournamentDetail.cover_url"
-            :src="selectedTournamentDetail.cover_url"
-            alt="Tournament Cover"
-            class="modal-image"
-          />
-
-          <p class="modal-desc">{{ selectedTournamentDetail.description }}</p>
-
-          <div class="modal-tags">
-            <span class="tag">{{ statusLabel(selectedTournamentDetail.status) }}</span>
-            <span v-if="selectedTournamentDetail.is_no_loss" class="tag">No Loss</span>
-            <span v-if="selectedTournamentDetail.is_recurring" class="tag">Recurring</span>
-          </div>
-
-          <!-- APPLICATION SECTION -->
-          <div
-            v-if="selectedTournamentDetail.has_application_phase && !viewerIsTeam && !myApplication(selectedTournamentDetail.id)"
-            class="modal-section"
-          >
-            <h4>Apply for Tournament</h4>
-            <textarea
-              v-model.trim="applicationDrafts[selectedTournamentDetail.id]"
-              rows="3"
-              placeholder="Tell us why you want to participate..."
-            ></textarea>
-            <button class="btn" @click="submitApplication(selectedTournamentDetail.id)" :disabled="busy">Submit Application</button>
-          </div>
-
-          <div v-if="myApplication(selectedTournamentDetail.id)" class="modal-section">
-            <p>✓ You have applied: {{ myApplication(selectedTournamentDetail.id).status }}</p>
-          </div>
-
-          <!-- SUBMISSION SECTION -->
-          <div v-if="selectedTournamentDetail.status === 'SUBMISSION_OPEN' && !viewerIsTeam" class="modal-section">
-            <h4>Submit Your Round</h4>
-            <input
-              v-model.trim="submissionDraft(selectedTournamentDetail.id).title"
-              placeholder="Track / Round Title"
-            />
-            <input v-model.trim="submissionDraft(selectedTournamentDetail.id).media_url" placeholder="https://media-url" />
-            <button class="btn" @click="submitRound(selectedTournamentDetail.id)" :disabled="busy">
-              Submit Round
-            </button>
-          </div>
-
-          <!-- ADMIN ACTIONS -->
-          <div v-if="viewerIsTeam" class="modal-section">
-            <h4>Admin Actions</h4>
-            <div class="button-group">
-              <button class="btn ghost" @click="setTournamentStatus(selectedTournamentDetail, 'APPLICATION_OPEN')">
-                → Applications
-              </button>
-              <button class="btn ghost" @click="setTournamentStatus(selectedTournamentDetail, 'SUBMISSION_OPEN')">
-                → Submissions
-              </button>
-              <button class="btn ghost" @click="setTournamentStatus(selectedTournamentDetail, 'BATTLES')">
-                → Battles Live
-              </button>
-              <button class="btn" @click="setTournamentStatus(selectedTournamentDetail, 'CLOSED')">Close</button>
-            </div>
-          </div>
-        </div>
-      </article>
-    </div>
-
     <!-- BATTLE PROFILE MODAL -->
     <div v-if="selectedBattleProfile" class="modal-overlay" @click.self="selectedBattleProfile = null">
       <article class="modal-card battle-profile-modal">
@@ -415,7 +340,6 @@ const tournamentSearch = ref("");
 const statusFilter = ref("ALL");
 const sortMode = ref("open-first");
 const selectedTournamentId = ref(null);
-const selectedTournamentDetail = ref(null);
 const selectedBattleProfile = ref(null);
 const myAchievements = ref([]);
 const applicationDrafts = ref({});
@@ -544,8 +468,9 @@ function selectTournament(tournamentId) {
 }
 
 function openTournamentDetail(tournament) {
-  selectTournament(tournament?.id);
-  selectedTournamentDetail.value = tournament;
+  if (!tournament?.id) return;
+  selectTournament(tournament.id);
+  router.push({ name: "platform-contest-detail", params: { tournamentId: tournament.id } });
 }
 
 function openBattleProfileByRow(row) {
@@ -749,7 +674,6 @@ async function setTournamentStatus(tournament, nextStatus) {
   try {
     await api.patch(`tournaments/${tournament.id}/`, { status: nextStatus });
     showToast(`Status: ${statusLabel(nextStatus)}`, "success");
-    selectedTournamentDetail.value = null;
     await loadAll();
   } catch (err) {
     console.error(err);

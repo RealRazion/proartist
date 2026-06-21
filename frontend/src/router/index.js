@@ -32,6 +32,7 @@ const AdminPlatform = () => import("../views/AdminPlatform.vue");
 const UserRoleManagement = () => import("../views/UserRoleManagement.vue");
 const TournamentAnimationLab = () => import("../views/TournamentAnimationLab.vue");
 const ContestLanding = () => import("../views/ContestLanding.vue");
+const TournamentDetail = () => import("../views/TournamentDetail.vue");
 const MusicLanding = () => import("../views/MusicLanding.vue");
 const LocationsLanding = () => import("../views/LocationsLanding.vue");
 const FinanceLanding = () => import("../views/FinanceLanding.vue");
@@ -96,6 +97,12 @@ const routes = [
         path: "contests",
         name: "platform-contests",
         component: ContestLanding,
+        meta: { requiresAuth: true, hidePlatformTopbar: true },
+      },
+      {
+        path: "contests/:tournamentId",
+        name: "platform-contest-detail",
+        component: TournamentDetail,
         meta: { requiresAuth: true, hidePlatformTopbar: true },
       },
       { path: "music", name: "platform-music", component: MusicLanding, meta: { requiresAuth: true } },

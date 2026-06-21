@@ -71,7 +71,7 @@
           v-for="tournament in visibleTournaments"
           :key="`tournament-${tournament.id}`"
           class="tournament-card"
-          @click="selectTournament(tournament.id)"
+          @click="openTournamentDetail(tournament)"
           :class="{ active: selectedTournamentId === tournament.id }"
         >
           <div class="card-image" :style="{ backgroundImage: `url(${tournamentCover(tournament)})` }"></div>
@@ -123,7 +123,9 @@
               <img class="tier-img" :src="rankArtwork(row.tier?.key)" :alt="row.tier?.label" />
               <strong>#{{ row.rank }}</strong>
             </td>
-            <td class="name-cell">{{ row.name }}</td>
+            <td class="name-cell">
+              <button class="profile-link" type="button" @click="openBattleProfileByRow(row)">{{ row.name }}</button>
+            </td>
             <td class="points-cell"><strong>{{ row.ranked_points }}</strong> RP</td>
             <td class="win-cell">{{ row.wins }}</td>
             <td class="battle-cell">{{ row.battles }}</td>
@@ -198,7 +200,7 @@
         <article v-for="battle in battles.slice(0, 20)" :key="`battle-${battle.id}`" class="battle-card">
           <div class="battle-info">
             <div class="duel-left">
-              <strong>{{ battle.left_profile_name }}</strong>
+              <button class="profile-link" type="button" @click="openBattleProfileByName(battle.left_profile_name)">{{ battle.left_profile_name }}</button>
               <span>Votes: {{ battle.votes_left }}</span>
             </div>
             <div class="duel-center">
@@ -207,7 +209,7 @@
               <span class="battle-status">{{ battle.status === "CLOSED" ? "Finished" : "Live" }}</span>
             </div>
             <div class="duel-right">
-              <strong>{{ battle.right_profile_name }}</strong>
+              <button class="profile-link" type="button" @click="openBattleProfileByName(battle.right_profile_name)">{{ battle.right_profile_name }}</button>
               <span>Votes: {{ battle.votes_right }}</span>
             </div>
           </div>
@@ -338,6 +340,47 @@
         </div>
       </article>
     </div>
+
+    <!-- BATTLE PROFILE MODAL -->
+    <div v-if="selectedBattleProfile" class="modal-overlay" @click.self="selectedBattleProfile = null">
+      <article class="modal-card battle-profile-modal">
+        <header class="modal-header">
+          <h2>{{ selectedBattleProfile.name }}</h2>
+          <button class="btn ghost small" @click="selectedBattleProfile = null">✕</button>
+        </header>
+        <div class="modal-content">
+          <div class="battle-profile-head">
+            <img class="tier-img large" :src="rankArtwork(selectedBattleProfile.tier?.key)" :alt="selectedBattleProfile.tier?.label || 'Tier'" />
+            <div>
+              <p><strong>Rank:</strong> #{{ selectedBattleProfile.rank || '-' }} {{ selectedBattleProfile.tier?.label || 'Unranked' }}</p>
+              <p><strong>RP:</strong> {{ selectedBattleProfile.ranked_points || 0 }} | <strong>Wins:</strong> {{ selectedBattleProfile.wins || 0 }} | <strong>Losses:</strong> {{ selectedBattleProfile.losses || 0 }}</p>
+            </div>
+          </div>
+
+          <section class="modal-section">
+            <h4>Achievements</h4>
+            <div v-if="battleProfileAchievements.length" class="achievements-grid">
+              <article v-for="(item, idx) in battleProfileAchievements" :key="`achv-${idx}`" class="achievement-chip">
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.description }}</small>
+              </article>
+            </div>
+            <p v-else>Noch keine Achievements.</p>
+          </section>
+
+          <section class="modal-section">
+            <h4>Previous Battles</h4>
+            <div v-if="battleProfileHistory.length" class="history-list">
+              <article v-for="battle in battleProfileHistory" :key="`history-${battle.id}`" class="history-row">
+                <strong>{{ battle.left_profile_name }} vs {{ battle.right_profile_name }}</strong>
+                <span>R{{ battle.round_number }} • {{ battle.votes_left }}:{{ battle.votes_right }} • {{ battle.status }}</span>
+              </article>
+            </div>
+            <p v-else>Keine Battle-Historie verfügbar.</p>
+          </section>
+        </div>
+      </article>
+    </div>
   </div>
 </template>
 
@@ -373,6 +416,8 @@ const statusFilter = ref("ALL");
 const sortMode = ref("open-first");
 const selectedTournamentId = ref(null);
 const selectedTournamentDetail = ref(null);
+const selectedBattleProfile = ref(null);
+const myAchievements = ref([]);
 const applicationDrafts = ref({});
 const submissionDrafts = ref({});
 
@@ -409,6 +454,39 @@ const myProfileId = computed(() => profile.value?.id || null);
 const rankedRows = computed(() => rankedOverview.value?.rows || []);
 const topRankedRows = computed(() => rankedRows.value.slice(0, 50));
 const myRankedRow = computed(() => rankedRows.value.find((row) => row.profile_id === myProfileId.value) || null);
+const battleProfileHistory = computed(() => {
+  if (!selectedBattleProfile.value?.name) return [];
+  const target = String(selectedBattleProfile.value.name).toLowerCase();
+  return battles.value
+    .filter((battle) => {
+      const left = String(battle.left_profile_name || "").toLowerCase();
+      const right = String(battle.right_profile_name || "").toLowerCase();
+      return left === target || right === target;
+    })
+    .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))
+    .slice(0, 10);
+});
+const battleProfileAchievements = computed(() => {
+  const row = selectedBattleProfile.value;
+  if (!row) return [];
+  const items = [];
+  if (Number(row.wins || 0) >= 1) items.push({ title: "Erster Sieg", description: "Mindestens einen Battle gewonnen." });
+  if (Number(row.wins || 0) >= 10) items.push({ title: "Win Streak", description: "10 oder mehr Siege erreicht." });
+  if (Number(row.ranked_points || 0) >= 150) items.push({ title: "Ranked Grinder", description: "150+ Ranked Points erspielt." });
+  if (Number(row.battles || 0) >= 20) items.push({ title: "Veteran", description: "20+ Battles gespielt." });
+
+  const isOwnProfile = row.profile_id && row.profile_id === myProfileId.value;
+  if (isOwnProfile) {
+    const ownAchievements = asList(myAchievements.value);
+    ownAchievements.forEach((entry) => {
+      const title = entry?.achievement?.title || entry?.title;
+      const description = entry?.achievement?.description || entry?.description;
+      if (title) items.push({ title, description: description || "Freigeschaltet" });
+    });
+  }
+
+  return items;
+});
 
 const visibleTournaments = computed(() => {
   const term = tournamentSearch.value.trim().toLowerCase();
@@ -466,7 +544,31 @@ function selectTournament(tournamentId) {
 }
 
 function openTournamentDetail(tournament) {
+  selectTournament(tournament?.id);
   selectedTournamentDetail.value = tournament;
+}
+
+function openBattleProfileByRow(row) {
+  selectedBattleProfile.value = row || null;
+}
+
+function openBattleProfileByName(name) {
+  if (!name) return;
+  const row = rankedRows.value.find((entry) => String(entry.name || "").toLowerCase() === String(name).toLowerCase());
+  const fallbackBattleCount = battles.value.filter((battle) => {
+    const left = String(battle.left_profile_name || "").toLowerCase();
+    const right = String(battle.right_profile_name || "").toLowerCase();
+    return left === String(name).toLowerCase() || right === String(name).toLowerCase();
+  }).length;
+  selectedBattleProfile.value = row || {
+    name,
+    tier: null,
+    rank: null,
+    ranked_points: 0,
+    wins: 0,
+    losses: 0,
+    battles: fallbackBattleCount,
+  };
 }
 
 function submissionDraft(tournamentId) {
@@ -515,16 +617,18 @@ async function loadAll() {
       api.get("tournament-battles/"),
       api.get("tournaments/ranked-overview/"),
       api.get("tournaments/ranked-config/"),
+      api.get("my-achievements/").catch(() => null),
     ];
     if (!viewerIsTeam.value) requests.push(api.get("tournament-votes/"));
 
-    const [tournamentRes, applicationRes, submissionRes, battleRes, rankedRes, rankedConfigRes, votesRes] = await Promise.all(requests);
+    const [tournamentRes, applicationRes, submissionRes, battleRes, rankedRes, rankedConfigRes, myAchievementsRes, votesRes] = await Promise.all(requests);
     tournaments.value = asList(tournamentRes.data);
     applications.value = asList(applicationRes.data);
     submissions.value = asList(submissionRes.data);
     battles.value = asList(battleRes.data);
     rankedOverview.value = rankedRes?.data || {};
     rankConfigTiers.value = asList(rankedConfigRes?.data?.tiers || []);
+    myAchievements.value = asList(myAchievementsRes?.data || []);
     myVotes.value = votesRes ? asList(votesRes.data) : [];
 
     if (!selectedTournamentId.value || !tournaments.value.some((entry) => entry.id === selectedTournamentId.value)) {
@@ -1048,6 +1152,28 @@ onMounted(async () => {
   height: 32px;
 }
 
+.tier-img.large {
+  width: 56px;
+  height: 56px;
+}
+
+.profile-link {
+  border: 0;
+  background: transparent;
+  color: #9ad8ff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: rgba(154, 216, 255, 0.4);
+}
+
+.profile-link:hover {
+  color: #ffffff;
+  text-decoration-color: rgba(255, 255, 255, 0.8);
+}
+
 .my-progress-card {
   margin-top: 20px;
   padding: 16px;
@@ -1246,6 +1372,60 @@ onMounted(async () => {
 .button-group .btn {
   flex: 1;
   min-width: 120px;
+}
+
+.battle-profile-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.battle-profile-head p {
+  margin: 4px 0;
+}
+
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.achievement-chip {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 77, 109, 0.12);
+  border: 1px solid rgba(255, 77, 109, 0.25);
+  display: grid;
+  gap: 4px;
+}
+
+.achievement-chip small {
+  color: #d0def5;
+}
+
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.history-row span {
+  color: #b5c1e9;
+  font-size: 0.85rem;
 }
 
 /* BUTTONS */

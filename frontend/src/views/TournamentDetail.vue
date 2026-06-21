@@ -1,122 +1,192 @@
 <template>
-  <div class="tournament-detail-page">
-    <div class="detail-bg"></div>
+  <div class="detail-page">
+    <div class="ambient"></div>
 
-    <section class="detail-toolbar">
-      <button class="btn ghost" type="button" @click="goBack">Zurueck</button>
-      <button class="btn ghost" type="button" @click="goPlatforms">Hub</button>
-    </section>
+    <header class="detail-topbar">
+      <div>
+        <button class="btn ghost small" type="button" @click="goBack">Zur Arena</button>
+        <p class="eyebrow">TOURNAMENT DETAIL</p>
+        <h1>{{ tournament?.title || "Tournament" }}</h1>
+      </div>
+      <div class="top-actions">
+        <span class="badge">{{ statusLabel(tournament?.status) }}</span>
+        <button class="btn ghost small" type="button" @click="openProfile">Profil</button>
+      </div>
+    </header>
 
-    <section v-if="tournament" class="detail-hero">
-      <img v-if="tournament.cover_url" :src="tournament.cover_url" :alt="tournament.title" class="hero-cover" />
-      <div class="hero-copy">
-        <p class="eyebrow">Turnier Detail</p>
-        <h1>{{ tournament.title }}</h1>
-        <p>{{ tournament.description || "Bereit fuer die naechste Runde." }}</p>
-        <div class="tag-row">
-          <span class="tag">{{ statusLabel(tournament.status) }}</span>
-          <span v-if="tournament.is_no_loss" class="tag">No Loss</span>
-          <span v-if="tournament.is_recurring" class="tag">Recurring</span>
+    <section class="hero" v-if="tournament">
+      <div class="hero-cover" :style="{ backgroundImage: `url(${tournamentCover(tournament)})` }"></div>
+      <div class="hero-info">
+        <p>{{ tournament.description || "Dieses Turnier wartet auf starke Einreichungen." }}</p>
+        <div class="hero-stats">
+          <article>
+            <strong>{{ participantsCount }}</strong>
+            <span>Teilnehmer</span>
+          </article>
+          <article>
+            <strong>{{ battleRows.length }}</strong>
+            <span>Battles</span>
+          </article>
+          <article>
+            <strong>{{ submissionRows.length }}</strong>
+            <span>Submissions</span>
+          </article>
+        </div>
+        <div class="hero-actions" v-if="tournament.status === 'APPLICATION_OPEN' && !viewerIsTeam">
+          <textarea v-model.trim="applicationMessage" class="input" rows="2" placeholder="Kurze Bewerbung..." />
+          <button class="btn" :disabled="busy" @click="submitApplication">Bewerben</button>
         </div>
       </div>
     </section>
 
-    <section v-if="tournament" class="detail-tabs">
-      <button class="detail-tab" :class="{ active: activeDetailTab === 'overview' }" @click="selectDetailTab('overview')">Overview</button>
-      <button class="detail-tab" :class="{ active: activeDetailTab === 'battles' }" @click="selectDetailTab('battles')">Battles</button>
-      <button class="detail-tab" :class="{ active: activeDetailTab === 'participants' }" @click="selectDetailTab('participants')">Teilnehmer</button>
-      <button class="detail-tab" :class="{ active: activeDetailTab === 'rules' }" @click="selectDetailTab('rules')">Rules</button>
-    </section>
+    <nav class="subtabs">
+      <button
+        v-for="tab in detailTabs"
+        :key="tab.key"
+        class="subtab"
+        :class="{ active: activeTab === tab.key }"
+        @click="setTab(tab.key)"
+      >
+        {{ tab.label }}
+      </button>
+    </nav>
 
-    <section v-if="activeDetailTab === 'overview' && tournament && !viewerIsTeam && tournament.has_application_phase" class="panel">
-      <h3>Bewerbung</h3>
-      <p v-if="myApplication">Status: {{ myApplication.status }}</p>
-      <div v-else class="form-row">
-        <textarea v-model.trim="applicationDraft" rows="3" placeholder="Kurz bewerben"></textarea>
-        <button class="btn" :disabled="busy" @click="submitApplication">Jetzt bewerben</button>
-      </div>
-    </section>
+    <section class="panel" v-if="activeTab === 'overview'">
+      <header class="section-head">
+        <h2>Overview</h2>
+      </header>
 
-    <section v-if="activeDetailTab === 'overview' && tournament && !viewerIsTeam" class="panel">
-      <h3>Runde einreichen</h3>
-      <div class="form-row">
-        <input v-model.trim="submissionDraft.title" placeholder="Track / Runde Titel" />
-        <input v-model.trim="submissionDraft.media_url" placeholder="https://media-link" />
-        <button class="btn" :disabled="busy || !canSubmit" @click="submitRound">Runde einreichen</button>
-      </div>
-    </section>
-
-    <section v-if="activeDetailTab === 'overview' && tournament && viewerIsTeam" class="panel">
-      <h3>Admin Aktionen</h3>
-      <div class="actions">
-        <button class="btn ghost" :disabled="busy" @click="setStatus('APPLICATION_OPEN')">Applications</button>
-        <button class="btn ghost" :disabled="busy" @click="setStatus('SUBMISSION_OPEN')">Submissions</button>
-        <button class="btn ghost" :disabled="busy" @click="setStatus('BATTLES')">Battles</button>
-        <button class="btn" :disabled="busy" @click="setStatus('CLOSED')">Close</button>
-      </div>
-    </section>
-
-    <section v-if="activeDetailTab === 'battles'" class="panel">
-      <h3>Battles</h3>
-      <div v-if="tournamentBattles.length" class="battle-list">
-        <article v-for="battle in tournamentBattles" :key="`battle-${battle.id}`" class="battle-card">
-          <div class="battle-head">
-            <strong>{{ battle.left_profile_name }}</strong>
-            <span>{{ battle.votes_left }} : {{ battle.votes_right }}</span>
-            <strong>{{ battle.right_profile_name }}</strong>
+      <div class="two-col">
+        <article class="card">
+          <h3>Status Flow</h3>
+          <div class="status-flow">
+            <button v-for="step in statusSteps" :key="step.value" class="btn ghost small" :disabled="!viewerIsTeam || busy" @click="setTournamentStatus(step.value)">
+              {{ step.label }}
+            </button>
           </div>
-          <small>Runde {{ battle.round_number }} • {{ battle.status }}</small>
-          <div v-if="!viewerIsTeam && battle.status !== 'CLOSED'" class="actions">
-            <button class="btn" :disabled="busy || !canVoteBattle(battle)" @click="voteBattle(battle, battle.left_submission)">Left</button>
-            <button class="btn ghost" :disabled="busy || !canVoteBattle(battle)" @click="voteBattle(battle, battle.right_submission)">Right</button>
+          <p class="muted">Aktueller Status: {{ statusLabel(tournament?.status) }}</p>
+        </article>
+
+        <article class="card">
+          <h3>Regeln Kompakt</h3>
+          <ul class="rules">
+            <li>Einreichungen nur in offenen Submission-Phasen.</li>
+            <li>Votes sind nur in Battle-Phasen möglich.</li>
+            <li>Admin kann Battles manuell schließen.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel" v-if="activeTab === 'battles'">
+      <header class="section-head">
+        <h2>Battles</h2>
+      </header>
+      <div class="battle-grid" v-if="battleRows.length">
+        <article v-for="battle in battleRows" :key="`battle-${battle.id}`" class="battle-card">
+          <div class="duel-head">
+            <button class="link-btn" @click="openBattleProfileByName(battle.left_profile_name)">{{ battle.left_profile_name }}</button>
+            <strong>{{ battle.votes_left }} : {{ battle.votes_right }}</strong>
+            <button class="link-btn" @click="openBattleProfileByName(battle.right_profile_name)">{{ battle.right_profile_name }}</button>
           </div>
-          <div v-if="viewerIsTeam && battle.status !== 'CLOSED'" class="actions">
+          <div class="duel-meta">
+            <span>Runde {{ battle.round_number }}</span>
+            <span class="badge">{{ battle.status }}</span>
+          </div>
+          <div class="duel-actions" v-if="!viewerIsTeam && tournament?.status === 'BATTLES' && battle.status !== 'CLOSED'">
+            <button class="btn" :disabled="busy || !canVoteBattle(battle)" @click="voteBattle(battle, battle.left_submission)">Vote Left</button>
+            <button class="btn ghost" :disabled="busy || !canVoteBattle(battle)" @click="voteBattle(battle, battle.right_submission)">Vote Right</button>
+          </div>
+          <div class="duel-actions" v-if="viewerIsTeam && battle.status !== 'CLOSED'">
             <button class="btn ghost" :disabled="busy" @click="closeBattle(battle)">Auto Close</button>
             <button class="btn ghost" :disabled="busy" @click="closeBattle(battle, battle.left_submission)">Left Win</button>
             <button class="btn ghost" :disabled="busy" @click="closeBattle(battle, battle.right_submission)">Right Win</button>
           </div>
         </article>
       </div>
-      <p v-else>Noch keine Battles fuer dieses Turnier.</p>
+      <div v-else class="empty">Keine Battles für dieses Turnier.</div>
     </section>
 
-    <section v-if="activeDetailTab === 'participants'" class="panel">
-      <h3>Teilnehmer</h3>
-      <table v-if="participantRows.length" class="participants-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Submissions</th>
-            <th>Wins</th>
-            <th>Ranked RP</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in participantRows" :key="`participant-${row.name}`">
-            <td>{{ row.name }}</td>
-            <td>{{ row.submissions }}</td>
-            <td>{{ row.wins }}</td>
-            <td>{{ row.ranked_points }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-else>Noch keine Teilnehmerdaten vorhanden.</p>
-    </section>
+    <section class="panel" v-if="activeTab === 'participants'">
+      <header class="section-head">
+        <h2>Participants & Submissions</h2>
+      </header>
+      <div class="two-col">
+        <article class="card">
+          <h3>Applications</h3>
+          <div class="list" v-if="applicationRows.length">
+            <article class="row" v-for="app in applicationRows" :key="`app-${app.id}`">
+              <div>
+                <strong>{{ app.profile_name || app.profile?.name || 'Unknown' }}</strong>
+                <p>{{ app.message || 'Keine Nachricht' }}</p>
+              </div>
+              <span class="badge">{{ app.status }}</span>
+            </article>
+          </div>
+          <p class="muted" v-else>Keine Bewerbungen.</p>
+        </article>
 
-    <section v-if="activeDetailTab === 'rules' && tournament" class="panel">
-      <h3>Regeln & Setup</h3>
-      <div class="rules-grid">
-        <div><strong>Application Phase:</strong> {{ boolLabel(tournament.has_application_phase) }}</div>
-        <div><strong>No Loss:</strong> {{ boolLabel(tournament.is_no_loss) }}</div>
-        <div><strong>Recurring:</strong> {{ boolLabel(tournament.is_recurring) }}</div>
-        <div><strong>Voting Mode:</strong> {{ tournament.voting_mode || '-' }}</div>
-        <div><strong>Vote Change:</strong> {{ boolLabel(tournament.allow_vote_change) }}</div>
-        <div><strong>Min. Account Age (h):</strong> {{ tournament.min_account_age_hours ?? '-' }}</div>
-        <div><strong>Max Votes/IP/h:</strong> {{ tournament.max_votes_per_ip_per_hour ?? '-' }}</div>
-        <div><strong>Start:</strong> {{ tournament.starts_at || '-' }}</div>
-        <div><strong>Ende:</strong> {{ tournament.ends_at || '-' }}</div>
+        <article class="card">
+          <h3>Submission Upload</h3>
+          <div class="upload-box" v-if="!viewerIsTeam && tournament?.status === 'SUBMISSION_OPEN'">
+            <input v-model.trim="submissionTitle" class="input" placeholder="Track Titel" />
+            <input v-model.trim="submissionMediaUrl" class="input" placeholder="Media URL (Audio/Video)" />
+            <button class="btn" :disabled="busy" @click="submitRound">Einreichen</button>
+          </div>
+          <p class="muted" v-else>Upload ist nur in Submission-Phase verfügbar.</p>
+
+          <div class="list" v-if="submissionRows.length">
+            <article class="row" v-for="sub in submissionRows" :key="`sub-${sub.id}`">
+              <div>
+                <strong>{{ sub.title || 'Untitled' }}</strong>
+                <p>{{ sub.profile_name || sub.profile?.name || 'Unknown' }}</p>
+              </div>
+              <a v-if="sub.media_url" class="link-btn" :href="sub.media_url" target="_blank" rel="noopener">Open</a>
+            </article>
+          </div>
+        </article>
       </div>
     </section>
+
+    <section class="panel" v-if="activeTab === 'rules'">
+      <header class="section-head">
+        <h2>Rules & Timing</h2>
+      </header>
+      <div class="two-col">
+        <article class="card">
+          <h3>Turnier-Flags</h3>
+          <ul class="rules">
+            <li>No Loss: {{ tournament?.is_no_loss ? 'Ja' : 'Nein' }}</li>
+            <li>Recurring: {{ tournament?.is_recurring ? 'Ja' : 'Nein' }}</li>
+            <li>Application Phase: {{ tournament?.has_application_phase ? 'Ja' : 'Nein' }}</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Zeitfenster</h3>
+          <p class="muted">Start: {{ formatDate(tournament?.starts_at) }}</p>
+          <p class="muted">Ende: {{ formatDate(tournament?.ends_at) }}</p>
+        </article>
+      </div>
+    </section>
+
+    <div v-if="selectedBattleProfile" class="modal-overlay" @click.self="selectedBattleProfile = null">
+      <article class="modal-card">
+        <header>
+          <h2>{{ selectedBattleProfile.name }}</h2>
+          <button class="btn ghost small" @click="selectedBattleProfile = null">✕</button>
+        </header>
+        <div class="modal-body">
+          <p class="muted">Battle-Profil mit bisherigen Matches.</p>
+          <div class="history" v-if="battleProfileHistory.length">
+            <article v-for="battle in battleProfileHistory" :key="`hist-${battle.id}`" class="history-row">
+              <strong>{{ battle.left_profile_name }} vs {{ battle.right_profile_name }}</strong>
+              <span>R{{ battle.round_number }} · {{ battle.votes_left }}:{{ battle.votes_right }} · {{ battle.status }}</span>
+            </article>
+          </div>
+          <p class="muted" v-else>Keine Battle-Historie.</p>
+        </div>
+      </article>
+    </div>
   </div>
 </template>
 
@@ -127,57 +197,89 @@ import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 
-const route = useRoute();
 const router = useRouter();
-const { isTeam, fetchProfile } = useCurrentProfile();
+const route = useRoute();
+const { profile, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
+const detailTabs = [
+  { key: "overview", label: "Overview" },
+  { key: "battles", label: "Battles" },
+  { key: "participants", label: "Participants" },
+  { key: "rules", label: "Rules" },
+];
+
+const validTabs = detailTabs.map((t) => t.key);
+const activeTab = ref("overview");
 const busy = ref(false);
-const activeDetailTab = ref("overview");
 const tournament = ref(null);
-const battles = ref([]);
-const submissions = ref([]);
-const rankedOverview = ref({});
 const applications = ref([]);
+const submissions = ref([]);
+const battles = ref([]);
 const myVotes = ref([]);
-const applicationDraft = ref("");
-const submissionDraft = ref({ title: "", media_url: "" });
-const validTabs = ["overview", "battles", "participants", "rules"];
+const rankedOverview = ref({});
+const selectedBattleProfile = ref(null);
+const applicationMessage = ref("");
+const submissionTitle = ref("");
+const submissionMediaUrl = ref("");
 
-const viewerIsTeam = computed(() => isTeam.value);
 const tournamentId = computed(() => Number(route.params.tournamentId));
-const tournamentBattles = computed(() => battles.value.filter((b) => Number(b.tournament) === tournamentId.value));
-const myApplication = computed(() => applications.value.find((entry) => Number(entry.tournament) === tournamentId.value) || null);
-const participantRows = computed(() => {
-  const rows = {};
-  const rankedRows = Array.isArray(rankedOverview.value?.rows) ? rankedOverview.value.rows : [];
-  const tournamentSubmissions = submissions.value.filter((entry) => Number(entry.tournament) === tournamentId.value);
+const artistPreview = computed(() => isTeam.value && String(route.query.artistView || "").toLowerCase() === "1");
+const viewerIsTeam = computed(() => isTeam.value && !artistPreview.value);
+const myProfileId = computed(() => profile.value?.id || null);
 
-  tournamentSubmissions.forEach((entry) => {
-    const name =
-      entry.profile_name ||
-      entry.profile?.name ||
-      entry.profile?.username ||
-      entry.artist_name ||
-      "Unknown";
-    if (!rows[name]) {
-      const rankedRow = rankedRows.find((rankedEntry) => String(rankedEntry.name || "").toLowerCase() === String(name).toLowerCase());
-      rows[name] = {
-        name,
-        submissions: 0,
-        wins: Number(rankedRow?.wins || 0),
-        ranked_points: Number(rankedRow?.ranked_points || 0),
-      };
-    }
-    rows[name].submissions += 1;
-  });
+const statusSteps = [
+  { value: "DRAFT", label: "Draft" },
+  { value: "APPLICATION_OPEN", label: "Application" },
+  { value: "SUBMISSION_OPEN", label: "Submission" },
+  { value: "BATTLES", label: "Battles" },
+  { value: "CLOSED", label: "Closed" },
+];
 
-  return Object.values(rows).sort((a, b) => b.ranked_points - a.ranked_points || b.wins - a.wins || b.submissions - a.submissions);
+const applicationRows = computed(() => applications.value.filter((entry) => Number(entry.tournament) === tournamentId.value));
+const submissionRows = computed(() => submissions.value.filter((entry) => Number(entry.tournament) === tournamentId.value));
+const battleRows = computed(() => battles.value.filter((entry) => Number(entry.tournament) === tournamentId.value));
+const participantsCount = computed(() => {
+  const names = new Set();
+  applicationRows.value.forEach((entry) => names.add(String(entry.profile_name || entry.profile?.name || "")));
+  submissionRows.value.forEach((entry) => names.add(String(entry.profile_name || entry.profile?.name || "")));
+  names.delete("");
+  return names.size;
 });
-const canSubmit = computed(() => {
-  if (!tournament.value?.has_application_phase) return true;
-  return myApplication.value?.status === "APPROVED";
+
+const battleProfileHistory = computed(() => {
+  if (!selectedBattleProfile.value?.name) return [];
+  const target = String(selectedBattleProfile.value.name).toLowerCase();
+  return battleRows.value
+    .filter((battle) => {
+      const left = String(battle.left_profile_name || "").toLowerCase();
+      const right = String(battle.right_profile_name || "").toLowerCase();
+      return left === target || right === target;
+    })
+    .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
 });
+
+const fallbackTournamentCovers = [
+  "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1571330735066-03aaa9429d89?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
+];
+
+function asList(payload) {
+  if (Array.isArray(payload)) return payload;
+  return payload?.results || payload || [];
+}
+
+function sanitizeTab(value) {
+  const key = String(value || "");
+  return validTabs.includes(key) ? key : "overview";
+}
+
+function setTab(tabKey) {
+  const next = sanitizeTab(tabKey);
+  activeTab.value = next;
+  router.replace({ query: { ...route.query, tab: next } });
+}
 
 function statusLabel(status) {
   const map = {
@@ -187,76 +289,96 @@ function statusLabel(status) {
     BATTLES: "Battles",
     CLOSED: "Geschlossen",
   };
-  return map[status] || status;
+  return map[status] || status || "-";
 }
 
-function boolLabel(value) {
-  return value ? "Ja" : "Nein";
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("de-DE");
 }
 
-function sanitizeTab(tabValue) {
-  const tab = String(tabValue || "").toLowerCase();
-  return validTabs.includes(tab) ? tab : "overview";
+function tournamentCover(item) {
+  if (!item) return fallbackTournamentCovers[0];
+  if (item.cover_url) return item.cover_url;
+  const index = Math.abs(Number(item.id || 0)) % fallbackTournamentCovers.length;
+  return fallbackTournamentCovers[index];
 }
 
-function selectDetailTab(tabKey) {
-  const nextTab = sanitizeTab(tabKey);
-  if (activeDetailTab.value === nextTab) return;
-  activeDetailTab.value = nextTab;
-  router.replace({ query: { ...route.query, tab: nextTab } });
+function goBack() {
+  router.push({ name: "platform-contests", query: { tab: "tournaments", ...(artistPreview.value ? { artistView: "1" } : {}) } });
+}
+
+function openProfile() {
+  router.push({ name: "me" });
+}
+
+function openBattleProfileByName(name) {
+  if (!name) return;
+  selectedBattleProfile.value = { name };
 }
 
 function canVoteBattle(battle) {
   if (!battle || battle.status === "CLOSED") return false;
-  if (!tournament.value) return false;
-  if (tournament.value.allow_vote_change) return true;
+  if (tournament.value?.status !== "BATTLES") return false;
+  if (tournament.value?.allow_vote_change) return true;
   return !myVotes.value.some((vote) => Number(vote.battle) === Number(battle.id));
 }
 
-function goBack() {
-  router.push({ name: "platform-contests" });
-}
-
-function goPlatforms() {
-  router.push({ name: "platforms" });
-}
-
-async function loadAll() {
+async function loadDetail() {
   busy.value = true;
   try {
-    const [tournamentRes, battlesRes, submissionsRes, rankedOverviewRes, applicationsRes, votesRes] = await Promise.all([
+    const requests = [
       api.get(`tournaments/${tournamentId.value}/`),
-      api.get("tournament-battles/"),
-      api.get("tournament-submissions/"),
-      api.get("tournaments/ranked-overview/"),
       api.get("tournament-applications/"),
-      api.get("tournament-votes/").catch(() => null),
-    ]);
+      api.get("tournament-submissions/"),
+      api.get("tournament-battles/"),
+      api.get("tournaments/ranked-overview/"),
+    ];
+    if (!viewerIsTeam.value) requests.push(api.get("tournament-votes/"));
+
+    const [tournamentRes, applicationsRes, submissionsRes, battlesRes, rankedRes, votesRes] = await Promise.all(requests);
     tournament.value = tournamentRes?.data || null;
-    battles.value = Array.isArray(battlesRes?.data) ? battlesRes.data : battlesRes?.data?.results || [];
-    submissions.value = Array.isArray(submissionsRes?.data) ? submissionsRes.data : submissionsRes?.data?.results || [];
-    rankedOverview.value = rankedOverviewRes?.data || {};
-    applications.value = Array.isArray(applicationsRes?.data) ? applicationsRes.data : applicationsRes?.data?.results || [];
-    myVotes.value = votesRes ? (Array.isArray(votesRes?.data) ? votesRes.data : votesRes?.data?.results || []) : [];
+    applications.value = asList(applicationsRes?.data);
+    submissions.value = asList(submissionsRes?.data);
+    battles.value = asList(battlesRes?.data);
+    rankedOverview.value = rankedRes?.data || {};
+    myVotes.value = votesRes ? asList(votesRes.data) : [];
   } catch (err) {
     console.error(err);
-    showToast("Turnier konnte nicht geladen werden", "error");
-    router.push({ name: "platform-contests" });
+    showToast("Turnierdetails konnten nicht geladen werden", "error");
+  } finally {
+    busy.value = false;
+  }
+}
+
+async function setTournamentStatus(nextStatus) {
+  if (!viewerIsTeam.value || !tournament.value || tournament.value.status === nextStatus) return;
+  busy.value = true;
+  try {
+    await api.patch(`tournaments/${tournament.value.id}/`, { status: nextStatus });
+    showToast(`Status: ${statusLabel(nextStatus)}`, "success");
+    await loadDetail();
+  } catch (err) {
+    console.error(err);
+    showToast(err?.response?.data?.detail || "Statusupdate fehlgeschlagen", "error");
   } finally {
     busy.value = false;
   }
 }
 
 async function submitApplication() {
+  if (!tournament.value) return;
   busy.value = true;
   try {
     await api.post("tournament-applications/", {
-      tournament: tournamentId.value,
-      message: applicationDraft.value,
+      tournament: tournament.value.id,
+      message: applicationMessage.value || "",
     });
-    applicationDraft.value = "";
+    applicationMessage.value = "";
     showToast("Bewerbung gesendet", "success");
-    await loadAll();
+    await loadDetail();
   } catch (err) {
     console.error(err);
     showToast(err?.response?.data?.detail || "Bewerbung fehlgeschlagen", "error");
@@ -266,16 +388,21 @@ async function submitApplication() {
 }
 
 async function submitRound() {
+  if (!tournament.value || !submissionTitle.value.trim()) {
+    showToast("Titel fehlt", "warning");
+    return;
+  }
   busy.value = true;
   try {
     await api.post("tournament-submissions/", {
-      tournament: tournamentId.value,
-      title: submissionDraft.value.title,
-      media_url: submissionDraft.value.media_url,
+      tournament: tournament.value.id,
+      title: submissionTitle.value,
+      media_url: submissionMediaUrl.value,
     });
-    submissionDraft.value = { title: "", media_url: "" };
+    submissionTitle.value = "";
+    submissionMediaUrl.value = "";
     showToast("Runde eingereicht", "success");
-    await loadAll();
+    await loadDetail();
   } catch (err) {
     console.error(err);
     showToast(err?.response?.data?.detail || "Einreichung fehlgeschlagen", "error");
@@ -285,6 +412,10 @@ async function submitRound() {
 }
 
 async function voteBattle(battle, selectedSubmissionId) {
+  if (!canVoteBattle(battle)) {
+    showToast("Vote ist aktuell nicht möglich", "warning");
+    return;
+  }
   busy.value = true;
   try {
     await api.post("tournament-votes/", {
@@ -292,7 +423,7 @@ async function voteBattle(battle, selectedSubmissionId) {
       selected_submission: selectedSubmissionId,
     });
     showToast("Vote gespeichert", "success");
-    await loadAll();
+    await loadDetail();
   } catch (err) {
     console.error(err);
     showToast(err?.response?.data?.detail || "Vote fehlgeschlagen", "error");
@@ -302,12 +433,13 @@ async function voteBattle(battle, selectedSubmissionId) {
 }
 
 async function closeBattle(battle, winnerSubmissionId = null) {
+  if (!viewerIsTeam.value) return;
   busy.value = true;
   try {
     const payload = winnerSubmissionId ? { winner_submission: winnerSubmissionId } : {};
     await api.post(`tournament-battles/${battle.id}/close/`, payload);
     showToast("Battle geschlossen", "success");
-    await loadAll();
+    await loadDetail();
   } catch (err) {
     console.error(err);
     showToast(err?.response?.data?.detail || "Battle konnte nicht geschlossen werden", "error");
@@ -316,211 +448,367 @@ async function closeBattle(battle, winnerSubmissionId = null) {
   }
 }
 
-async function setStatus(nextStatus) {
-  if (!tournament.value || tournament.value.status === nextStatus) return;
-  busy.value = true;
-  try {
-    await api.patch(`tournaments/${tournamentId.value}/`, { status: nextStatus });
-    showToast(`Status: ${statusLabel(nextStatus)}`, "success");
-    await loadAll();
-  } catch (err) {
-    console.error(err);
-    showToast(err?.response?.data?.detail || "Statusupdate fehlgeschlagen", "error");
-  } finally {
-    busy.value = false;
-  }
-}
-
 onMounted(async () => {
-  activeDetailTab.value = sanitizeTab(route.query.tab);
+  activeTab.value = sanitizeTab(route.query.tab);
   await fetchProfile();
-  await loadAll();
+  await loadDetail();
 });
 
 watch(
   () => route.query.tab,
   (value) => {
-    const nextTab = sanitizeTab(value);
-    if (activeDetailTab.value !== nextTab) activeDetailTab.value = nextTab;
+    const next = sanitizeTab(value);
+    if (activeTab.value !== next) activeTab.value = next;
+  }
+);
+
+watch(
+  () => route.params.tournamentId,
+  async () => {
+    await loadDetail();
   }
 );
 </script>
 
 <style scoped>
-.tournament-detail-page {
+@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@400;600;700;800&display=swap");
+
+.detail-page {
   min-height: 100vh;
   width: 100vw;
   margin-left: calc(50% - 50vw);
-  padding: 20px clamp(14px, 2vw, 32px) 40px;
+  padding: 18px clamp(14px, 2vw, 34px) 42px;
   position: relative;
-  color: #f2f5ff;
+  color: #eef3ff;
+  font-family: "Chakra Petch", sans-serif;
   display: grid;
   gap: 14px;
 }
 
-.detail-bg {
+.ambient {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -2;
   background:
-    radial-gradient(circle at 8% 8%, rgba(255, 82, 108, 0.28), transparent 40%),
-    radial-gradient(circle at 90% 16%, rgba(90, 201, 255, 0.22), transparent 35%),
-    linear-gradient(145deg, #04060f 0%, #0d1530 50%, #120f24 100%);
+    radial-gradient(circle at 12% 9%, rgba(255, 73, 128, 0.3), transparent 43%),
+    radial-gradient(circle at 88% 13%, rgba(93, 214, 255, 0.28), transparent 38%),
+    linear-gradient(145deg, #060916 0%, #111a3d 53%, #1a1031 100%);
 }
 
-.detail-toolbar {
+.detail-topbar,
+.hero,
+.subtabs,
+.panel {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  backdrop-filter: blur(6px);
+}
+
+.detail-topbar {
+  padding: 14px 16px;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.eyebrow {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #84dcff;
+}
+
+.detail-topbar h1 {
+  margin: 2px 0 0;
+  font-family: "Sora", sans-serif;
+  font-size: clamp(1.32rem, 2.1vw, 1.95rem);
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.detail-tabs {
-  display: flex;
+.hero {
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(260px, 38%) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.hero-cover {
+  border-radius: 12px;
+  min-height: 210px;
+  background-size: cover;
+  background-position: center;
+}
+
+.hero-info {
+  display: grid;
+  gap: 10px;
+}
+
+.hero-info p {
+  margin: 0;
+  color: #c6d3f3;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.hero-stats article {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  padding: 9px;
+  background: rgba(10, 16, 35, 0.45);
+  display: grid;
+  gap: 2px;
+}
+
+.hero-stats strong {
+  color: #fff;
+}
+
+.hero-stats span {
+  color: #b8c7ed;
+  font-size: 0.8rem;
+}
+
+.hero-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.subtabs {
+  padding: 8px;
+  display: flex;
   flex-wrap: wrap;
+  gap: 6px;
 }
 
-.detail-tab {
+.subtab {
   border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #ccdaff;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #d7e3ff;
-  padding: 7px 12px;
+  padding: 8px 12px;
   cursor: pointer;
+  font-family: "Sora", sans-serif;
   font-weight: 600;
 }
 
-.detail-tab.active {
-  background: linear-gradient(125deg, #ff4d6d 0%, #ff7b54 100%);
+.subtab.active {
+  background: linear-gradient(125deg, #ff4d6d, #ff7b54);
   border-color: transparent;
   color: #fff;
 }
 
-.detail-hero,
 .panel {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  background: rgba(6, 10, 24, 0.75);
   padding: 14px;
-}
-
-.detail-hero {
   display: grid;
-  grid-template-columns: minmax(200px, 340px) 1fr;
-  gap: 14px;
+  gap: 12px;
 }
 
-.hero-cover {
-  width: 100%;
-  height: 220px;
-  object-fit: cover;
-  border-radius: 10px;
-}
-
-.eyebrow {
+.section-head h2 {
   margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  font-size: 0.72rem;
-  color: #7dd3fc;
+  font-family: "Sora", sans-serif;
 }
 
-.hero-copy h1 {
-  margin: 6px 0;
-}
-
-.tag-row {
-  display: flex;
-  gap: 8px;
-}
-
-.tag {
-  display: inline-flex;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.form-row {
+.two-col {
   display: grid;
-  gap: 8px;
-}
-
-textarea,
-input {
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.06);
-  color: #f2f5ff;
-  padding: 10px 12px;
-}
-
-.battle-list {
-  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.battle-card {
+.card {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.03);
   display: grid;
   gap: 8px;
 }
 
-.battle-head {
+.card h3 {
+  margin: 0;
+  font-family: "Sora", sans-serif;
+}
+
+.status-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.rules {
+  margin: 0;
+  padding-left: 17px;
+  color: #c6d3f3;
+  display: grid;
+  gap: 6px;
+}
+
+.battle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 12px;
+}
+
+.battle-card {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 8px;
+}
+
+.duel-head {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
 }
 
-.battle-head strong:last-child {
+.duel-head strong {
+  text-align: center;
+}
+
+.duel-head .link-btn:last-child {
   text-align: right;
 }
 
-.participants-table {
-  width: 100%;
-  border-collapse: collapse;
+.duel-meta {
+  display: flex;
+  justify-content: space-between;
+  color: #b8c7ed;
+  font-size: 0.84rem;
 }
 
-.participants-table th,
-.participants-table td {
-  text-align: left;
-  padding: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.duel-actions {
+  display: flex;
+  gap: 8px;
 }
 
-.participants-table th {
-  color: #b9c9f2;
-  font-size: 0.85rem;
-}
-
-.rules-grid {
+.list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
-.rules-grid div {
+.row {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.actions {
-  display: flex;
+.row p {
+  margin: 2px 0 0;
+  color: #b8c7ed;
+  font-size: 0.86rem;
+}
+
+.upload-box {
+  display: grid;
   gap: 8px;
-  flex-wrap: wrap;
+}
+
+.input {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef3ff;
+  padding: 9px 11px;
+  font-family: "Sora", sans-serif;
+}
+
+.badge {
+  display: inline-flex;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.72rem;
+  color: #dbe7ff;
+}
+
+.link-btn {
+  border: 0;
+  background: transparent;
+  color: #9edcff;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(158, 220, 255, 0.4);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.74);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  width: min(700px, 92vw);
+  max-height: 82vh;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255, 87, 122, 0.14), rgba(112, 231, 255, 0.08));
+}
+
+.modal-card header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.history {
+  display: grid;
+  gap: 7px;
+}
+
+.history-row {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  padding: 9px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.history-row span {
+  color: #b8c7ed;
+  font-size: 0.84rem;
 }
 
 .btn {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 10px;
-  background: linear-gradient(125deg, #ff4d6d 0%, #ff7b54 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9px;
+  background: linear-gradient(125deg, #ff4d6d, #ff7b54);
   color: #fff;
+  font-family: "Sora", sans-serif;
   font-weight: 700;
   padding: 8px 12px;
   cursor: pointer;
@@ -528,12 +816,51 @@ input {
 
 .btn.ghost {
   background: transparent;
-  color: #d7e3ff;
+  color: #d2ddff;
 }
 
-@media (max-width: 900px) {
-  .detail-hero {
+.btn.small {
+  padding: 5px 9px;
+  font-size: 0.82rem;
+}
+
+.muted {
+  margin: 0;
+  color: #b8c7ed;
+}
+
+.empty {
+  padding: 20px;
+  text-align: center;
+  color: #b8c7ed;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+}
+
+@media (max-width: 980px) {
+  .hero {
     grid-template-columns: 1fr;
+  }
+
+  .hero-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .duel-head {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .duel-head .link-btn:last-child {
+    text-align: center;
+  }
+
+  .history-row {
+    flex-direction: column;
   }
 }
 </style>

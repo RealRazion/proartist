@@ -190,6 +190,17 @@ CORS_ALLOW_HEADERS = [
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# Upload tuning for low-memory runtimes (e.g. Render starter instances).
+# Force uploads to temporary files on disk instead of buffering in RAM.
+FILE_UPLOAD_HANDLERS = ["django.core.files.uploadhandler.TemporaryFileUploadHandler"]
+FILE_UPLOAD_MAX_MEMORY_SIZE = get_env("FILE_UPLOAD_MAX_MEMORY_SIZE", 256 * 1024, cast_type=int)
+DATA_UPLOAD_MAX_MEMORY_SIZE = get_env("DATA_UPLOAD_MAX_MEMORY_SIZE", 10 * 1024 * 1024, cast_type=int)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = get_env("DATA_UPLOAD_MAX_NUMBER_FIELDS", 2000, cast_type=int)
+MAX_CHAT_FILE_SIZE = get_env("MAX_CHAT_FILE_SIZE", 5 * 1024 * 1024, cast_type=int)
+MAX_PROJECT_FILE_SIZE = get_env("MAX_PROJECT_FILE_SIZE", 50 * 1024 * 1024, cast_type=int)
+MAX_AUDIO_FILE_SIZE = get_env("MAX_AUDIO_FILE_SIZE", 50 * 1024 * 1024, cast_type=int)
+MAX_AVATAR_SIZE = get_env("MAX_AVATAR_SIZE", 2 * 1024 * 1024, cast_type=int)
+
 REST_FRAMEWORK = {
   "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
   "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),

@@ -5,6 +5,7 @@ Sichert Datei-Uploads mit Größen- und Typ-Validierung
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
+from django.conf import settings
 import os
 try:
     import magic  # python-magic für Datei-Typ Validierung
@@ -13,9 +14,10 @@ except Exception:
 
 
 # Maximale Dateigrößen
-MAX_CHAT_FILE_SIZE = 5 * 1024 * 1024  # 5MB für Chat-Dateien
-MAX_PROJECT_FILE_SIZE = 50 * 1024 * 1024  # 50MB für Projekt-Dateien
-MAX_AVATAR_SIZE = 2 * 1024 * 1024  # 2MB für Avatare
+MAX_CHAT_FILE_SIZE = int(getattr(settings, "MAX_CHAT_FILE_SIZE", 5 * 1024 * 1024))  # 5MB für Chat-Dateien
+MAX_PROJECT_FILE_SIZE = int(getattr(settings, "MAX_PROJECT_FILE_SIZE", 50 * 1024 * 1024))  # 50MB für Projekt-Dateien
+MAX_AUDIO_FILE_SIZE = int(getattr(settings, "MAX_AUDIO_FILE_SIZE", 50 * 1024 * 1024))  # 50MB für Audio-Dateien
+MAX_AVATAR_SIZE = int(getattr(settings, "MAX_AVATAR_SIZE", 2 * 1024 * 1024))  # 2MB für Avatare
 
 # Erlaubte Datei-Typen
 ALLOWED_CHAT_TYPES = {
@@ -108,7 +110,7 @@ def validate_project_file(file):
 def validate_audio_file(file):
     """Validator für Audio-Datei Uploads"""
     validate_file_extension(file)
-    validate_file_size(file, MAX_PROJECT_FILE_SIZE)
+    validate_file_size(file, MAX_AUDIO_FILE_SIZE)
     validate_file_type(file, ALLOWED_AUDIO_TYPES)
 
 

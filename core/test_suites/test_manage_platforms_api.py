@@ -52,6 +52,36 @@ class ManagePlatformsApiTests(TestCase):
         self.assertEqual(platform.status_note, "Kurz offline")
         self.assertEqual(platform.version, "0.2")
 
+    def test_team_can_set_custom_version_label(self):
+        self.client.force_authenticate(user=self.team_user)
+
+        create_res = self.client.post(
+            "/api/manage-platforms/",
+            {
+                "name": "Finance",
+                "slug": "finance-manual-version",
+                "status": "ACTIVE",
+                "allow_non_team_users": True,
+            },
+            format="json",
+        )
+        self.assertEqual(create_res.status_code, 201, create_res.content)
+
+        platform = ManagedPlatform.objects.get(id=create_res.json()["id"])
+        update_res = self.client.patch(
+            f"/api/manage-platforms/{platform.id}/",
+            {
+                "status": "MAINTENANCE",
+                "version": "0.2-beta",
+            },
+            format="json",
+        )
+        self.assertEqual(update_res.status_code, 200, update_res.content)
+
+        platform.refresh_from_db()
+        self.assertEqual(platform.status, "MAINTENANCE")
+        self.assertEqual(platform.version, "0.2-beta")
+
     def test_non_team_cannot_manage_platforms(self):
         self.client.force_authenticate(user=self.artist_user)
 

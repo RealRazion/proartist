@@ -2127,7 +2127,13 @@ class ManagedPlatformSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "version", "updated_by", "can_access_as_team", "can_access_as_non_team", "is_system_defined", "created_at", "updated_at"]
+        read_only_fields = ["id", "updated_by", "can_access_as_team", "can_access_as_non_team", "is_system_defined", "created_at", "updated_at"]
+
+    def validate_version(self, value):
+        raw = str(value or "").strip()
+        if not raw:
+            raise serializers.ValidationError("Version darf nicht leer sein.")
+        return raw[:20]
 
     def get_can_access_as_team(self, obj):
         return obj.status != "LOCKED"

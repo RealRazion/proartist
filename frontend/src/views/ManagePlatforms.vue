@@ -50,6 +50,10 @@
             </div>
             <div class="row-fields">
               <label>
+                <span>Version</span>
+                <input v-model.trim="item.version" class="input" placeholder="z. B. 1.4-beta" maxlength="20" />
+              </label>
+              <label>
                 <span>Status</span>
                 <select v-model="item.status" class="input">
                   <option value="ACTIVE">ACTIVE</option>
@@ -130,8 +134,8 @@ const platforms = ref([]);
 const historyEntries = ref([]);
 
 // KI-Hinweis:
-// Bei jeder funktionalen Plattform-Aenderung erhoeht das Backend die Plattform-Version automatisch.
-// Diese Verwaltungsseite soll Versionen nur anzeigen und niemals direkt setzen.
+// Versionen koennen im Plattform-Manager manuell gesetzt werden (z. B. beta).
+// Wenn keine Version mitgeschickt wird, erhoeht das Backend die Version bei funktionalen Aenderungen automatisch.
 
 function formatDate(value) {
   if (!value) return "-";
@@ -195,6 +199,7 @@ async function savePlatform(item) {
   busyId.value = item.id;
   try {
     const payload = {
+      version: item.version,
       status: item.status,
       allow_non_team_users: item.allow_non_team_users,
       status_note: item.status_note || "",

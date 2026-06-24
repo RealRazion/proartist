@@ -4050,7 +4050,9 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
         }
         changed_fields = set(serializer.validated_data.keys())
         version = current.version
-        if changed_fields.intersection({"name", "slug", "status", "allow_non_team_users", "status_note"}):
+        if "version" in changed_fields:
+            version = serializer.validated_data["version"]
+        elif changed_fields.intersection({"name", "slug", "status", "allow_non_team_users", "status_note"}):
             version = _next_platform_version(current.version)
 
         platform = serializer.save(

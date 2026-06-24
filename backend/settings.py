@@ -89,12 +89,18 @@ ASGI_APPLICATION = "backend.asgi.application"
 
 # Channel Layer (dev: InMemory; prod: Redis via CHANNEL_REDIS_URL/REDIS_URL)
 _redis_channel_url = get_env("CHANNEL_REDIS_URL") or get_env("REDIS_URL")
+_channel_capacity = max(10, get_env("CHANNEL_LAYER_CAPACITY", 50, cast_type=int))
+_channel_expiry = max(5, get_env("CHANNEL_LAYER_EXPIRY", 15, cast_type=int))
+_channel_group_expiry = max(60, get_env("CHANNEL_LAYER_GROUP_EXPIRY", 300, cast_type=int))
 if _redis_channel_url:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
                 "hosts": [_redis_channel_url],
+                "capacity": _channel_capacity,
+                "expiry": _channel_expiry,
+                "group_expiry": _channel_group_expiry,
             },
         }
     }
@@ -103,9 +109,16 @@ else:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels.layers.InMemoryChannelLayer",
+            "CONFIG": {
+                "capacity": _channel_capacity,
+                "expiry": _channel_expiry,
+                "group_expiry": _channel_group_expiry,
+            },
         }
     }
-    logger.info("✓ CHANNEL_LAYERS uses InMemory backend")
+    logger.warning(
+        "CHANNEL_LAYERS uses InMemory backend. Configure REDIS_URL/CHANNEL_REDIS_URL in production for better stability."
+    )
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",

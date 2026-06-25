@@ -70,150 +70,6 @@
         </button>
       </div>
 
-      <section class="summary-band">
-        <article class="metric-card balance-card">
-          <div class="metric-top">
-            <div>
-              <span class="metric-label">Berechnetes Saldo</span>
-              <strong>{{ formatCurrency(calculatedSaldo) }}</strong>
-            </div>
-            <span class="metric-pill">{{ overview.snapshot_month }}</span>
-          </div>
-          <p class="metric-note">Trennung zwischen Soll-Planung und echten Zahlungen aus dem Schuldenmanager.</p>
-          <div class="metric-progress">
-            <span class="metric-pill small">{{ overview.people_count }} Personen</span>
-            <span class="metric-pill small">{{ overview.active_entry_count || 0 }} aktive Posten</span>
-          </div>
-          <div class="metric-breakdown">
-            <p class="metric-breakdown-row">
-              <span>Echtes Saldo:</span>
-              <strong>{{ formatCurrency(actualSaldo) }}</strong>
-            </p>
-            <p class="metric-breakdown-row current-balance-row">
-              <span>Aktueller Kontostand:</span>
-              <span class="balance-override-group">
-                <template v-if="!showBalanceEdit">
-                  <strong>{{ formatCurrency(currentBalance) }}</strong>
-                  <button
-                    class="balance-edit-btn"
-                    type="button"
-                    @click="openBalanceEdit"
-                    title="Kontostand manuell überschreiben"
-                  >✎</button>
-                </template>
-                <template v-else>
-                  <input
-                    class="balance-input"
-                    v-model="balanceOverrideInput"
-                    type="number"
-                    step="0.01"
-                    @keydown.enter="saveBalanceOverride"
-                    @keydown.esc="showBalanceEdit = false"
-                    autofocus
-                  />
-                  <button class="balance-confirm-btn" type="button" @click="saveBalanceOverride" :disabled="savingProject" title="Speichern">✓</button>
-                  <button class="balance-cancel-btn" type="button" @click="showBalanceEdit = false" title="Abbrechen">✕</button>
-                </template>
-              </span>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>Saldo ohne Dispo:</span>
-              <strong>{{ formatCurrency(projectedBalanceWithoutDispo) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>Echter Saldo ohne Dispo:</span>
-              <strong>{{ formatCurrency(actualProjectedBalanceWithoutDispo) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>Saldo mit Dispo:</span>
-              <strong>{{ formatCurrency(projectedBalanceWithDispo) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>Dispo genutzt:</span>
-              <strong>{{ formatCurrency(dispoUsed) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>Offene Sparziele:</span>
-              <strong>{{ overview.savings_goal_open_count || 0 }}</strong>
-            </p>
-          </div>
-        </article>
-
-        <article class="metric-card">
-          <span class="metric-label">Monatliche Einnahmen</span>
-          <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
-          <p class="metric-note">Fixe und wiederkehrende Werte, die den Monat tragen.</p>
-        </article>
-
-        <article class="metric-card">
-          <span class="metric-label">Monatliche Ausgaben</span>
-          <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
-          <p class="metric-note">Gesamter Mittelabfluss inklusive Sparen, Schulden und laufender Kosten.</p>
-          <div class="metric-breakdown">
-            <p class="metric-breakdown-row">
-              <span>davon Abos:</span>
-              <strong>{{ formatCurrency(monthlySubscriptions) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>davon Schulden-Tracker:</span>
-              <strong>{{ formatCurrency(monthlyCreditOutflow) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>davon echte Zahlungen:</span>
-              <strong>{{ formatCurrency(actualDebtPaidOutflow) }}</strong>
-            </p>
-            <p class="metric-breakdown-row" v-if="Number(overview.monthly_debt_entries || 0) > 0">
-              <span>davon alte Schulden-Posten:</span>
-              <strong>{{ formatCurrency(overview.monthly_debt_entries || 0) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>davon regelmäßig geplant:</span>
-              <strong>{{ formatCurrency(monthlyPlannedOutflow) }}</strong>
-            </p>
-            <p class="metric-breakdown-row">
-              <span>davon variabel/einmalig:</span>
-              <strong>{{ formatCurrency(monthlyUnplannedOutflow) }}</strong>
-            </p>
-          </div>
-        </article>
-
-        <!-- Sparplan-Widget -->
-        <article class="metric-card savings-gauge-card">
-          <span class="metric-label">Sparplan</span>
-          <div class="savings-ring-wrap">
-            <svg viewBox="0 0 80 80" class="savings-ring" aria-hidden="true">
-              <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="8"/>
-              <circle
-                cx="40" cy="40" r="32"
-                fill="none"
-                stroke="#fbbf24"
-                stroke-width="8"
-                stroke-linecap="round"
-                :stroke-dasharray="`${savingsGaugePercent * 2.01} 201`"
-                stroke-dashoffset="50"
-                transform="rotate(-90 40 40)"
-              />
-            </svg>
-            <span class="savings-ring-pct">{{ savingsGaugePercent }}%</span>
-          </div>
-          <p class="metric-note savings-note">
-            {{ formatCurrency(savingsActual) }} von
-            {{ formatCurrency(project?.monthly_savings_target || 0) }} Sparziel
-          </p>
-        </article>
-
-        <article class="metric-card due-metric-card">
-          <span class="metric-label">Fälligkeiten</span>
-          <ul class="due-metric-list">
-            <li v-if="!dueSoonPreview.length" class="muted small">Keine baldigen Fälligkeiten vorhanden.</li>
-            <li v-for="item in dueSoonPreview" :key="item.id" class="due-metric-item" :class="dueUrgencyClass(item)">
-              <span>{{ item.title }}</span>
-              <strong :class="dueAmountClass(item)">{{ dueAmountText(item) }}</strong>
-            </li>
-          </ul>
-        </article>
-      </section>
-
       <section class="tab-panel">
         <div class="workspace-shell">
           <main class="workspace-main">
@@ -251,21 +107,6 @@
                     <button class="btn ghost sm" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
                   </div>
 
-                  <div class="performance-cards">
-                    <div class="performance-item income">
-                      <span>Berechnetes Saldo</span>
-                      <strong>{{ formatCurrency(calculatedSaldo) }}</strong>
-                    </div>
-                    <div class="performance-item outcome">
-                      <span>Echtes Saldo</span>
-                      <strong>{{ formatCurrency(actualSaldo) }}</strong>
-                    </div>
-                    <div class="performance-item balance">
-                      <span>Abweichung</span>
-                      <strong>{{ formatCurrency(saldoDelta) }}</strong>
-                    </div>
-                  </div>
-
                   <div class="status-grid">
                     <div>
                       <span class="info-label">Schulden geplant</span>
@@ -286,32 +127,6 @@
                   </div>
                 </article>
 
-                <article class="panel summary-split-panel">
-                  <div class="panel-head panel-head-space">
-                    <div>
-                      <h2>Kurzmonitor</h2>
-                      <p class="muted">Konzentriert auf die Zahlen, die Entscheidungen beeinflussen.</p>
-                    </div>
-                  </div>
-                  <div class="summary-split-grid">
-                    <section class="summary-column">
-                      <h3>Budget</h3>
-                      <ul class="summary-sublist">
-                        <li class="summary-subitem"><span>Einnahmen</span><strong>{{ formatCurrency(overview.monthly_income) }}</strong></li>
-                        <li class="summary-subitem"><span>Ausgaben (berechnet)</span><strong>{{ formatCurrency(overview.monthly_outflow) }}</strong></li>
-                        <li class="summary-subitem"><span>Ausgaben (echt)</span><strong>{{ formatCurrency(overview.monthly_outflow_actual || overview.monthly_outflow) }}</strong></li>
-                      </ul>
-                    </section>
-                    <section class="summary-column">
-                      <h3>Liquiditaet</h3>
-                      <ul class="summary-sublist">
-                        <li class="summary-subitem"><span>Kontostand jetzt</span><strong>{{ formatCurrency(currentBalance) }}</strong></li>
-                        <li class="summary-subitem"><span>Projektion berechnet</span><strong>{{ formatCurrency(projectedBalanceWithoutDispo) }}</strong></li>
-                        <li class="summary-subitem"><span>Projektion echt</span><strong>{{ formatCurrency(actualProjectedBalanceWithoutDispo) }}</strong></li>
-                      </ul>
-                    </section>
-                  </div>
-                </article>
               </div>
 
               <div v-if="showOverviewWidgetConfig" class="modal-backdrop" @click.self="showOverviewWidgetConfig = false">
@@ -1004,10 +819,6 @@
                   <input v-model="projectForm.dispo_limit" class="input" type="number" step="0.01" min="0" />
                 </label>
                 <label>
-                  Dispo genutzt
-                  <input v-model="projectForm.dispo_used" class="input" type="number" step="0.01" min="0" />
-                </label>
-                <label>
                   Sparziel pro Monat
                   <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
                 </label>
@@ -1428,8 +1239,6 @@ const tipTypeLabels = {
 };
 
 const OVERVIEW_WIDGET_DEFAULT_ORDER = [
-  "calculated_saldo",
-  "actual_saldo",
   "saldo_delta",
   "debt_planned",
   "debt_actual",
@@ -1603,8 +1412,6 @@ const dispoUsed = computed(() => {
 });
 
 const overviewWidgetDefinitions = computed(() => [
-  { id: "calculated_saldo", label: "Berechnetes Saldo", value: formatCurrency(calculatedSaldo.value) },
-  { id: "actual_saldo", label: "Echtes Saldo", value: formatCurrency(actualSaldo.value) },
   { id: "saldo_delta", label: "Saldo Abweichung", value: formatCurrency(saldoDelta.value) },
   { id: "debt_planned", label: "Schulden geplant", value: formatCurrency(monthlyCreditOutflow.value) },
   { id: "debt_actual", label: "Schulden echt bezahlt", value: formatCurrency(actualDebtPaidOutflow.value) },

@@ -53,31 +53,32 @@
 
       <div class="platforms-grid">
         <div
-          v-for="platform in orderedPlatforms"
+          v-for="platform in hubCards"
           :key="platform.key"
           class="platform-card"
           role="article"
-          :aria-label="`${platform.title} - ${platform.category}`"
-          :draggable="editMode"
-          :class="{ 'is-dragging': draggedKey === platform.key, 'drag-over': dragOverKey === platform.key, 'edit-active': editMode }"
+          :aria-label="`${displayTitle(platform)} - ${platform.category}`"
+          :draggable="editMode && !platform.isGroup"
+          :class="{ 'is-dragging': draggedKey === platform.key, 'drag-over': dragOverKey === platform.key, 'edit-active': editMode && !platform.isGroup, 'group-card': platform.isGroup }"
           @dragstart="onDragStart($event, platform.key)"
           @dragover="onDragOver($event, platform.key)"
           @dragleave="dragOverKey = null"
           @drop="onDrop($event, platform.key)"
           @dragend="onDragEnd"
-          @click="!editMode && openPlatform(platform.key, platform)"
+          @click="!editMode && handleCardOpen(platform)"
         >
-          <div v-if="editMode" class="drag-handle" aria-hidden="true">
+          <div v-if="editMode && !platform.isGroup" class="drag-handle" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M9 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>
           </div>
           <div class="platform-header">
             <div class="platform-icon" aria-hidden="true">{{ platform.icon }}</div>
             <div class="platform-meta">
-              <h3>{{ platform.title }}</h3>
+              <h3>{{ displayTitle(platform) }}</h3>
               <div class="platform-tags">
                 <span class="platform-tag">{{ platform.category }}</span>
-                <span class="platform-tag version">v{{ platform.version || '0.1' }}</span>
+                <span v-if="!platform.isGroup" class="platform-tag version">v{{ platform.version || '0.1' }}</span>
                 <span
+                  v-if="!platform.isGroup"
                   class="platform-tag status"
                   :class="`status-${platform.status || 'live'}`"
                 >
@@ -103,18 +104,44 @@
           <button
             v-if="!editMode"
             class="platform-btn"
-            :aria-label="`${platform.buttonLabel}: ${platform.title}`"
-            @click.stop="openPlatform(platform.key, platform)"
+            :aria-label="`${platform.buttonLabel}: ${displayTitle(platform)}`"
+            @click.stop="handleCardOpen(platform)"
           >
             {{ platform.buttonLabel }}
             <svg class="arrow-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 12h14M12 5l7 7-7 7"/>
             </svg>
           </button>
-          <div v-else class="edit-hint">Ziehen zum Umsortieren</div>
+          <div v-else class="edit-hint">{{ platform.isGroup ? "Sammel-Link" : "Ziehen zum Umsortieren" }}</div>
         </div>
       </div>
     </section>
+
+    <div v-if="activeGroupKey" class="group-overlay" @click.self="closeGroupLinks">
+      <div class="group-dialog card">
+        <div class="group-dialog-head">
+          <h3>{{ activeGroupTitle }}</h3>
+          <button class="btn ghost tiny" type="button" @click="closeGroupLinks">Schließen</button>
+        </div>
+        <p class="muted">Wähle einen Bereich:</p>
+        <div class="group-link-list">
+          <button
+            v-for="platform in activeGroupPlatforms"
+            :key="platform.key"
+            class="group-link-btn"
+            type="button"
+            @click="openGroupedPlatform(platform)"
+          >
+            <span class="group-link-icon" aria-hidden="true">{{ platform.icon }}</span>
+            <span class="group-link-copy">
+              <strong>{{ displayTitle(platform) }}</strong>
+              <small>{{ platform.category }}</small>
+            </span>
+            <span class="group-link-arrow">→</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Stats Section -->
     <section class="stats-section" v-if="isTeam">
@@ -159,6 +186,7 @@ const viewMode = ref("default");
 const editMode = ref(false);
 const draggedKey = ref(null);
 const dragOverKey = ref(null);
+const activeGroupKey = ref("");
 const unreadNotifications = ref(0);
 const hubBadges = ref({ openTasks: 0, overdueTasks: 0, pendingReviews: 0, staleGrowpro: 0 });
 
@@ -215,10 +243,7 @@ const platforms = [
   // Nicht manuell im Frontend setzen - nur anzeigen (state.version).
   {
     key: "dashboard",
-    title: computed(() => {
-      if (isTeam.value) return "ProArtist Team";
-      return "ProArtist Artist";
-    }),
+    title: "ProArtist",
     category: "Übersicht",
     description: "Dein persönliches Dashboard mit allen wichtigen Informationen und Schnellzugriffen.",
     buttonLabel: "Öffnen",
@@ -284,7 +309,7 @@ const platforms = [
   },
   {
     key: "content-schedule",
-    title: "Content Schedule",
+    title: "ACH",
     category: "Planung",
     description: "Plane deinen Content von Montag bis Sonntag. Lege Content-Serien mit Header, Parts und Links per Drag & Drop an.",
     buttonLabel: "Planen",
@@ -431,7 +456,64 @@ const orderedPlatforms = computed(() => {
   return [...known.map((key) => visible.find((p) => p.key === key)).filter(Boolean), ...rest];
 });
 
+const primaryPlatformKeys = ["dashboard", "contests", "content-schedule", "locations"];
+const toolsPlatformKeys = ["music", "finance", "fitness", "todo", "content-studio", "plugin-guides", "api-center"];
+const adminTeamPlatformKeys = ["manage-platforms", "admin", "testing"];
+
+const primaryPlatforms = computed(() => orderedPlatforms.value.filter((platform) => primaryPlatformKeys.includes(platform.key)));
+const toolsPlatforms = computed(() => orderedPlatforms.value.filter((platform) => toolsPlatformKeys.includes(platform.key)));
+const adminTeamPlatforms = computed(() => orderedPlatforms.value.filter((platform) => adminTeamPlatformKeys.includes(platform.key)));
+
+const hubCards = computed(() => {
+  const cards = [...primaryPlatforms.value];
+  if (toolsPlatforms.value.length) {
+    cards.push({
+      key: "tools-link",
+      title: "TOOLS",
+      category: "Sammelbereich",
+      description: "Alle produktiven Tools zentral gebündelt, ohne die Plattform-Übersicht zu überladen.",
+      buttonLabel: "Öffnen",
+      icon: "🧰",
+      isGroup: true,
+      groupKey: "tools",
+    });
+  }
+  if (adminTeamPlatforms.value.length && isTeam.value) {
+    cards.push({
+      key: "admin-team-link",
+      title: "Admin/Team",
+      category: "Sammelbereich",
+      description: "Administrative und Team-Funktionen in einem eigenen Zugangspunkt.",
+      buttonLabel: "Öffnen",
+      icon: "🛠️",
+      isGroup: true,
+      groupKey: "admin-team",
+    });
+  }
+  return cards;
+});
+
+const activeGroupTitle = computed(() => {
+  if (activeGroupKey.value === "tools") return "TOOLS";
+  if (activeGroupKey.value === "admin-team") return "Admin/Team";
+  return "Bereich";
+});
+
+const activeGroupPlatforms = computed(() => {
+  if (activeGroupKey.value === "tools") return toolsPlatforms.value;
+  if (activeGroupKey.value === "admin-team") return adminTeamPlatforms.value;
+  return [];
+});
+
+function displayTitle(platform) {
+  if (!platform) return "";
+  const title = platform.title;
+  if (title && typeof title === "object" && "value" in title) return title.value;
+  return title || "";
+}
+
 function onDragStart(event, key) {
+  if (!editMode.value || key === "tools-link" || key === "admin-team-link") return;
   draggedKey.value = key;
   event.dataTransfer.effectAllowed = "move";
 }
@@ -444,6 +526,10 @@ function onDragOver(event, key) {
 
 function onDrop(event, targetKey) {
   event.preventDefault();
+  if (targetKey === "tools-link" || targetKey === "admin-team-link") {
+    dragOverKey.value = null;
+    return;
+  }
   if (!draggedKey.value || draggedKey.value === targetKey) { dragOverKey.value = null; return; }
   const list = [...orderedPlatforms.value];
   const fromIdx = list.findIndex((p) => p.key === draggedKey.value);
@@ -460,6 +546,24 @@ function onDrop(event, targetKey) {
 function onDragEnd() {
   draggedKey.value = null;
   dragOverKey.value = null;
+}
+
+function handleCardOpen(platform) {
+  if (!platform) return;
+  if (platform.isGroup) {
+    activeGroupKey.value = platform.groupKey;
+    return;
+  }
+  openPlatform(platform.key, platform);
+}
+
+function closeGroupLinks() {
+  activeGroupKey.value = "";
+}
+
+function openGroupedPlatform(platform) {
+  closeGroupLinks();
+  openPlatform(platform.key, platform);
 }
 
 function openPlatform(platformKey, platformMeta = null) {
@@ -800,6 +904,11 @@ onMounted(async () => {
   overflow: hidden;
 }
 
+.platform-card.group-card {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--card) 80%, var(--bg-soft) 20%);
+}
+
 .platform-card.edit-active {
   cursor: grab;
 }
@@ -1064,6 +1173,85 @@ onMounted(async () => {
 .platform-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(47, 99, 255, 0.3);
+}
+
+.group-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(2, 6, 23, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.group-dialog {
+  width: min(680px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+}
+
+.group-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.group-dialog-head h3 {
+  margin: 0;
+}
+
+.group-link-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.group-link-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 12px 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.group-link-btn:hover {
+  border-color: var(--brand);
+  transform: translateY(-1px);
+}
+
+.group-link-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--brand) 16%, transparent 84%);
+}
+
+.group-link-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.group-link-copy small {
+  color: var(--muted);
+}
+
+.group-link-arrow {
+  color: var(--muted);
 }
 
 .arrow-icon {

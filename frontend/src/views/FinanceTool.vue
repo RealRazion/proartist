@@ -307,7 +307,7 @@ const showIncomeModal = ref(false);
 const incomeForm = ref({ id: null, title: "", amount: "" });
 
 const showDebtModal = ref(false);
-const debtForm = ref({ id: null, name: "", total_amount: "", amount_paid: "0", monthly_payment: "", status: "ACTIVE", notes: "" });
+const debtForm = ref({ id: null, name: "", total_amount: "", amount_paid: "", monthly_payment: "", status: "ACTIVE", notes: "", start_date: "", debt_kind: "DEBT", payment_type: "INSTALLMENT" });
 
 const showSubModal = ref(false);
 const subForm = ref({ id: null, title: "", amount: "", notes: "" });
@@ -495,9 +495,12 @@ function openDebtModal(debt = null) {
       monthly_payment: debt.monthly_payment || "",
       status: debt.status,
       notes: debt.notes || "",
+      start_date: debt.start_date || todayStr(),
+      debt_kind: debt.debt_kind || "DEBT",
+      payment_type: debt.payment_type || "INSTALLMENT",
     };
   } else {
-    debtForm.value = { id: null, name: "", total_amount: "", amount_paid: "0", monthly_payment: "", status: "ACTIVE", notes: "" };
+    debtForm.value = { id: null, name: "", total_amount: "", amount_paid: "", monthly_payment: "", status: "ACTIVE", notes: "", start_date: todayStr(), debt_kind: "DEBT", payment_type: "INSTALLMENT" };
   }
   errorMessage.value = "";
   showDebtModal.value = true;
@@ -515,9 +518,9 @@ async function saveDebt() {
       monthly_payment: debtForm.value.monthly_payment !== "" ? toAmount(debtForm.value.monthly_payment) : null,
       status: debtForm.value.status,
       notes: debtForm.value.notes,
-      start_date: todayStr(),
-      debt_kind: "DEBT",
-      payment_type: "INSTALLMENT",
+      start_date: debtForm.value.start_date || todayStr(),
+      debt_kind: debtForm.value.debt_kind,
+      payment_type: debtForm.value.payment_type,
     };
     if (debtForm.value.id) {
       await api.patch(`debts/${debtForm.value.id}/`, payload);

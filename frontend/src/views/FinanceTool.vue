@@ -194,6 +194,7 @@
                 <span v-if="entry.notes" class="muted small">{{ entry.notes }}</span>
               </div>
               <div class="entry-right">
+                <!-- Planned payments are expenses, so always shown in danger/red -->
                 <span class="amount danger">{{ fmt(entry.amount) }}</span>
                 <button class="icon-btn" title="Bearbeiten" @click="openPlannedModal(entry)">✎</button>
                 <button class="icon-btn danger" title="Löschen" @click="deletePlanned(entry)">✕</button>
@@ -486,7 +487,7 @@ async function loadEntries(projectId) {
     incomeEntries.value = all.filter((e) => e.entry_type === "INCOME" && e.is_active);
     subscriptions.value = all.filter((e) => e.entry_type === "SUBSCRIPTION" && e.is_active);
     plannedPayments.value = all
-      .filter((e) => e.frequency === "ONCE" && e.entry_type !== "INCOME" && e.is_active)
+      .filter((e) => e.frequency === "ONCE" && ["FIXED", "VARIABLE"].includes(e.entry_type) && e.is_active)
       .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
   } catch {
     incomeEntries.value = [];

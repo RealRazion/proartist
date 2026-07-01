@@ -1,2010 +1,338 @@
 <template>
   <div class="finance-tool">
-    <section v-if="loading && !project" class="status-card loading-card">
-      <h1>Finanzplaner</h1>
-      <p class="muted">Lade Finanzprojekt...</p>
+    <!-- Loading state -->
+    <section v-if="loading && !project" class="status-card">
+      <p class="muted">Lade Finanzplaner...</p>
     </section>
 
-    <section v-else-if="!projects.length" class="status-card empty-card">
-      <h1>Kein Finanzprojekt vorhanden</h1>
-      <p class="muted">Lege zuerst ein Finanzprojekt an. Danach kannst du hier deine Monatsplanung klar strukturieren.</p>
+    <!-- No project state -->
+    <section v-else-if="!projects.length" class="status-card">
+      <h2>Kein Finanzprojekt vorhanden</h2>
+      <p class="muted">Lege zuerst ein Finanzprojekt an.</p>
       <button class="btn" type="button" @click="router.push({ name: 'platform-finance' })">Zum Einstieg</button>
     </section>
 
+    <!-- Main interface -->
     <template v-else>
-      <header class="topbar-card">
-        <div class="topbar-main">
-          <div class="topbar-meta">
-            <p class="eyebrow">Finanzplaner</p>
-            <h1>{{ project?.title || "Finanzprojekt" }}</h1>
-          </div>
-
-          <div class="topbar-actions">
-            <button
-              class="topbar-toggle btn ghost"
-              type="button"
-              @click="topbarExpanded = !topbarExpanded"
-              :aria-expanded="topbarExpanded"
-              aria-controls="topbar-buttons"
-              aria-label="Aktionen ein-/ausblenden"
-            >
-              <span>Aktionen</span>
-              <span class="topbar-toggle-icon" :class="{ open: topbarExpanded }">&#9660;</span>
-            </button>
-            <div id="topbar-buttons" class="topbar-buttons" :class="{ 'topbar-open': topbarExpanded }">
-              <button class="btn ghost" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
-              <button class="btn ghost" type="button" @click="showProjectSettingsModal = true">Projektbasis</button>
-              <button class="btn ghost" type="button" @click="openForecastModal" :disabled="loading">Prognose</button>
-              <button class="btn ghost" type="button" @click="openCompareModal" :disabled="loading">Vergleich</button>
-              <button class="btn" type="button" @click="exportOverview">Exportieren</button>
-            </div>
-          </div>
+      <header class="topbar">
+        <div class="topbar-left">
+          <p class="eyebrow">Finanzplaner</p>
+          <h1>{{ project?.title || "Finanzprojekt" }}</h1>
         </div>
+        <button class="btn ghost sm" type="button" @click="router.push({ name: 'platform-finance' })">← Übersicht</button>
       </header>
 
+      <!-- Feedback -->
       <section v-if="errorMessage || successMessage" class="feedback-bar">
         <div v-if="errorMessage" class="feedback-pill error">{{ errorMessage }}</div>
         <div v-if="successMessage" class="feedback-pill success">{{ successMessage }}</div>
       </section>
 
-      <section v-if="overviewAlerts.length" class="feedback-bar">
-        <div
-          v-for="alert in overviewAlerts"
-          :key="alert.code"
-          class="feedback-pill"
-          :class="alert.level === 'danger' ? 'error' : 'warning'"
-        >
-          {{ alert.message }}
-        </div>
-      </section>
-
-      <div class="tab-nav">
+      <!-- Tab navigation -->
+      <nav class="tab-nav">
         <button
           v-for="tab in tabs"
-          :key="tab"
+          :key="tab.id"
           class="tab-pill"
-          :class="{ active: activeTab === tab }"
-          @click="activeTab = tab"
+          :class="{ active: activeTab === tab.id }"
+          @click="activeTab = tab.id"
         >
-          {{ tabLabels[tab] }}
+          {{ tab.label }}
         </button>
-      </div>
+      </nav>
 
-      <section class="tab-panel">
-        <div class="workspace-shell">
-          <main class="workspace-main">
-            <section v-show="activeTab === 'overview'" class="overview-page">
-              <article class="panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>KPI Widgets</h2>
-                    <p class="muted">Reihenfolge per Drag-and-drop, Sichtbarkeit per Schalter.</p>
-                  </div>
-                  <button class="btn ghost sm" type="button" @click="showOverviewWidgetConfig = true">Widgets anpassen</button>
-                </div>
-                <div class="status-grid">
-                  <div
-                    v-for="widget in activeOverviewWidgets"
-                    :key="`kpi-${widget.id}`"
-                    draggable="true"
-                    @dragstart="onOverviewWidgetDragStart(widget.id)"
-                    @dragover.prevent
-                    @drop="onOverviewWidgetDrop(widget.id)"
-                  >
-                    <span class="info-label">{{ widget.label }}</span>
-                    <strong>{{ widget.value }}</strong>
-                  </div>
-                </div>
-              </article>
+      <!-- ===== ÜBERSICHT ===== -->
+      <section v-show="activeTab === 'overview'" class="tab-content">
+        <!-- Summary banner -->
+        <article class="summary-banner">
+          <div class="summary-row">
+            <span class="summary-label">Einnahmen</span>
+            <span class="summary-amount income">{{ fmt(totalIncome) }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">− Schulden</span>
+            <span class="summary-amount">{{ fmt(totalDebtPayments) }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">− Abos</span>
+            <span class="summary-amount">{{ fmt(totalSubscriptions) }}</span>
+          </div>
+          <div class="summary-divider"></div>
+          <div class="summary-row highlight">
+            <span class="summary-label">Verbleibend</span>
+            <span class="summary-amount" :class="remaining >= 0 ? 'income' : 'danger'">{{ fmt(remaining) }}</span>
+          </div>
+        </article>
 
-              <div class="planner-grid">
-                <article class="panel chart-panel">
-                  <div class="panel-head panel-head-space">
-                    <div>
-                      <h2>Uebersicht</h2>
-                      <p class="muted">Alles Wichtige in einem Dashboard statt einzelner, starrer Widgets.</p>
-                    </div>
-                    <button class="btn ghost sm" type="button" @click="refreshCurrent" :disabled="loading">Aktualisieren</button>
-                  </div>
+        <!-- Income entries -->
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Einnahmen</h2>
+              <p class="muted small">Monatliche Einkommensquellen</p>
+            </div>
+            <button class="btn ghost sm" type="button" @click="openIncomeModal()">+ Hinzufügen</button>
+          </div>
 
-                  <div class="status-grid">
-                    <div>
-                      <span class="info-label">Schulden geplant</span>
-                      <strong>{{ formatCurrency(monthlyCreditOutflow) }}</strong>
-                    </div>
-                    <div>
-                      <span class="info-label">Schulden echt bezahlt</span>
-                      <strong>{{ formatCurrency(actualDebtPaidOutflow) }}</strong>
-                    </div>
-                    <div>
-                      <span class="info-label">Differenz</span>
-                      <strong>{{ formatCurrency(actualDebtPaidOutflow - monthlyCreditOutflow) }}</strong>
-                    </div>
-                    <div>
-                      <span class="info-label">Offene Restschuld</span>
-                      <strong>{{ formatCurrency(overview.total_debt || 0) }}</strong>
-                    </div>
-                  </div>
-                </article>
-
+          <div v-if="incomeEntries.length" class="entry-list">
+            <div v-for="entry in incomeEntries" :key="entry.id" class="entry-row">
+              <div class="entry-info">
+                <strong>{{ entry.title }}</strong>
               </div>
-
-              <div v-if="showOverviewWidgetConfig" class="modal-backdrop" @click.self="showOverviewWidgetConfig = false">
-                <div class="modal card">
-                  <h3>Dashboard Widgets</h3>
-                  <p class="muted">Aktiviere oder deaktiviere Widgets. Reihenfolge per Drag-and-drop in der Uebersicht.</p>
-                  <div class="picker-grid">
-                    <label v-for="widget in overviewWidgetDefinitions" :key="`cfg-${widget.id}`" class="picker-item">
-                      <input
-                        type="checkbox"
-                        :checked="!hiddenOverviewWidgets.includes(widget.id)"
-                        @change="toggleOverviewWidget(widget.id)"
-                      />
-                      <span>{{ widget.label }}</span>
-                    </label>
-                  </div>
-                  <div class="modal-actions">
-                    <button class="btn" type="button" @click="showOverviewWidgetConfig = false">Fertig</button>
-                  </div>
-                </div>
+              <div class="entry-right">
+                <span class="amount">{{ fmt(entry.monthly_amount || entry.amount) }}</span>
+                <button class="icon-btn" title="Bearbeiten" @click="openIncomeModal(entry)">✎</button>
+                <button class="icon-btn danger" title="Löschen" @click="deleteIncome(entry)">✕</button>
               </div>
-            </section>
+            </div>
+          </div>
+          <p v-else class="muted small empty-hint">Noch keine Einnahmen eingetragen.</p>
+        </article>
+      </section>
 
-            <section v-show="activeTab === 'planner'" class="planner-page">
-              <div class="planner-grid">
-                <article class="panel chart-panel">
-                  <div class="panel-head planner-head">
-                    <div>
-                      <h2>Monatliche Struktur</h2>
-                      <p class="muted">Übersicht über Einnahmen, Ausgaben und Nettoergebnis.</p>
-                    </div>
-                    <div class="planner-head-controls">
-                      <div class="month-nav">
-                        <button type="button" class="month-nav-btn" @click="shiftPlannerMonth(-1)" title="Vorheriger Monat">←</button>
-                        <span class="month-nav-label">{{ plannerMonthFormatted }}</span>
-                        <button type="button" class="month-nav-btn" @click="shiftPlannerMonth(1)" title="Nächster Monat">→</button>
-                      </div>
-                      <button type="button" class="btn ghost sm" @click="exportMonthCsv" title="Monats-CSV exportieren">↓ CSV</button>
-                      <span class="badge">{{ overview.snapshot_month }}</span>
-                    </div>
-                  </div>
+      <!-- ===== SCHULDEN ===== -->
+      <section v-show="activeTab === 'debts'" class="tab-content">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Schulden</h2>
+              <p class="muted small">Aktive Schulden und Ratenzahlungen</p>
+            </div>
+            <button class="btn ghost sm" type="button" @click="openDebtModal()">+ Schuld hinzufügen</button>
+          </div>
 
-                  <div class="performance-cards">
-                    <div class="performance-item income">
-                      <span>Einnahmen</span>
-                      <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
-                    </div>
-                    <div class="performance-item outcome">
-                      <span>Ausgaben</span>
-                      <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
-                    </div>
-                    <div class="performance-item balance">
-                      <span>Saldo</span>
-                      <strong>{{ formatCurrency(overview.monthly_left) }}</strong>
-                    </div>
-                  </div>
-
-                  <div v-if="chartScaleMax > 0" class="chart-container">
-                    <div class="chart-bar income" :style="{ '--bar-height': `${incomeBarHeight}%` }">
-                      <span>Einnahmen</span>
-                      <strong>{{ formatCurrency(overview.monthly_income) }}</strong>
-                    </div>
-                    <div class="chart-bar expense" :style="{ '--bar-height': `${expenseBarHeight}%` }">
-                      <span>Ausgaben</span>
-                      <strong>{{ formatCurrency(overview.monthly_outflow) }}</strong>
-                    </div>
-                  </div>
-                  <div v-else class="chart-empty-state">
-                    <p class="muted">{{ plannerEmptyMessage }}</p>
-                  </div>
-                </article>
-
-                <article class="panel summary-split-panel">
-                  <div class="panel-head panel-head-space">
-                    <div>
-                      <h2>Einnahmen und Ausgaben</h2>
-                      <p class="muted">Beide Bereiche kompakt im selben Fenster.</p>
-                    </div>
-                    <button class="btn" type="button" @click="openCreateEntryModal">Posten hinzufügen</button>
-                  </div>
-
-                  <div class="summary-split-grid">
-                    <section class="summary-column">
-                      <h3>Einnahmen</h3>
-                      <ul v-if="plannerIncomeEntries.length" class="summary-sublist">
-                        <li v-for="entry in plannerIncomeEntries" :key="entry.id" class="summary-subitem">
-                          <span>{{ entry.title }}</span>
-                          <strong>{{ formatCurrency(entry.monthly_amount || entry.amount) }}</strong>
-                        </li>
-                      </ul>
-                      <p v-else class="muted small">Keine Einnahmen hinterlegt.</p>
-                    </section>
-
-                    <section class="summary-column">
-                      <h3>Ausgaben</h3>
-                      <ul v-if="plannerExpenseEntries.length" class="summary-sublist">
-                        <li v-for="entry in plannerExpenseEntries" :key="entry.id" class="summary-subitem">
-                          <span>{{ entry.title }}</span>
-                          <strong>{{ formatCurrency(entry.monthly_amount || entry.amount) }}</strong>
-                        </li>
-                      </ul>
-                      <p v-else class="muted small">Keine Ausgaben hinterlegt.</p>
-                    </section>
-                  </div>
-                </article>
-              </div>
-
-              <article class="panel entries-panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>Posten</h2>
-                    <p class="muted">Wähle einen Filter, um die Auflistung direkt einzuordnen.</p>
-                  </div>
-                  <div class="filter-row">
-                    <button
-                      v-for="option in entryFilters"
-                      :key="option.value"
-                      type="button"
-                      class="chip"
-                      :class="{ active: plannerEntryFilter === option.value }"
-                      @click="plannerEntryFilter = option.value"
-                    >
-                      {{ option.label }}
-                    </button>
-                  </div>
+          <div v-if="debts.length" class="entry-list">
+            <div v-for="debt in debts" :key="debt.id" class="debt-row" :class="{ 'paid-off': debt.is_fully_paid }">
+              <div class="debt-main">
+                <div class="debt-title-line">
+                  <strong>{{ debt.name }}</strong>
+                  <span class="badge" :class="debt.status === 'PAID_OFF' ? 'badge-done' : debt.status === 'PAUSED' ? 'badge-paused' : 'badge-active'">
+                    {{ debtStatusLabel(debt.status) }}
+                  </span>
                 </div>
-
-                <div v-if="filteredEntries.length" class="entry-list">
-                  <article v-for="entry in filteredEntries" :key="entry.id" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry, plannerMonthLabel)]">
-                    <div class="entry-main">
-                      <div class="entry-title-line">
-                        <strong>{{ entry.title }}</strong>
-                        <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
-                        <span v-if="dueUrgencyClass(entry, plannerMonthLabel)" class="urgency-dot" :class="dueUrgencyClass(entry, plannerMonthLabel)" :title="dueLabel(entry)"></span>
-                      </div>
-                      <p class="muted small">
-                        {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
-                        {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
-                      </p>
-                      <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
-                    </div>
-                    <div class="entry-side">
-                      <strong>{{ formatCurrency(entry.amount) }}</strong>
-                      <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
-                      <span class="muted small">{{ dueLabel(entry) }}</span>
-                      <div class="entry-actions">
-                        <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
-                        <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
-                        <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
-                      </div>
-                    </div>
-                  </article>
+                <div class="debt-meta">
+                  <span>Gesamt: {{ fmt(debt.total_amount) }}</span>
+                  <span>Bezahlt: {{ fmt(debt.amount_paid) }}</span>
+                  <span>Restschuld: {{ fmt(debt.remaining_amount) }}</span>
                 </div>
-                <p v-else class="muted empty-hint">Kein Posten im aktuellen Filter.</p>
-              </article>
-
-              <article class="panel list-panel top-categories-panel">
-                <div class="panel-head">
-                  <h2>Top-Kategorien</h2>
-                </div>
-                <!-- Donut chart -->
-                <div v-if="donutChartData.length" class="donut-wrap">
-                  <svg viewBox="0 0 100 100" class="donut-svg" aria-hidden="true">
-                    <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="14" />
-                    <circle
-                      v-for="(seg, i) in donutChartData"
-                      :key="i"
-                      cx="50" cy="50" r="40"
-                      fill="none"
-                      :stroke="seg.color"
-                      stroke-width="14"
-                      :stroke-dasharray="`${seg.dash} ${seg.gap}`"
-                      :stroke-dashoffset="-seg.offset"
-                      stroke-linecap="round"
-                      transform="rotate(-90 50 50)"
-                    />
-                  </svg>
-                  <ul class="donut-legend">
-                    <li v-for="(seg, i) in donutChartData" :key="i" class="donut-legend-item">
-                      <span class="donut-dot" :style="{ background: seg.color }"></span>
-                      <span class="donut-label">{{ seg.label }}</span>
-                      <strong>{{ formatCurrency(seg.amount) }}</strong>
-                    </li>
-                  </ul>
-                </div>
-                <ul v-else class="compact-list">
-                  <li v-if="!overview.top_categories?.length" class="empty-text">Keine Kategoriendaten verfügbar.</li>
-                  <li v-for="item in overview.top_categories" :key="item.category">
-                    <span>{{ item.category }}</span>
-                    <strong>{{ formatCurrency(item.amount) }}</strong>
-                  </li>
-                </ul>
-              </article>
-
-              <!-- Monthly note -->
-              <article class="panel monthly-note-panel">
-                <details>
-                  <summary class="note-summary">Monatsnotiz &mdash; {{ plannerMonthFormatted }}</summary>
-                  <textarea
-                    v-model="monthlyNote"
-                    class="input monthly-note-textarea"
-                    rows="4"
-                    placeholder="Persönliche Notizen zu diesem Monat... (automatisch gespeichert)"
-                    @blur="saveMonthlyNote"
-                  ></textarea>
-                </details>
-              </article>
-            </section>
-
-            <section v-show="activeTab === 'daily'" class="daily-page">
-              <div class="daily-header">
-                <div>
-                  <h2>Tägliche Ausgaben</h2>
-                  <p class="muted">Verfolge alltägliche Ausgaben wie Einkäufe, Kaffee und Transport.</p>
-                </div>
-                <div class="daily-controls">
-                  <div class="month-nav">
-                    <button type="button" class="month-nav-btn" @click="shiftDailyMonth(-1)">←</button>
-                    <span class="month-nav-label">{{ dailyMonthFormatted }}</span>
-                    <button type="button" class="month-nav-btn" @click="shiftDailyMonth(1)">→</button>
-                  </div>
-                  <button class="btn" type="button" @click="openCreateDailyExpenseModal">Neue Ausgabe</button>
+                <div class="progress-bar-wrap">
+                  <div class="progress-bar" :style="{ width: debtProgress(debt) + '%' }"></div>
                 </div>
               </div>
-
-              <div class="daily-summary">
-                <div class="summary-item">
-                  <span class="label">Gesamt</span>
-                  <strong>{{ formatCurrency(dailyExpensesTotal) }}</strong>
+              <div class="debt-right">
+                <div class="debt-rate">
+                  <span class="muted small">Monatlich</span>
+                  <strong>{{ fmt(debt.monthly_payment) }}</strong>
                 </div>
-                <div class="summary-item">
-                  <span class="label">Einträge</span>
-                  <strong>{{ dailyExpenses.length }}</strong>
-                </div>
-                <div class="summary-item">
-                  <span class="label">Ø pro Tag</span>
-                  <strong>{{ formatCurrency(dailyExpensesAverage) }}</strong>
+                <div class="debt-actions">
+                  <button class="icon-btn" title="Bearbeiten" @click="openDebtModal(debt)">✎</button>
+                  <button class="icon-btn danger" title="Löschen" @click="deleteDebt(debt)">✕</button>
                 </div>
               </div>
+            </div>
+          </div>
+          <p v-else class="muted small empty-hint">Noch keine Schulden eingetragen.</p>
 
-              <div v-if="dailyExpenses.length" class="daily-list">
-                <article v-for="expense in dailyExpenses" :key="expense.id" class="daily-item">
-                  <div class="daily-main">
-                    <div class="daily-title-line">
-                      <strong>{{ expense.title }}</strong>
-                      <span class="category-badge" v-if="expense.category">{{ expense.category }}</span>
-                    </div>
-                    <p class="muted small">{{ formatDate(expense.date) }} · {{ expense.member_name || "Nicht zugeordnet" }}</p>
-                    <p v-if="expense.notes" class="muted small">{{ expense.notes }}</p>
-                  </div>
-                  <div class="daily-side">
-                    <strong>{{ formatCurrency(expense.amount) }}</strong>
-                    <div class="daily-actions">
-                      <button class="btn ghost sm" type="button" @click="editDailyExpense(expense)">Bearbeiten</button>
-                      <button class="btn ghost sm danger" type="button" @click="removeDailyExpense(expense)">Löschen</button>
-                    </div>
-                  </div>
-                </article>
+          <!-- Debt total -->
+          <div v-if="debts.length" class="section-total">
+            <span>Monatliche Schuldenrate gesamt</span>
+            <strong>{{ fmt(totalDebtPayments) }}</strong>
+          </div>
+        </article>
+      </section>
+
+      <!-- ===== ABOS ===== -->
+      <section v-show="activeTab === 'subscriptions'" class="tab-content">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Abos</h2>
+              <p class="muted small">Laufende monatliche Abonnements</p>
+            </div>
+            <button class="btn ghost sm" type="button" @click="openSubModal()">+ Abo hinzufügen</button>
+          </div>
+
+          <div v-if="subscriptions.length" class="entry-list">
+            <div v-for="sub in subscriptions" :key="sub.id" class="entry-row">
+              <div class="entry-info">
+                <strong>{{ sub.title }}</strong>
+                <span v-if="sub.notes" class="muted small">{{ sub.notes }}</span>
               </div>
-
-              <div v-else class="empty-state">
-                <p class="muted">Noch keine täglichen Ausgaben für {{ dailyMonthLabel }}.</p>
-                <button class="btn" type="button" @click="openCreateDailyExpenseModal">Erste Ausgabe hinzufügen</button>
+              <div class="entry-right">
+                <span class="amount">{{ fmt(sub.monthly_amount || sub.amount) }}</span>
+                <button class="icon-btn" title="Bearbeiten" @click="openSubModal(sub)">✎</button>
+                <button class="icon-btn danger" title="Löschen" @click="deleteSub(sub)">✕</button>
               </div>
-            </section>
+            </div>
+          </div>
+          <p v-else class="muted small empty-hint">Noch keine Abos eingetragen.</p>
 
-            <section v-show="activeTab === 'debts'" class="debt-page">
-              <article class="panel debt-summary-panel">
-                <div class="panel-head">
-                  <div>
-                    <h2>Schuldenübersicht</h2>
-                    <p class="muted">Gesamtbestand und monatliche Belastung.</p>
-                  </div>
-                </div>
-                <div class="status-grid">
-                  <div>
-                    <span class="info-label">Total</span>
-                    <strong>{{ formatCurrency(overview.total_debt) }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Kredite offen</span>
-                    <strong>{{ formatCurrency(overview.total_credit || 0) }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Monatlich</span>
-                    <strong>{{ formatCurrency(overview.monthly_debt) }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Fällig bald</span>
-                    <strong>{{ overview.due_soon?.filter(item => item.entry_type === 'DEBT').length || 0 }}</strong>
-                  </div>
-                </div>
-                <!-- Debt progress bars -->
-                <div v-if="debtProgressEntries.length" class="debt-progress-list">
-                  <h3 class="debt-progress-title">Schuldenverlauf</h3>
-                  <div v-for="entry in debtProgressEntries" :key="entry.id" class="debt-progress-row">
-                    <div class="debt-progress-head">
-                      <span>{{ entry.title }}</span>
-                      <span class="muted small">{{ formatCurrency(entry.amount) }} &mdash; {{ formatCurrency(entry.monthly_amount || entry.amount) }}/Mon.</span>
-                    </div>
-                    <div class="debt-progress-bar">
-                      <div class="debt-progress-fill urgency-red-fill" :style="{ width: Math.min(100, (Number(entry.monthly_amount || entry.amount) / Math.max(Number(overview.monthly_debt || 1), 1)) * 100) + '%' }"></div>
-                    </div>
-                    <span v-if="dueUrgencyClass(entry, currentMonthLabel)" :class="['debt-due-badge', dueUrgencyClass(entry, currentMonthLabel)]">
-                      Fällig: {{ dueLabel(entry) }}
-                    </span>
-                  </div>
-                </div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>Priorisierung</h2>
-                    <p class="muted">Snowball/Avalanche als direkte Reihenfolge.</p>
-                  </div>
-                  <button class="btn ghost sm" type="button" @click="loadDebtInsights" :disabled="loadingDebtInsights">
-                    {{ loadingDebtInsights ? 'Lade...' : 'Neu laden' }}
-                  </button>
-                </div>
-                <div class="summary-split-grid">
-                  <section class="summary-column">
-                    <h3>Snowball</h3>
-                    <ul v-if="debtPriorities.snowball.length" class="summary-sublist">
-                      <li v-for="item in debtPriorities.snowball.slice(0, 5)" :key="`snow-${item.id}`" class="summary-subitem">
-                        <span>{{ item.name }}</span>
-                        <strong>{{ formatCurrency(item.remaining) }}</strong>
-                      </li>
-                    </ul>
-                    <p v-else class="muted small">Keine aktiven Schulden vorhanden.</p>
-                  </section>
-                  <section class="summary-column">
-                    <h3>Avalanche</h3>
-                    <ul v-if="debtPriorities.avalanche.length" class="summary-sublist">
-                      <li v-for="item in debtPriorities.avalanche.slice(0, 5)" :key="`ava-${item.id}`" class="summary-subitem">
-                        <span>{{ item.name }}</span>
-                        <strong>{{ item.payment_pressure }}%</strong>
-                      </li>
-                    </ul>
-                    <p v-else class="muted small">Keine Priorisierung verfuegbar.</p>
-                  </section>
-                </div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>Simulation</h2>
-                    <p class="muted">Was passiert bei Extrazahlung oder Ratenpause.</p>
-                  </div>
-                </div>
-                <div class="grid two">
-                  <label>
-                    Schuld
-                    <select v-model="debtSimulationForm.debt_id" class="input">
-                      <option value="">Bitte wählen</option>
-                      <option v-for="debt in debtTrackerItems" :key="`sim-${debt.id}`" :value="debt.id">{{ debt.name }}</option>
-                    </select>
-                  </label>
-                  <label>
-                    Extra-Zahlung
-                    <input v-model="debtSimulationForm.extra_payment" class="input" type="number" step="0.01" min="0" />
-                  </label>
-                </div>
-                <label class="toggle">
-                  <input v-model="debtSimulationForm.pause_month" type="checkbox" />
-                  Rate fuer den naechsten Monat aussetzen
-                </label>
-                <div class="modal-actions">
-                  <button class="btn" type="button" @click="runDebtSimulation" :disabled="loadingDebtSimulation">
-                    {{ loadingDebtSimulation ? 'Berechne...' : 'Simulation starten' }}
-                  </button>
-                </div>
-                <div v-if="debtSimulation" class="status-grid">
-                  <div>
-                    <span class="info-label">Monate bis abbezahlt</span>
-                    <strong>{{ debtSimulation.scenario.months_to_close ?? 'offen' }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Saldo-Effekt / Monat</span>
-                    <strong>{{ formatCurrency(debtSimulation.scenario.monthly_saldo_impact) }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Plan-Saldo nach Szenario</span>
-                    <strong>{{ formatCurrency(debtSimulation.scenario.planned_saldo_after) }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Echt-Saldo nach Szenario</span>
-                    <strong>{{ formatCurrency(debtSimulation.scenario.actual_saldo_after) }}</strong>
-                  </div>
-                </div>
-              </article>
-
-              <DebtTracker :projectId="selectedProjectId" />
-            </section>
-
-            <section v-show="activeTab === 'goals'" class="goals-page">
-              <article class="panel goals-summary-panel">
-                <div class="panel-head goals-head">
-                  <h2>Sparziele</h2>
-                  <span class="badge">{{ savingsGoals.length }} Ziele</span>
-                </div>
-                <div class="goals-kpis">
-                  <article class="goal-kpi">
-                    <span class="info-label">Offen</span>
-                    <strong>{{ openSavingsGoals.length }}</strong>
-                  </article>
-                  <article class="goal-kpi">
-                    <span class="info-label">Fortschritt gesamt</span>
-                    <strong>{{ savingsCompletionRate }}%</strong>
-                  </article>
-                  <article class="goal-kpi">
-                    <span class="info-label">Zielsumme</span>
-                    <strong>{{ formatCurrency(overview.savings_goal_target_total || 0) }}</strong>
-                  </article>
-                  <article class="goal-kpi">
-                    <span class="info-label">Gespart</span>
-                    <strong>{{ formatCurrency(overview.savings_goal_current_total || 0) }}</strong>
-                  </article>
-                </div>
-              </article>
-
-              <div class="goals-layout">
-                <article class="panel goals-form-panel">
-                  <div class="panel-head">
-                    <h2>{{ editingGoalId ? "Sparziel bearbeiten" : "Neues Sparziel" }}</h2>
-                  </div>
-                  <form class="stack-form" @submit.prevent="saveSavingsGoal">
-                    <label>
-                      Titel
-                      <input v-model.trim="goalForm.title" class="input" placeholder="z. B. Führerschein" required />
-                    </label>
-                    <div class="grid two">
-                      <label>
-                        Zielbetrag
-                        <input v-model="goalForm.target_amount" class="input" type="number" min="0" step="0.01" required />
-                      </label>
-                      <label>
-                        Aktuell gespart
-                        <input v-model="goalForm.current_amount" class="input" type="number" min="0" step="0.01" />
-                      </label>
-                    </div>
-                    <label>
-                      Ziel-Datum
-                      <input v-model="goalForm.target_date" class="input" type="date" />
-                    </label>
-                    <label>
-                      Notiz
-                      <textarea v-model.trim="goalForm.notes" class="input textarea" rows="2" placeholder="optional"></textarea>
-                    </label>
-                    <label class="toggle">
-                      <input v-model="goalForm.is_completed" type="checkbox" />
-                      Bereits erreicht
-                    </label>
-                    <div class="modal-actions">
-                      <button class="btn ghost" type="button" @click="resetGoalForm">Zurücksetzen</button>
-                      <button class="btn" type="submit" :disabled="savingGoal">
-                        {{ savingGoal ? "Speichere..." : editingGoalId ? "Sparziel speichern" : "Sparziel anlegen" }}
-                      </button>
-                    </div>
-                  </form>
-                </article>
-
-                <article class="panel goals-list-panel">
-                  <div class="panel-head">
-                    <h2>Deine Sparziele</h2>
-                  </div>
-                  <div v-if="savingsGoals.length" class="goals-grid">
-                    <article v-for="goal in savingsGoals" :key="`goal-${goal.id}`" class="goal-card" :class="{ done: goal.is_completed }">
-                      <div class="goal-card-head">
-                        <strong>{{ goal.title }}</strong>
-                        <span class="type-badge" :data-type="goal.is_completed ? 'INCOME' : 'SAVING'">
-                          {{ goal.is_completed ? "Erreicht" : "Offen" }}
-                        </span>
-                      </div>
-                      <p class="muted small goal-due">{{ goal.target_date ? formatDate(goal.target_date) : "Kein Zieldatum" }}</p>
-                      <div class="goal-progress-amount">
-                        <strong>{{ formatCurrency(goal.current_amount) }}</strong>
-                        <span class="muted small">von {{ formatCurrency(goal.target_amount) }}</span>
-                      </div>
-                      <div class="progress-bar goal-progress">
-                        <span :style="{ width: `${progressPercent(goal.current_amount, goal.target_amount)}%` }"></span>
-                      </div>
-                      <div class="goal-card-footer">
-                        <span class="goal-percent">{{ progressPercent(goal.current_amount, goal.target_amount).toFixed(0) }}%</span>
-                        <div class="entry-actions">
-                          <button class="btn ghost sm" type="button" @click="editSavingsGoal(goal)">Bearbeiten</button>
-                          <button class="btn ghost sm" type="button" @click="toggleSavingsGoalCompleted(goal)">
-                            {{ goal.is_completed ? "Öffnen" : "Erledigt" }}
-                          </button>
-                          <button class="btn ghost sm danger" type="button" @click="removeSavingsGoal(goal)">Löschen</button>
-                        </div>
-                      </div>
-                      <p v-if="goal.notes" class="muted small goal-note">{{ goal.notes }}</p>
-                    </article>
-                  </div>
-                  <p v-else class="muted empty-hint">Noch keine Sparziele angelegt.</p>
-                </article>
-              </div>
-            </section>
-
-            <section v-show="activeTab === 'subscriptions'" class="subscriptions-page">
-              <article class="panel subscriptions-summary-panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>Abos</h2>
-                    <p class="muted">Wiederkehrende Mitgliedschaften und Dienste mit eigener Monatswirkung.</p>
-                  </div>
-                  <button class="btn" type="button" @click="openCreateSubscriptionModal">Abo hinzufügen</button>
-                </div>
-
-                <div class="status-grid">
-                  <div>
-                    <span class="info-label">Aktiv</span>
-                    <strong>{{ activeSubscriptionCount }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Monatlich</span>
-                    <strong>{{ formatCurrency(monthlySubscriptions) }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Fällig bald</span>
-                    <strong>{{ subscriptionDueSoonCount }}</strong>
-                  </div>
-                  <div>
-                    <span class="info-label">Alle Abos</span>
-                    <strong>{{ subscriptionEntries.length }}</strong>
-                  </div>
-                </div>
-              </article>
-
-              <article class="panel entries-panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>Abo-Liste</h2>
-                    <p class="muted">Diese Posten werden in der Übersicht als eigener Punkt vom Monatsbudget abgezogen.</p>
-                  </div>
-                </div>
-
-                <div v-if="subscriptionEntries.length" class="entry-list">
-                  <article v-for="entry in subscriptionEntries" :key="`subscription-${entry.id}`" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry, plannerMonthLabel)]">
-                    <div class="entry-main">
-                      <div class="entry-title-line">
-                        <strong>{{ entry.title }}</strong>
-                        <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
-                        <span v-if="dueUrgencyClass(entry, plannerMonthLabel)" class="urgency-dot" :class="dueUrgencyClass(entry, plannerMonthLabel)" :title="dueLabel(entry)"></span>
-                      </div>
-                      <p class="muted small">
-                        {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
-                        {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
-                      </p>
-                      <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
-                    </div>
-                    <div class="entry-side">
-                      <strong>{{ formatCurrency(entry.amount) }}</strong>
-                      <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
-                      <span class="muted small">{{ dueLabel(entry) }}</span>
-                      <div class="entry-actions">
-                        <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
-                        <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
-                        <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
-                      </div>
-                    </div>
-                  </article>
-                </div>
-                <div v-else class="empty-state">
-                  <p class="muted">Noch keine Abos hinterlegt.</p>
-                  <button class="btn" type="button" @click="openCreateSubscriptionModal">Erstes Abo hinzufügen</button>
-                </div>
-              </article>
-            </section>
-
-            <section v-show="activeTab === 'all-entries'" class="all-entries-page">
-              <article class="panel entries-panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>Alle Posten</h2>
-                    <p class="muted">Komplette Liste über alle Monate hinweg.</p>
-                  </div>
-                  <div class="filter-row">
-                    <button
-                      v-for="option in entryFilters"
-                      :key="`all-${option.value}`"
-                      type="button"
-                      class="chip"
-                      :class="{ active: allEntriesFilter === option.value }"
-                      @click="allEntriesFilter = option.value"
-                    >
-                      {{ option.label }}
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="allEntriesFiltered.length" class="entry-list">
-                  <article v-for="entry in allEntriesFiltered" :key="`all-${entry.id}`" class="entry-row" :class="[{ inactive: !entry.is_active }, dueUrgencyClass(entry, currentMonthLabel)]">
-                    <div class="entry-main">
-                      <div class="entry-title-line">
-                        <strong>{{ entry.title }}</strong>
-                        <span class="type-badge" :data-type="entry.entry_type">{{ entryTypeLabels[entry.entry_type] }}</span>
-                        <span v-if="dueUrgencyClass(entry, currentMonthLabel)" class="urgency-dot" :class="dueUrgencyClass(entry, currentMonthLabel)" :title="dueLabel(entry)"></span>
-                      </div>
-                      <p class="muted small">
-                        {{ entry.category || "Ohne Kategorie" }} · {{ frequencyLabels[entry.frequency] }} ·
-                        {{ entry.member_name || (entry.is_shared ? "Gemeinsam" : "Nicht zugeordnet") }}
-                      </p>
-                      <p v-if="entry.notes" class="muted small">{{ entry.notes }}</p>
-                    </div>
-                    <div class="entry-side">
-                      <strong>{{ formatCurrency(entry.amount) }}</strong>
-                      <span class="muted small">Monatlich: {{ formatCurrency(entry.monthly_amount) }}</span>
-                      <span class="muted small">{{ dueLabel(entry) }}</span>
-                      <div class="entry-actions">
-                        <button class="btn ghost sm" type="button" @click="editEntry(entry)">Bearbeiten</button>
-                        <button class="btn ghost sm" type="button" @click="toggleEntry(entry)">{{ entry.is_active ? "Pausieren" : "Aktivieren" }}</button>
-                        <button class="btn ghost sm danger" type="button" @click="removeEntry(entry)">Löschen</button>
-                      </div>
-                    </div>
-                  </article>
-                </div>
-                <p v-else class="muted empty-hint">Keine Posten vorhanden.</p>
-              </article>
-            </section>
-
-            <section v-show="activeTab === 'tips'" class="tips-page">
-              <article class="panel tips-panel">
-                <div class="panel-head panel-head-space">
-                  <div>
-                    <h2>Tipps und Einnahmequellen</h2>
-                    <p class="muted">Cashback, Rabattaktionen und Empfehlungsprogramme direkt im Planer.</p>
-                  </div>
-                  <button class="btn ghost" type="button" @click="router.push({ name: 'platform-content-studio' })">
-                    Zum Content Studio
-                  </button>
-                </div>
-
-                <div v-if="loadingFinanceTips" class="skeleton-list">
-                  <div class="skeleton-card" v-for="n in 3" :key="`tip-sk-${n}`"></div>
-                </div>
-                <ul v-else-if="financeTips.length" class="tip-list">
-                  <li v-for="tip in financeTips" :key="tip.id" class="tip-card">
-                    <div class="tip-head">
-                      <h3>{{ tip.title }}</h3>
-                      <span class="badge badge-soft">{{ tipTypeLabel(tip.tip_type) }}</span>
-                    </div>
-                    <p class="muted small">{{ formatDate(tip.created_at) }} von {{ tip.author?.name || tip.author?.username || "Team" }}</p>
-                    <p class="tip-body">{{ tip.body }}</p>
-                  </li>
-                </ul>
-                <div v-else class="empty-state">
-                  <p class="muted">Noch keine Tipps und Einnahmequellen vorhanden.</p>
-                  <button class="btn" type="button" @click="router.push({ name: 'platform-content-studio' })">
-                    Inhalte ansehen
-                  </button>
-                </div>
-              </article>
-            </section>
-          </main>
-        </div>
+          <!-- Subscription total -->
+          <div v-if="subscriptions.length" class="section-total">
+            <span>Abos gesamt pro Monat</span>
+            <strong>{{ fmt(totalSubscriptions) }}</strong>
+          </div>
+        </article>
       </section>
     </template>
 
-    <!-- Project Settings Modal -->
-      <div v-if="showProjectSettingsModal" class="modal-overlay" @click="showProjectSettingsModal = false">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>Projektbasis</h3>
-            <button class="modal-close" @click="showProjectSettingsModal = false">&times;</button>
-          </div>
-          <div class="modal-body">
-            <form class="stack-form" @submit.prevent="saveProjectFromModal">
-              <div class="settings-grid">
-                <label>
-                  Titel
-                  <input v-model.trim="projectForm.title" class="input" />
-                </label>
-                <label>
-                  Währung
-                  <select v-model="projectForm.currency" class="input">
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                    <option value="CHF">CHF</option>
-                  </select>
-                </label>
-                <label>
-                  Aktuelles Guthaben
-                  <input v-model="projectForm.current_balance" class="input" type="number" step="0.01" />
-                </label>
-                <label>
-                  Dispo verfügbar
-                  <input v-model="projectForm.dispo_limit" class="input" type="number" step="0.01" min="0" />
-                </label>
-                <label>
-                  Sparziel pro Monat
-                  <input v-model="projectForm.monthly_savings_target" class="input" type="number" step="0.01" />
-                </label>
-                <label>
-                  Notgroschen-Ziel
-                  <input v-model="projectForm.emergency_buffer_target" class="input" type="number" step="0.01" />
-                </label>
-                <label class="full">
-                  Notiz
-                  <textarea v-model.trim="projectForm.description" class="input textarea" rows="3"></textarea>
-                </label>
-              </div>
-              <div class="modal-actions">
-                <button class="btn ghost" type="button" @click="showProjectSettingsModal = false">Abbrechen</button>
-                <button class="btn" type="submit" :disabled="savingProject">
-                  {{ savingProject ? "Speichere..." : "Basis speichern" }}
-                </button>
-              </div>
-            </form>
-          </div>
+    <!-- ===== INCOME MODAL ===== -->
+    <div v-if="showIncomeModal" class="modal-overlay" @click.self="showIncomeModal = false">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>{{ incomeForm.id ? 'Einnahme bearbeiten' : 'Einnahme hinzufügen' }}</h3>
+          <button class="modal-close" @click="showIncomeModal = false">&times;</button>
         </div>
+        <form class="modal-form" @submit.prevent="saveIncome">
+          <label>
+            Bezeichnung
+            <input v-model.trim="incomeForm.title" class="input" placeholder="z. B. Gehalt, Freelance" required />
+          </label>
+          <label>
+            Monatlicher Betrag (€)
+            <input v-model="incomeForm.amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showIncomeModal = false">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
+          </div>
+        </form>
       </div>
-
-    <!-- Forecast Modal -->
-      <div v-if="showForecastModal" class="modal-overlay" @click="closeForecastModal">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>Monatsprognose</h3>
-            <button class="modal-close" @click="closeForecastModal">&times;</button>
-          </div>
-          <div class="modal-body">
-            <label>
-              Monat auswählen
-              <input v-model="forecastMonth" type="month" class="input" />
-            </label>
-            <button class="btn" @click="calculateForecast" :disabled="calculatingForecast">
-              {{ calculatingForecast ? "Berechne..." : "Prognose berechnen" }}
-            </button>
-            <div v-if="forecast" class="forecast-result">
-              <h4>Prognose für {{ forecast.month }}</h4>
-              <p v-if="forecast.project_start_month" class="muted small">
-                Kumulierung ab {{ forecast.project_start_month }} (Projekterstellung)
-              </p>
-              <div class="forecast-grid">
-                <div>
-                  <span>Einnahmen</span>
-                  <strong>{{ formatCurrency(forecast.income) }}</strong>
-                </div>
-                <div>
-                  <span>Ausgaben</span>
-                  <strong>{{ formatCurrency(forecast.expenses) }}</strong>
-                </div>
-                <div>
-                  <span>Schuldenzahlungen</span>
-                  <strong>{{ formatCurrency(forecast.debt_payments) }}</strong>
-                </div>
-                <div>
-                  <span>Gesamt Ausgaben</span>
-                  <strong>{{ formatCurrency(forecast.total_expenses) }}</strong>
-                </div>
-                <div>
-                  <span>Verbleibende Schulden</span>
-                  <strong>{{ formatCurrency(forecast.remaining_debt) }}</strong>
-                </div>
-                <div>
-                  <span>Netto diesen Monat</span>
-                  <strong>{{ formatCurrency(forecast.net_income) }}</strong>
-                </div>
-                <div v-if="forecast.savings_percentage > 0">
-                  <span>Sparen ({{ forecast.savings_percentage }}%)</span>
-                  <strong>{{ formatCurrency(forecast.savings_amount) }}</strong>
-                </div>
-                <div v-if="forecast.carryover !== 0" class="forecast-carryover">
-                  <span>Übertrag Vormonate</span>
-                  <strong :class="forecast.carryover >= 0 ? 'positive' : 'negative'">
-                    {{ formatCurrency(forecast.carryover) }}
-                  </strong>
-                </div>
-                <div class="forecast-cumulative">
-                  <span>Kumulierter Saldo</span>
-                  <strong :class="forecast.cumulative_balance >= 0 ? 'positive' : 'negative'">
-                    {{ formatCurrency(forecast.cumulative_balance) }}
-                  </strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Compare Modal -->
-      <div v-if="showCompareModal" class="modal-overlay" @click="closeCompareModal">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>Monate vergleichen</h3>
-            <button class="modal-close" @click="closeCompareModal">&times;</button>
-          </div>
-          <div class="modal-body">
-            <div class="grid two">
-              <label>
-                Monat 1
-                <input v-model="compareMonth1" type="month" class="input" />
-              </label>
-              <label>
-                Monat 2
-                <input v-model="compareMonth2" type="month" class="input" />
-              </label>
-            </div>
-            <button class="btn" @click="calculateComparison" :disabled="calculatingComparison">
-              {{ calculatingComparison ? "Berechne..." : "Vergleich berechnen" }}
-            </button>
-            <div v-if="comparison" class="comparison-result">
-              <h4>Vergleich</h4>
-              <div class="table-responsive">
-              <table class="comparison-table table-stack">
-                <thead>
-                  <tr>
-                    <th>Kategorie</th>
-                    <th>{{ comparison.month1 }}</th>
-                    <th>{{ comparison.month2 }}</th>
-                    <th>Differenz</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td data-label="Kategorie">Einnahmen</td>
-                    <td :data-label="comparison.month1">{{ formatCurrency(comparison.forecast1.income) }}</td>
-                    <td :data-label="comparison.month2">{{ formatCurrency(comparison.forecast2.income) }}</td>
-                    <td data-label="Differenz">{{ formatCurrency(comparison.forecast2.income - comparison.forecast1.income) }}</td>
-                  </tr>
-                  <tr>
-                    <td data-label="Kategorie">Ausgaben</td>
-                    <td :data-label="comparison.month1">{{ formatCurrency(comparison.forecast1.expenses) }}</td>
-                    <td :data-label="comparison.month2">{{ formatCurrency(comparison.forecast2.expenses) }}</td>
-                    <td data-label="Differenz">{{ formatCurrency(comparison.forecast2.expenses - comparison.forecast1.expenses) }}</td>
-                  </tr>
-                  <tr>
-                    <td data-label="Kategorie">Netto-Einkommen</td>
-                    <td :data-label="comparison.month1">{{ formatCurrency(comparison.forecast1.net_income) }}</td>
-                    <td :data-label="comparison.month2">{{ formatCurrency(comparison.forecast2.net_income) }}</td>
-                    <td data-label="Differenz">{{ formatCurrency(comparison.forecast2.net_income - comparison.forecast1.net_income) }}</td>
-                  </tr>
-                </tbody>
-              </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Entry Modal -->
-      <div v-if="showEntryModal" class="modal-overlay" @click="closeEntryModal">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>{{ editingEntryId ? "Posten bearbeiten" : "Neuer Posten" }}</h3>
-            <button class="modal-close" @click="closeEntryModal">&times;</button>
-          </div>
-          <div class="modal-body">
-            <form class="stack-form" @submit.prevent="saveEntry">
-              <!-- Templates -->
-              <div v-if="entryTemplates.length" class="templates-bar">
-                <span class="templates-label">Vorlagen:</span>
-                <div class="templates-chips">
-                  <button
-                    v-for="(tpl, i) in entryTemplates"
-                    :key="i"
-                    type="button"
-                    class="chip"
-                    @click="applyTemplate(tpl)"
-                    :title="`${tpl.entry_type} · ${formatCurrency(tpl.amount)}`"
-                  >{{ tpl.title }}</button>
-                </div>
-              </div>
-              <label>
-                Titel
-                <input v-model.trim="entryForm.title" class="input" placeholder="z. B. Miete" required />
-              </label>
-              <div class="grid two">
-                <label>
-                  Typ
-                  <select v-model="entryForm.entry_type" class="input">
-                    <option v-for="(label, key) in entryTypeFormOptions" :key="key" :value="key">{{ label }}</option>
-                  </select>
-                </label>
-                <label>
-                  Betrag
-                  <input v-model="entryForm.amount" class="input" type="number" step="0.01" min="0" required />
-                </label>
-              </div>
-
-              <div class="grid two">
-                <label>
-                  Rhythmus
-                  <select v-model="entryForm.frequency" class="input">
-                    <option v-for="(label, key) in frequencyLabels" :key="key" :value="key">{{ label }}</option>
-                  </select>
-                </label>
-                <label>
-                  Kategorie
-                  <input
-                    v-model.trim="entryForm.category"
-                    class="input"
-                    placeholder="z. B. Wohnen"
-                    list="finance-category-suggestions"
-                  />
-                </label>
-              </div>
-
-              <div class="grid two">
-                <label>
-                  Zugeordnet an
-                  <select v-model="entryForm.member" class="input">
-                    <option :value="null">Nicht zugeordnet</option>
-                    <option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option>
-                  </select>
-                </label>
-                <label>
-                  Monatlicher Fälligkeitstag
-                  <input
-                    v-model="entryForm.due_day"
-                    class="input"
-                    type="number"
-                    min="1"
-                    max="31"
-                    :disabled="entryForm.frequency !== 'MONTHLY'"
-                    placeholder="optional"
-                  />
-                </label>
-              </div>
-
-              <label>
-                {{ entryDateFieldLabel }}
-                <input v-model="entryForm.due_date" class="input" type="date" :disabled="entryDateFieldDisabled" />
-              </label>
-
-              <p class="muted small form-hint">
-                Monatliche Posten dürfen auch ohne Fälligkeitstag gespeichert werden. Schulden pflegst du unten separat.
-              </p>
-
-              <label>
-                Notiz
-                <textarea v-model.trim="entryForm.notes" class="input textarea" rows="3" placeholder="optional"></textarea>
-              </label>
-
-              <div class="toggle-row">
-                <label class="toggle">
-                  <input v-model="entryForm.is_shared" type="checkbox" />
-                  Gemeinsam rechnen
-                </label>
-                <label class="toggle">
-                  <input v-model="entryForm.is_active" type="checkbox" />
-                  Aktiv
-                </label>
-              </div>
-
-              <div class="modal-actions">
-                <button class="btn ghost" type="button" @click="closeEntryModal">Abbrechen</button>
-                <button class="btn ghost" type="button" @click="saveEntryAsTemplate" title="Als Vorlage speichern">&#9733; Vorlage</button>
-                <button class="btn" type="submit" :disabled="savingEntry">
-                  {{ savingEntry ? "Speichere..." : editingEntryId ? "Posten speichern" : "Posten anlegen" }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <!-- Daily Expense Modal -->
-      <div v-if="showDailyExpenseModal" class="modal-overlay" @click="closeDailyExpenseModal">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>{{ editingDailyExpenseId ? "Ausgabe bearbeiten" : "Neue tägliche Ausgabe" }}</h3>
-            <button class="modal-close" @click="closeDailyExpenseModal">&times;</button>
-          </div>
-          <div class="modal-body">
-            <form class="stack-form" @submit.prevent="saveDailyExpense">
-              <div class="grid two">
-                <label>
-                  Datum
-                  <input v-model="dailyExpenseForm.date" class="input" type="date" required />
-                </label>
-                <label>
-                  Betrag
-                  <input v-model="dailyExpenseForm.amount" class="input" type="number" step="0.01" min="0" required />
-                </label>
-              </div>
-
-              <label>
-                Titel
-                <input v-model.trim="dailyExpenseForm.title" class="input" placeholder="z. B. Aldi Einkauf" required />
-              </label>
-
-              <div class="grid two">
-                <label>
-                  Kategorie
-                  <input
-                    v-model.trim="dailyExpenseForm.category"
-                    class="input"
-                    placeholder="z. B. Lebensmittel"
-                    list="finance-category-suggestions"
-                  />
-                </label>
-                <label>
-                  Zugeordnet an
-                  <select v-model="dailyExpenseForm.member" class="input">
-                    <option :value="null">Nicht zugeordnet</option>
-                    <option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option>
-                  </select>
-                </label>
-              </div>
-
-              <label>
-                Notiz
-                <textarea v-model.trim="dailyExpenseForm.notes" class="input textarea" rows="2" placeholder="optional"></textarea>
-              </label>
-
-              <div class="modal-actions">
-                <button class="btn ghost" type="button" @click="closeDailyExpenseModal">Abbrechen</button>
-                <button class="btn" type="submit" :disabled="savingDailyExpense">
-                  {{ savingDailyExpense ? "Speichere..." : editingDailyExpenseId ? "Ausgabe speichern" : "Ausgabe hinzufügen" }}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <datalist id="finance-category-suggestions">
-        <option v-for="category in categorySuggestions" :key="category" :value="category"></option>
-      </datalist>
-
-      <!-- FAB: Schnellbuchung -->
-      <button class="fab" type="button" @click="openCreateDailyExpenseModal" title="Schnellbuchung">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
-      </button>
     </div>
-  </template>
+
+    <!-- ===== DEBT MODAL ===== -->
+    <div v-if="showDebtModal" class="modal-overlay" @click.self="showDebtModal = false">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>{{ debtForm.id ? 'Schuld bearbeiten' : 'Schuld hinzufügen' }}</h3>
+          <button class="modal-close" @click="showDebtModal = false">&times;</button>
+        </div>
+        <form class="modal-form" @submit.prevent="saveDebt">
+          <label>
+            Bezeichnung
+            <input v-model.trim="debtForm.name" class="input" placeholder="z. B. Klarna, Darlehen" required />
+          </label>
+          <div class="form-grid">
+            <label>
+              Gesamtbetrag (€)
+              <input v-model="debtForm.total_amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
+            </label>
+            <label>
+              Bereits bezahlt (€)
+              <input v-model="debtForm.amount_paid" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
+            </label>
+          </div>
+          <label>
+            Monatliche Rate (€)
+            <input v-model="debtForm.monthly_payment" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
+          </label>
+          <label>
+            Status
+            <select v-model="debtForm.status" class="input">
+              <option value="ACTIVE">Aktiv</option>
+              <option value="PAUSED">Pausiert</option>
+              <option value="PAID_OFF">Abbezahlt</option>
+            </select>
+          </label>
+          <label>
+            Notiz
+            <textarea v-model="debtForm.notes" class="input textarea" rows="2" placeholder="Optional"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showDebtModal = false">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== SUBSCRIPTION MODAL ===== -->
+    <div v-if="showSubModal" class="modal-overlay" @click.self="showSubModal = false">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>{{ subForm.id ? 'Abo bearbeiten' : 'Abo hinzufügen' }}</h3>
+          <button class="modal-close" @click="showSubModal = false">&times;</button>
+        </div>
+        <form class="modal-form" @submit.prevent="saveSub">
+          <label>
+            Bezeichnung
+            <input v-model.trim="subForm.title" class="input" placeholder="z. B. Netflix, Spotify" required />
+          </label>
+          <label>
+            Monatlicher Betrag (€)
+            <input v-model="subForm.amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
+          </label>
+          <label>
+            Notiz
+            <textarea v-model="subForm.notes" class="input textarea" rows="2" placeholder="Optional"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showSubModal = false">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
-import DebtTracker from "../components/DebtTracker.vue";
-import { useCurrentProfile } from "../composables/useCurrentProfile";
 
 const route = useRoute();
 const router = useRouter();
-const { profile: me, fetchProfile } = useCurrentProfile();
 
-const FINANCE_PROFILE_SETTINGS_KEY = "finance_preferences";
-
+// ── State ──────────────────────────────────────────────────────────────────
 const loading = ref(false);
-const savingProject = ref(false);
-const savingMember = ref(false);
-const savingEntry = ref(false);
-const savingGoal = ref(false);
-const monthlyNote = ref("");
-const entryTemplates = ref(loadEntryTemplates());
-const showFab = ref(false);
+const saving = ref(false);
 const projects = ref([]);
 const project = ref(null);
-const selectedProjectId = ref(null);
-const plannerEntryFilter = ref("ALL");
-const allEntriesFilter = ref("ALL");
-const activeTab = ref("overview");
-const editingEntryId = ref(null);
-const editingGoalId = ref(null);
-const membersPanelOpen = ref(false);
+const incomeEntries = ref([]);
+const subscriptions = ref([]);
+const debts = ref([]);
 const errorMessage = ref("");
 const successMessage = ref("");
-const showForecastModal = ref(false);
-const forecastMonth = ref(new Date().toISOString().slice(0, 7));
-const forecast = ref(null);
-const calculatingForecast = ref(false);
-const showCompareModal = ref(false);
-const compareMonth1 = ref(new Date().toISOString().slice(0, 7));
-const compareMonth2 = ref(new Date().toISOString().slice(0, 7));
-const comparison = ref(null);
-const calculatingComparison = ref(false);
-const showProjectSettingsModal = ref(false);
-const showEntryModal = ref(false);
-const showDailyExpenseModal = ref(false);
-const dailyMonth = ref(new Date().toISOString().slice(0, 7));
-const plannerMonth = ref(new Date().toISOString().slice(0, 7));
-const dailyExpenses = ref([]);
-const financeTips = ref([]);
-const loadingFinanceTips = ref(false);
-const editingDailyExpenseId = ref(null);
-const savingDailyExpense = ref(false);
-const localStoredCategories = ref(loadStoredCategories());
-const topbarExpanded = ref(false);
-const showBalanceEdit = ref(false);
-const balanceOverrideInput = ref(null);
-const loadingDebtInsights = ref(false);
-const debtPriorities = ref({ snowball: [], avalanche: [], recommended_strategy: "snowball" });
-const debtTrackerItems = ref([]);
-const debtSimulation = ref(null);
-const loadingDebtSimulation = ref(false);
-const debtSimulationForm = ref({ debt_id: "", extra_payment: 0, pause_month: false });
-const showOverviewWidgetConfig = ref(false);
-const draggingOverviewWidgetId = ref(null);
-const hiddenOverviewWidgets = ref([]);
-const overviewWidgetOrder = ref([]);
 
-const tabs = ["overview", "planner", "daily", "debts", "goals"];
-const tabLabels = {
-  overview: "Uebersicht",
-  planner: "Planer",
-  daily: "Tägliche Ausgaben",
-  debts: "Schulden",
-  goals: "Sparziele",
-};
-const tipTypeLabels = {
-  CASHBACK: "Cashback",
-  DISCOUNT: "Rabattaktion",
-  REFERRAL: "Empfehlungsprämie",
-  OTHER: "Sonstiges",
-};
-
-const OVERVIEW_WIDGET_DEFAULT_ORDER = [
-  "saldo_delta",
-  "debt_planned",
-  "debt_actual",
-  "remaining_debt",
+const activeTab = ref("overview");
+const tabs = [
+  { id: "overview", label: "Übersicht" },
+  { id: "debts", label: "Schulden" },
+  { id: "subscriptions", label: "Abos" },
 ];
 
-const memberRoleLabels = {
-  PRIMARY: "Hauptperson",
-  PARTNER: "Partner",
-  CHILD: "Kind",
-  OTHER: "Weitere Person",
-};
+// ── Modal state ────────────────────────────────────────────────────────────
+const showIncomeModal = ref(false);
+const incomeForm = ref({ id: null, title: "", amount: "" });
 
-const entryTypeLabels = {
-  INCOME: "Einnahme",
-  FIXED: "Fixkosten",
-  SUBSCRIPTION: "Abo",
-  VARIABLE: "Variabel",
-  DEBT: "Schulden",
-  SAVING: "Sparen",
-};
+const showDebtModal = ref(false);
+const debtForm = ref({ id: null, name: "", total_amount: "", amount_paid: "0", monthly_payment: "", status: "ACTIVE", notes: "" });
 
-const frequencyLabels = {
-  MONTHLY: "Monatlich",
-  WEEKLY: "Wöchentlich",
-  YEARLY: "Jährlich",
-  ONCE: "Einmalig",
-};
+const showSubModal = ref(false);
+const subForm = ref({ id: null, title: "", amount: "", notes: "" });
 
-const entryTypeFormOptions = computed(() => {
-  const options = {
-    INCOME: entryTypeLabels.INCOME,
-    FIXED: entryTypeLabels.FIXED,
-    SUBSCRIPTION: entryTypeLabels.SUBSCRIPTION,
-    VARIABLE: entryTypeLabels.VARIABLE,
-    SAVING: entryTypeLabels.SAVING,
-  };
-  if (entryForm.value.entry_type === "DEBT") {
-    options.DEBT = "Schulden (Altbestand)";
-  }
-  return options;
-});
+// ── Computed ───────────────────────────────────────────────────────────────
+const totalIncome = computed(() =>
+  incomeEntries.value.reduce((sum, e) => sum + Number(e.monthly_amount || e.amount || 0), 0)
+);
 
-const entryFilters = [
-  { value: "ALL", label: "Alle" },
-  { value: "INCOME", label: "Einnahmen" },
-  { value: "FIXED", label: "Fixkosten" },
-  { value: "SUBSCRIPTION", label: "Abos" },
-  { value: "VARIABLE", label: "Variabel" },
-  { value: "DEBT", label: "Schulden" },
-  { value: "SAVING", label: "Sparen" },
-];
+const totalDebtPayments = computed(() =>
+  debts.value
+    .filter((d) => d.status === "ACTIVE" && !d.is_fully_paid)
+    .reduce((sum, d) => sum + Number(d.monthly_payment || 0), 0)
+);
 
-const projectForm = ref(buildProjectForm());
-const memberForm = ref(buildMemberForm());
-const entryForm = ref(buildEntryForm());
-const goalForm = ref(buildGoalForm());
-const dailyExpenseForm = ref(buildDailyExpenseForm());
+const totalSubscriptions = computed(() =>
+  subscriptions.value.reduce((sum, s) => sum + Number(s.monthly_amount || s.amount || 0), 0)
+);
 
-function buildProjectForm(data = {}) {
-  return {
-    title: data.title || "",
-    description: data.description || "",
-    currency: data.currency || "EUR",
-    current_balance: data.current_balance ?? 0,
-    dispo_limit: data.dispo_limit ?? 0,
-    dispo_used: data.dispo_used ?? 0,
-    monthly_savings_target: data.monthly_savings_target ?? 0,
-    emergency_buffer_target: data.emergency_buffer_target ?? 0,
-  };
-}
+const remaining = computed(() => totalIncome.value - totalDebtPayments.value - totalSubscriptions.value);
 
-function buildMemberForm() {
-  return {
-    name: "",
-    role: "PRIMARY",
-    notes: "",
-  };
-}
-
-function buildEntryForm(data = {}) {
-  return {
-    title: data.title || "",
-    category: data.category || "",
-    entry_type: data.entry_type || "FIXED",
-    amount: data.amount ?? "",
-    frequency: data.frequency || "MONTHLY",
-    due_day: data.due_day ?? "",
-    due_date: data.due_date || "",
-    member: data.member ?? null,
-    is_shared: Boolean(data.is_shared),
-    is_active: data.is_active ?? true,
-    notes: data.notes || "",
-  };
-}
-
-function buildDailyExpenseForm(data = {}) {
-  return {
-    date: data.date || new Date().toISOString().split('T')[0],
-    title: data.title || "",
-    category: data.category || "",
-    amount: data.amount ?? "",
-    member: data.member ?? null,
-    notes: data.notes || "",
-  };
-}
-
-function buildGoalForm(data = {}) {
-  return {
-    title: data.title || "",
-    target_amount: data.target_amount ?? "",
-    current_amount: data.current_amount ?? 0,
-    target_date: data.target_date || "",
-    notes: data.notes || "",
-    is_completed: Boolean(data.is_completed),
-  };
-}
-
-const overview = computed(() => project.value?.overview || {});
-const members = computed(() => project.value?.members || []);
-const entries = computed(() => project.value?.entries || []);
-const savingsGoals = computed(() => project.value?.savings_goals || []);
-const openSavingsGoals = computed(() => savingsGoals.value.filter((goal) => !goal.is_completed));
-const savingsCompletionRate = computed(() => {
-  const target = Number(overview.value.savings_goal_target_total || 0);
-  const current = Number(overview.value.savings_goal_current_total || 0);
-  if (target <= 0) return 0;
-  return Math.max(0, Math.min(100, Math.round((current / target) * 100)));
-});
 const currency = computed(() => project.value?.currency || "EUR");
-const currentBalance = computed(() => Number(project.value?.current_balance ?? overview.value?.current_balance ?? 0));
-const currentMonthLabel = computed(() => new Date().toISOString().slice(0, 7));
-const plannerMonthLabel = computed(() => {
-  if (!isValidMonth(plannerMonth.value)) return currentMonthLabel.value;
-  return plannerMonth.value;
-});
-const memberPreview = computed(() => members.value.slice(0, 4));
-const dueSoonPreview = computed(() => {
-  const source = Array.isArray(overview.value?.due_soon) ? overview.value.due_soon : [];
-  return source.slice(0, 5);
-});
-const overviewAlerts = computed(() => Array.isArray(overview.value?.alerts) ? overview.value.alerts : []);
-const monthlyCreditOutflow = computed(() => Number(overview.value.monthly_debt_tracker || 0));
-const actualDebtPaidOutflow = computed(() => Number(overview.value.monthly_debt_paid_actual || 0));
-const calculatedSaldo = computed(() => Number(overview.value.monthly_left || 0));
-const actualSaldo = computed(() => Number(overview.value.monthly_left_actual ?? overview.value.monthly_left ?? 0));
-const saldoDelta = computed(() => actualSaldo.value - calculatedSaldo.value);
-const projectedBalanceWithoutDispo = computed(() => Number(overview.value.projected_balance || 0));
-const actualProjectedBalanceWithoutDispo = computed(() => Number(overview.value.projected_balance_actual ?? overview.value.projected_balance ?? 0));
-const projectedBalanceWithDispo = computed(() => {
-  const fromOverview = overview.value.projected_balance_with_dispo;
-  if (fromOverview !== undefined && fromOverview !== null) {
-    return Number(fromOverview || 0);
-  }
-  const dispoLimit = Math.max(0, Number(overview.value.dispo_limit || 0));
-  const dispoUsedValue = Math.max(0, Number(overview.value.dispo_used || 0));
-  const dispoRemaining = Math.max(0, dispoLimit - dispoUsedValue);
-  return projectedBalanceWithoutDispo.value + dispoRemaining;
-});
-const dispoUsed = computed(() => {
-  const manualUsed = overview.value.dispo_used;
-  if (manualUsed !== undefined && manualUsed !== null) {
-    return Math.max(0, Number(manualUsed || 0));
-  }
-  const dispoLimit = Math.max(0, Number(overview.value.dispo_limit || 0));
-  if (dispoLimit <= 0) {
-    return 0;
-  }
-  const deficitWithoutDispo = Math.max(0, -projectedBalanceWithoutDispo.value);
-  return Math.min(dispoLimit, deficitWithoutDispo);
-});
 
-const overviewWidgetDefinitions = computed(() => [
-  { id: "saldo_delta", label: "Saldo Abweichung", value: formatCurrency(saldoDelta.value) },
-  { id: "debt_planned", label: "Schulden geplant", value: formatCurrency(monthlyCreditOutflow.value) },
-  { id: "debt_actual", label: "Schulden echt bezahlt", value: formatCurrency(actualDebtPaidOutflow.value) },
-  { id: "remaining_debt", label: "Offene Restschuld", value: formatCurrency(overview.value.total_debt || 0) },
-]);
-
-const activeOverviewWidgets = computed(() => {
-  const hidden = new Set(hiddenOverviewWidgets.value);
-  const byId = new Map(overviewWidgetDefinitions.value.map((item) => [item.id, item]));
-  const ordered = [];
-  overviewWidgetOrder.value.forEach((id) => {
-    if (!hidden.has(id) && byId.has(id)) {
-      ordered.push(byId.get(id));
-      byId.delete(id);
-    }
-  });
-  byId.forEach((item, id) => {
-    if (!hidden.has(id)) {
-      ordered.push(item);
-    }
-  });
-  return ordered;
-});
-
-function normalizeOverviewWidgetSettings() {
-  const allowed = new Set(overviewWidgetDefinitions.value.map((item) => item.id));
-  const profileOrder = readFinanceProfileSetting("overviewWidgetOrder");
-  const profileHidden = readFinanceProfileSetting("overviewWidgetHidden");
-
-  const order = Array.isArray(profileOrder)
-    ? profileOrder.filter((id) => allowed.has(id))
-    : OVERVIEW_WIDGET_DEFAULT_ORDER.filter((id) => allowed.has(id));
-  const hidden = Array.isArray(profileHidden)
-    ? profileHidden.filter((id) => allowed.has(id))
-    : [];
-
-  overviewWidgetOrder.value = order.length ? order : OVERVIEW_WIDGET_DEFAULT_ORDER.filter((id) => allowed.has(id));
-  hiddenOverviewWidgets.value = hidden;
-}
-
-function persistOverviewWidgetSettings() {
-  persistFinanceProfileSetting({
-    overviewWidgetOrder: [...overviewWidgetOrder.value],
-    overviewWidgetHidden: [...hiddenOverviewWidgets.value],
-  });
-}
-
-function toggleOverviewWidget(id) {
-  if (hiddenOverviewWidgets.value.includes(id)) {
-    hiddenOverviewWidgets.value = hiddenOverviewWidgets.value.filter((item) => item !== id);
-  } else {
-    hiddenOverviewWidgets.value = [...hiddenOverviewWidgets.value, id];
-  }
-  persistOverviewWidgetSettings();
-}
-
-function onOverviewWidgetDragStart(widgetId) {
-  draggingOverviewWidgetId.value = widgetId;
-}
-
-function onOverviewWidgetDrop(targetId) {
-  const draggedId = draggingOverviewWidgetId.value;
-  draggingOverviewWidgetId.value = null;
-  if (!draggedId || draggedId === targetId) {
-    return;
-  }
-  const order = [...overviewWidgetOrder.value];
-  const fromIndex = order.indexOf(draggedId);
-  const toIndex = order.indexOf(targetId);
-  if (fromIndex < 0 || toIndex < 0) {
-    return;
-  }
-  order.splice(fromIndex, 1);
-  order.splice(toIndex, 0, draggedId);
-  overviewWidgetOrder.value = order;
-  persistOverviewWidgetSettings();
-}
-
-function isValidMonth(value) {
-  return typeof value === "string" && /^\d{4}-\d{2}$/.test(value);
-}
-
-function safeDate(year, month, day) {
-  const lastDay = new Date(year, month, 0).getDate();
-  return new Date(year, month - 1, Math.min(Number(day) || 1, lastDay));
-}
-
-function addMonths(sourceDate, months = 1) {
-  const base = new Date(sourceDate.getTime());
-  const year = base.getFullYear();
-  const monthIndex = base.getMonth() + months;
-  const day = base.getDate();
-  const nextYear = year + Math.floor(monthIndex / 12);
-  const nextMonth = ((monthIndex % 12) + 12) % 12;
-  const lastDay = new Date(nextYear, nextMonth + 1, 0).getDate();
-  return new Date(nextYear, nextMonth, Math.min(day, lastDay));
-}
-
-function parseDateValue(value) {
-  if (!value) return null;
-  if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-  if (typeof value !== "string") return null;
-  const [y, m, d] = value.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
-}
-
-function nextDueDateForMonthFilter(entry, monthStartDate) {
-  const year = monthStartDate.getFullYear();
-  const month = monthStartDate.getMonth() + 1;
-  const dueDate = parseDateValue(entry?.due_date);
-
-  if (entry.frequency === "ONCE") {
-    return dueDate;
-  }
-  if (entry.frequency === "MONTHLY") {
-    if (dueDate) return dueDate;
-    if (!entry.due_day) return null;
-    return safeDate(year, month, entry.due_day);
-  }
-  if (entry.frequency === "WEEKLY") {
-    if (!dueDate) return null;
-    return dueDate;
-  }
-  if (entry.frequency === "YEARLY") {
-    if (!dueDate) return null;
-    return safeDate(year, dueDate.getMonth() + 1, dueDate.getDate());
-  }
-  return null;
-}
-
-function entryInPlannerMonth(entry, monthValue) {
-  if (!entry || entry.is_active === false || !isValidMonth(monthValue)) return false;
-  const [year, month] = monthValue.split("-").map(Number);
-  const monthStart = new Date(year, month - 1, 1);
-  const monthEnd = new Date(year, month, 0);
-  const dueDate = parseDateValue(entry.due_date);
-
-  if (entry.frequency === "MONTHLY") {
-    if (dueDate && dueDate > monthEnd) return false;
-    if (entry.due_day) {
-      const nextDue = nextDueDateForMonthFilter(entry, monthStart);
-      if (nextDue && nextDue > monthEnd) return false;
-    }
-    return true;
-  }
-
-  if (entry.frequency === "WEEKLY") {
-    if (dueDate && dueDate > monthEnd) return false;
-    const nextDue = nextDueDateForMonthFilter(entry, monthStart);
-    if (nextDue && nextDue > monthEnd) return false;
-    return true;
-  }
-
-  if (entry.frequency === "YEARLY") {
-    if (dueDate) {
-      const dueYear = dueDate.getFullYear();
-      const dueMonth = dueDate.getMonth() + 1;
-      if (dueYear > year || (dueYear === year && dueMonth > month)) return false;
-    }
-    if (entry.due_day) {
-      const nextDue = nextDueDateForMonthFilter(entry, monthStart);
-      if (nextDue && (nextDue.getFullYear() > year || (nextDue.getFullYear() === year && nextDue.getMonth() + 1 > month))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  if (entry.frequency === "ONCE") {
-    return Boolean(dueDate && dueDate.getFullYear() === year && dueDate.getMonth() + 1 === month);
-  }
-
-  return false;
-}
-
-const dailyMonthLabel = computed(() => {
-  if (!isValidMonth(dailyMonth.value)) return currentMonthLabel.value;
-  return dailyMonth.value;
-});
-const dailyExpensesTotal = computed(() => {
-  return dailyExpenses.value.reduce((sum, expense) => sum + parseFloat(expense.amount || 0), 0);
-});
-const dailyExpensesAverage = computed(() => {
-  if (!dailyExpenses.value.length) return 0;
-  const monthValue = dailyMonthLabel.value;
-  const daysInMonth = new Date(monthValue.slice(0, 4), monthValue.slice(5, 7), 0).getDate();
-  return dailyExpensesTotal.value / daysInMonth;
-});
-
-const monthRelevantEntries = computed(() =>
-  entries.value.filter((entry) => entryInPlannerMonth(entry, plannerMonthLabel.value))
-);
-
-const filteredEntries = computed(() => {
-  const source = monthRelevantEntries.value;
-  if (plannerEntryFilter.value === "ALL") {
-    return source;
-  }
-  return source.filter((entry) => entry.entry_type === plannerEntryFilter.value);
-});
-
-const allEntriesFiltered = computed(() => {
-  if (allEntriesFilter.value === "ALL") {
-    return entries.value;
-  }
-  return entries.value.filter((entry) => entry.entry_type === allEntriesFilter.value);
-});
-
-const entryDateFieldDisabled = computed(() =>
-  entryForm.value.frequency === "MONTHLY" && entryForm.value.entry_type !== "INCOME"
-);
-
-const entryDateFieldLabel = computed(() => {
-  if (entryForm.value.entry_type === "INCOME" && entryForm.value.frequency === "MONTHLY") {
-    return "Startdatum für regelmäßige Einnahmen";
-  }
-  return "Datum für einmalig/jährlich/wöchentlich";
-});
-
-const plannerIncomeEntries = computed(() =>
-  monthRelevantEntries.value.filter((entry) => entry.entry_type === "INCOME" && entry.is_active !== false)
-);
-
-const plannerExpenseEntries = computed(() =>
-  monthRelevantEntries.value.filter((entry) => entry.entry_type !== "INCOME" && entry.is_active !== false)
-);
-
-function normalizeCategory(value) {
-  return String(value || "").trim();
-}
-
-function categoryKey(value) {
-  return normalizeCategory(value).toLocaleLowerCase("de-DE");
-}
-
-function dedupeCategories(values) {
-  const seen = new Set();
-  const result = [];
-  for (const value of values) {
-    const normalized = normalizeCategory(value);
-    if (!normalized) continue;
-    const key = categoryKey(normalized);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(normalized);
-  }
-  return result;
-}
-
-function loadStoredCategories() {
-  const profileCategories = readFinanceProfileSetting("categorySuggestions");
-  if (Array.isArray(profileCategories)) {
-    return dedupeCategories(profileCategories);
-  }
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem("finance.categorySuggestions");
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return dedupeCategories(parsed);
-  } catch {
-    return [];
-  }
-}
-
-function persistStoredCategories() {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem("finance.categorySuggestions", JSON.stringify(localStoredCategories.value));
-  persistFinanceProfileSetting({ categorySuggestions: [...localStoredCategories.value] });
-}
-
-function readFinanceProfileSettings() {
-  const payload = me.value?.notification_settings?.[FINANCE_PROFILE_SETTINGS_KEY];
-  if (!payload || typeof payload !== "object") return {};
-  return payload;
-}
-
-function readFinanceProfileSetting(key) {
-  const settings = readFinanceProfileSettings();
-  return settings[key];
-}
-
-function persistFinanceProfileSetting(patch) {
-  if (!me.value?.id || !patch || typeof patch !== "object") return;
-
-  const currentProfileSettings = readFinanceProfileSettings();
-  const nextProfileSettings = {
-    ...currentProfileSettings,
-    ...patch,
-  };
-
-  const notificationSettings = {
-    ...(me.value.notification_settings || {}),
-    [FINANCE_PROFILE_SETTINGS_KEY]: nextProfileSettings,
-  };
-
-  void api
-    .patch(`profiles/${me.value.id}/`, { notification_settings: notificationSettings })
-    .then(({ data }) => {
-      me.value.notification_settings = data.notification_settings || notificationSettings;
-    })
-    .catch(() => {
-      // Keep local fallback when profile sync is unavailable.
-    });
-}
-
-const knownCategoriesFromData = computed(() => {
-  const fromEntries = entries.value
-    .filter((entry) => entry.entry_type !== "INCOME")
-    .map((entry) => entry.category);
-  const fromDailyExpenses = dailyExpenses.value.map((expense) => expense.category);
-  return dedupeCategories([...fromEntries, ...fromDailyExpenses]);
-});
-
-const categorySuggestions = computed(() =>
-  dedupeCategories([...knownCategoriesFromData.value, ...localStoredCategories.value]).sort((a, b) =>
-    a.localeCompare(b, "de-DE")
-  )
-);
-
-function maybeStoreCategory(categoryValue) {
-  const category = normalizeCategory(categoryValue);
-  if (!category) return;
-  const exists = categorySuggestions.value.some((item) => categoryKey(item) === categoryKey(category));
-  if (exists) return;
-  const shouldStore = window.confirm(`Möchtest du "${category}" als Kategorie für spätere Transaktionen speichern?`);
-  if (!shouldStore) return;
-  localStoredCategories.value = dedupeCategories([...localStoredCategories.value, category]);
-  persistStoredCategories();
-}
-
-function normalizeText(value) {
-  return String(value || "").toLowerCase();
-}
-
-function isActiveExpense(entry) {
-  if (!entry || entry.entry_type === "INCOME") return false;
-  return entry.is_active !== false;
-}
-
-function isSubscriptionEntry(entry) {
-  if (entry?.entry_type === "SUBSCRIPTION") {
-    return true;
-  }
-  const haystack = [entry?.category, entry?.title, entry?.notes].map(normalizeText).join(" ");
-  const keywords = ["abo", "abonnement", "subscription", "mitgliedschaft", "mitgliedsbeitrag", "streaming"];
-  return keywords.some((keyword) => haystack.includes(keyword));
-}
-
-const monthlyPlannedOutflow = computed(() =>
-  {
-    const monthlyEntryOutflow = monthRelevantEntries.value
-      .filter((entry) => isActiveExpense(entry) && entry.frequency === "MONTHLY")
-      .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
-    const monthlyDebtFromEntries = monthRelevantEntries.value
-      .filter((entry) => isActiveExpense(entry) && entry.entry_type === "DEBT")
-      .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
-    const monthlyDebtTotal = Number(overview.value.monthly_debt || 0);
-    const debtDelta = Math.max(0, monthlyDebtTotal - monthlyDebtFromEntries);
-    return monthlyEntryOutflow + debtDelta;
-  }
-);
-
-const monthlySubscriptions = computed(() =>
-  {
-    const explicitTotal = Number(overview.value.monthly_subscriptions || 0);
-    if (explicitTotal > 0) {
-      return explicitTotal;
-    }
-    return monthRelevantEntries.value
-      .filter((entry) => isActiveExpense(entry) && isSubscriptionEntry(entry))
-      .reduce((sum, entry) => sum + Number(entry.monthly_amount || entry.amount || 0), 0);
-  }
-);
-
-const subscriptionEntries = computed(() =>
-  entries.value.filter((entry) => entry.entry_type === "SUBSCRIPTION")
-);
-
-const activeSubscriptionCount = computed(() =>
-  subscriptionEntries.value.filter((entry) => entry.is_active !== false).length
-);
-
-const subscriptionDueSoonCount = computed(() =>
-  (overview.value.due_soon || []).filter((item) => item.entry_type === "SUBSCRIPTION").length
-);
-
-const monthlyUnplannedOutflow = computed(() => {
-  const totalOutflow = Number(overview.value.monthly_outflow || 0);
-  return Math.max(0, totalOutflow - monthlyPlannedOutflow.value);
-});
-
-function percentOfMax(value, maxValue) {
-  if (!maxValue) return 0;
-  const safeValue = Number(value || 0);
-  return Math.max(0, Math.min(100, (safeValue / maxValue) * 100));
-}
-
-const chartScaleMax = computed(() => {
-  const income = Number(overview.value.monthly_income || 0);
-  const outflow = Number(overview.value.monthly_outflow || 0);
-  return Math.max(income, outflow, 0);
-});
-
-const incomeBarHeight = computed(() => percentOfMax(overview.value.monthly_income, chartScaleMax.value));
-const expenseBarHeight = computed(() => percentOfMax(overview.value.monthly_outflow, chartScaleMax.value));
-const plannerHasMonthData = computed(() => {
-  if (typeof overview.value?.has_month_data === "boolean") {
-    return overview.value.has_month_data;
-  }
-  const monthEntryCount = Number(overview.value?.month_entry_count || 0);
-  const monthDebtCount = Number(overview.value?.month_debt_count || 0);
-  const monthDailyExpenseCount = Number(overview.value?.month_daily_expense_count || 0);
-  if (monthEntryCount || monthDebtCount || monthDailyExpenseCount) {
-    return true;
-  }
-  return Number(overview.value?.monthly_income || 0) > 0 || Number(overview.value?.monthly_outflow || 0) > 0;
-});
-const plannerMonthIsPast = computed(() => plannerMonthLabel.value < currentMonthLabel.value);
-const plannerEmptyMessage = computed(() => {
-  if (plannerMonthIsPast.value && !plannerHasMonthData.value) {
-    return `Für ${plannerMonthLabel.value} liegen keine Datensätze vor.`;
-  }
-  return `Noch keine Einnahmen oder Ausgaben für ${plannerMonthLabel.value} hinterlegt.`;
-});
-
-// --- Month navigation helpers ---
-function shiftPlannerMonth(delta) {
-  const [y, m] = plannerMonth.value.split("-").map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  plannerMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-function shiftDailyMonth(delta) {
-  const [y, m] = dailyMonth.value.split("-").map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  dailyMonth.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-const plannerMonthFormatted = computed(() => {
-  if (!isValidMonth(plannerMonth.value)) return plannerMonth.value;
-  const [y, m] = plannerMonth.value.split("-");
-  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
-});
-const dailyMonthFormatted = computed(() => {
-  if (!isValidMonth(dailyMonth.value)) return dailyMonth.value;
-  const [y, m] = dailyMonth.value.split("-");
-  return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("de-DE", { month: "long", year: "numeric" });
-});
-
-// --- Due urgency (Ampel) ---
-function daysUntilDue(entry) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (entry.next_due_date) {
-    const diff = new Date(entry.next_due_date) - today;
-    return Math.ceil(diff / 86400000);
-  }
-  if (entry.frequency === "MONTHLY" && entry.due_day) {
-    const now = new Date();
-    const target = new Date(now.getFullYear(), now.getMonth(), Number(entry.due_day));
-    if (target < today) target.setMonth(target.getMonth() + 1);
-    return Math.ceil((target - today) / 86400000);
-  }
-  if (entry.due_date) {
-    return Math.ceil((new Date(entry.due_date) - today) / 86400000);
-  }
-  return null;
-}
-function dueUrgencyClass(entry, referenceMonth = plannerMonthLabel.value) {
-  if (entry.entry_type === "INCOME") return "";
-  const dueDate = parseDateValue(entry.next_due_date || entry.due_date);
-  if (!dueDate) return "";
-  if (!isValidMonth(referenceMonth)) {
-    const days = daysUntilDue(entry);
-    if (days === null) return "";
-    if (days <= 3) return "urgency-red";
-    if (days <= 7) return "urgency-yellow";
-    return "urgency-green";
-  }
-  const [year, month] = referenceMonth.split("-").map(Number);
-  if (dueDate.getFullYear() !== year || dueDate.getMonth() + 1 !== month) {
-    return "";
-  }
-  const day = dueDate.getDate();
-  if (day <= 3) return "urgency-red";
-  if (day <= 7) return "urgency-yellow";
-  return "urgency-green";
-}
-
-// --- Savings gauge ---
-const savingsGaugePercent = computed(() => {
-  const target = Number(project.value?.monthly_savings_target || 0);
-  if (!target) return 0;
-  const savingEntries = entries.value.filter((e) => e.entry_type === "SAVING" && e.is_active !== false);
-  const actual = savingEntries.reduce((s, e) => s + Number(e.monthly_amount || e.amount || 0), 0);
-  return Math.min(100, Math.round((actual / target) * 100));
-});
-const savingsActual = computed(() => {
-  return monthRelevantEntries.value
-    .filter((e) => e.entry_type === "SAVING" && e.is_active !== false)
-    .reduce((s, e) => s + Number(e.monthly_amount || e.amount || 0), 0);
-});
-
-// --- Donut chart ---
-const donutColors = ["#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316","#84cc16"];
-const donutChartData = computed(() => {
-  const cats = overview.value?.top_categories || [];
-  const total = cats.reduce((s, c) => s + Number(c.amount || 0), 0);
-  if (!total) return [];
-  let offset = 0;
-  const r = 40, circ = 2 * Math.PI * r;
-  return cats.map((c, i) => {
-    const pct = Number(c.amount) / total;
-    const dash = pct * circ;
-    const item = { label: c.category, amount: c.amount, color: donutColors[i % donutColors.length], dash, gap: circ - dash, offset };
-    offset += dash;
-    return item;
-  });
-});
-
-// --- Debt progress ---
-const debtProgressEntries = computed(() => {
-  return entries.value.filter((e) => e.entry_type === "DEBT" && e.is_active !== false);
-});
-
-// --- Monthly notes ---
-function monthlyNoteKey() {
-  return `finance.note.${selectedProjectId.value}.${plannerMonthLabel.value}`;
-}
-function loadMonthlyNote() {
-  const key = monthlyNoteKey();
-  const profileNotes = readFinanceProfileSetting("monthlyNotes");
-  if (profileNotes && typeof profileNotes === "object" && typeof profileNotes[key] === "string") {
-    monthlyNote.value = profileNotes[key];
-    try { localStorage.setItem(key, monthlyNote.value); } catch {}
-    return;
-  }
-  try { monthlyNote.value = localStorage.getItem(key) || ""; } catch { monthlyNote.value = ""; }
-}
-function saveMonthlyNote() {
-  const key = monthlyNoteKey();
-  try { localStorage.setItem(key, monthlyNote.value); } catch {}
-  const existing = readFinanceProfileSetting("monthlyNotes");
-  const monthlyNotes = existing && typeof existing === "object" ? { ...existing } : {};
-  monthlyNotes[key] = monthlyNote.value;
-  persistFinanceProfileSetting({ monthlyNotes });
-}
-
-// --- Entry templates ---
-function loadEntryTemplates() {
-  const profileTemplates = readFinanceProfileSetting("entryTemplates");
-  if (Array.isArray(profileTemplates)) {
-    return profileTemplates;
-  }
-  try {
-    const raw = localStorage.getItem("finance.entryTemplates");
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-function persistEntryTemplates() {
-  try { localStorage.setItem("finance.entryTemplates", JSON.stringify(entryTemplates.value)); } catch {}
-  persistFinanceProfileSetting({ entryTemplates: [...entryTemplates.value] });
-}
-function saveEntryAsTemplate() {
-  const f = entryForm.value;
-  if (!f.title.trim()) return;
-  const template = { title: f.title, category: f.category, entry_type: f.entry_type, amount: f.amount, frequency: f.frequency, notes: f.notes };
-  const idx = entryTemplates.value.findIndex((t) => t.title.toLowerCase() === f.title.toLowerCase());
-  if (idx >= 0) entryTemplates.value[idx] = template;
-  else entryTemplates.value.push(template);
-  persistEntryTemplates();
-  setSuccess(`Vorlage "${f.title}" gespeichert.`);
-}
-function applyTemplate(template) {
-  entryForm.value = { ...buildEntryForm(template), is_active: true, is_shared: false, member: null, due_day: "", due_date: "" };
-}
-function deleteTemplate(idx) {
-  entryTemplates.value.splice(idx, 1);
-  persistEntryTemplates();
-}
-
-// --- CSV export per month ---
-async function exportMonthCsv() {
-  await exportOverview();
-}
-
-function toAmount(value) {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatCurrency(value) {
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmt(value) {
   return new Intl.NumberFormat("de-DE", {
     style: "currency",
     currency: currency.value,
@@ -2012,1279 +340,658 @@ function formatCurrency(value) {
   }).format(Number(value || 0));
 }
 
-function formatDate(value) {
-  if (!value) return "Kein Datum";
-  return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(value));
+function toAmount(value) {
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function progressPercent(current, target) {
-  const targetValue = Number(target || 0);
-  if (targetValue <= 0) return 0;
-  return Math.max(0, Math.min(100, (Number(current || 0) / targetValue) * 100));
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function dueLabel(entry) {
-  if (entry.next_due_date) {
-    return `Nächste Fälligkeit: ${formatDate(entry.next_due_date)}`;
-  }
-  if (entry.frequency === "MONTHLY" && entry.due_day) {
-    return `Monatlich am ${entry.due_day}.`;
-  }
-  if (entry.due_date) {
-    return formatDate(entry.due_date);
-  }
-  return "Ohne Fälligkeit";
+function debtProgress(debt) {
+  const total = Number(debt.total_amount || 0);
+  if (total <= 0) return 0;
+  return Math.min(100, Math.round((Number(debt.amount_paid || 0) / total) * 100));
 }
 
-function dueAmountDirection(item) {
-  return item?.entry_type === "INCOME" ? "plus" : "minus";
+function debtStatusLabel(status) {
+  return { ACTIVE: "Aktiv", PAID_OFF: "Abbezahlt", PAUSED: "Pausiert" }[status] || status;
 }
 
-function dueAmountText(item) {
-  const direction = dueAmountDirection(item);
-  const amount = formatCurrency(Math.abs(Number(item?.monthly_amount || 0)));
-  return direction === "plus" ? `+ ${amount}` : `- ${amount}`;
-}
-
-function dueAmountClass(item) {
-  return dueAmountDirection(item) === "plus" ? "due-plus" : "due-minus";
-}
-
-function setError(message) {
-  errorMessage.value = message;
+function setError(msg) {
+  errorMessage.value = msg;
   successMessage.value = "";
 }
 
-function setSuccess(message) {
-  successMessage.value = message;
+function setSuccess(msg) {
+  successMessage.value = msg;
   errorMessage.value = "";
+  setTimeout(() => { successMessage.value = ""; }, 3000);
 }
 
-function clearFeedback() {
-  errorMessage.value = "";
-  successMessage.value = "";
-}
-
-function getApiErrorMessage(error, fallbackMessage) {
-  const responseData = error?.response?.data;
-  if (typeof responseData === "string" && responseData.trim()) {
-    return responseData;
+function apiError(err, fallback) {
+  const d = err?.response?.data;
+  if (typeof d === "string" && d.trim()) return d;
+  if (d?.detail) return d.detail;
+  if (d && typeof d === "object") {
+    const msg = Object.entries(d).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join(" | ");
+    if (msg) return msg;
   }
-  if (responseData?.detail) {
-    return responseData.detail;
-  }
-  if (responseData && typeof responseData === "object") {
-    const message = Object.entries(responseData)
-      .map(([field, value]) => {
-        const parts = Array.isArray(value) ? value : [value];
-        return `${field}: ${parts.join(", ")}`;
-      })
-      .join(" | ");
-    if (message) {
-      return message;
-    }
-  }
-  return fallbackMessage;
+  return fallback;
 }
 
-function tipTypeLabel(value) {
-  return tipTypeLabels[value] || tipTypeLabels.OTHER;
-}
-
-function normalizeList(data) {
+function normalise(data) {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.results)) return data.results;
   return [];
 }
 
+// ── Data loading ───────────────────────────────────────────────────────────
 async function loadProjects() {
   try {
     const { data } = await api.get("finance-projects/");
-    projects.value = Array.isArray(data) ? data : data.results || [];
-  } catch (error) {
+    projects.value = normalise(data);
+  } catch {
     projects.value = [];
-    setError(getApiErrorMessage(error, "Finanzprojekte konnten nicht geladen werden."));
-    throw error;
   }
 }
 
-async function loadProjectDetail(projectId) {
-  if (!projectId) return;
+async function loadProject(id) {
+  try {
+    const { data } = await api.get(`finance-projects/${id}/`);
+    project.value = data;
+  } catch (err) {
+    setError(apiError(err, "Projekt konnte nicht geladen werden."));
+  }
+}
+
+async function loadEntries(projectId) {
+  try {
+    const { data } = await api.get(`finance-entries/?project=${projectId}&active=false`);
+    const all = normalise(data);
+    incomeEntries.value = all.filter((e) => e.entry_type === "INCOME" && e.is_active);
+    subscriptions.value = all.filter((e) => e.entry_type === "SUBSCRIPTION" && e.is_active);
+  } catch {
+    incomeEntries.value = [];
+    subscriptions.value = [];
+  }
+}
+
+async function loadDebts(projectId) {
+  try {
+    const { data } = await api.get(`debts/?project=${projectId}`);
+    debts.value = normalise(data);
+  } catch {
+    debts.value = [];
+  }
+}
+
+async function loadAll(projectId) {
   loading.value = true;
   try {
-    const { data } = await api.get(`finance-projects/${projectId}/`, {
-      params: { month: plannerMonthLabel.value },
-    });
-    project.value = data;
-    selectedProjectId.value = data.id;
-    loadMonthlyNote();
-    const snapshotMonth = data?.overview?.snapshot_month;
-    if (isValidMonth(snapshotMonth) && snapshotMonth !== plannerMonth.value) {
-      plannerMonth.value = snapshotMonth;
-    }
-    projectForm.value = buildProjectForm(data);
-    membersPanelOpen.value = false;
-    showForecastModal.value = false;
-    showCompareModal.value = false;
-    showProjectSettingsModal.value = false;
-    closeEntryModal();
-    closeDailyExpenseModal();
-    forecast.value = null;
-    comparison.value = null;
-    clearFeedback();
-    await loadDebtInsights();
-    if (activeTab.value === "daily") {
-      await loadDailyExpenses();
-    }
-  } catch (error) {
-    project.value = null;
-    setError(getApiErrorMessage(error, "Finanzprojekt konnte nicht geladen werden."));
-    throw error;
+    await Promise.all([loadProject(projectId), loadEntries(projectId), loadDebts(projectId)]);
   } finally {
     loading.value = false;
   }
 }
 
-async function syncProjectSelection() {
+// ── Income CRUD ────────────────────────────────────────────────────────────
+function openIncomeModal(entry = null) {
+  if (entry) {
+    incomeForm.value = { id: entry.id, title: entry.title, amount: entry.amount };
+  } else {
+    incomeForm.value = { id: null, title: "", amount: "" };
+  }
+  errorMessage.value = "";
+  showIncomeModal.value = true;
+}
+
+async function saveIncome() {
+  if (!project.value) return;
+  saving.value = true;
   try {
-    await loadProjects();
-    if (!projects.value.length) {
-      project.value = null;
-      selectedProjectId.value = null;
-      return;
-    }
-
-    const routeProjectId = Number(route.params.projectId || 0);
-    const nextProjectId = projects.value.some((item) => item.id === routeProjectId)
-      ? routeProjectId
-      : selectedProjectId.value || projects.value[0].id;
-
-    if (!routeProjectId || routeProjectId !== nextProjectId) {
-      await router.replace({ name: "finance", params: { projectId: nextProjectId } });
-    }
-    await loadProjectDetail(nextProjectId);
-  } catch {
-    // Errors are already surfaced via setError.
-  }
-}
-
-async function refreshCurrent() {
-  await syncProjectSelection();
-  await loadDebtInsights();
-  if (activeTab.value === "tips") {
-    await loadFinanceTips();
-  }
-}
-
-async function loadDebtTrackerItems() {
-  if (!selectedProjectId.value) {
-    debtTrackerItems.value = [];
-    return;
-  }
-  try {
-    const { data } = await api.get(`debts/?project=${selectedProjectId.value}`);
-    debtTrackerItems.value = Array.isArray(data) ? data : data?.results || [];
-  } catch {
-    debtTrackerItems.value = [];
-  }
-}
-
-async function loadDebtInsights() {
-  if (!selectedProjectId.value) {
-    debtPriorities.value = { snowball: [], avalanche: [], recommended_strategy: "snowball" };
-    return;
-  }
-  loadingDebtInsights.value = true;
-  try {
-    await loadDebtTrackerItems();
-    const { data } = await api.get(`finance-projects/${selectedProjectId.value}/debt-priorities/`);
-    debtPriorities.value = {
-      snowball: data?.snowball || [],
-      avalanche: data?.avalanche || [],
-      recommended_strategy: data?.recommended_strategy || "snowball",
-    };
-  } catch {
-    debtPriorities.value = { snowball: [], avalanche: [], recommended_strategy: "snowball" };
-  } finally {
-    loadingDebtInsights.value = false;
-  }
-}
-
-async function runDebtSimulation() {
-  if (!selectedProjectId.value || !debtSimulationForm.value.debt_id) {
-    setError("Bitte zuerst eine Schuld fuer die Simulation auswaehlen.");
-    return;
-  }
-  loadingDebtSimulation.value = true;
-  try {
-    const { data } = await api.post(`finance-projects/${selectedProjectId.value}/debt-simulate/`, {
-      debt_id: debtSimulationForm.value.debt_id,
-      extra_payment: toAmount(debtSimulationForm.value.extra_payment || 0),
-      pause_month: debtSimulationForm.value.pause_month,
-    });
-    debtSimulation.value = data;
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Simulation konnte nicht berechnet werden."));
-  } finally {
-    loadingDebtSimulation.value = false;
-  }
-}
-
-async function saveProject() {
-  if (!selectedProjectId.value) return;
-  savingProject.value = true;
-  try {
-    await api.patch(`finance-projects/${selectedProjectId.value}/`, {
-      ...projectForm.value,
-      current_balance: toAmount(projectForm.value.current_balance),
-      dispo_limit: toAmount(projectForm.value.dispo_limit),
-      dispo_used: toAmount(projectForm.value.dispo_used),
-      monthly_savings_target: toAmount(projectForm.value.monthly_savings_target),
-      emergency_buffer_target: toAmount(projectForm.value.emergency_buffer_target),
-    });
-    await refreshCurrent();
-    setSuccess("Projektbasis gespeichert.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Projektbasis konnte nicht gespeichert werden."));
-  } finally {
-    savingProject.value = false;
-  }
-}
-
-async function saveProjectFromModal() {
-  await saveProject();
-  if (!errorMessage.value) {
-    showProjectSettingsModal.value = false;
-  }
-}
-
-function openBalanceEdit() {
-  balanceOverrideInput.value = currentBalance.value;
-  showBalanceEdit.value = true;
-}
-
-async function saveBalanceOverride() {
-  const parsed = parseFloat(balanceOverrideInput.value);
-  if (!Number.isFinite(parsed)) {
-    setError("Bitte einen gültigen Betrag eingeben.");
-    return;
-  }
-  projectForm.value.current_balance = parsed;
-  await saveProject();
-  if (!errorMessage.value) {
-    showBalanceEdit.value = false;
-  }
-}
-
-async function createMember() {
-  if (!selectedProjectId.value) return;
-  savingMember.value = true;
-  try {
-    await api.post("finance-members/", {
-      project: selectedProjectId.value,
-      name: memberForm.value.name,
-      role: memberForm.value.role,
-      notes: memberForm.value.notes,
-      sort_order: members.value.length,
-    });
-    memberForm.value = buildMemberForm();
-    membersPanelOpen.value = false;
-    await refreshCurrent();
-    setSuccess("Person hinzugefuegt.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Person konnte nicht hinzugefuegt werden."));
-  } finally {
-    savingMember.value = false;
-  }
-}
-
-async function removeMember(member) {
-  if (!window.confirm(`Person "${member.name}" wirklich entfernen? Zugeordnete Posten bleiben bestehen, aber ohne Person.`)) {
-    return;
-  }
-  try {
-    await api.delete(`finance-members/${member.id}/`);
-    await refreshCurrent();
-    setSuccess(`Person "${member.name}" entfernt.`);
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Person konnte nicht entfernt werden."));
-  }
-}
-
-function openForecastModal() {
-  showForecastModal.value = true;
-  forecast.value = null;
-  forecastMonth.value = plannerMonthLabel.value;
-}
-
-function closeForecastModal() {
-  showForecastModal.value = false;
-}
-
-function openCompareModal() {
-  showCompareModal.value = true;
-  comparison.value = null;
-  compareMonth1.value = plannerMonthLabel.value;
-  compareMonth2.value = plannerMonthLabel.value;
-}
-
-function closeCompareModal() {
-  showCompareModal.value = false;
-}
-
-function openCreateEntryModal(initialData = {}) {
-  editingEntryId.value = null;
-  entryForm.value = buildEntryForm(initialData);
-  showEntryModal.value = true;
-}
-
-function openCreateSubscriptionModal() {
-  openCreateEntryModal({ entry_type: "SUBSCRIPTION", frequency: "MONTHLY", category: "Abo" });
-}
-
-function closeEntryModal() {
-  showEntryModal.value = false;
-  resetEntryForm();
-}
-
-function editEntry(entry) {
-  editingEntryId.value = entry.id;
-  entryForm.value = buildEntryForm(entry);
-  showEntryModal.value = true;
-}
-
-function resetEntryForm() {
-  editingEntryId.value = null;
-  entryForm.value = buildEntryForm();
-}
-
-async function saveEntry() {
-  if (!selectedProjectId.value) return;
-  savingEntry.value = true;
-  try {
-    const wasEditing = Boolean(editingEntryId.value);
-    if (entryForm.value.entry_type !== "INCOME") {
-      maybeStoreCategory(entryForm.value.category);
-    }
     const payload = {
-      project: selectedProjectId.value,
-      member: entryForm.value.member || null,
-      title: entryForm.value.title,
-      category: entryForm.value.category,
-      entry_type: entryForm.value.entry_type,
-      amount: toAmount(entryForm.value.amount),
-      frequency: entryForm.value.frequency,
-      due_day: entryForm.value.frequency === "MONTHLY" && entryForm.value.due_day ? Number(entryForm.value.due_day) : null,
-      due_date: entryForm.value.due_date || null,
-      is_shared: entryForm.value.is_shared,
-      is_active: entryForm.value.is_active,
-      notes: entryForm.value.notes,
+      project: project.value.id,
+      title: incomeForm.value.title,
+      entry_type: "INCOME",
+      amount: toAmount(incomeForm.value.amount),
+      frequency: "MONTHLY",
     };
-    if (editingEntryId.value) {
-      await api.patch(`finance-entries/${editingEntryId.value}/`, payload);
+    if (incomeForm.value.id) {
+      await api.patch(`finance-entries/${incomeForm.value.id}/`, payload);
     } else {
       await api.post("finance-entries/", payload);
     }
-    closeEntryModal();
-    await refreshCurrent();
-    setSuccess(wasEditing ? "Posten gespeichert." : "Posten angelegt.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Posten konnte nicht gespeichert werden."));
+    showIncomeModal.value = false;
+    setSuccess("Einnahme gespeichert.");
+    await loadEntries(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Einnahme konnte nicht gespeichert werden."));
   } finally {
-    savingEntry.value = false;
+    saving.value = false;
   }
 }
 
-async function toggleEntry(entry) {
-  try {
-    await api.patch(`finance-entries/${entry.id}/`, { is_active: !entry.is_active });
-    await refreshCurrent();
-    setSuccess(entry.is_active ? "Posten pausiert." : "Posten aktiviert.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Postenstatus konnte nicht geändert werden."));
-  }
-}
-
-async function removeEntry(entry) {
-  if (!window.confirm(`Posten "${entry.title}" wirklich löschen?`)) {
-    return;
-  }
+async function deleteIncome(entry) {
+  if (!confirm(`Einnahme "${entry.title}" löschen?`)) return;
   try {
     await api.delete(`finance-entries/${entry.id}/`);
-    if (editingEntryId.value === entry.id) {
-      resetEntryForm();
-    }
-    await refreshCurrent();
-    setSuccess(`Posten "${entry.title}" gelöscht.`);
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Posten konnte nicht gelöscht werden."));
+    setSuccess("Einnahme gelöscht.");
+    await loadEntries(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Einnahme konnte nicht gelöscht werden."));
   }
 }
 
-function resetGoalForm() {
-  editingGoalId.value = null;
-  goalForm.value = buildGoalForm();
+// ── Debt CRUD ──────────────────────────────────────────────────────────────
+function openDebtModal(debt = null) {
+  if (debt) {
+    debtForm.value = {
+      id: debt.id,
+      name: debt.name,
+      total_amount: debt.total_amount,
+      amount_paid: debt.amount_paid,
+      monthly_payment: debt.monthly_payment || "",
+      status: debt.status,
+      notes: debt.notes || "",
+    };
+  } else {
+    debtForm.value = { id: null, name: "", total_amount: "", amount_paid: "0", monthly_payment: "", status: "ACTIVE", notes: "" };
+  }
+  errorMessage.value = "";
+  showDebtModal.value = true;
 }
 
-function editSavingsGoal(goal) {
-  editingGoalId.value = goal.id;
-  goalForm.value = buildGoalForm(goal);
-}
-
-async function saveSavingsGoal() {
-  if (!selectedProjectId.value) return;
-  savingGoal.value = true;
+async function saveDebt() {
+  if (!project.value) return;
+  saving.value = true;
   try {
     const payload = {
-      project: selectedProjectId.value,
-      title: goalForm.value.title,
-      target_amount: toAmount(goalForm.value.target_amount),
-      current_amount: toAmount(goalForm.value.current_amount),
-      target_date: goalForm.value.target_date || null,
-      notes: goalForm.value.notes,
-      is_completed: goalForm.value.is_completed,
+      project: project.value.id,
+      name: debtForm.value.name,
+      total_amount: toAmount(debtForm.value.total_amount),
+      amount_paid: toAmount(debtForm.value.amount_paid),
+      monthly_payment: debtForm.value.monthly_payment !== "" ? toAmount(debtForm.value.monthly_payment) : null,
+      status: debtForm.value.status,
+      notes: debtForm.value.notes,
+      start_date: todayStr(),
+      debt_kind: "DEBT",
+      payment_type: "INSTALLMENT",
     };
-    if (editingGoalId.value) {
-      await api.patch(`finance-savings-goals/${editingGoalId.value}/`, payload);
+    if (debtForm.value.id) {
+      await api.patch(`debts/${debtForm.value.id}/`, payload);
     } else {
-      await api.post("finance-savings-goals/", payload);
+      await api.post("debts/", payload);
     }
-    resetGoalForm();
-    await refreshCurrent();
-    setSuccess("Sparziel gespeichert.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Sparziel konnte nicht gespeichert werden."));
+    showDebtModal.value = false;
+    setSuccess("Schuld gespeichert.");
+    await loadDebts(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Schuld konnte nicht gespeichert werden."));
   } finally {
-    savingGoal.value = false;
+    saving.value = false;
   }
 }
 
-async function toggleSavingsGoalCompleted(goal) {
+async function deleteDebt(debt) {
+  if (!confirm(`Schuld "${debt.name}" löschen?`)) return;
   try {
-    await api.patch(`finance-savings-goals/${goal.id}/`, { is_completed: !goal.is_completed });
-    await refreshCurrent();
-    setSuccess(goal.is_completed ? "Sparziel wieder geöffnet." : "Sparziel als erreicht markiert.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Sparziel konnte nicht aktualisiert werden."));
+    await api.delete(`debts/${debt.id}/`);
+    setSuccess("Schuld gelöscht.");
+    await loadDebts(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Schuld konnte nicht gelöscht werden."));
   }
 }
 
-async function removeSavingsGoal(goal) {
-  if (!window.confirm(`Sparziel "${goal.title}" wirklich löschen?`)) {
-    return;
+// ── Subscription CRUD ──────────────────────────────────────────────────────
+function openSubModal(sub = null) {
+  if (sub) {
+    subForm.value = { id: sub.id, title: sub.title, amount: sub.amount, notes: sub.notes || "" };
+  } else {
+    subForm.value = { id: null, title: "", amount: "", notes: "" };
   }
+  errorMessage.value = "";
+  showSubModal.value = true;
+}
+
+async function saveSub() {
+  if (!project.value) return;
+  saving.value = true;
   try {
-    await api.delete(`finance-savings-goals/${goal.id}/`);
-    if (editingGoalId.value === goal.id) {
-      resetGoalForm();
-    }
-    await refreshCurrent();
-    setSuccess(`Sparziel "${goal.title}" gelöscht.`);
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Sparziel konnte nicht gelöscht werden."));
-  }
-}
-
-// Daily Expense functions
-async function loadDailyExpenses() {
-  if (!selectedProjectId.value || !isValidMonth(dailyMonth.value)) return;
-  try {
-    const { data } = await api.get(`daily-expenses/?project=${selectedProjectId.value}&month=${dailyMonth.value}`);
-    dailyExpenses.value = Array.isArray(data) ? data : data?.results || [];
-  } catch (error) {
-    dailyExpenses.value = [];
-    setError(getApiErrorMessage(error, "Tägliche Ausgaben konnten nicht geladen werden."));
-  }
-}
-
-function editDailyExpense(expense) {
-  editingDailyExpenseId.value = expense.id;
-  dailyExpenseForm.value = buildDailyExpenseForm(expense);
-  showDailyExpenseModal.value = true;
-}
-
-function resetDailyExpenseForm() {
-  editingDailyExpenseId.value = null;
-  dailyExpenseForm.value = buildDailyExpenseForm();
-}
-
-function openCreateDailyExpenseModal() {
-  resetDailyExpenseForm();
-  showDailyExpenseModal.value = true;
-}
-
-function closeDailyExpenseModal() {
-  showDailyExpenseModal.value = false;
-  resetDailyExpenseForm();
-}
-
-async function saveDailyExpense() {
-  if (!selectedProjectId.value) return;
-  savingDailyExpense.value = true;
-  try {
-    const wasEditing = Boolean(editingDailyExpenseId.value);
-    maybeStoreCategory(dailyExpenseForm.value.category);
     const payload = {
-      project: selectedProjectId.value,
-      member: dailyExpenseForm.value.member || null,
-      date: dailyExpenseForm.value.date,
-      title: dailyExpenseForm.value.title,
-      category: dailyExpenseForm.value.category,
-      amount: toAmount(dailyExpenseForm.value.amount),
-      notes: dailyExpenseForm.value.notes,
+      project: project.value.id,
+      title: subForm.value.title,
+      entry_type: "SUBSCRIPTION",
+      amount: toAmount(subForm.value.amount),
+      frequency: "MONTHLY",
+      notes: subForm.value.notes,
     };
-    if (editingDailyExpenseId.value) {
-      await api.patch(`daily-expenses/${editingDailyExpenseId.value}/`, payload);
+    if (subForm.value.id) {
+      await api.patch(`finance-entries/${subForm.value.id}/`, payload);
     } else {
-      await api.post("daily-expenses/", payload);
+      await api.post("finance-entries/", payload);
     }
-    closeDailyExpenseModal();
-    await loadDailyExpenses();
-    await refreshCurrent(); // Update overview
-    setSuccess(wasEditing ? "Ausgabe gespeichert." : "Ausgabe hinzugefügt.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Ausgabe konnte nicht gespeichert werden."));
+    showSubModal.value = false;
+    setSuccess("Abo gespeichert.");
+    await loadEntries(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Abo konnte nicht gespeichert werden."));
   } finally {
-    savingDailyExpense.value = false;
+    saving.value = false;
   }
 }
 
-async function removeDailyExpense(expense) {
-  if (!window.confirm(`Ausgabe "${expense.title}" wirklich löschen?`)) {
-    return;
-  }
+async function deleteSub(sub) {
+  if (!confirm(`Abo "${sub.title}" löschen?`)) return;
   try {
-    await api.delete(`daily-expenses/${expense.id}/`);
-    if (editingDailyExpenseId.value === expense.id) {
-      resetDailyExpenseForm();
-    }
-    await loadDailyExpenses();
-    await refreshCurrent(); // Update overview
-    setSuccess(`Ausgabe "${expense.title}" gelöscht.`);
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Ausgabe konnte nicht gelöscht werden."));
+    await api.delete(`finance-entries/${sub.id}/`);
+    setSuccess("Abo gelöscht.");
+    await loadEntries(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Abo konnte nicht gelöscht werden."));
   }
 }
 
-async function loadFinanceTips() {
-  loadingFinanceTips.value = true;
-  try {
-    const { data } = await api.get("finance-tips/");
-    financeTips.value = normalizeList(data);
-  } catch (error) {
-    financeTips.value = [];
-    console.error("Tipps konnten nicht geladen werden", error);
-  } finally {
-    loadingFinanceTips.value = false;
-  }
-}
-
-watch(
-  () => route.params.projectId,
-  async (projectId, previousProjectId) => {
-    const nextId = Number(projectId || 0);
-    if (!nextId || nextId === Number(previousProjectId || 0)) {
-      return;
-    }
-    if (projects.value.length && !projects.value.some((item) => item.id === nextId)) {
-      await syncProjectSelection();
-      return;
-    }
-    try {
-      await loadProjectDetail(nextId);
-    } catch {
-      if (projects.value.length) {
-        await syncProjectSelection();
-      }
-    }
-  }
-);
-
-watch(
-  () => plannerMonth.value,
-  async (nextMonth, previousMonth) => {
-    if (nextMonth === previousMonth || !selectedProjectId.value) {
-      return;
-    }
-    if (!isValidMonth(nextMonth)) {
-      return;
-    }
-    try {
-      await loadProjectDetail(selectedProjectId.value);
-    } catch {
-      // Error state is already handled in loadProjectDetail.
-    }
-  }
-);
-
-watch(
-  () => [entryForm.value.frequency, entryForm.value.entry_type],
-  ([frequency, entryType]) => {
-    if (frequency !== "MONTHLY") {
-      entryForm.value.due_day = "";
-    }
-    if (frequency === "MONTHLY" && entryType !== "INCOME") {
-      entryForm.value.due_date = "";
-    }
-  }
-);
-
-watch(
-  () => activeTab.value,
-  async (newTab) => {
-    if (newTab === 'daily' && selectedProjectId.value) {
-      await loadDailyExpenses();
-      return;
-    }
-    if (newTab === "tips") {
-      await loadFinanceTips();
-    }
-  }
-);
-
-async function calculateForecast() {
-  if (!selectedProjectId.value || !forecastMonth.value) return;
-  calculatingForecast.value = true;
-  try {
-    const response = await api.get(`finance-projects/${selectedProjectId.value}/monthly-forecast/?month=${forecastMonth.value}`);
-    forecast.value = response.data;
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Prognose konnte nicht berechnet werden."));
-  } finally {
-    calculatingForecast.value = false;
-  }
-}
-
-async function calculateComparison() {
-  if (!selectedProjectId.value || !compareMonth1.value || !compareMonth2.value) return;
-  calculatingComparison.value = true;
-  try {
-    const [response1, response2] = await Promise.all([
-      api.get(`finance-projects/${selectedProjectId.value}/monthly-forecast/?month=${compareMonth1.value}`),
-      api.get(`finance-projects/${selectedProjectId.value}/monthly-forecast/?month=${compareMonth2.value}`)
-    ]);
-    comparison.value = {
-      month1: compareMonth1.value,
-      month2: compareMonth2.value,
-      forecast1: response1.data,
-      forecast2: response2.data
-    };
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Vergleich konnte nicht berechnet werden."));
-  } finally {
-    calculatingComparison.value = false;
-  }
-}
-
-watch(
-  () => activeTab.value,
-  async (newTab) => {
-    if (newTab === 'planner' && selectedProjectId.value) {
-      forecastMonth.value = plannerMonthLabel.value;
-      await calculateForecast();
-    }
-  }
-);
-
-async function exportOverview() {
-  if (!selectedProjectId.value) return;
-  try {
-    const response = await api.get(`finance-projects/${selectedProjectId.value}/export-overview/`, {
-      responseType: 'blob',
-      params: { month: plannerMonthLabel.value },
-    });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `finance_overview_${plannerMonthLabel.value}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
-    setSuccess("Übersicht exportiert.");
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Export fehlgeschlagen."));
-  }
-}
-
+// ── Init ───────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  await fetchProfile();
-  normalizeOverviewWidgetSettings();
+  await loadProjects();
+  if (!projects.value.length) return;
 
-  const profileCategories = readFinanceProfileSetting("categorySuggestions");
-  if (Array.isArray(profileCategories)) {
-    localStoredCategories.value = dedupeCategories(profileCategories);
-    try { localStorage.setItem("finance.categorySuggestions", JSON.stringify(localStoredCategories.value)); } catch {}
+  const routeId = Number(route.params.projectId || 0);
+  const targetId =
+    projects.value.some((p) => p.id === routeId)
+      ? routeId
+      : projects.value[0].id;
+
+  if (!routeId || routeId !== targetId) {
+    await router.replace({ name: "finance", params: { projectId: targetId } });
   }
 
-  const profileTemplates = readFinanceProfileSetting("entryTemplates");
-  if (Array.isArray(profileTemplates)) {
-    entryTemplates.value = profileTemplates;
-    try { localStorage.setItem("finance.entryTemplates", JSON.stringify(entryTemplates.value)); } catch {}
-  }
-
-  await Promise.all([syncProjectSelection(), loadFinanceTips()]);
+  await loadAll(targetId);
 });
 </script>
 
 <style scoped>
 .finance-tool {
   display: grid;
-  gap: 18px;
-  --finance-info-bg: color-mix(in srgb, var(--brand) 10%, var(--surface));
-  --finance-info-border: color-mix(in srgb, var(--brand) 18%, var(--border));
-  --finance-success-bg: color-mix(in srgb, var(--status-done) 14%, var(--surface));
-  --finance-success-border: color-mix(in srgb, var(--status-done) 26%, var(--border));
-  --finance-success-text: color-mix(in srgb, var(--status-done) 72%, var(--text));
-  --finance-warning-bg: color-mix(in srgb, var(--status-open) 14%, var(--surface));
-  --finance-warning-border: color-mix(in srgb, var(--status-open) 28%, var(--border));
-  --finance-warning-text: color-mix(in srgb, var(--status-open) 76%, var(--text));
-  --finance-danger-bg: color-mix(in srgb, var(--status-overdue) 14%, var(--surface));
-  --finance-danger-border: color-mix(in srgb, var(--status-overdue) 26%, var(--border));
-  --finance-danger-text: color-mix(in srgb, var(--status-overdue) 72%, var(--text));
-  --finance-purple-bg: color-mix(in srgb, var(--status-review) 14%, var(--surface));
-  --finance-purple-text: color-mix(in srgb, var(--status-review) 70%, var(--text));
-  --finance-soft-highlight: color-mix(in srgb, var(--brand) 6%, var(--surface));
-}
-
-.feedback-stack {
-  display: grid;
-  gap: 10px;
-}
-
-.feedback-card {
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-weight: 500;
-}
-
-.feedback-card.error {
-  border-color: var(--finance-danger-border);
-  background: var(--finance-danger-bg);
-  color: var(--finance-danger-text);
-}
-
-.feedback-card.success {
-  border-color: var(--finance-success-border);
-  background: var(--finance-success-bg);
-  color: var(--finance-success-text);
-}
-
-.hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: end;
-}
-
-.hero-copy {
-  display: grid;
-  gap: 8px;
-}
-
-/* Tab Navigation */
-.finance-tabs {
-  display: flex;
-  gap: 8px;
-  padding: 0;
-  border-bottom: 2px solid var(--border);
-  overflow-x: auto;
-  margin: 0 0 18px 0;
-}
-
-.tab-btn {
-  padding: 12px 16px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  position: relative;
-  white-space: nowrap;
-  transition: color 0.2s;
-}
-
-.tab-btn:hover {
-  color: var(--text);
-}
-
-.tab-btn.active {
-  color: var(--brand);
-}
-
-.tab-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--brand);
-}
-
-.eyebrow {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 12px;
-  color: var(--brand);
-  font-weight: 700;
-}
-
-.hero-controls {
-  display: grid;
-  gap: 10px;
-  min-width: min(340px, 100%);
-}
-
-.hero-actions,
-.section-head,
-.filter-row,
-.toggle-row,
-.entry-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.section-head {
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.section-head.compact {
-  margin-bottom: 10px;
-}
-
-.summary-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.summary-card {
-  display: grid;
-  gap: 6px;
-}
-
-.summary-card.positive {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--status-done) 14%, transparent), var(--surface));
-}
-
-.summary-card.warning {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--status-open) 14%, transparent), var(--surface));
-}
-
-.alert-card.warning {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--status-open) 16%, transparent), var(--surface));
-  border: 1px solid var(--finance-warning-border);
-}
-
-.label {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.finance-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
-  gap: 18px;
-}
-
-.settings-layout {
-  display: grid;
-  gap: 18px;
-}
-
-.main-column,
-.side-column {
-  display: grid;
-  gap: 18px;
-  align-content: start;
-}
-
-.grid {
-  display: grid;
-  gap: 12px;
-}
-
-.grid.two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.project-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.settings-stats {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.full {
-  grid-column: 1 / -1;
-}
-
-.textarea {
-  min-height: 92px;
-  resize: vertical;
-}
-
-.overview-grid {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.overview-stack {
-  display: grid;
   gap: 16px;
+  --clr-income: #22c55e;
+  --clr-danger: #ef4444;
+  --clr-progress: var(--brand, #2f63ff);
 }
 
-.mini-stats {
+/* ── Status card ── */
+.status-card {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.progress-list {
-  display: grid;
-  gap: 12px;
-}
-
-.progress-block {
-  display: grid;
-  gap: 8px;
-}
-
-.progress-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 14px;
-}
-
-.progress-bar {
-  position: relative;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--finance-info-bg);
-  overflow: hidden;
-}
-
-.progress-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-}
-
-.progress-bar.alt {
-  background: var(--finance-success-bg);
-}
-
-.progress-bar.alt span {
-  background: linear-gradient(135deg, var(--status-done), color-mix(in srgb, var(--status-done) 72%, white));
-}
-
-.snapshot {
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: var(--finance-info-bg);
-  color: var(--brand);
-  font-weight: 600;
-}
-
-.due-list,
-.member-list,
-.person-totals {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.due-list li,
-.member-list li,
-.person-totals li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--surface);
+  justify-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--card);
+  border-radius: 18px;
   border: 1px solid var(--border);
 }
 
-.due-side {
-  text-align: right;
+/* ── Topbar ── */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 18px 20px;
+  background: var(--card);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+}
+
+.topbar-left {
   display: grid;
   gap: 4px;
 }
 
-.entry-list {
+.topbar-left h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand, #2f63ff);
+  font-weight: 700;
+}
+
+/* ── Feedback ── */
+.feedback-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feedback-pill {
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 500;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.feedback-pill.error {
+  background: color-mix(in srgb, var(--clr-danger) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--clr-danger) 24%, var(--border));
+  color: color-mix(in srgb, var(--clr-danger) 70%, var(--text));
+}
+
+.feedback-pill.success {
+  background: color-mix(in srgb, var(--clr-income) 12%, var(--surface));
+  border-color: color-mix(in srgb, var(--clr-income) 24%, var(--border));
+  color: color-mix(in srgb, var(--clr-income) 70%, var(--text));
+}
+
+/* ── Tabs ── */
+.tab-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-pill {
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tab-pill:hover {
+  background: var(--card);
+}
+
+.tab-pill.active {
+  background: var(--brand, #2f63ff);
+  border-color: var(--brand, #2f63ff);
+  color: #fff;
+}
+
+/* ── Tab content ── */
+.tab-content {
+  display: grid;
+  gap: 16px;
+}
+
+/* ── Summary banner ── */
+.summary-banner {
   display: grid;
   gap: 12px;
+  padding: 22px 24px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.summary-label {
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.summary-amount {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.summary-amount.income {
+  color: var(--clr-income);
+}
+
+.summary-amount.danger {
+  color: var(--clr-danger);
+}
+
+.summary-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.summary-row.highlight .summary-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.summary-row.highlight .summary-amount {
+  font-size: 22px;
+}
+
+/* ── Panel ── */
+.panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+/* ── Entry list ── */
+.entry-list {
+  display: grid;
+  gap: 8px;
 }
 
 .entry-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) auto;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.entry-row.inactive {
-  opacity: 0.62;
-}
-
-.entry-main {
-  display: grid;
-  gap: 6px;
-}
-
-.entry-title-line {
   display: flex;
-  gap: 10px;
+  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-}
-
-.type-badge {
-  padding: 5px 9px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  background: var(--finance-info-bg);
-  color: var(--brand);
-}
-
-.type-badge[data-type="INCOME"] {
-  background: var(--finance-success-bg);
-  color: var(--finance-success-text);
-}
-
-.type-badge[data-type="FIXED"] {
-  background: color-mix(in srgb, var(--brand) 14%, var(--surface));
-  color: var(--brand);
-}
-
-.type-badge[data-type="VARIABLE"] {
-  background: var(--finance-warning-bg);
-  color: var(--finance-warning-text);
-}
-
-.type-badge[data-type="DEBT"] {
-  background: var(--finance-danger-bg);
-  color: var(--finance-danger-text);
-}
-
-.type-badge[data-type="SAVING"] {
-  background: var(--finance-purple-bg);
-  color: var(--finance-purple-text);
-}
-
-.entry-side {
-  display: grid;
-  gap: 6px;
-  justify-items: end;
-  text-align: right;
-}
-
-.side-card {
-  display: grid;
   gap: 12px;
-}
-
-.compact-members-card {
-  gap: 10px;
-}
-
-.member-summary {
-  display: grid;
-  gap: 8px;
   padding: 12px 14px;
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
 
-.member-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.entry-info {
+  display: grid;
+  gap: 2px;
 }
 
-.member-pill {
-  display: inline-flex;
+.entry-right {
+  display: flex;
   align-items: center;
-  padding: 6px 10px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.amount {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* ── Debt row ── */
+.debt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.debt-row.paid-off {
+  opacity: 0.6;
+}
+
+.debt-main {
+  flex: 1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.debt-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.debt-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.progress-bar-wrap {
+  height: 6px;
   border-radius: 999px;
-  background: var(--finance-info-bg);
-  border: 1px solid var(--finance-info-border);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--clr-progress);
+  transition: width 0.3s ease;
+}
+
+.debt-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.debt-rate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.debt-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ── Section total ── */
+.section-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── Badges ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
 }
 
-.member-manager {
-  display: grid;
-  gap: 12px;
+.badge-active {
+  background: color-mix(in srgb, var(--brand, #2f63ff) 14%, var(--surface));
+  color: var(--brand, #2f63ff);
 }
 
-.stack-form {
-  display: grid;
-  gap: 12px;
+.badge-done {
+  background: color-mix(in srgb, var(--clr-income) 14%, var(--surface));
+  color: var(--clr-income);
 }
 
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
+.badge-paused {
+  background: color-mix(in srgb, #f59e0b 14%, var(--surface));
+  color: #f59e0b;
 }
 
-.chip {
-  padding: 8px 12px;
-  border-radius: 999px;
+/* ── Icon buttons ── */
+.icon-btn {
+  padding: 5px 8px;
+  border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  background: transparent;
   cursor: pointer;
-}
-
-.chip.active {
-  border-color: var(--brand);
-  color: var(--brand);
-  background: var(--finance-info-bg);
-}
-
-.small {
   font-size: 13px;
+  color: var(--muted);
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
 }
 
-.form-hint {
-  margin: -2px 0 0;
+.icon-btn:hover {
+  background: var(--card);
+  color: var(--text);
 }
 
-.sm {
-  padding: 8px 12px;
-  font-size: 14px;
+.icon-btn.danger:hover {
+  background: color-mix(in srgb, var(--clr-danger) 12%, var(--surface));
+  color: var(--clr-danger);
+  border-color: color-mix(in srgb, var(--clr-danger) 26%, var(--border));
 }
 
-.danger {
-  color: var(--finance-danger-text);
-}
-
-.empty-hint {
-  margin: 0;
-}
-
-:global(.dark) .finance-tool .feedback-card.error {
-  color: var(--finance-danger-text);
-  background: var(--finance-danger-bg);
-  border-color: var(--finance-danger-border);
-}
-
-:global(.dark) .finance-tool .feedback-card.success {
-  color: var(--finance-success-text);
-  background: var(--finance-success-bg);
-  border-color: var(--finance-success-border);
-}
-
-:global(.dark) .finance-tool .surface {
-  background-color: rgba(255, 255, 255, 0.02);
-}
-
-:global(.dark) .finance-tool .progress-bar {
-  background: var(--finance-info-bg);
-}
-
-:global(.dark) .finance-tool .progress-bar.alt {
-  background: var(--finance-success-bg);
-}
-
-/* Debt Section */
-.debt-section {
-  margin-top: 28px;
-}
-
-@media (max-width: 1120px) {
-  .summary-grid,
-  .overview-grid,
-  .project-grid,
-  .mini-stats,
-  .settings-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .finance-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .hero,
-  .entry-row,
-  .member-list li,
-  .due-list li,
-  .person-totals li {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .hero {
-    align-items: stretch;
-  }
-
-  .summary-grid,
-  .overview-grid,
-  .project-grid,
-  .mini-stats,
-  .settings-stats,
-  .grid.two {
-    grid-template-columns: 1fr;
-  }
-
-  .entry-side {
-    justify-items: start;
-    text-align: left;
-  }
-}
-
-/* Forecast Modal */
+/* ── Modals ── */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: var(--modal-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.5);
   z-index: 50;
   padding: 16px;
 }
 
-.modal-content {
-  background: var(--surface);
-  border-radius: 16px;
-  max-width: 500px;
-  width: 100%;
+.modal-box {
+  width: min(480px, 100%);
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: auto;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -3293,1573 +1000,76 @@ onMounted(async () => {
 }
 
 .modal-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: var(--muted);
-}
-
-.modal-body {
-  padding: 20px;
-  display: grid;
-  gap: 16px;
-}
-
-.forecast-result {
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-}
-
-.forecast-result h4 {
-  margin: 0 0 12px 0;
-}
-
-.forecast-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.forecast-grid > div {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--surface);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-.forecast-carryover {
-  border-color: var(--finance-info-border) !important;
-  background: var(--finance-info-bg) !important;
-}
-
-.forecast-cumulative {
-  border-color: var(--finance-success-border) !important;
-  background: var(--finance-success-bg) !important;
-  font-weight: 600;
-}
-
-.forecast-grid .positive { color: var(--status-ok, #22c55e); }
-.forecast-grid .negative { color: var(--status-overdue, #f87171); }
-
-/* Category Breakdown */
-.category-breakdown {
-  margin-top: 8px;
-}
-
-.category-breakdown ul {
-  list-style: none;
-  padding: 0;
-  margin: 4px 0 0 0;
-  font-size: 12px;
-}
-
-.category-breakdown li {
-  margin: 2px 0;
-  color: var(--muted);
-}
-
-/* Chart */
-.chart-container {
-  display: flex;
-  align-items: end;
-  gap: 20px;
-  height: 200px;
-  padding: 20px;
-  background: var(--surface);
-  border-radius: 12px;
-  border: 1px solid var(--border);
-}
-
-.chart-bar {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: end;
-  align-items: center;
-  padding: 10px;
-  border-radius: 8px;
-  color: white;
-  font-weight: 500;
-  text-align: center;
-  min-height: 40px;
-}
-
-.chart-bar.income {
-  background: linear-gradient(135deg, var(--status-done), color-mix(in srgb, var(--status-done) 72%, white));
-}
-
-.chart-bar.expense {
-  background: linear-gradient(135deg, var(--status-open), color-mix(in srgb, var(--status-open) 68%, white));
-}
-
-.chart-bar span {
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.chart-bar strong {
-  font-size: 14px;
-}
-
-/* Comparison Table */
-.comparison-result {
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
-}
-
-.comparison-result h4 {
-  margin: 0 0 12px 0;
-}
-
-.comparison-table {
-  width: 100%;
-  border-collapse: collapse;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-}
-
-.comparison-table th,
-.comparison-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-
-.comparison-table th {
-  background: var(--surface);
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.comparison-table td {
-  background: var(--surface);
-}
-
-.comparison-table tr:last-child th,
-.comparison-table tr:last-child td {
-  border-bottom: none;
-}
-
-/* Daily Expenses */
-.daily-section {
-  margin-top: 28px;
-}
-
-.goals-page {
-  display: grid;
-  gap: 14px;
-}
-
-.goals-head {
-  align-items: center;
-}
-
-.goals-kpis {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.goal-kpi {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 12px;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--brand) 9%, transparent), var(--surface));
-  display: grid;
-  gap: 4px;
-}
-
-.goals-layout {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.4fr);
-}
-
-.goals-list-panel {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-}
-
-.goals-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
-
-.goal-card {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  padding: 12px;
-  display: grid;
-  gap: 8px;
-}
-
-.goal-card.done {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--status-done) 10%, transparent), var(--surface));
-}
-
-.goal-card-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-}
-
-.goal-due {
-  margin: 0;
-}
-
-.goal-progress-amount {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: baseline;
-}
-
-.goal-progress {
-  height: 9px;
-}
-
-.goal-card-footer {
-  display: grid;
-  gap: 8px;
-}
-
-.goal-percent {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--brand);
-}
-
-.goal-note {
-  margin: 0;
-}
-
-.daily-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.daily-controls {
-  display: flex;
-  gap: 12px;
-  align-items: end;
-}
-
-.daily-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.summary-item {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  text-align: center;
-}
-
-.daily-list {
-  display: grid;
-  gap: 12px;
-}
-
-.daily-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) auto;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.daily-main {
-  display: grid;
-  gap: 6px;
-}
-
-.daily-title-line {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.category-badge {
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--finance-purple-bg);
-  color: var(--finance-purple-text);
-}
-
-.daily-side {
-  display: grid;
-  gap: 6px;
-  justify-items: end;
-  text-align: right;
-}
-
-.daily-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.tips-panel {
-  align-content: start;
-}
-
-.tip-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 12px;
-}
-
-.tip-card {
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px 16px;
-  background: var(--surface);
-  display: grid;
-  gap: 8px;
-}
-
-.tip-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.tip-head h3 {
-  margin: 0;
-}
-
-.tip-body {
-  margin: 0;
-  white-space: pre-line;
-}
-
-@media (max-width: 760px) {
-  .goals-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .goals-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .daily-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .daily-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .daily-item {
-    grid-template-columns: 1fr;
-  }
-
-  .daily-side {
-    justify-items: start;
-    text-align: left;
-  }
-
-  .tip-head {
-    flex-direction: column;
-  }
-}
-
-/* New Finance Dashboard Design */
-.topbar-card {
-  display: grid;
-  gap: 18px;
-  padding: 28px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  color: white;
-}
-
-.topbar-main {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(260px, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.topbar-meta {
-  display: grid;
-  gap: 12px;
-}
-
-.topbar-meta h1 {
-  margin: 0;
-  font-size: clamp(2rem, 2.5vw, 2.8rem);
-}
-
-.topbar-meta .muted {
-  color: rgba(255, 255, 255, 0.78);
-  max-width: 720px;
-}
-
-.topbar-actions {
-  display: grid;
-  gap: 16px;
-  justify-items: end;
-}
-
-.topbar-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.topbar-insights {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
-}
-
-.topbar-insight {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(15, 23, 42, 0.24);
-}
-
-.topbar-insight-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.topbar-insight-head h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.topbar-due-list strong {
-  color: #f8fafc;
-}
-
-.topbar-due-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.topbar-due-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.38);
-}
-
-.feedback-bar {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.feedback-pill {
-  padding: 16px 18px;
-  border-radius: 18px;
-  font-weight: 600;
-}
-
-.feedback-pill.error {
-  background: var(--finance-danger-bg);
-  color: var(--finance-danger-text);
-}
-
-.feedback-pill.success {
-  background: var(--finance-success-bg);
-  color: var(--finance-success-text);
-}
-
-.feedback-pill.warning {
-  background: var(--finance-warning-bg);
-  color: var(--finance-warning-text);
-}
-
-.overview-page .status-grid > div[draggable="true"] {
-  cursor: grab;
-}
-
-.summary-band {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 20px;
-}
-
-.metric-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 24px;
-  display: grid;
-  gap: 14px;
-  min-height: 150px;
-}
-
-.balance-card {
-  background: linear-gradient(135deg, #0f766e, #10b981);
-  color: #f8fafc;
-  border: none;
-  box-shadow: 0 28px 74px rgba(15, 118, 110, 0.18);
-}
-
-.balance-card .metric-label {
-  color: rgba(236, 253, 245, 0.9);
-}
-
-.balance-card .metric-note {
-  color: rgba(236, 253, 245, 0.92);
-}
-
-.balance-card .metric-breakdown-row {
-  color: rgba(236, 253, 245, 0.9);
-}
-
-.balance-card .metric-breakdown-row strong {
-  color: #ffffff;
-}
-
-.balance-card .metric-pill {
-  background: rgba(255, 255, 255, 0.2);
-  color: #f8fafc;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-}
-
-.metric-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.metric-label {
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.metric-note {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--muted);
-}
-
-.metric-breakdown {
-  display: grid;
-  gap: 6px;
-}
-
-.metric-breakdown-row {
-  margin: 0;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.metric-breakdown-row strong {
-  color: var(--text);
-  font-size: 14px;
-}
-
-.metric-progress {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.metric-pill {
-  padding: 7px 14px;
-  border-radius: 999px;
-  background: var(--finance-info-bg);
-  color: var(--text);
-  border: 1px solid var(--finance-info-border);
-  font-size: 12px;
-  line-height: 1;
-}
-
-.metric-pill.small {
-  opacity: 0.84;
-}
-
-.due-metric-card {
-  align-content: start;
-}
-
-.due-metric-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.due-metric-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 14px;
-}
-
-.due-plus {
-  color: var(--finance-success-text);
-}
-
-.due-minus {
-  color: var(--finance-danger-text);
-}
-
-.tab-panel {
-  margin-top: 28px;
-}
-
-.tab-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 8px;
-}
-
-.tab-pill {
-  border: none;
-  background: none;
-  padding: 12px 20px;
-  border-radius: 999px;
-  color: var(--muted);
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.tab-pill.active {
-  background: var(--brand);
-  color: white;
-  box-shadow: 0 12px 32px rgba(59, 130, 246, 0.12);
-}
-
-.workspace-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 22px;
-  margin-top: 22px;
-}
-
-.workspace-main {
-  display: grid;
-  align-content: start;
-  gap: 22px;
-}
-
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 22px;
-  display: grid;
-  gap: 18px;
-}
-
-.panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-}
-
-.panel-head h2 {
-  margin: 0;
-}
-
-.badge {
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  background: color-mix(in srgb, var(--brand) 16%, var(--surface));
-  color: var(--brand);
-}
-
-.badge.badge-soft {
-  background: var(--finance-soft-highlight);
-  color: var(--text);
-  border: 1px solid var(--finance-info-border);
-  font-weight: 600;
-}
-
-.settings-meta {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.setting-note {
-  margin: 6px 0 0;
-}
-
-.info-row,
-.status-grid {
-  display: grid;
-  gap: 14px;
-}
-
-.info-row {
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-}
-
-.status-grid {
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-
-.info-row > div,
-.status-grid > div {
-  background: linear-gradient(160deg, color-mix(in srgb, var(--brand) 10%, transparent), var(--surface));
-  border: 1px solid var(--finance-info-border);
-  padding: 16px;
-  border-radius: 18px;
-}
-
-.compact-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.compact-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.empty-text {
-  color: var(--muted);
-}
-
-.performance-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.performance-item {
-  border-radius: 20px;
-  padding: 20px;
-  display: grid;
-  gap: 12px;
-  min-height: 104px;
-  color: white;
-}
-
-.performance-item span {
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 12px;
-  opacity: 0.92;
-}
-
-.performance-item strong {
-  font-size: 1.5rem;
-}
-
-.performance-item.income {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--status-done) 76%, black), var(--status-done));
-}
-
-.performance-item.outcome {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--status-open) 70%, black), var(--status-open));
-}
-
-.performance-item.balance {
-  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 72%, black), var(--brand));
-}
-
-.entries-panel .panel-head {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.panel-head-space {
-  gap: 16px;
-}
-
-.filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.planner-head {
-  align-items: flex-end;
-}
-
-.planner-head-controls {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.planner-month-control {
-  display: grid;
-  gap: 6px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.planner-month-control .input {
-  min-width: 170px;
-}
-
-.planner-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-
-.summary-split-panel {
-  align-content: start;
-}
-
-.summary-split-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.summary-column {
-  display: grid;
-  gap: 10px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 14px;
-  background: var(--surface);
-}
-
-.summary-column h3 {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.summary-sublist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 8px;
-}
-
-.summary-subitem {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 14px;
-}
-
-.settings-panel,
-.status-panel {
-  align-content: start;
-}
-
-.settings-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(340px, 1fr));
-  gap: 20px;
-  margin-top: 22px;
-  align-items: start;
-}
-
-.settings-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.settings-grid label.full {
-  grid-column: span 2;
-}
-
-.member-panel {
-  margin-top: 22px;
-}
-
-.top-categories-panel {
-  margin-top: 22px;
-}
-
-.member-summary {
-  display: grid;
-  gap: 12px;
-  padding: 0;
   border: none;
   background: transparent;
-}
-
-.daily-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 18px;
-  margin-bottom: 22px;
-}
-
-.daily-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-}
-
-.chart-container {
-  display: flex;
-  align-items: flex-end;
-  gap: 20px;
-  height: 210px;
-  padding: 20px;
-  background: var(--surface);
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.chart-empty-state {
-  min-height: 210px;
-  border-radius: 20px;
-  border: 1px dashed var(--border);
-  background: var(--finance-soft-highlight);
-  display: grid;
-  place-items: center;
-  text-align: center;
-  padding: 20px;
-}
-
-.chart-empty-state p {
-  margin: 0;
-  max-width: 48ch;
-}
-
-.chart-bar {
-  flex: 1;
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-  align-items: end;
-  padding: 16px;
-  border-radius: 18px;
-  color: white;
-  text-align: center;
-  box-sizing: border-box;
-  height: clamp(68px, var(--bar-height), 100%);
-  overflow: hidden;
-}
-
-.chart-bar.income {
-  background: linear-gradient(135deg, var(--status-done), color-mix(in srgb, var(--status-done) 72%, white));
-}
-
-.chart-bar.expense {
-  background: linear-gradient(135deg, var(--status-open), color-mix(in srgb, var(--status-open) 68%, white));
-}
-
-.chart-bar span {
-  font-size: 12px;
-}
-
-.chart-bar strong {
-  font-size: 1rem;
-}
-
-.debt-summary-panel {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 1200px) {
-  .planner-grid,
-  .settings-row {
-    grid-template-columns: 1fr;
-  }
-
-  .topbar-main,
-  .topbar-insights {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 760px) {
-  .finance-tool {
-    gap: 14px;
-  }
-
-  .topbar-card {
-    padding: 18px;
-    border-radius: 18px;
-  }
-
-  .topbar-meta h1 {
-    font-size: clamp(1.55rem, 7.2vw, 2rem);
-  }
-
-  .topbar-buttons.topbar-open .btn {
-    width: 100%;
-  }
-
-  .tab-nav {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    border-radius: 16px;
-    padding: 6px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tab-pill {
-    white-space: nowrap;
-    padding: 10px 14px;
-  }
-
-  .panel {
-    border-radius: 18px;
-    padding: 16px;
-    gap: 14px;
-  }
-
-  .performance-cards {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-bottom: 14px;
-  }
-
-  .summary-split-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .summary-band {
-    grid-template-columns: 1fr;
-  }
-
-  .topbar-actions {
-    justify-items: start;
-  }
-
-  .topbar-buttons {
-    justify-content: flex-start;
-  }
-
-  .daily-header,
-  .daily-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .panel-head {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .planner-head-controls {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .planner-head-controls .btn {
-    width: 100%;
-  }
-
-  .planner-month-control .input {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .month-nav {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .month-nav-label {
-    min-width: 0;
-    flex: 1;
-  }
-
-  .chart-container {
-    overflow-x: auto;
-    height: auto;
-    align-items: stretch;
-    gap: 12px;
-    padding: 14px;
-  }
-
-  .chart-bar {
-    min-width: 92px;
-    padding: 10px;
-  }
-
-  .settings-meta {
-    justify-content: flex-start;
-  }
-}
-
-/* ===== NEW FEATURES ===== */
-
-/* Month navigation arrows */
-.month-nav {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 6px 12px;
-}
-
-.month-nav-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
+  font-size: 22px;
   cursor: pointer;
-  color: var(--brand);
-  padding: 0 6px;
+  color: var(--muted);
   line-height: 1;
-  transition: opacity 0.15s;
+  padding: 2px 6px;
 }
 
-.month-nav-btn:hover { opacity: 0.7; }
-
-.month-nav-label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text);
-  white-space: nowrap;
-  min-width: 130px;
-  text-align: center;
-}
-
-/* Donut chart */
-.donut-wrap {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.donut-svg {
-  width: 120px;
-  height: 120px;
-  flex-shrink: 0;
-}
-
-.donut-legend {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.modal-form {
   display: grid;
-  gap: 6px;
-  flex: 1;
+  gap: 14px;
+  padding: 20px;
 }
 
-.donut-legend-item {
+.modal-actions {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.82rem;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
-.donut-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.donut-label {
-  flex: 1;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Urgency dot (Fälligkeits-Ampel) */
-.urgency-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.urgency-red .urgency-dot, .urgency-dot.urgency-red { background: #ef4444; }
-.urgency-yellow .urgency-dot, .urgency-dot.urgency-yellow { background: #f59e0b; }
-.urgency-green .urgency-dot, .urgency-dot.urgency-green { background: #10b981; }
-
-.due-metric-item.urgency-red { color: #ef4444; }
-.due-metric-item.urgency-yellow { color: #f59e0b; }
-.due-metric-item.urgency-green { color: #10b981; }
-
-/* Savings gauge */
-.savings-gauge-card {
-  background: linear-gradient(135deg, #1d1160, #4c1d95);
-  color: #f8fafc;
-}
-
-.savings-ring-wrap {
-  position: relative;
-  width: 90px;
-  height: 90px;
-  margin: 0 auto;
-}
-
-.savings-ring {
-  width: 90px;
-  height: 90px;
-}
-
-.savings-ring-pct {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #fbbf24;
-}
-
-.savings-note {
-  text-align: center;
-  font-size: 0.82rem;
-  color: rgba(255,255,255,0.7);
-  margin: 0;
-}
-
-/* Debt progress bars */
-.debt-progress-list {
-  margin-top: 16px;
+.form-grid {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.debt-progress-title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  margin: 0 0 4px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.debt-progress-row {
-  display: grid;
-  gap: 6px;
-}
-
-.debt-progress-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  font-size: 0.88rem;
-}
-
-.debt-progress-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, #ef4444 12%, var(--surface) 88%);
-  overflow: hidden;
-}
-
-.debt-progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #ef4444, #f97316);
-  transition: width 0.4s ease;
-}
-
-.debt-due-badge {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  display: inline-block;
-  width: fit-content;
-}
-
-.debt-due-badge.urgency-red { background: color-mix(in srgb, #ef4444 14%, var(--surface)); color: #ef4444; }
-.debt-due-badge.urgency-yellow { background: color-mix(in srgb, #f59e0b 14%, var(--surface)); color: #f59e0b; }
-.debt-due-badge.urgency-green { background: color-mix(in srgb, #10b981 14%, var(--surface)); color: #10b981; }
-
-/* Monthly note */
-.monthly-note-panel {
-  padding: 14px 20px;
-}
-
-.note-summary {
-  font-weight: 700;
-  font-size: 0.9rem;
-  cursor: pointer;
-  color: var(--muted);
-  list-style: none;
-  user-select: none;
-}
-
-.note-summary::marker, .note-summary::-webkit-details-marker { display: none; }
-.note-summary::before { content: "\25B6  "; font-size: 0.7rem; }
-details[open] .note-summary::before { content: "\25BC  "; }
-
-.monthly-note-textarea {
-  margin-top: 10px;
-  width: 100%;
-  min-height: 90px;
+.textarea {
+  min-height: 70px;
   resize: vertical;
 }
 
-/* FAB */
-.fab {
-  position: fixed;
-  bottom: 28px;
-  right: 28px;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  background: var(--brand);
-  color: white;
-  border: none;
-  box-shadow: 0 8px 24px rgba(59,130,246,0.40);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 40;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.empty-hint {
+  padding: 8px 0;
 }
 
-.fab:hover {
-  transform: scale(1.08);
-  box-shadow: 0 12px 32px rgba(59,130,246,0.50);
+/* ── Misc ── */
+.small { font-size: 13px; }
+
+.sm {
+  padding: 8px 14px;
+  font-size: 14px;
 }
 
-.fab svg {
-  width: 24px;
-  height: 24px;
-  fill: none;
-}
-
-/* Entry templates bar */
-.templates-bar {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  padding: 10px 12px;
-  background: var(--finance-info-bg);
-  border: 1px solid var(--finance-info-border);
-  border-radius: 12px;
-}
-
-.templates-label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--muted);
-  white-space: nowrap;
-  padding-top: 4px;
-}
-
-.templates-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-@media (max-width: 1300px) {
-  .summary-band { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-@media (max-width: 900px) {
-  .summary-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 580px) {
-  .summary-band { grid-template-columns: 1fr; }
-  .fab {
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    right: 12px;
-    width: 48px;
-    height: 48px;
-  }
-}
-
-/* ===== MOBILE TOPBAR TOGGLE ===== */
-
-.topbar-toggle {
-  display: none;
-  color: rgba(255, 255, 255, 0.9);
-  border-color: rgba(255, 255, 255, 0.36);
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-  justify-content: center;
-}
-
-.topbar-toggle-icon {
-  display: inline-block;
-  font-size: 10px;
-  transition: transform 0.2s ease;
-}
-
-.topbar-toggle-icon.open {
-  transform: rotate(180deg);
-}
-
-@media (max-width: 760px) {
-  .topbar-toggle {
-    display: inline-flex;
+@media (max-width: 600px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .topbar-buttons {
-    display: none;
-    width: 100%;
+  .debt-row {
+    flex-direction: column;
   }
 
-  .topbar-buttons.topbar-open {
-    display: flex;
+  .debt-right {
+    align-items: flex-start;
+    flex-direction: row;
     flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 10px;
   }
-}
 
-/* ===== BALANCE OVERRIDE ===== */
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
 
-.balance-override-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
+  .summary-amount {
+    font-size: 16px;
+  }
 
-.balance-edit-btn {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.38);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.82);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 2px 7px;
-  line-height: 1.4;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.balance-edit-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.6);
-}
-
-.balance-input {
-  width: 110px;
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.46);
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-size: 13px;
-  outline: none;
-}
-
-.balance-input:focus {
-  border-color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.balance-confirm-btn,
-.balance-cancel-btn {
-  background: none;
-  border: 1px solid rgba(255, 255, 255, 0.38);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 2px 8px;
-  line-height: 1.4;
-  transition: background 0.15s;
-}
-
-.balance-confirm-btn {
-  color: #86efac;
-  border-color: rgba(134, 239, 172, 0.5);
-}
-
-.balance-confirm-btn:hover:not(:disabled) {
-  background: rgba(134, 239, 172, 0.18);
-}
-
-.balance-confirm-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.balance-cancel-btn {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.balance-cancel-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  .summary-row.highlight .summary-amount {
+    font-size: 20px;
+  }
 }
 </style>
-
-

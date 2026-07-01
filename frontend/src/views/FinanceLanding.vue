@@ -1,178 +1,87 @@
 <template>
-  <div class="finance-entry">
+  <div class="finance-landing">
     <section class="hero card">
       <div class="hero-copy">
         <p class="eyebrow">Finance</p>
-        <h1>Ein Finanzprojekt statt zehn Einzelseiten.</h1>
+        <h1>Finanzplaner</h1>
         <p class="muted lead">
-          Lege euer Haushalts- oder Finanzprojekt an, trage Personen ein und arbeite danach in einer klaren Monatsuebersicht
-          mit Einnahmen, Fixkosten, Schulden, Sparen und den naechsten Faelligkeiten.
+          Behalte den Überblick über deine Einnahmen, Schulden und Abos –
+          alles an einem Ort, klar und einfach.
         </p>
         <div class="hero-points">
-          <span>Ein Konto fuer mehrere Personen</span>
-          <span>Monatsbild statt zerstreuter Tabs</span>
-          <span>Schnell genug fuer den Alltag</span>
+          <span>Einnahmen im Blick</span>
+          <span>Schulden im Griff</span>
+          <span>Abos auf einen Blick</span>
         </div>
       </div>
 
       <div class="action-panel">
         <div class="panel-head">
           <h2>Projekte</h2>
-          <button class="btn ghost" type="button" @click="goBack">Zur Plattformuebersicht</button>
+          <button class="btn ghost sm" type="button" @click="goBack">← Zurück</button>
         </div>
-        <p class="muted">
-          Projekt öffnen oder neues Projekt starten. Die Projektbasis wird direkt im Popup gesetzt.
-        </p>
-        <button class="btn" type="button" @click="openProjectBasisModal">
-          Projekt erstellen
-        </button>
+        <p class="muted">Öffne ein bestehendes Projekt oder starte ein neues.</p>
+        <button class="btn" type="button" @click="showCreateModal = true">Neues Projekt erstellen</button>
       </div>
     </section>
 
-    <div v-if="showProjectBasisModal" class="modal-overlay" @click="showProjectBasisModal = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>Projektbasis</h3>
-          <button class="modal-close" type="button" @click="showProjectBasisModal = false">&times;</button>
-        </div>
-        <div class="modal-body">
-          <form class="create-panel modal-form" @submit.prevent="createProject">
-            <label>
-              Titel
-              <input v-model.trim="form.title" class="input" placeholder="z. B. Haushalt Samir & Aylin" required />
-            </label>
-
-            <label>
-              Personen im Projekt
-              <textarea
-                v-model.trim="form.members"
-                class="input textarea"
-                rows="3"
-                placeholder="z. B. Samir, Aylin"
-              ></textarea>
-              <small class="muted hint">Kommagetrennt oder Zeile fuer Zeile. So koennt ihr direkt 2 Personen unter einem Account fuehren.</small>
-            </label>
-
-            <label>
-              Kurze Notiz
-              <textarea
-                v-model.trim="form.description"
-                class="input textarea"
-                rows="3"
-                placeholder="Wofuer nutzt ihr das Projekt?"
-              ></textarea>
-            </label>
-
-            <div class="grid two">
-              <label>
-                Waehrung
-                <select v-model="form.currency" class="input">
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
-                  <option value="CHF">CHF</option>
-                </select>
-              </label>
-              <label>
-                Startguthaben
-                <input v-model="form.current_balance" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
-              </label>
-            </div>
-
-            <div class="grid two">
-              <label>
-                Dispo verfuegbar
-                <input v-model="form.dispo_limit" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
-              </label>
-              <label>
-                Dispo genutzt
-                <input v-model="form.dispo_used" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
-              </label>
-            </div>
-
-            <div class="grid two">
-              <label>
-                Sparziel pro Monat
-                <input
-                  v-model="form.monthly_savings_target"
-                  class="input"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                />
-              </label>
-            </div>
-
-            <label>
-              Notgroschen-Ziel
-              <input
-                v-model="form.emergency_buffer_target"
-                class="input"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-              />
-            </label>
-
-            <div class="modal-actions">
-              <button class="btn ghost" type="button" @click="showProjectBasisModal = false">Zurueck</button>
-              <button class="btn" type="submit" :disabled="saving">
-                {{ saving ? "Lege an..." : "Projekt erstellen" }}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-
-    <section v-if="errorMessage || successMessage" class="feedback-stack">
-      <div v-if="errorMessage" class="feedback-card error">{{ errorMessage }}</div>
-      <div v-if="successMessage" class="feedback-card success">{{ successMessage }}</div>
+    <!-- Feedback -->
+    <section v-if="errorMessage || successMessage" class="feedback-bar">
+      <div v-if="errorMessage" class="feedback-pill error">{{ errorMessage }}</div>
+      <div v-if="successMessage" class="feedback-pill success">{{ successMessage }}</div>
     </section>
 
-    <section v-if="projects.length" class="card projects-card">
+    <!-- Project list -->
+    <section v-if="projects.length" class="card projects-section">
       <div class="section-head">
-        <div>
-          <h2>Bestehende Finanzprojekte</h2>
-          <p class="muted">Oeffne direkt das passende Monatsbild.</p>
-        </div>
-        <button class="btn ghost" type="button" @click="loadProjects" :disabled="loading">
-          {{ loading ? "Lade..." : "Aktualisieren" }}
+        <h2>Deine Projekte</h2>
+        <button class="btn ghost sm" type="button" @click="loadProjects" :disabled="loading">
+          {{ loading ? "Lädt..." : "Aktualisieren" }}
         </button>
       </div>
 
       <div class="project-grid">
         <article v-for="project in projects" :key="project.id" class="project-card">
-          <div class="project-top">
-            <div>
-              <h3>{{ project.title }}</h3>
-              <p class="muted small">{{ project.members?.map((member) => member.name).join(", ") || "Ohne Personen" }}</p>
-            </div>
-            <button class="btn ghost sm" type="button" @click="openProject(project.id)">Oeffnen</button>
-          </div>
-
-          <div class="stats-grid">
-            <div>
-              <span class="label">Frei pro Monat</span>
-              <strong>{{ formatCurrency(project.overview?.monthly_left, project.currency) }}</strong>
-            </div>
-            <div>
-              <span class="label">Einnahmen</span>
-              <strong>{{ formatCurrency(project.overview?.monthly_income, project.currency) }}</strong>
-            </div>
-            <div>
-              <span class="label">Ausgaenge</span>
-              <strong>{{ formatCurrency(project.overview?.monthly_outflow, project.currency) }}</strong>
-            </div>
-            <div>
-              <span class="label">Faellig bald</span>
-              <strong>{{ project.overview?.due_soon?.length || 0 }}</strong>
-            </div>
-          </div>
+          <h3>{{ project.title }}</h3>
+          <p v-if="project.description" class="muted small">{{ project.description }}</p>
+          <button class="btn sm" type="button" @click="openProject(project.id)">Öffnen</button>
         </article>
       </div>
     </section>
+
+    <!-- Create modal -->
+    <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Neues Projekt erstellen</h3>
+          <button class="modal-close" type="button" @click="showCreateModal = false">&times;</button>
+        </div>
+        <form class="modal-form" @submit.prevent="createProject">
+          <label>
+            Titel
+            <input v-model.trim="form.title" class="input" placeholder="z. B. Mein Haushalt" required />
+          </label>
+          <label>
+            Währung
+            <select v-model="form.currency" class="input">
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+              <option value="CHF">CHF</option>
+            </select>
+          </label>
+          <label>
+            Notiz (optional)
+            <textarea v-model.trim="form.description" class="input textarea" rows="2" placeholder=""></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showCreateModal = false">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="saving">
+              {{ saving ? "Erstelle..." : "Projekt erstellen" }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -186,66 +95,28 @@ const router = useRouter();
 const loading = ref(false);
 const saving = ref(false);
 const projects = ref([]);
-const showProjectBasisModal = ref(false);
+const showCreateModal = ref(false);
 const errorMessage = ref("");
 const successMessage = ref("");
-const form = ref({
-  title: "",
-  description: "",
-  currency: "EUR",
-  current_balance: "",
-  dispo_limit: "",
-  dispo_used: "",
-  monthly_savings_target: "",
-  emergency_buffer_target: "",
-  members: "Ich",
-});
+const form = ref({ title: "", currency: "EUR", description: "" });
 
-function toAmount(value) {
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+function goBack() {
+  router.push({ name: "platforms" });
 }
 
-function parseMembers(value) {
-  return [...new Set((value || "").split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean))];
+function openProject(id) {
+  router.push({ name: "finance", params: { projectId: id } });
 }
 
-function formatCurrency(value, currency = "EUR") {
-  const amount = Number(value || 0);
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-function setError(message) {
-  errorMessage.value = message;
-  successMessage.value = "";
-}
-
-function setSuccess(message) {
-  successMessage.value = message;
-  errorMessage.value = "";
-}
-
-function getApiErrorMessage(error, fallbackMessage) {
-  const responseData = error?.response?.data;
-  if (typeof responseData === "string" && responseData.trim()) {
-    return responseData;
+function apiError(err, fallback) {
+  const d = err?.response?.data;
+  if (typeof d === "string" && d.trim()) return d;
+  if (d?.detail) return d.detail;
+  if (d && typeof d === "object") {
+    const msg = Object.entries(d).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join(" | ");
+    if (msg) return msg;
   }
-  if (responseData?.detail) {
-    return responseData.detail;
-  }
-  if (responseData && typeof responseData === "object") {
-    const message = Object.entries(responseData)
-      .map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(", ") : value}`)
-      .join(" | ");
-    if (message) {
-      return message;
-    }
-  }
-  return fallbackMessage;
+  return fallback;
 }
 
 async function loadProjects() {
@@ -253,107 +124,49 @@ async function loadProjects() {
   try {
     const { data } = await api.get("finance-projects/");
     projects.value = Array.isArray(data) ? data : data.results || [];
-  } catch (error) {
-    projects.value = [];
-    setError(getApiErrorMessage(error, "Finanzprojekte konnten nicht geladen werden."));
+  } catch (err) {
+    errorMessage.value = apiError(err, "Projekte konnten nicht geladen werden.");
   } finally {
     loading.value = false;
   }
 }
 
-function openProjectBasisModal() {
-  errorMessage.value = "";
-  successMessage.value = "";
-  showProjectBasisModal.value = true;
-}
-
 async function createProject() {
-  if (!form.value.title.trim()) {
-    setError("Bitte einen Titel fÜr das Finanzprojekt eintragen.");
-    return;
-  }
   saving.value = true;
   try {
-    const payload = {
+    const { data } = await api.post("finance-projects/", {
       title: form.value.title,
-      description: form.value.description,
       currency: form.value.currency,
-      current_balance: toAmount(form.value.current_balance),
-      dispo_limit: toAmount(form.value.dispo_limit),
-      dispo_used: toAmount(form.value.dispo_used),
-      monthly_savings_target: toAmount(form.value.monthly_savings_target),
-      emergency_buffer_target: toAmount(form.value.emergency_buffer_target),
-      initial_members: parseMembers(form.value.members),
-    };
-    const { data } = await api.post("finance-projects/", payload);
-    showProjectBasisModal.value = false;
+      description: form.value.description,
+      initial_members: [],
+    });
+    showCreateModal.value = false;
+    form.value = { title: "", currency: "EUR", description: "" };
     await loadProjects();
-    setSuccess("Finanzprojekt erstellt.");
     router.push({ name: "finance", params: { projectId: data.id } });
-  } catch (error) {
-    setError(getApiErrorMessage(error, "Finanzprojekt konnte nicht erstellt werden."));
+  } catch (err) {
+    errorMessage.value = apiError(err, "Projekt konnte nicht erstellt werden.");
   } finally {
     saving.value = false;
   }
-}
-
-function openProject(projectId) {
-  router.push({ name: "finance", params: { projectId } });
-}
-
-function goBack() {
-  router.push({ name: "platforms" });
 }
 
 onMounted(loadProjects);
 </script>
 
 <style scoped>
-.finance-entry {
+.finance-landing {
   display: grid;
   gap: 18px;
-  --finance-info-bg: color-mix(in srgb, var(--brand) 10%, var(--surface));
-  --finance-info-border: color-mix(in srgb, var(--brand) 18%, var(--border));
-  --finance-success-bg: color-mix(in srgb, var(--status-done) 14%, var(--surface));
-  --finance-success-border: color-mix(in srgb, var(--status-done) 26%, var(--border));
-  --finance-success-text: color-mix(in srgb, var(--status-done) 72%, var(--text));
-  --finance-danger-bg: color-mix(in srgb, var(--status-overdue) 14%, var(--surface));
-  --finance-danger-border: color-mix(in srgb, var(--status-overdue) 26%, var(--border));
-  --finance-danger-text: color-mix(in srgb, var(--status-overdue) 72%, var(--text));
-}
-
-.feedback-stack {
-  display: grid;
-  gap: 10px;
-}
-
-.feedback-card {
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-weight: 500;
-}
-
-.feedback-card.error {
-  border-color: var(--finance-danger-border);
-  background: var(--finance-danger-bg);
-  color: var(--finance-danger-text);
-}
-
-.feedback-card.success {
-  border-color: var(--finance-success-border);
-  background: var(--finance-success-bg);
-  color: var(--finance-success-text);
 }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
   gap: 18px;
   padding: 22px;
   background:
-    radial-gradient(circle at top right, rgba(47, 99, 255, 0.16), transparent 42%),
+    radial-gradient(circle at top right, rgba(47, 99, 255, 0.15), transparent 42%),
     linear-gradient(145deg, var(--card), var(--bg-soft));
 }
 
@@ -365,16 +178,14 @@ onMounted(loadProjects);
 
 .eyebrow {
   margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--brand);
+  color: var(--brand, #2f63ff);
   font-weight: 700;
 }
 
-.lead {
-  max-width: 62ch;
-}
+.lead { max-width: 60ch; }
 
 .hero-points {
   display: flex;
@@ -383,96 +194,88 @@ onMounted(loadProjects);
 }
 
 .hero-points span {
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: 999px;
-  background: var(--finance-info-bg);
-  border: 1px solid var(--finance-info-border);
+  background: color-mix(in srgb, var(--brand, #2f63ff) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--brand, #2f63ff) 18%, var(--border));
   font-size: 14px;
   font-weight: 600;
-}
-
-.create-panel {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 18px;
-  background: var(--card);
-  border: 1px solid var(--border);
 }
 
 .action-panel {
   display: grid;
   gap: 14px;
   padding: 18px;
-  border-radius: 18px;
+  border-radius: 16px;
   border: 1px solid var(--border);
   background: var(--card);
+  align-content: start;
 }
 
-.panel-head,
-.section-head,
-.project-top {
+.panel-head {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  align-items: flex-start;
 }
 
-.grid {
-  display: grid;
-  gap: 12px;
-}
+.section-head h2 { margin: 0; }
 
-.grid.two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.textarea {
-  min-height: 96px;
-  resize: vertical;
-}
-
-.hint,
-.small {
-  font-size: 13px;
-}
-
-.projects-card {
+.projects-section {
   display: grid;
   gap: 16px;
+  padding: 20px;
 }
 
 .project-grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .project-card {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 18px;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
 
-.stats-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.project-card h3 { margin: 0; }
+
+.feedback-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.label {
-  display: block;
-  margin-bottom: 4px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.sm {
-  padding: 8px 12px;
+.feedback-pill {
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 500;
   font-size: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.feedback-pill.error {
+  background: color-mix(in srgb, #ef4444 12%, var(--surface));
+  border-color: color-mix(in srgb, #ef4444 24%, var(--border));
+  color: color-mix(in srgb, #ef4444 70%, var(--text));
+}
+
+.feedback-pill.success {
+  background: color-mix(in srgb, #22c55e 12%, var(--surface));
+  border-color: color-mix(in srgb, #22c55e 24%, var(--border));
+  color: color-mix(in srgb, #22c55e 70%, var(--text));
 }
 
 .modal-overlay {
@@ -480,13 +283,13 @@ onMounted(loadProjects);
   inset: 0;
   display: grid;
   place-items: center;
-  background: var(--modal-overlay, rgba(15, 23, 42, 0.45));
+  background: rgba(15, 23, 42, 0.5);
   z-index: 50;
   padding: 16px;
 }
 
-.modal-content {
-  width: min(680px, 100%);
+.modal-box {
+  width: min(440px, 100%);
   max-height: 90vh;
   overflow: auto;
   border-radius: 20px;
@@ -498,31 +301,25 @@ onMounted(loadProjects);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 16px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
 
-.modal-header h3 {
-  margin: 0;
-}
+.modal-header h3 { margin: 0; }
 
 .modal-close {
   border: none;
   background: transparent;
-  color: inherit;
-  font-size: 24px;
-  line-height: 1;
+  font-size: 22px;
   cursor: pointer;
-}
-
-.modal-body {
-  padding: 16px;
+  color: var(--muted);
+  line-height: 1;
 }
 
 .modal-form {
-  padding: 0;
-  border: 0;
+  display: grid;
+  gap: 14px;
+  padding: 20px;
 }
 
 .modal-actions {
@@ -531,32 +328,11 @@ onMounted(loadProjects);
   gap: 10px;
 }
 
-:global(.dark) .finance-entry .feedback-card.error {
-  color: var(--finance-danger-text);
-  background: var(--finance-danger-bg);
-  border-color: var(--finance-danger-border);
-}
+.textarea { min-height: 70px; resize: vertical; }
+.small { font-size: 13px; }
+.sm { padding: 8px 14px; font-size: 14px; }
 
-:global(.dark) .finance-entry .feedback-card.success {
-  color: var(--finance-success-text);
-  background: var(--finance-success-bg);
-  border-color: var(--finance-success-border);
-}
-
-@media (max-width: 960px) {
-  .hero {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 680px) {
-  .grid.two,
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-actions {
-    flex-direction: column;
-  }
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; }
 }
 </style>

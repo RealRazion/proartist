@@ -125,6 +125,14 @@
                   <strong>{{ fmt(debt.monthly_payment) }}</strong>
                 </div>
                 <div class="debt-actions">
+                  <button
+                    v-if="debt.status === 'ACTIVE' && !debt.is_fully_paid && debt.payment_type === 'INSTALLMENT'"
+                    class="icon-btn"
+                    title="Geplante Rate zahlen"
+                    @click="payPlannedInstallment(debt)"
+                  >
+                    €
+                  </button>
                   <button class="icon-btn" title="Bearbeiten" @click="openDebtModal(debt)">✎</button>
                   <button class="icon-btn danger" title="Löschen" @click="deleteDebt(debt)">✕</button>
                 </div>
@@ -623,6 +631,29 @@ async function deleteDebt(debt) {
     await loadDebts(project.value.id);
   } catch (err) {
     setError(apiError(err, "Schuld konnte nicht gelöscht werden."));
+  }
+}
+
+async function payPlannedInstallment(debt) {
+  if (!project.value || !debt) return;
+  const plannedAmount = Number(debt.scheduled_payment_amount ?? debt.monthly_payment ?? 0);
+  if (plannedAmount <= 0) {
+    setError("Für diese Schuld ist keine geplante Rate verfügbar.");
+    return;
+  }
+  if (!confirm(`Geplante Rate für "${debt.name}" jetzt als bezahlt markieren?`)) return;
+
+  try {
+    await api.post(`debts/${debt.id}/record-payment/`, {
+      decision: "paid",
+      amount: plannedAmount,
+      date: todayStr(),
+      notes: "Geplante Rate im Finanzplaner bezahlt",
+    });
+    setSuccess("Geplante Rate als bezahlt markiert.");
+    await loadDebts(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Geplante Rate konnte nicht verbucht werden."));
   }
 }
 

@@ -174,6 +174,41 @@
           </div>
         </article>
       </section>
+
+      <!-- ===== GEPLANTE ZAHLUNGEN ===== -->
+      <section v-show="activeTab === 'planned'" class="tab-content">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Geplante Zahlungen</h2>
+              <p class="muted small">Einmalige zukünftige Zahlungen im Überblick</p>
+            </div>
+            <button class="btn ghost sm" type="button" @click="openPlannedModal()">+ Zahlung planen</button>
+          </div>
+
+          <div v-if="plannedPayments.length" class="entry-list">
+            <div v-for="entry in plannedPayments" :key="entry.id" class="entry-row planned-row">
+              <div class="entry-info">
+                <strong>{{ entry.title }}</strong>
+                <span v-if="entry.due_date" class="muted small">Fällig: {{ entry.due_date }}</span>
+                <span v-if="entry.notes" class="muted small">{{ entry.notes }}</span>
+              </div>
+              <div class="entry-right">
+                <!-- Planned payments are expenses, so always shown in danger/red -->
+                <span class="amount danger">{{ fmt(entry.amount) }}</span>
+                <button class="icon-btn" title="Bearbeiten" @click="openPlannedModal(entry)">✎</button>
+                <button class="icon-btn danger" title="Löschen" @click="deletePlanned(entry)">✕</button>
+              </div>
+            </div>
+          </div>
+          <p v-else class="muted small empty-hint">Noch keine Zahlungen geplant.</p>
+
+          <div v-if="plannedPayments.length" class="section-total">
+            <span>Geplante Zahlungen gesamt</span>
+            <strong>{{ fmt(plannedPayments.reduce((s, e) => s + Number(e.amount || 0), 0)) }}</strong>
+          </div>
+        </article>
+      </section>
     </template>
 
     <!-- ===== INCOME MODAL ===== -->
@@ -273,6 +308,40 @@
         </form>
       </div>
     </div>
+
+    <!-- ===== PLANNED PAYMENT MODAL ===== -->
+    <div v-if="showPlannedModal" class="modal-overlay" @click.self="showPlannedModal = false">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>{{ plannedForm.id ? 'Zahlung bearbeiten' : 'Zahlung planen' }}</h3>
+          <button class="modal-close" @click="showPlannedModal = false">&times;</button>
+        </div>
+        <form class="modal-form" @submit.prevent="savePlanned">
+          <label>
+            Bezeichnung
+            <input v-model.trim="plannedForm.title" class="input" placeholder="z. B. Jahresversicherung, Steuer" required />
+          </label>
+          <div class="form-grid">
+            <label>
+              Betrag (€)
+              <input v-model="plannedForm.amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
+            </label>
+            <label>
+              Fälligkeitsdatum
+              <input v-model="plannedForm.due_date" class="input" type="date" required />
+            </label>
+          </div>
+          <label>
+            Notiz
+            <textarea v-model="plannedForm.notes" class="input textarea" rows="2" placeholder="Optional"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showPlannedModal = false">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -292,6 +361,7 @@ const project = ref(null);
 const incomeEntries = ref([]);
 const subscriptions = ref([]);
 const debts = ref([]);
+const plannedPayments = ref([]);
 const errorMessage = ref("");
 const successMessage = ref("");
 
@@ -300,6 +370,7 @@ const tabs = [
   { id: "overview", label: "Übersicht" },
   { id: "debts", label: "Schulden" },
   { id: "subscriptions", label: "Abos" },
+  { id: "planned", label: "Geplante Zahlungen" },
 ];
 
 // ── Modal state ────────────────────────────────────────────────────────────
@@ -311,6 +382,9 @@ const debtForm = ref({ id: null, name: "", total_amount: "", amount_paid: "", mo
 
 const showSubModal = ref(false);
 const subForm = ref({ id: null, title: "", amount: "", notes: "" });
+
+const showPlannedModal = ref(false);
+const plannedForm = ref({ id: null, title: "", amount: "", due_date: "", notes: "" });
 
 // ── Computed ───────────────────────────────────────────────────────────────
 const totalIncome = computed(() =>
@@ -412,9 +486,13 @@ async function loadEntries(projectId) {
     const all = normalise(data);
     incomeEntries.value = all.filter((e) => e.entry_type === "INCOME" && e.is_active);
     subscriptions.value = all.filter((e) => e.entry_type === "SUBSCRIPTION" && e.is_active);
+    plannedPayments.value = all
+      .filter((e) => e.frequency === "ONCE" && ["FIXED", "VARIABLE"].includes(e.entry_type) && e.is_active)
+      .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
   } catch {
     incomeEntries.value = [];
     subscriptions.value = [];
+    plannedPayments.value = [];
   }
 }
 
@@ -594,6 +672,56 @@ async function deleteSub(sub) {
     await loadEntries(project.value.id);
   } catch (err) {
     setError(apiError(err, "Abo konnte nicht gelöscht werden."));
+  }
+}
+
+// ── Planned Payment CRUD ───────────────────────────────────────────────────
+function openPlannedModal(entry = null) {
+  if (entry) {
+    plannedForm.value = { id: entry.id, title: entry.title, amount: entry.amount, due_date: entry.due_date || "", notes: entry.notes || "" };
+  } else {
+    plannedForm.value = { id: null, title: "", amount: "", due_date: "", notes: "" };
+  }
+  errorMessage.value = "";
+  showPlannedModal.value = true;
+}
+
+async function savePlanned() {
+  if (!project.value) return;
+  saving.value = true;
+  try {
+    const payload = {
+      project: project.value.id,
+      title: plannedForm.value.title,
+      entry_type: "FIXED",
+      amount: toAmount(plannedForm.value.amount),
+      frequency: "ONCE",
+      due_date: plannedForm.value.due_date,
+      notes: plannedForm.value.notes,
+    };
+    if (plannedForm.value.id) {
+      await api.patch(`finance-entries/${plannedForm.value.id}/`, payload);
+    } else {
+      await api.post("finance-entries/", payload);
+    }
+    showPlannedModal.value = false;
+    setSuccess("Zahlung gespeichert.");
+    await loadEntries(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Zahlung konnte nicht gespeichert werden."));
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function deletePlanned(entry) {
+  if (!confirm(`Geplante Zahlung "${entry.title}" löschen?`)) return;
+  try {
+    await api.delete(`finance-entries/${entry.id}/`);
+    setSuccess("Zahlung gelöscht.");
+    await loadEntries(project.value.id);
+  } catch (err) {
+    setError(apiError(err, "Zahlung konnte nicht gelöscht werden."));
   }
 }
 
@@ -835,6 +963,10 @@ onMounted(async () => {
 .amount {
   font-weight: 700;
   font-size: 15px;
+}
+
+.amount.danger {
+  color: var(--clr-danger);
 }
 
 /* ── Debt row ── */

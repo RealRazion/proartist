@@ -3,7 +3,7 @@
     <section class="hero card">
       <div class="hero-copy">
         <p class="eyebrow">Finance</p>
-        <h1>Finanzplaner</h1>
+        <h1>Schulden Planer</h1>
         <p class="muted lead">
           Behalte den Überblick über deine Einnahmen, Schulden und Abos –
           alles an einem Ort, klar und einfach.

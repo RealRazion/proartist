@@ -2,10 +2,6 @@
   <div class="platform-layout">
     <header v-if="showTopbar" class="platform-topbar card">
       <div class="topbar-left">
-        <router-link class="brand-link" :to="{ name: 'platforms' }">
-          <span class="brand-mark">UNYQ</span>
-          <span class="brand-pill">Hub</span>
-        </router-link>
         <div class="page-copy">
           <p class="page-kicker">{{ pageKicker }}</p>
           <h1>{{ pageTitle }}</h1>

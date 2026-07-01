@@ -308,17 +308,6 @@ const platforms = [
     status: "beta",
   },
   {
-    key: "content-schedule",
-    title: "ACH",
-    category: "Planung",
-    description: "Plane deinen Content von Montag bis Sonntag. Lege Content-Serien mit Header, Parts und Links per Drag & Drop an.",
-    buttonLabel: "Planen",
-    icon: "📅",
-    features: ["Wochenplan", "Drag & Drop", "Content-Serien"],
-    roles: ["TEAM", "ARTIST", "PROD", "MEMBER"],
-    status: "beta",
-  },
-  {
     key: "fitness",
     title: "Fitness Tracker",
     category: "Health",
@@ -421,7 +410,7 @@ const activeRole = computed(() => {
 });
 
 const defaultOrder = [
-  "dashboard", "todo", "music", "contests", "content-schedule",
+  "dashboard", "todo", "music", "contests",
   "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "manage-platforms", "admin", "testing",
 ];
 
@@ -456,7 +445,7 @@ const orderedPlatforms = computed(() => {
   return [...known.map((key) => visible.find((p) => p.key === key)).filter(Boolean), ...rest];
 });
 
-const primaryPlatformKeys = ["dashboard", "contests", "content-schedule", "locations"];
+const primaryPlatformKeys = ["dashboard", "contests", "locations"];
 const toolsPlatformKeys = ["music", "finance", "fitness", "todo", "content-studio", "plugin-guides", "api-center"];
 const adminTeamPlatformKeys = ["manage-platforms", "admin", "testing"];
 
@@ -580,7 +569,6 @@ function openPlatform(platformKey, platformMeta = null) {
     locations: "/platforms/locations",
     finance: "/platforms/finance",
     "content-studio": "/platforms/content-studio",
-    "content-schedule": "/platforms/content-schedule",
     todo: "/platforms/todo",
     "plugin-guides": "/platforms/plugin-guides",
     "api-center": "/platforms/api-center",

@@ -27,8 +27,6 @@ const ROUTE_TO_PLATFORM_SLUG = {
   "platform-finance": "finance",
   finance: "finance",
   "platform-content-studio": "content-studio",
-  "platform-content-schedule": "content-schedule",
-  "content-schedule": "content-schedule",
   "platform-fitness": "fitness",
   fitness: "fitness",
   "platform-todo": "todo",

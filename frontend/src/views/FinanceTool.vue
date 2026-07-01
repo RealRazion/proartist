@@ -2,7 +2,7 @@
   <div class="finance-tool">
     <!-- Loading state -->
     <section v-if="loading && !project" class="status-card">
-      <p class="muted">Lade Finanzplaner...</p>
+      <p class="muted">Lade Schulden Planer...</p>
     </section>
 
     <!-- No project state -->
@@ -16,7 +16,7 @@
     <template v-else>
       <header class="topbar">
         <div class="topbar-left">
-          <p class="eyebrow">Finanzplaner</p>
+          <p class="eyebrow">Schulden Planer</p>
           <h1>{{ project?.title || "Finanzprojekt" }}</h1>
         </div>
         <button class="btn ghost sm" type="button" @click="router.push({ name: 'platform-finance' })">← Übersicht</button>

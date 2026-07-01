@@ -165,15 +165,6 @@ const adminTools = [
     features: ["Anfragen", "Tickets", "Genehmigungen"],
   },
   {
-    key: "content",
-    title: "Content Studio",
-    category: "Kommunikation",
-    description: "Tipps, News und Plugin Tutorials zentral erstellen und verwalten.",
-    buttonLabel: "Bearbeiten",
-    icon: "📝",
-    features: ["Tipps", "News", "Tutorials"],
-  },
-  {
     key: "system",
     title: "System-Einstellungen",
     category: "Konfiguration",
@@ -193,7 +184,6 @@ function openTool(tool) {
     analytics: "/app/analytics",
     security: "/app/profiles",
     requests: "/app/profiles",
-    content: "/platforms/content-studio",
     system: "/app/testing",
   };
   const path = mapping[tool];

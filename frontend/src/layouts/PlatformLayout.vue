@@ -72,11 +72,8 @@ const pageMeta = {
   "platform-locations": { title: "Locations", kicker: "Orte, Events und Buchungen" },
   "platform-finance": { title: "Finance", kicker: "Finanzprojekt anlegen" },
   finance: { title: "Finanzplaner", kicker: "Budget, Schulden und Monatsbild" },
-  "platform-content-studio": { title: "Content Studio", kicker: "Tipps, News und Tutorials" },
   "platform-plugin-guides": { title: "Plugin Guide", kicker: "Workflows, Tutorials und Setups" },
   "platform-api-center": { title: "API Platform", kicker: "Integrationen und Automationen" },
-  "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },
-  fitness: { title: "Fitness Tracker", kicker: "Kalorien und Tagesprofil" },
   "platform-todo": { title: "Todo", kicker: "Todos mit optionalem Datum" },
   "manage-platforms": { title: "Manage Platforms", kicker: "Status und Zugriff steuern" },
 };

@@ -297,39 +297,6 @@ const platforms = [
     status: "live",
   },
   {
-    key: "content-studio",
-    title: "Content Studio",
-    category: "Content",
-    description: "Erstelle zentral Tipps, News und Plugin-Tutorials fuer alle Nutzerbereiche.",
-    buttonLabel: "Erstellen",
-    icon: "📝",
-    features: ["Tipps", "News", "Tutorials"],
-    roles: ["TEAM", "ARTIST", "PROD", "MEMBER"],
-    status: "beta",
-  },
-  {
-    key: "content-schedule",
-    title: "ACH",
-    category: "Planung",
-    description: "Plane deinen Content von Montag bis Sonntag. Lege Content-Serien mit Header, Parts und Links per Drag & Drop an.",
-    buttonLabel: "Planen",
-    icon: "📅",
-    features: ["Wochenplan", "Drag & Drop", "Content-Serien"],
-    roles: ["TEAM", "ARTIST", "PROD", "MEMBER"],
-    status: "beta",
-  },
-  {
-    key: "fitness",
-    title: "Fitness Tracker",
-    category: "Health",
-    description: "Tracke Kalorien, schaetze deinen Tagesverbrauch und finde einfache Essensideen fuer jede Mahlzeit.",
-    buttonLabel: "Starten",
-    icon: "🏋️",
-    features: ["Kcal", "Verbrauch", "Essensideen"],
-    roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC", "MEMBER"],
-    status: "beta",
-  },
-  {
     key: "todo",
     title: "Todo",
     category: "Organisation",
@@ -421,8 +388,7 @@ const activeRole = computed(() => {
 });
 
 const defaultOrder = [
-  "dashboard", "todo", "music", "contests", "content-schedule",
-  "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "manage-platforms", "admin", "testing",
+  "dashboard", "todo", "music", "contests", "plugin-guides", "api-center", "finance", "locations", "manage-platforms", "admin", "testing",
 ];
 
 const visiblePlatforms = computed(() => {
@@ -456,8 +422,8 @@ const orderedPlatforms = computed(() => {
   return [...known.map((key) => visible.find((p) => p.key === key)).filter(Boolean), ...rest];
 });
 
-const primaryPlatformKeys = ["dashboard", "contests", "content-schedule", "locations"];
-const toolsPlatformKeys = ["music", "finance", "fitness", "todo", "content-studio", "plugin-guides", "api-center"];
+const primaryPlatformKeys = ["dashboard", "contests", "locations"];
+const toolsPlatformKeys = ["music", "finance", "todo", "plugin-guides", "api-center"];
 const adminTeamPlatformKeys = ["manage-platforms", "admin", "testing"];
 
 const primaryPlatforms = computed(() => orderedPlatforms.value.filter((platform) => primaryPlatformKeys.includes(platform.key)));

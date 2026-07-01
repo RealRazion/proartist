@@ -37,12 +37,7 @@ const MusicLanding = () => import("../views/MusicLanding.vue");
 const LocationsLanding = () => import("../views/LocationsLanding.vue");
 const FinanceLanding = () => import("../views/FinanceLanding.vue");
 const FinanceTool = () => import("../views/FinanceTool.vue");
-const FitnessLanding = () => import("../views/FitnessLanding.vue");
-const FitnessTool = () => import("../views/FitnessTool.vue");
 const TodoLanding = () => import("../views/TodoLanding.vue");
-const ContentStudio = () => import("../views/ContentStudio.vue");
-const ContentScheduleLanding = () => import("../views/ContentScheduleLanding.vue");
-const ContentScheduleTool = () => import("../views/ContentScheduleTool.vue");
 const ManagePlatforms = () => import("../views/ManagePlatforms.vue");
 const SearchView = () => import("../views/SearchView.vue");
 const Testing = () => import("../views/Testing.vue");
@@ -109,13 +104,8 @@ const routes = [
       { path: "locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
       { path: "finance", name: "platform-finance", component: FinanceLanding, meta: { requiresAuth: true } },
       { path: "finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
-      { path: "content-studio", name: "platform-content-studio", component: ContentStudio, meta: { requiresAuth: true } },
-      { path: "content-schedule", name: "platform-content-schedule", component: ContentScheduleLanding, meta: { requiresAuth: true } },
-      { path: "content-schedule/planner", name: "content-schedule", component: ContentScheduleTool, meta: { requiresAuth: true } },
       { path: "plugin-guides", name: "platform-plugin-guides", component: PluginGuides, meta: { requiresAuth: true } },
       { path: "api-center", name: "platform-api-center", component: ApiCenter, meta: { requiresAuth: true } },
-      { path: "fitness", name: "platform-fitness", component: FitnessLanding, meta: { requiresAuth: true } },
-      { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
       { path: "todo", name: "platform-todo", component: TodoLanding, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },
       { path: "admin/user-role-management", name: "admin-user-role-management", component: UserRoleManagement, meta: { requiresAuth: true } },

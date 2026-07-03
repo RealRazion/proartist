@@ -2,10 +2,11 @@
   <div class="arena-page">
     <div class="ambient-bg"></div>
 
-    <header class="topbar">
+    <header class="topbar shell-card">
       <div class="brand-block">
         <p class="eyebrow">UNYQ COMPETITIVE MODE</p>
         <h1>Tournament Arena</h1>
+        <p class="subtitle">Turniere, Battles und Ranks in einer sauberen, lesbaren Oberfläche.</p>
       </div>
       <div class="topbar-actions">
         <button class="btn ghost small" type="button" @click="goHome">Hub</button>
@@ -18,7 +19,7 @@
       </div>
     </header>
 
-    <section class="main-tabs">
+    <section class="main-tabs shell-card">
       <button
         v-for="tab in tabOptions"
         :key="tab.key"
@@ -31,21 +32,21 @@
     </section>
 
     <section class="stats-strip">
-      <article>
+      <article class="stat-card">
+        <span class="stat-label">Turniere</span>
         <strong>{{ tournaments.length }}</strong>
-        <span>Turniere</span>
       </article>
-      <article>
+      <article class="stat-card">
+        <span class="stat-label">Battles</span>
         <strong>{{ battles.length }}</strong>
-        <span>Battles</span>
       </article>
-      <article>
+      <article class="stat-card">
+        <span class="stat-label">Ranked Profiles</span>
         <strong>{{ topRankedRows.length }}</strong>
-        <span>Ranked Profiles</span>
       </article>
-      <article>
+      <article class="stat-card">
+        <span class="stat-label">Dein Rank</span>
         <strong>#{{ myRankedRow?.rank || '-' }}</strong>
-        <span>Dein Rank</span>
       </article>
     </section>
 
@@ -53,22 +54,27 @@
       <section class="view-card spotlight" v-if="featuredTournament">
         <div class="spotlight-cover" :style="{ backgroundImage: `url(${tournamentCover(featuredTournament)})` }"></div>
         <div class="spotlight-content">
-          <p class="eyebrow">FEATURED</p>
+          <p class="eyebrow">FEATURED TOURNAMENT</p>
           <h2>{{ featuredTournament.title }}</h2>
-          <p>{{ featuredTournament.description || "Bereit für die nächste Runde." }}</p>
+          <p class="spotlight-copy">{{ featuredTournament.description || "Bereit fuer die naechste Runde." }}</p>
           <div class="inline-tags">
             <span class="badge">{{ statusLabel(featuredTournament.status) }}</span>
             <span v-if="featuredTournament.is_no_loss" class="badge">No Loss</span>
             <span v-if="featuredTournament.is_recurring" class="badge">Recurring</span>
           </div>
           <div class="spotlight-actions">
-            <button class="btn" @click="openTournamentDetail(featuredTournament)">Turnier öffnen</button>
-            <button class="btn ghost" @click="selectTournament(nextFeaturedId)">Nächstes</button>
+            <button class="btn" @click="openTournamentDetail(featuredTournament)">Turnier oeffnen</button>
+            <button class="btn ghost" @click="selectTournament(nextFeaturedId)">Naechstes</button>
           </div>
         </div>
       </section>
 
       <section class="view-card">
+        <div class="section-head compact">
+          <h2>Turniere entdecken</h2>
+          <p>Filter, sortieren und direkt in den Tournament-Flow springen.</p>
+        </div>
+
         <div class="controls">
           <input v-model.trim="tournamentSearch" class="input" type="text" placeholder="Turnier suchen..." />
           <select v-model="statusFilter" class="input">
@@ -114,43 +120,54 @@
       <section class="view-card">
         <div class="section-head">
           <h2>Leaderboard</h2>
-          <p>Top Spieler mit Rank-Artwork und Battle-Profilzugriff.</p>
+          <p>Einladende Rangauswertung mit Podium und klaren Spielerwerten.</p>
         </div>
+
         <div class="rank-row" v-if="rankedOverview.tiers?.length">
           <article v-for="tier in rankedOverview.tiers" :key="tier.key" class="rank-chip">
             <img :src="rankArtwork(tier.key)" :alt="tier.label" />
             <span>{{ tier.label }}</span>
           </article>
         </div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Player</th>
-                <th>Points</th>
-                <th>Wins</th>
-                <th>Battles</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in topRankedRows" :key="`row-${row.profile_id}`" :class="{ me: row.profile_id === myProfileId }">
-                <td>
-                  <div class="rank-cell">
-                    <img class="tiny-rank" :src="rankArtwork(row.tier?.key)" :alt="row.tier?.label" />
-                    <strong>#{{ row.rank }}</strong>
-                  </div>
-                </td>
-                <td>
-                  <button class="link-btn" @click="openBattleProfileByRow(row)">{{ row.name }}</button>
-                </td>
-                <td>{{ row.ranked_points }}</td>
-                <td>{{ row.wins }}</td>
-                <td>{{ row.battles }}</td>
-              </tr>
-            </tbody>
-          </table>
+
+        <div v-if="topRankedRows.length" class="podium-grid">
+          <article
+            v-for="row in podiumRows"
+            :key="`podium-${row.profile_id}`"
+            class="podium-card"
+            :class="[`place-${row.rank}`]"
+          >
+            <span class="podium-rank">#{{ row.rank }}</span>
+            <img class="podium-rank-art" :src="rankArtwork(row.tier?.key)" :alt="row.tier?.label || 'Tier'" />
+            <button class="link-btn podium-name" @click="openBattleProfileByRow(row)">{{ row.name }}</button>
+            <p>{{ row.ranked_points || 0 }} RP</p>
+          </article>
         </div>
+
+        <div class="leaderboard-list" v-if="topRankedRows.length">
+          <article
+            v-for="row in topRankedRows"
+            :key="`row-${row.profile_id}`"
+            class="leaderboard-row"
+            :class="{ me: row.profile_id === myProfileId }"
+          >
+            <div class="leader-left">
+              <span class="rank-pill">#{{ row.rank }}</span>
+              <img class="tiny-rank" :src="rankArtwork(row.tier?.key)" :alt="row.tier?.label || 'Tier'" />
+              <div class="leader-name">
+                <button class="link-btn" @click="openBattleProfileByRow(row)">{{ row.name }}</button>
+                <small>{{ row.tier?.label || 'Unranked' }}</small>
+              </div>
+            </div>
+            <div class="leader-stats">
+              <span class="stat-pill"><strong>{{ row.ranked_points || 0 }}</strong><em>RP</em></span>
+              <span class="stat-pill"><strong>{{ row.wins || 0 }}</strong><em>Wins</em></span>
+              <span class="stat-pill"><strong>{{ winRate(row) }}</strong><em>Winrate</em></span>
+              <span class="stat-pill"><strong>{{ row.battles || 0 }}</strong><em>Battles</em></span>
+            </div>
+          </article>
+        </div>
+        <div v-else class="empty">Noch keine Ranked-Daten verfuegbar.</div>
       </section>
     </template>
 
@@ -177,7 +194,7 @@
           <h2>Admin Turnier-Builder</h2>
           <p>Neue Turniere anlegen und Wettbewerb live schalten.</p>
         </div>
-        <button class="btn ghost" @click="showCreateForm = !showCreateForm">{{ showCreateForm ? 'Form schließen' : 'Neues Turnier' }}</button>
+        <button class="btn ghost" @click="showCreateForm = !showCreateForm">{{ showCreateForm ? 'Form schliessen' : 'Neues Turnier' }}</button>
         <form v-if="showCreateForm" class="builder" @submit.prevent="createTournament">
           <input v-model.trim="createForm.title" class="input" required placeholder="Turnier Titel" />
           <textarea v-model.trim="createForm.description" class="input" rows="3" placeholder="Beschreibung"></textarea>
@@ -229,7 +246,7 @@
             </div>
           </article>
         </div>
-        <div v-else class="empty">Keine Battles verfügbar.</div>
+        <div v-else class="empty">Keine Battles verfuegbar.</div>
       </section>
     </template>
 
@@ -237,7 +254,7 @@
       <section class="view-card">
         <div class="section-head">
           <h2>Admin Tools</h2>
-          <p>Ranked Rules und Utility-Tools für Team-Mitglieder.</p>
+          <p>Ranked Rules und Utility-Tools fuer Team-Mitglieder.</p>
         </div>
         <div class="split-2">
           <div class="admin-box">
@@ -253,7 +270,7 @@
           </div>
           <div class="admin-box">
             <h3>Utilities</h3>
-            <button class="btn ghost" @click="goAnimationLab">Animation Lab öffnen</button>
+            <button class="btn ghost" @click="goAnimationLab">Animation Lab oeffnen</button>
           </div>
         </div>
       </section>
@@ -263,7 +280,7 @@
       <article class="modal-card">
         <header>
           <h2>{{ selectedBattleProfile.name }}</h2>
-          <button class="btn ghost small" @click="selectedBattleProfile = null">✕</button>
+          <button class="btn ghost small" @click="selectedBattleProfile = null">X</button>
         </header>
         <div class="modal-body">
           <div class="profile-hero">
@@ -282,7 +299,7 @@
                 <small>{{ item.description }}</small>
               </article>
             </div>
-            <p v-else class="muted">Keine Achievements verfügbar.</p>
+            <p v-else class="muted">Keine Achievements verfuegbar.</p>
           </section>
 
           <section>
@@ -370,6 +387,7 @@ const profileInitial = computed(() => {
 const myProfileId = computed(() => profile.value?.id || null);
 const rankedRows = computed(() => rankedOverview.value?.rows || []);
 const topRankedRows = computed(() => rankedRows.value.slice(0, 50));
+const podiumRows = computed(() => topRankedRows.value.filter((row) => Number(row.rank || 0) > 0).slice(0, 3));
 const myRankedRow = computed(() => rankedRows.value.find((row) => row.profile_id === myProfileId.value) || null);
 
 const battleProfileHistory = computed(() => {
@@ -461,6 +479,13 @@ function rankArtwork(tierKey) {
   const key = String(tierKey || "BRONZE").toUpperCase();
   const map = { BRONZE: bronzeRank, SILBER: silberRank, GOLD: goldRank, PLATIN: platinRank, LEGENDAER: legendarRank };
   return map[key] || bronzeRank;
+}
+
+function winRate(row) {
+  const battlesCount = Number(row?.battles || 0);
+  if (!battlesCount) return "0%";
+  const wins = Number(row?.wins || 0);
+  return `${Math.round((wins / battlesCount) * 100)}%`;
 }
 
 function statusLabel(status) {
@@ -684,18 +709,42 @@ watch(
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@400;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap");
 
 .arena-page {
+  --arena-bg: #f5f7fb;
+  --arena-bg-elev: #ffffff;
+  --arena-text: #142033;
+  --arena-muted: #5a6a82;
+  --arena-border: #d7deea;
+  --arena-accent: #ff6a3d;
+  --arena-accent-2: #ff8c3a;
+  --arena-chip: #eef2fa;
+  --arena-shadow: 0 12px 34px rgba(17, 26, 48, 0.08);
   min-height: 100vh;
   width: 100vw;
   margin-left: calc(50% - 50vw);
-  padding: 18px clamp(14px, 2vw, 34px) 42px;
+  padding: 20px clamp(14px, 2vw, 34px) 46px;
   position: relative;
-  color: #eef3ff;
-  font-family: "Chakra Petch", sans-serif;
+  color: var(--arena-text);
+  font-family: "Manrope", sans-serif;
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  background: var(--arena-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .arena-page {
+    --arena-bg: #090f1f;
+    --arena-bg-elev: #121b2f;
+    --arena-text: #ebf0ff;
+    --arena-muted: #aab6cf;
+    --arena-border: #2a3754;
+    --arena-accent: #ff7e59;
+    --arena-accent-2: #ffb347;
+    --arena-chip: #1d2943;
+    --arena-shadow: 0 14px 36px rgba(0, 0, 0, 0.36);
+  }
 }
 
 .ambient-bg {
@@ -703,42 +752,53 @@ watch(
   inset: 0;
   z-index: -2;
   background:
-    radial-gradient(circle at 9% 10%, rgba(255, 71, 126, 0.28), transparent 43%),
-    radial-gradient(circle at 85% 14%, rgba(88, 213, 255, 0.24), transparent 38%),
-    radial-gradient(circle at 50% 90%, rgba(255, 190, 92, 0.16), transparent 42%),
-    linear-gradient(145deg, #050711 0%, #0d1534 50%, #160f2a 100%);
+    radial-gradient(circle at 8% 8%, rgba(255, 146, 75, 0.2), transparent 38%),
+    radial-gradient(circle at 88% 18%, rgba(93, 203, 255, 0.22), transparent 36%),
+    radial-gradient(circle at 42% 92%, rgba(255, 196, 123, 0.18), transparent 46%);
 }
 
-.topbar,
-.main-tabs,
-.stats-strip,
-.view-card {
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-  backdrop-filter: blur(6px);
+.shell-card,
+.view-card,
+.stat-card {
+  border: 1px solid var(--arena-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 96%, white 4%), var(--arena-bg-elev));
+  box-shadow: var(--arena-shadow);
 }
 
 .topbar {
-  padding: 14px 16px;
+  padding: 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 14px;
 }
 
+.brand-block {
+  display: grid;
+  gap: 4px;
+}
+
 .brand-block h1 {
-  margin: 2px 0 0;
-  font-family: "Sora", sans-serif;
-  font-size: clamp(1.35rem, 2.1vw, 2rem);
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(1.4rem, 2.4vw, 2.15rem);
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--arena-muted);
+  font-size: 0.92rem;
 }
 
 .eyebrow {
   margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #78d5ff;
+  color: color-mix(in srgb, var(--arena-accent) 66%, var(--arena-text) 34%);
+  font-weight: 800;
 }
 
 .topbar-actions {
@@ -748,83 +808,100 @@ watch(
 }
 
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: linear-gradient(125deg, #ff4d6d, #ff7b54);
+  border: 1px solid color-mix(in srgb, var(--arena-border) 70%, var(--arena-text) 30%);
+  background: linear-gradient(135deg, var(--arena-accent), var(--arena-accent-2));
   color: #fff;
   font-weight: 800;
   cursor: pointer;
 }
 
 .main-tabs {
-  padding: 8px;
+  padding: 9px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .tab-pill {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
-  color: #ccdaff;
+  border: 1px solid var(--arena-border);
+  background: var(--arena-chip);
+  color: var(--arena-text);
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   cursor: pointer;
-  font-family: "Sora", sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-weight: 600;
 }
 
 .tab-pill.active {
-  background: linear-gradient(125deg, #ff4d6d, #ff7b54);
+  background: linear-gradient(125deg, var(--arena-accent), var(--arena-accent-2));
   border-color: transparent;
   color: #fff;
 }
 
 .stats-strip {
-  padding: 12px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.stats-strip article {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
-  background: rgba(10, 16, 35, 0.45);
-  padding: 10px;
+.stat-card {
+  padding: 12px 14px;
   display: grid;
   gap: 2px;
 }
 
-.stats-strip strong {
-  font-size: 1.1rem;
-  color: #fff;
+.stat-card strong {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.25rem;
 }
 
-.stats-strip span {
+.stat-label {
   font-size: 0.78rem;
-  color: #b8c7ed;
+  color: var(--arena-muted);
 }
 
 .view-card {
-  padding: 14px;
+  padding: 16px;
   display: grid;
-  gap: 12px;
+  gap: 14px;
+}
+
+.section-head {
+  display: grid;
+  gap: 2px;
+}
+
+.section-head.compact {
+  margin-bottom: 2px;
+}
+
+.section-head h2 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.24rem;
+}
+
+.section-head p {
+  margin: 0;
+  color: var(--arena-muted);
 }
 
 .spotlight {
-  grid-template-columns: minmax(260px, 38%) minmax(0, 1fr);
+  grid-template-columns: minmax(300px, 40%) minmax(0, 1fr);
   align-items: stretch;
   overflow: hidden;
+  gap: 0;
+  padding: 0;
 }
 
 .spotlight-cover {
-  border-radius: 12px;
   background-size: cover;
   background-position: center;
-  min-height: 220px;
+  min-height: 250px;
   position: relative;
 }
 
@@ -832,48 +909,67 @@ watch(
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 40%, rgba(5, 7, 17, 0.75));
+  background: linear-gradient(180deg, transparent 36%, rgba(0, 0, 0, 0.48));
+}
+
+.spotlight-content {
+  padding: 18px;
+  display: grid;
+  gap: 10px;
 }
 
 .spotlight-content h2 {
-  margin: 2px 0;
-  font-family: "Sora", sans-serif;
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.spotlight-copy {
+  margin: 0;
+  color: var(--arena-muted);
+  line-height: 1.5;
 }
 
 .inline-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 7px;
 }
 
 .badge {
   display: inline-flex;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  align-items: center;
+  border: 1px solid var(--arena-border);
   border-radius: 999px;
-  padding: 2px 9px;
-  font-size: 0.72rem;
-  color: #dbe7ff;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  color: var(--arena-text);
+  background: var(--arena-chip);
 }
 
 .spotlight-actions {
   display: flex;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 2px;
 }
 
 .controls {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) 190px 190px;
+  grid-template-columns: minmax(240px, 1fr) 200px 200px;
   gap: 10px;
 }
 
 .input {
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.06);
-  color: #eef3ff;
+  border-radius: 11px;
+  border: 1px solid var(--arena-border);
+  background: var(--arena-bg-elev);
+  color: var(--arena-text);
   padding: 9px 11px;
-  font-family: "Sora", sans-serif;
+  font-family: "Manrope", sans-serif;
+}
+
+.input:focus {
+  outline: 2px solid color-mix(in srgb, var(--arena-accent) 52%, transparent);
+  outline-offset: 1px;
 }
 
 .tournament-grid {
@@ -883,51 +979,47 @@ watch(
 }
 
 .tournament-card {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
+  border: 1px solid var(--arena-border);
+  border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--arena-bg-elev);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.tournament-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--arena-accent) 45%, var(--arena-border) 55%);
+  box-shadow: 0 12px 20px rgba(18, 30, 56, 0.12);
 }
 
 .tournament-card.selected {
-  border-color: #ff6f8b;
+  border-color: color-mix(in srgb, var(--arena-accent) 58%, var(--arena-border) 42%);
 }
 
 .thumb {
-  height: 130px;
+  height: 136px;
   background-size: cover;
   background-position: center;
 }
 
 .card-body {
-  padding: 10px;
+  padding: 12px;
   display: grid;
   gap: 6px;
 }
 
 .card-body h3 {
   margin: 0;
-  font-family: "Sora", sans-serif;
-  font-size: 0.96rem;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1rem;
 }
 
 .card-body p {
   margin: 0;
-  font-size: 0.84rem;
-  color: #bbcaef;
-  min-height: 2.3em;
-}
-
-.section-head h2 {
-  margin: 0;
-  font-family: "Sora", sans-serif;
-}
-
-.section-head p {
-  margin: 2px 0 0;
-  color: #b8c7ed;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  color: var(--arena-muted);
+  min-height: 2.4em;
 }
 
 .rank-row {
@@ -938,66 +1030,173 @@ watch(
 }
 
 .rank-chip {
-  min-width: 85px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 10px;
-  padding: 7px;
+  min-width: 98px;
+  border: 1px solid var(--arena-border);
+  border-radius: 12px;
+  padding: 9px;
   display: grid;
   place-items: center;
-  gap: 4px;
-  font-size: 0.74rem;
+  gap: 6px;
+  font-size: 0.75rem;
+  background: var(--arena-chip);
 }
 
 .rank-chip img {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
 }
 
-.table-wrap {
-  overflow: auto;
+.podium-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
+.podium-card {
+  border: 1px solid var(--arena-border);
+  border-radius: 14px;
+  padding: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-accent) 8%, var(--arena-bg-elev) 92%), var(--arena-bg-elev));
+  display: grid;
+  gap: 5px;
+  justify-items: center;
 }
 
-.table th,
-.table td {
-  padding: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  text-align: left;
+.podium-card.place-1 {
+  background: linear-gradient(180deg, rgba(255, 191, 70, 0.24), var(--arena-bg-elev));
 }
 
-.table th {
-  font-size: 0.82rem;
-  color: #b8c7ed;
+.podium-card.place-2 {
+  background: linear-gradient(180deg, rgba(173, 188, 207, 0.27), var(--arena-bg-elev));
 }
 
-.table tr.me {
-  background: rgba(255, 110, 145, 0.16);
+.podium-card.place-3 {
+  background: linear-gradient(180deg, rgba(200, 150, 100, 0.26), var(--arena-bg-elev));
 }
 
-.rank-cell {
-  display: flex;
+.podium-rank {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 26px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--arena-accent) 16%, var(--arena-bg-elev) 84%);
+  border: 1px solid var(--arena-border);
+  font-weight: 800;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.podium-rank-art {
+  width: 66px;
+  height: 66px;
+}
+
+.podium-name {
+  font-weight: 700;
+  font-size: 0.94rem;
+}
+
+.podium-card p {
+  margin: 0;
+  color: var(--arena-muted);
+}
+
+.leaderboard-list {
+  display: grid;
   gap: 8px;
 }
 
+.leaderboard-row {
+  border: 1px solid var(--arena-border);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--arena-bg-elev);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.leaderboard-row.me {
+  border-color: color-mix(in srgb, var(--arena-accent) 52%, var(--arena-border) 48%);
+  background: color-mix(in srgb, var(--arena-accent) 8%, var(--arena-bg-elev) 92%);
+}
+
+.leader-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--arena-chip);
+  border: 1px solid var(--arena-border);
+  font-weight: 800;
+}
+
 .tiny-rank {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
+}
+
+.leader-name {
+  display: grid;
+  min-width: 0;
+}
+
+.leader-name small {
+  color: var(--arena-muted);
+}
+
+.leader-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.stat-pill {
+  border: 1px solid var(--arena-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  background: var(--arena-chip);
+}
+
+.stat-pill strong {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.stat-pill em {
+  font-style: normal;
+  font-size: 0.73rem;
+  color: var(--arena-muted);
 }
 
 .link-btn {
   border: 0;
   background: transparent;
-  color: #9edcff;
+  color: color-mix(in srgb, var(--arena-accent) 72%, var(--arena-text) 28%);
   font: inherit;
   padding: 0;
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: rgba(158, 220, 255, 0.4);
+  text-decoration: none;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .list {
@@ -1006,23 +1205,27 @@ watch(
 }
 
 .list-row {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
+  border: 1px solid var(--arena-border);
+  border-radius: 12px;
   padding: 10px;
   display: flex;
   justify-content: space-between;
   gap: 10px;
+  background: var(--arena-bg-elev);
 }
 
 .list-row p {
-  margin: 2px 0 0;
-  color: #b8c7ed;
-  font-size: 0.85rem;
+  margin: 3px 0 0;
+  color: var(--arena-muted);
+  font-size: 0.88rem;
 }
 
-.builder {
+.builder,
+.mini-list,
+.history,
+.modal-body {
   display: grid;
-  gap: 9px;
+  gap: 10px;
 }
 
 .split-2 {
@@ -1043,13 +1246,20 @@ watch(
   gap: 12px;
 }
 
-.battle-tile {
-  border: 1px solid rgba(255, 255, 255, 0.15);
+.battle-tile,
+.admin-box,
+.chip,
+.history-row,
+.profile-hero {
+  border: 1px solid var(--arena-border);
   border-radius: 12px;
+  background: var(--arena-bg-elev);
+}
+
+.battle-tile {
   padding: 10px;
   display: grid;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .duel-head {
@@ -1070,8 +1280,8 @@ watch(
 .duel-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 0.82rem;
-  color: #b8c7ed;
+  font-size: 0.83rem;
+  color: var(--arena-muted);
 }
 
 .duel-actions {
@@ -1080,22 +1290,12 @@ watch(
 }
 
 .admin-box {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  display: grid;
-  gap: 8px;
 }
 
 .admin-box h3 {
-  margin: 0;
-  font-family: "Sora", sans-serif;
-}
-
-.mini-list {
-  display: grid;
-  gap: 8px;
+  margin: 0 0 8px;
+  font-family: "Space Grotesk", sans-serif;
 }
 
 .tier-edit {
@@ -1107,7 +1307,7 @@ watch(
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.74);
+  background: rgba(5, 8, 16, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1118,33 +1318,24 @@ watch(
   width: min(760px, 92vw);
   max-height: 84vh;
   overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 16px;
-  background: linear-gradient(145deg, rgba(255, 87, 122, 0.14), rgba(112, 231, 255, 0.08));
+  border: 1px solid var(--arena-border);
+  border-radius: 18px;
+  background: var(--arena-bg-elev);
+  box-shadow: var(--arena-shadow);
 }
 
 .modal-card header {
   padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid var(--arena-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.modal-body {
-  padding: 16px;
-  display: grid;
-  gap: 14px;
-}
-
 .profile-hero {
-  display: grid;
   grid-template-columns: auto 1fr;
   gap: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.03);
 }
 
 .hero-rank {
@@ -1158,40 +1349,34 @@ watch(
   gap: 8px;
 }
 
-.chip {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 10px;
+.chip,
+.history-row {
   padding: 10px;
-  background: rgba(255, 255, 255, 0.03);
+}
+
+.chip {
   display: grid;
   gap: 3px;
 }
 
-.history {
-  display: grid;
-  gap: 7px;
-}
-
 .history-row {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 9px;
-  padding: 9px;
   display: flex;
   justify-content: space-between;
   gap: 10px;
 }
 
-.history-row span {
-  color: #b8c7ed;
-  font-size: 0.84rem;
+.history-row span,
+.muted {
+  color: var(--arena-muted);
+  font-size: 0.86rem;
 }
 
 .btn {
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 9px;
-  background: linear-gradient(125deg, #ff4d6d, #ff7b54);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: linear-gradient(125deg, var(--arena-accent), var(--arena-accent-2));
   color: #fff;
-  font-family: "Sora", sans-serif;
+  font-family: "Space Grotesk", sans-serif;
   font-weight: 700;
   padding: 8px 12px;
   cursor: pointer;
@@ -1199,23 +1384,25 @@ watch(
 
 .btn.ghost {
   background: transparent;
-  color: #d2ddff;
+  border-color: var(--arena-border);
+  color: var(--arena-text);
 }
 
 .btn.small {
-  padding: 5px 9px;
+  padding: 6px 10px;
   font-size: 0.82rem;
 }
 
 .empty {
   padding: 20px;
   text-align: center;
-  color: #b8c7ed;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  color: var(--arena-muted);
+  border: 1px dashed var(--arena-border);
   border-radius: 12px;
+  background: color-mix(in srgb, var(--arena-chip) 55%, transparent);
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .stats-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1224,16 +1411,25 @@ watch(
     grid-template-columns: 1fr;
   }
 
-  .controls {
+  .podium-grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .split-2 {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 920px) {
+  .controls,
+  .split-2,
   .tier-edit {
     grid-template-columns: 1fr;
+  }
+
+  .leaderboard-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .leader-stats {
+    justify-content: flex-start;
   }
 
   .duel-head {

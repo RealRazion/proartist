@@ -2,34 +2,36 @@
   <div class="arena-page">
     <div class="ambient-bg"></div>
 
-    <header class="topbar shell-card">
-      <div class="brand-block">
-        <p class="eyebrow">UNYQ COMPETITIVE MODE</p>
-        <h1>Tournament Arena</h1>
-        <p class="subtitle">Turniere, Battles und Ranks in einer sauberen, lesbaren Oberfläche.</p>
+    <header class="top-shell">
+      <div class="topbar">
+        <div class="brand-block">
+          <p class="eyebrow">UNYQ COMPETITIVE MODE</p>
+          <h1>Tournament Arena</h1>
+          <p class="subtitle">Turniere, Battles und Ranks in einer sauberen, lesbaren Oberfläche.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn ghost small" type="button" @click="goHome">Hub</button>
+          <button v-if="isTeam" class="btn ghost small" type="button" @click="toggleArtistView">
+            {{ artistPreview ? "Admin View" : "Artist View" }}
+          </button>
+          <button class="avatar" type="button" @click="openProfile" :title="profile?.name || profile?.username || 'Profil'">
+            {{ profileInitial }}
+          </button>
+        </div>
       </div>
-      <div class="topbar-actions">
-        <button class="btn ghost small" type="button" @click="goHome">Hub</button>
-        <button v-if="isTeam" class="btn ghost small" type="button" @click="toggleArtistView">
-          {{ artistPreview ? "Admin View" : "Artist View" }}
-        </button>
-        <button class="avatar" type="button" @click="openProfile" :title="profile?.name || profile?.username || 'Profil'">
-          {{ profileInitial }}
-        </button>
-      </div>
-    </header>
 
-    <section class="main-tabs shell-card">
-      <button
-        v-for="tab in tabOptions"
-        :key="tab.key"
-        class="tab-pill"
-        :class="{ active: activeTab === tab.key }"
-        @click="selectMainTab(tab.key)"
-      >
-        {{ tab.label }}
-      </button>
-    </section>
+      <nav class="main-tabs" aria-label="Turnier Navigation">
+        <button
+          v-for="tab in tabOptions"
+          :key="tab.key"
+          class="tab-pill"
+          :class="{ active: activeTab === tab.key }"
+          @click="selectMainTab(tab.key)"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+    </header>
 
     <section class="stats-strip">
       <article class="stat-card">
@@ -724,7 +726,8 @@ watch(
   min-height: 100vh;
   width: 100vw;
   margin-left: calc(50% - 50vw);
-  padding: 20px clamp(14px, 2vw, 34px) 46px;
+  --arena-gutter: clamp(14px, 2vw, 34px);
+  padding: 0 var(--arena-gutter) 46px;
   position: relative;
   color: var(--arena-text);
   font-family: "Manrope", sans-serif;
@@ -757,7 +760,6 @@ watch(
     radial-gradient(circle at 42% 92%, rgba(255, 196, 123, 0.18), transparent 46%);
 }
 
-.shell-card,
 .view-card,
 .stat-card {
   border: 1px solid var(--arena-border);
@@ -766,8 +768,19 @@ watch(
   box-shadow: var(--arena-shadow);
 }
 
+.top-shell {
+  margin-left: calc(-1 * var(--arena-gutter));
+  margin-right: calc(-1 * var(--arena-gutter));
+  border-bottom: 1px solid var(--arena-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 93%, white 7%), var(--arena-bg-elev)),
+    linear-gradient(120deg, color-mix(in srgb, var(--arena-accent) 10%, transparent), transparent 40%);
+  padding: 18px var(--arena-gutter) 10px;
+  display: grid;
+  gap: 10px;
+}
+
 .topbar {
-  padding: 18px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -819,10 +832,12 @@ watch(
 }
 
 .main-tabs {
-  padding: 9px;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 8px;
+  padding-top: 2px;
+  scrollbar-width: thin;
 }
 
 .tab-pill {
@@ -830,10 +845,13 @@ watch(
   background: var(--arena-chip);
   color: var(--arena-text);
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 6px 12px;
+  min-height: 34px;
   cursor: pointer;
   font-family: "Space Grotesk", sans-serif;
   font-weight: 600;
+  font-size: 0.84rem;
+  white-space: nowrap;
 }
 
 .tab-pill.active {
@@ -846,6 +864,7 @@ watch(
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
+  margin-top: 2px;
 }
 
 .stat-card {
@@ -1417,6 +1436,15 @@ watch(
 }
 
 @media (max-width: 920px) {
+  .top-shell {
+    padding-top: 14px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .controls,
   .split-2,
   .tier-edit {

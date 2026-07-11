@@ -306,6 +306,14 @@ onMounted(() => {
   border-radius: 14px;
   background: color-mix(in srgb, var(--text) 2%, var(--surface));
 }
+
+:global(.dark) .member-row,
+:global(.dark) .rule,
+:global(.dark) .performance,
+:global(.dark) .bucket {
+  background: rgba(15, 23, 42, 0.78);
+  border-color: rgba(148, 163, 184, 0.24);
+}
 .member-summary {
   width: 100%;
   border: none;
@@ -414,6 +422,10 @@ onMounted(() => {
   border-radius: 14px;
   padding: 12px;
   background: var(--card);
+}
+
+:global(.dark) .bucket {
+  background: rgba(15, 23, 42, 0.8);
 }
 .item-list {
   list-style: none;

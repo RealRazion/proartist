@@ -10,6 +10,7 @@
           <p class="subtitle">Turniere, Battles und Ranks in einer sauberen, lesbaren Oberfläche.</p>
         </div>
         <div class="topbar-actions">
+          <button class="btn ghost small" type="button" @click="toggleTheme">{{ isDark ? "Light" : "Dark" }}</button>
           <button class="btn ghost small" type="button" @click="goHome">Hub</button>
           <button v-if="isTeam" class="btn ghost small" type="button" @click="toggleArtistView">
             {{ artistPreview ? "Admin View" : "Artist View" }}
@@ -33,22 +34,10 @@
       </nav>
     </header>
 
-    <section class="stats-strip">
+    <section class="stats-strip" v-if="activeTab === 'tournaments'">
       <article class="stat-card">
         <span class="stat-label">Turniere</span>
         <strong>{{ tournaments.length }}</strong>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">Battles</span>
-        <strong>{{ battles.length }}</strong>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">Ranked Profiles</span>
-        <strong>{{ topRankedRows.length }}</strong>
-      </article>
-      <article class="stat-card">
-        <span class="stat-label">Dein Rank</span>
-        <strong>#{{ myRankedRow?.rank || '-' }}</strong>
       </article>
     </section>
 
@@ -56,9 +45,14 @@
       <section class="view-card spotlight" v-if="featuredTournament">
         <div class="spotlight-cover" :style="{ backgroundImage: `url(${tournamentCover(featuredTournament)})` }"></div>
         <div class="spotlight-content">
-          <p class="eyebrow">FEATURED TOURNAMENT</p>
-          <h2>{{ featuredTournament.title }}</h2>
-          <p class="spotlight-copy">{{ featuredTournament.description || "Bereit fuer die naechste Runde." }}</p>
+          <div class="spotlight-head">
+            <div>
+              <p class="eyebrow">FEATURED TOURNAMENT</p>
+              <h2>{{ featuredTournament.title }}</h2>
+            </div>
+            <button v-if="viewerIsTeam" class="btn ghost small" type="button" @click="openFeaturedEditor">Ändern</button>
+          </div>
+          <p class="spotlight-copy">{{ featuredDescription }}</p>
           <div class="inline-tags">
             <span class="badge">{{ statusLabel(featuredTournament.status) }}</span>
             <span v-if="featuredTournament.is_no_loss" class="badge">No Loss</span>
@@ -122,7 +116,25 @@
       <section class="view-card">
         <div class="section-head">
           <h2>Leaderboard</h2>
-          <p>Einladende Rangauswertung mit Podium und klaren Spielerwerten.</p>
+          <p>Die Top-Performer mit klaren Werten, Podium und einem schnellen Überblick über die aktuelle Saison.</p>
+        </div>
+
+        <div class="leaderboard-overview" v-if="rankedOverview.tiers?.length || topRankedRows.length">
+          <article class="overview-card">
+            <span class="overview-label">Aktive Profile</span>
+            <strong>{{ topRankedRows.length }}</strong>
+            <small>{{ rankedOverview.tiers?.length || 0 }} Tier-Levels</small>
+          </article>
+          <article class="overview-card">
+            <span class="overview-label">Top-Rang</span>
+            <strong>#{{ podiumRows[0]?.rank || '-' }}</strong>
+            <small>{{ podiumRows[0]?.name || 'Noch offen' }}</small>
+          </article>
+          <article class="overview-card">
+            <span class="overview-label">Dein Rang</span>
+            <strong>#{{ myRankedRow?.rank || '-' }}</strong>
+            <small>{{ myRankedRow?.tier?.label || 'Unranked' }}</small>
+          </article>
         </div>
 
         <div class="rank-row" v-if="rankedOverview.tiers?.length">
@@ -132,7 +144,7 @@
           </article>
         </div>
 
-        <div v-if="topRankedRows.length" class="podium-grid">
+        <div v-if="podiumRows.length" class="podium-grid">
           <article
             v-for="row in podiumRows"
             :key="`podium-${row.profile_id}`"
@@ -146,27 +158,33 @@
           </article>
         </div>
 
-        <div class="leaderboard-list" v-if="topRankedRows.length">
+        <div class="leaderboard-table" v-if="topRankedRows.length">
+          <div class="table-head">
+            <span>Rang</span>
+            <span>Profil</span>
+            <span>Tier</span>
+            <span>RP</span>
+            <span>Wins</span>
+            <span>Winrate</span>
+          </div>
           <article
             v-for="row in topRankedRows"
             :key="`row-${row.profile_id}`"
             class="leaderboard-row"
             :class="{ me: row.profile_id === myProfileId }"
           >
-            <div class="leader-left">
-              <span class="rank-pill">#{{ row.rank }}</span>
+            <div class="leader-rank">#{{ row.rank }}</div>
+            <button class="link-btn leader-name" @click="openBattleProfileByRow(row)">
+              <span>{{ row.name }}</span>
+              <small>{{ row.profile_id === myProfileId ? 'Du' : 'Profil' }}</small>
+            </button>
+            <div class="leader-tier">
               <img class="tiny-rank" :src="rankArtwork(row.tier?.key)" :alt="row.tier?.label || 'Tier'" />
-              <div class="leader-name">
-                <button class="link-btn" @click="openBattleProfileByRow(row)">{{ row.name }}</button>
-                <small>{{ row.tier?.label || 'Unranked' }}</small>
-              </div>
+              <span>{{ row.tier?.label || 'Unranked' }}</span>
             </div>
-            <div class="leader-stats">
-              <span class="stat-pill"><strong>{{ row.ranked_points || 0 }}</strong><em>RP</em></span>
-              <span class="stat-pill"><strong>{{ row.wins || 0 }}</strong><em>Wins</em></span>
-              <span class="stat-pill"><strong>{{ winRate(row) }}</strong><em>Winrate</em></span>
-              <span class="stat-pill"><strong>{{ row.battles || 0 }}</strong><em>Battles</em></span>
-            </div>
+            <div class="leader-value">{{ row.ranked_points || 0 }}</div>
+            <div class="leader-value">{{ row.wins || 0 }}</div>
+            <div class="leader-value">{{ winRate(row) }}</div>
           </article>
         </div>
         <div v-else class="empty">Noch keine Ranked-Daten verfuegbar.</div>
@@ -278,6 +296,34 @@
       </section>
     </template>
 
+    <div v-if="showFeaturedEditor" class="modal-overlay" @click.self="closeFeaturedEditor">
+      <article class="modal-card">
+        <header>
+          <h2>Featured Turnier ändern</h2>
+          <button class="btn ghost small" @click="closeFeaturedEditor">X</button>
+        </header>
+        <div class="modal-body">
+          <label class="field-label">
+            Turnier auswählen
+            <select v-model="featuredEditorDraft.tournamentId" class="input">
+              <option :value="null">Kein Featured-Turnier</option>
+              <option v-for="tournament in visibleTournaments" :key="`featured-option-${tournament.id}`" :value="tournament.id">
+                {{ tournament.title }}
+              </option>
+            </select>
+          </label>
+          <label class="field-label">
+            Hinweis / Text für die Anzeige
+            <textarea v-model.trim="featuredEditorDraft.text" class="input" rows="4" placeholder="Optionaler Text, der unter dem Featured-Turnier angezeigt wird"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="clearFeaturedSelection">Zurücksetzen</button>
+            <button class="btn" type="button" @click="saveFeaturedSelection">Speichern</button>
+          </div>
+        </div>
+      </article>
+    </div>
+
     <div v-if="selectedBattleProfile" class="modal-overlay" @click.self="selectedBattleProfile = null">
       <article class="modal-card">
         <header>
@@ -368,6 +414,14 @@ const createForm = ref({
   ends_at: "",
 });
 
+const isDark = ref(false);
+const showFeaturedEditor = ref(false);
+const featuredSelectionId = ref(null);
+const featuredSelectionText = ref("");
+const featuredEditorDraft = ref({ tournamentId: null, text: "" });
+const featuredStorageKey = "unyq_featured_tournament";
+const featuredTextStorageKey = "unyq_featured_tournament_text";
+
 const tabOptions = computed(() => {
   const tabs = [
     { key: "tournaments", label: "Turniere" },
@@ -444,8 +498,17 @@ const visibleTournaments = computed(() => {
 
 const featuredTournament = computed(() => {
   if (!visibleTournaments.value.length) return null;
+  if (featuredSelectionId.value) {
+    return visibleTournaments.value.find((t) => t.id === featuredSelectionId.value) || visibleTournaments.value[0];
+  }
   if (!selectedTournamentId.value) return visibleTournaments.value[0];
   return visibleTournaments.value.find((t) => t.id === selectedTournamentId.value) || visibleTournaments.value[0];
+});
+
+const featuredDescription = computed(() => {
+  const customText = featuredSelectionText.value.trim();
+  if (customText) return customText;
+  return featuredTournament.value?.description || "Bereit fuer die naechste Runde.";
 });
 
 const nextFeaturedId = computed(() => {
@@ -514,6 +577,70 @@ function tournamentOfBattle(battle) {
 
 function selectTournament(tournamentId) {
   selectedTournamentId.value = tournamentId;
+}
+
+function applyTheme(nextDark) {
+  isDark.value = nextDark;
+  document.documentElement.classList.toggle("dark", nextDark);
+  try {
+    localStorage.setItem("theme", nextDark ? "dark" : "light");
+  } catch {
+    // ignore storage issues
+  }
+}
+
+function toggleTheme() {
+  applyTheme(!isDark.value);
+}
+
+function openFeaturedEditor() {
+  featuredEditorDraft.value = {
+    tournamentId: featuredSelectionId.value,
+    text: featuredSelectionText.value,
+  };
+  showFeaturedEditor.value = true;
+}
+
+function closeFeaturedEditor() {
+  showFeaturedEditor.value = false;
+}
+
+function saveFeaturedSelection() {
+  const nextId = featuredEditorDraft.value.tournamentId ?? null;
+  featuredSelectionId.value = nextId;
+  featuredSelectionText.value = featuredEditorDraft.value.text || "";
+  try {
+    localStorage.setItem(featuredStorageKey, nextId ? String(nextId) : "");
+    localStorage.setItem(featuredTextStorageKey, featuredSelectionText.value);
+  } catch {
+    // ignore storage issues
+  }
+  closeFeaturedEditor();
+}
+
+function clearFeaturedSelection() {
+  featuredSelectionId.value = null;
+  featuredSelectionText.value = "";
+  featuredEditorDraft.value = { tournamentId: null, text: "" };
+  try {
+    localStorage.removeItem(featuredStorageKey);
+    localStorage.removeItem(featuredTextStorageKey);
+  } catch {
+    // ignore storage issues
+  }
+  closeFeaturedEditor();
+}
+
+function loadFeaturedSelection() {
+  try {
+    const storedId = localStorage.getItem(featuredStorageKey);
+    const storedText = localStorage.getItem(featuredTextStorageKey) || "";
+    featuredSelectionId.value = storedId ? Number(storedId) : null;
+    featuredSelectionText.value = storedText;
+  } catch {
+    featuredSelectionId.value = null;
+    featuredSelectionText.value = "";
+  }
 }
 
 function openTournamentDetail(tournament) {
@@ -697,6 +824,9 @@ async function voteBattle(battle, selectedSubmissionId) {
 
 onMounted(async () => {
   activeTab.value = sanitizeMainTab(route.query.tab);
+  const storedTheme = localStorage.getItem("theme");
+  applyTheme(storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches));
+  loadFeaturedSelection();
   await fetchProfile();
   await loadAll();
 });
@@ -736,18 +866,16 @@ watch(
   background: var(--arena-bg);
 }
 
-@media (prefers-color-scheme: dark) {
-  .arena-page {
-    --arena-bg: #090f1f;
-    --arena-bg-elev: #121b2f;
-    --arena-text: #ebf0ff;
-    --arena-muted: #aab6cf;
-    --arena-border: #2a3754;
-    --arena-accent: #ff7e59;
-    --arena-accent-2: #ffb347;
-    --arena-chip: #1d2943;
-    --arena-shadow: 0 14px 36px rgba(0, 0, 0, 0.36);
-  }
+:global(.dark) .arena-page {
+  --arena-bg: #090f1f;
+  --arena-bg-elev: #121b2f;
+  --arena-text: #ebf0ff;
+  --arena-muted: #aab6cf;
+  --arena-border: #2a3754;
+  --arena-accent: #ff7e59;
+  --arena-accent-2: #ffb347;
+  --arena-chip: #1d2943;
+  --arena-shadow: 0 14px 36px rgba(0, 0, 0, 0.36);
 }
 
 .ambient-bg {
@@ -937,6 +1065,13 @@ watch(
   gap: 10px;
 }
 
+.spotlight-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .spotlight-content h2 {
   margin: 0;
   font-family: "Space Grotesk", sans-serif;
@@ -1121,9 +1256,56 @@ watch(
   color: var(--arena-muted);
 }
 
-.leaderboard-list {
+.leaderboard-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.overview-card {
+  border: 1px solid var(--arena-border);
+  border-radius: 14px;
+  padding: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--arena-accent) 10%, var(--arena-bg-elev)), var(--arena-bg-elev));
+  display: grid;
+  gap: 3px;
+}
+
+.overview-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--arena-muted);
+}
+
+.overview-card strong {
+  font-size: 1.15rem;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.overview-card small {
+  color: var(--arena-muted);
+}
+
+.leaderboard-table {
   display: grid;
   gap: 8px;
+}
+
+.table-head,
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 56px minmax(180px, 1.4fr) minmax(140px, 1fr) 70px 70px 80px;
+  gap: 10px;
+  align-items: center;
+}
+
+.table-head {
+  padding: 0 6px;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--arena-muted);
 }
 
 .leaderboard-row {
@@ -1131,10 +1313,6 @@ watch(
   border-radius: 12px;
   padding: 10px;
   background: var(--arena-bg-elev);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .leaderboard-row.me {
@@ -1142,14 +1320,7 @@ watch(
   background: color-mix(in srgb, var(--arena-accent) 8%, var(--arena-bg-elev) 92%);
 }
 
-.leader-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.rank-pill {
+.leader-rank {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1167,40 +1338,27 @@ watch(
 }
 
 .leader-name {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
+  text-align: left;
 }
 
 .leader-name small {
   color: var(--arena-muted);
 }
 
-.leader-stats {
+.leader-tier {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 8px;
+  color: var(--arena-text);
 }
 
-.stat-pill {
-  border: 1px solid var(--arena-border);
-  border-radius: 999px;
-  padding: 4px 10px;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  background: var(--arena-chip);
-}
-
-.stat-pill strong {
-  font-family: "Space Grotesk", sans-serif;
-}
-
-.stat-pill em {
-  font-style: normal;
-  font-size: 0.73rem;
-  color: var(--arena-muted);
+.leader-value {
+  font-weight: 700;
+  color: var(--arena-text);
 }
 
 .link-btn {
@@ -1451,12 +1609,17 @@ watch(
     grid-template-columns: 1fr;
   }
 
-  .leaderboard-row {
-    flex-direction: column;
-    align-items: flex-start;
+  .table-head {
+    display: none;
   }
 
-  .leader-stats {
+  .leaderboard-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .leader-tier,
+  .leader-value {
     justify-content: flex-start;
   }
 

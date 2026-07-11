@@ -143,27 +143,6 @@
       </div>
     </div>
 
-    <!-- Stats Section -->
-    <section class="stats-section" v-if="isTeam">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-number">{{ totalUsers }}</div>
-          <div class="stat-label">Aktive Nutzer</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number">{{ activeProjects }}</div>
-          <div class="stat-label">Laufende Projekte</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number">{{ pendingTasks }}</div>
-          <div class="stat-label">Offene Tasks</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number">{{ upcomingEvents }}</div>
-          <div class="stat-label">Bevorstehende Events</div>
-        </div>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -217,18 +196,6 @@ function setAudienceMode(mode) {
   }
 }
 
-// Real stats from API
-const stats = ref({
-  totalUsers: 0,
-  activeProjects: 0,
-  pendingTasks: 0,
-  upcomingEvents: 0,
-});
-
-const totalUsers = computed(() => stats.value.totalUsers);
-const activeProjects = computed(() => stats.value.activeProjects);
-const pendingTasks = computed(() => stats.value.pendingTasks);
-const upcomingEvents = computed(() => stats.value.upcomingEvents);
 const displayName = computed(() => (me.value?.name || me.value?.username || "").trim().split(" ")[0] || "");
 const unreadNotificationBadge = computed(() => (unreadNotifications.value > 99 ? "99+" : String(unreadNotifications.value)));
 
@@ -606,29 +573,6 @@ async function loadAccessState() {
   }
 }
 
-async function loadStats() {
-  if (!isTeam.value) return;
-  try {
-    const [adminRes, tasksRes, eventsRes] = await Promise.all([
-      api.get("admin/overview/"),
-      api.get("tasks/", { params: { status: "OPEN,IN_PROGRESS,REVIEW" } }),
-      api.get("events/", { params: { upcoming: true, limit: 10 } }),
-    ]);
-    const taskItems = asList(tasksRes.data);
-    const eventItems = asList(eventsRes.data);
-    stats.value = {
-      totalUsers: adminRes.data.total_users || 0,
-      activeProjects: adminRes.data.active_projects || 0,
-      pendingTasks: taskItems.length || 0,
-      upcomingEvents: eventItems.length || 0,
-    };
-  } catch (err) {
-    console.error("Stats konnten nicht geladen werden", err);
-    // Fallback to zeros
-    stats.value = { totalUsers: 0, activeProjects: 0, pendingTasks: 0, upcomingEvents: 0 };
-  }
-}
-
 async function loadNotificationCount() {
   try {
     const { data } = await api.get("notifications/unread-count/");
@@ -689,7 +633,7 @@ onMounted(async () => {
       // ignore storage errors
     }
   }
-  await Promise.all([loadStats(), loadAccessState(), loadNotificationCount(), loadHubBadges()]);
+  await Promise.all([loadAccessState(), loadNotificationCount(), loadHubBadges()]);
 });
 </script>
 
@@ -1192,6 +1136,12 @@ onMounted(async () => {
   overflow: auto;
   display: grid;
   gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: blur(16px);
 }
 
 .group-dialog-head {
@@ -1213,7 +1163,8 @@ onMounted(async () => {
 
 .group-link-btn {
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface) 92%, var(--card) 8%), var(--surface));
+  color: var(--text);
   border-radius: 12px;
   padding: 12px 13px;
   display: flex;
@@ -1221,11 +1172,14 @@ onMounted(async () => {
   gap: 10px;
   cursor: pointer;
   text-align: left;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .group-link-btn:hover {
   border-color: var(--brand);
   transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(47, 99, 255, 0.16);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 12%, var(--surface)), var(--surface));
 }
 
 .group-link-icon {
@@ -1246,12 +1200,43 @@ onMounted(async () => {
   flex: 1;
 }
 
+.group-link-copy strong {
+  color: var(--text);
+}
+
 .group-link-copy small {
   color: var(--muted);
 }
 
 .group-link-arrow {
-  color: var(--muted);
+  color: var(--brand);
+  font-weight: 700;
+}
+
+:global(.dark) .group-dialog {
+  background: color-mix(in srgb, var(--card) 96%, #020617 4%);
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 24px 64px rgba(2, 6, 23, 0.7);
+}
+
+:global(.dark) .group-link-btn {
+  background: linear-gradient(135deg, rgba(15, 32, 67, 0.96), rgba(13, 25, 53, 0.95));
+  border-color: rgba(148, 163, 184, 0.26);
+  color: #f8fafc;
+}
+
+:global(.dark) .group-link-btn:hover {
+  background: linear-gradient(135deg, rgba(124, 161, 255, 0.22), rgba(15, 32, 67, 0.98));
+  border-color: rgba(124, 161, 255, 0.38);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45);
+}
+
+:global(.dark) .group-link-copy small {
+  color: #cbd5e1;
+}
+
+:global(.dark) .group-link-arrow {
+  color: #7ca1ff;
 }
 
 .arrow-icon {

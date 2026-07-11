@@ -742,6 +742,14 @@ onMounted(async () => {
   box-shadow: 0 18px 45px rgba(2, 6, 23, 0.08);
 }
 
+:global(.dark) .board {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border) 55%);
+  background:
+    radial-gradient(120% 140% at 0% -10%, color-mix(in srgb, var(--brand) 24%, transparent 76%), transparent 60%),
+    linear-gradient(165deg, color-mix(in srgb, var(--card) 86%, #020617 14%), var(--card));
+  box-shadow: 0 24px 56px rgba(2, 6, 23, 0.45);
+}
+
 .summary-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -819,6 +827,12 @@ onMounted(async () => {
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
 
+:global(.dark) .category-group {
+  border-color: color-mix(in srgb, var(--cat-accent, var(--brand)) 44%, rgba(148, 163, 184, 0.28) 56%);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--cat-soft, rgba(37, 99, 235, 0.24)) 50%, rgba(15, 23, 42, 0.86) 50%), rgba(15, 23, 42, 0.88));
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.3);
+}
+
 .category-header {
   width: 100%;
   border: 1px solid color-mix(in srgb, var(--cat-accent, var(--brand)) 35%, var(--border) 65%);
@@ -829,6 +843,11 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
+}
+
+:global(.dark) .category-header {
+  border-color: color-mix(in srgb, var(--cat-accent, var(--brand)) 46%, rgba(148, 163, 184, 0.28) 54%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--cat-strong, rgba(37, 99, 235, 0.3)) 26%, rgba(15, 23, 42, 0.92) 74%), rgba(15, 23, 42, 0.92));
 }
 
 .category-header span {
@@ -863,6 +882,11 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 12px;
   background: linear-gradient(145deg, color-mix(in srgb, var(--cat-soft, rgba(37, 99, 235, 0.13)) 30%, var(--card) 70%), var(--card));
+}
+
+:global(.dark) .todo-item {
+  border-color: color-mix(in srgb, var(--cat-accent, var(--brand)) 36%, rgba(148, 163, 184, 0.28) 64%);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--cat-soft, rgba(37, 99, 235, 0.22)) 24%, rgba(15, 23, 42, 0.92) 76%), rgba(15, 23, 42, 0.92));
 }
 
 .todo-item strong {

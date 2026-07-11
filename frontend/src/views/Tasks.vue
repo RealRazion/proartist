@@ -1414,7 +1414,7 @@ onBeforeUnmount(() => {
 }
 .card {
   border-radius: 22px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, #000 16%);
   background: var(--card);
   box-shadow: 0 25px 60px rgba(15, 23, 42, 0.08);
   padding: 22px;
@@ -1657,7 +1657,7 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 .task-card {
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, #000 16%);
   border-radius: 16px;
   padding: 14px;
   display: flex;
@@ -1919,7 +1919,7 @@ onBeforeUnmount(() => {
 }
 .info-panel {
   padding: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, #000 16%);
   border-radius: 12px;
   background: var(--task-surface-strong);
   display: flex;
@@ -2107,12 +2107,12 @@ select[multiple] {
 }
 :global(.dark) .tasks .card {
   background: var(--card);
-  border-color: var(--border);
+  border-color: rgba(148, 163, 184, 0.3);
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
 }
 :global(.dark) .tasks .task-card {
-  background: rgba(15, 23, 42, 0.6);
-  border-color: var(--border);
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(148, 163, 184, 0.3);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
 }
 :global(.dark) .tasks .kpi {
@@ -2126,8 +2126,8 @@ select[multiple] {
   box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55);
 }
 :global(.dark) .tasks .info-panel {
-  background: rgba(15, 23, 42, 0.72);
-  border-color: var(--border);
+  background: rgba(15, 23, 42, 0.82);
+  border-color: rgba(148, 163, 184, 0.3);
 }
 :global(.dark) .tasks {
   --task-surface-soft: rgba(15, 23, 42, 0.28);

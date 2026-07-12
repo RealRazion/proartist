@@ -583,8 +583,10 @@ function applyTheme(nextDark) {
   isDark.value = nextDark;
   document.documentElement.classList.toggle("dark", nextDark);
   document.documentElement.classList.toggle("light", !nextDark);
+  document.documentElement.setAttribute("data-theme", nextDark ? "dark" : "light");
   document.body.classList.toggle("dark", nextDark);
   document.body.classList.toggle("light", !nextDark);
+  document.body.dataset.theme = nextDark ? "dark" : "light";
   document.documentElement.style.colorScheme = nextDark ? "dark" : "light";
   try {
     localStorage.setItem("theme", nextDark ? "dark" : "light");
@@ -857,10 +859,11 @@ watch(
   --arena-accent-2: #ff8c3a;
   --arena-chip: #eef2fa;
   --arena-shadow: 0 12px 34px rgba(17, 26, 48, 0.08);
-  min-height: 100vh;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
   --arena-gutter: clamp(14px, 2vw, 34px);
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 0 var(--arena-gutter) 46px;
   position: relative;
   color: var(--arena-text);
@@ -868,6 +871,8 @@ watch(
   display: grid;
   gap: 16px;
   background: var(--arena-bg);
+  overflow-x: hidden;
+  isolation: isolate;
 }
 
 :global(html.dark) .arena-page,
@@ -903,8 +908,10 @@ watch(
 }
 
 .top-shell {
-  margin-left: calc(-1 * var(--arena-gutter));
-  margin-right: calc(-1 * var(--arena-gutter));
+  position: sticky;
+  top: 0;
+  z-index: 18;
+  margin: 0 calc(-1 * var(--arena-gutter));
   border-bottom: 1px solid var(--arena-border);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 93%, var(--arena-text) 7%), var(--arena-bg-elev)),
@@ -913,6 +920,8 @@ watch(
   display: grid;
   gap: 10px;
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--arena-border) 80%, transparent 20%);
+  box-sizing: border-box;
+  backdrop-filter: blur(10px);
 }
 
 .topbar {
@@ -969,13 +978,17 @@ watch(
 .main-tabs {
   display: flex;
   flex-wrap: nowrap;
+  align-items: center;
   overflow-x: auto;
   gap: 8px;
-  padding-top: 2px;
+  padding: 2px 0 4px;
   scrollbar-width: thin;
+  scroll-behavior: smooth;
 }
 
 .tab-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
   border: 1px solid var(--arena-border);
   background: var(--arena-chip);
   color: var(--arena-text);
@@ -986,11 +999,11 @@ watch(
   font-family: "Space Grotesk", sans-serif;
   font-weight: 600;
   font-size: 0.84rem;
-  white-space: nowrap;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
-.tab-pill:hover {
+.tab-pill:hover,
+.tab-pill:focus-visible {
   border-color: color-mix(in srgb, var(--arena-accent) 45%, var(--arena-border) 55%);
   transform: translateY(-1px);
 }

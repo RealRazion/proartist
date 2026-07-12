@@ -925,15 +925,16 @@ watch(
 }
 
 .topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 14px;
 }
 
 .brand-block {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .brand-block h1 {
@@ -941,6 +942,7 @@ watch(
   font-family: "Space Grotesk", sans-serif;
   font-size: clamp(1.4rem, 2.4vw, 2.15rem);
   letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
 }
 
 .subtitle {
@@ -960,8 +962,12 @@ watch(
 
 .topbar-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
 }
 
 .avatar {
@@ -973,6 +979,7 @@ watch(
   color: #fff;
   font-weight: 800;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .main-tabs {
@@ -982,6 +989,7 @@ watch(
   overflow-x: auto;
   gap: 8px;
   padding: 2px 0 4px;
+  min-height: 38px;
   scrollbar-width: thin;
   scroll-behavior: smooth;
 }

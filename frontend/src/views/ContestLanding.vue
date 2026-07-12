@@ -906,6 +906,7 @@ watch(
   padding: 18px var(--arena-gutter) 10px;
   display: grid;
   gap: 10px;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--arena-border) 80%, transparent 20%);
 }
 
 .topbar {
@@ -980,6 +981,21 @@ watch(
   font-weight: 600;
   font-size: 0.84rem;
   white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.tab-pill:hover {
+  border-color: color-mix(in srgb, var(--arena-accent) 45%, var(--arena-border) 55%);
+  transform: translateY(-1px);
+}
+
+.tab-pill:focus-visible,
+.btn:focus-visible,
+.btn.ghost:focus-visible,
+.link-btn:focus-visible,
+.avatar:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--arena-accent) 72%, white 28%);
+  outline-offset: 2px;
 }
 
 .tab-pill.active {
@@ -1557,12 +1573,25 @@ watch(
   font-weight: 700;
   padding: 8px 12px;
   cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--arena-accent) 28%, transparent);
 }
 
 .btn.ghost {
-  background: transparent;
+  background: color-mix(in srgb, var(--arena-bg-elev) 86%, transparent 14%);
   border-color: var(--arena-border);
   color: var(--arena-text);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 14%, transparent 86%);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--arena-accent) 45%, var(--arena-border) 55%);
+  color: color-mix(in srgb, var(--arena-accent) 78%, var(--arena-text) 22%);
+  background: color-mix(in srgb, var(--arena-chip) 88%, var(--arena-bg-elev) 12%);
 }
 
 .btn.small {
@@ -1577,6 +1606,50 @@ watch(
   border: 1px dashed var(--arena-border);
   border-radius: 12px;
   background: color-mix(in srgb, var(--arena-chip) 55%, transparent);
+}
+
+:global(.dark) .arena-page .top-shell,
+:global(.dark) .arena-page .view-card,
+:global(.dark) .arena-page .stat-card,
+:global(.dark) .arena-page .tournament-card,
+:global(.dark) .arena-page .rank-chip,
+:global(.dark) .arena-page .podium-card,
+:global(.dark) .arena-page .overview-card,
+:global(.dark) .arena-page .leaderboard-row,
+:global(.dark) .arena-page .list-row,
+:global(.dark) .arena-page .battle-tile,
+:global(.dark) .arena-page .admin-box,
+:global(.dark) .arena-page .modal-card,
+:global(.dark) .arena-page .profile-hero,
+:global(.dark) .arena-page .chip,
+:global(.dark) .arena-page .history-row,
+:global(.dark) .arena-page .empty {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 94%, white 6%), var(--arena-bg-elev));
+  border-color: rgba(148, 163, 184, 0.28);
+  box-shadow: 0 18px 38px rgba(2, 6, 23, 0.28);
+}
+
+:global(.dark) .arena-page .tab-pill,
+:global(.dark) .arena-page .input,
+:global(.dark) .arena-page .badge {
+  background: rgba(29, 41, 67, 0.92);
+  border-color: rgba(148, 163, 184, 0.24);
+  color: var(--arena-text);
+}
+
+:global(.dark) .arena-page .tab-pill.active,
+:global(.dark) .arena-page .btn {
+  background: linear-gradient(125deg, var(--arena-accent), var(--arena-accent-2));
+  color: #fff;
+}
+
+:global(.dark) .arena-page .btn.ghost {
+  background: rgba(15, 23, 42, 0.7);
+  color: var(--arena-text);
+}
+
+:global(.dark) .arena-page .link-btn {
+  color: color-mix(in srgb, var(--arena-accent) 72%, white 28%);
 }
 
 @media (max-width: 1100px) {

@@ -1618,23 +1618,36 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 .category-group {
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--brand) 22%);
   border-radius: 14px;
-  background: rgba(148, 163, 184, 0.08);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 10%, transparent 90%), color-mix(in srgb, var(--card) 92%, var(--bg-soft) 8%));
   padding: 10px;
   display: grid;
   gap: 10px;
 }
 .category-header {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--border) 76%);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.65);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 16%, transparent 84%), color-mix(in srgb, var(--card) 95%, var(--bg-soft) 5%));
   padding: 10px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
+  color: var(--text);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.category-header:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border) 60%);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.category-header:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 .category-header span {
   display: grid;
@@ -1694,6 +1707,7 @@ onBeforeUnmount(() => {
 .task-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 22px rgba(15, 23, 42, 0.09);
+  border-color: color-mix(in srgb, var(--brand) 30%, var(--border) 70%);
 }
 .task-card.overdue {
   border-color: #dc2626;
@@ -2128,6 +2142,15 @@ select[multiple] {
 :global(.dark) .tasks .info-panel {
   background: rgba(15, 23, 42, 0.82);
   border-color: rgba(148, 163, 184, 0.3);
+}
+:global(.dark) .tasks .category-group {
+  border-color: rgba(124, 161, 255, 0.32);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 22%, rgba(15, 23, 42, 0.9) 78%), rgba(15, 23, 42, 0.9));
+}
+:global(.dark) .tasks .category-header {
+  border-color: rgba(124, 161, 255, 0.36);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 24%, rgba(15, 23, 42, 0.94) 76%), rgba(15, 23, 42, 0.94));
+  color: var(--text);
 }
 :global(.dark) .tasks {
   --task-surface-soft: rgba(15, 23, 42, 0.28);

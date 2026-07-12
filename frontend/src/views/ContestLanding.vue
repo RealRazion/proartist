@@ -927,14 +927,16 @@ watch(
 .topbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 14px;
+  min-height: 64px;
 }
 
 .brand-block {
   display: grid;
   gap: 4px;
   min-width: 0;
+  max-width: min(760px, 100%);
 }
 
 .brand-block h1 {
@@ -943,12 +945,23 @@ watch(
   font-size: clamp(1.4rem, 2.4vw, 2.15rem);
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.15;
+  min-height: calc(1.15em * 2);
 }
 
 .subtitle {
   margin: 0;
   color: var(--arena-muted);
   font-size: 0.92rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 1.2em;
 }
 
 .eyebrow {
@@ -962,12 +975,13 @@ watch(
 
 .topbar-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
   min-width: 0;
   margin-left: auto;
+  min-height: 42px;
 }
 
 .avatar {
@@ -1699,8 +1713,15 @@ watch(
   }
 
   .topbar {
-    flex-direction: column;
-    align-items: flex-start;
+    grid-template-columns: 1fr;
+    align-items: start;
+    min-height: auto;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-height: auto;
   }
 
   .controls,

@@ -325,6 +325,28 @@ onMounted(() => {
   gap: 14px;
   align-items: center;
   cursor: pointer;
+  color: var(--text);
+}
+
+.member-summary strong,
+.member-summary .small,
+.member-summary .label,
+.rule h3,
+.rule p,
+.performance .label,
+.performance .value,
+.bucket h3,
+.bucket li span,
+.bucket .muted,
+.item-list li span:first-child {
+  color: var(--text);
+}
+
+.member-summary .small,
+.rule p.muted,
+.performance .muted,
+.bucket .muted {
+  color: var(--muted);
 }
 .summary-metrics {
   display: flex;
@@ -448,6 +470,20 @@ onMounted(() => {
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--brand) 14%, transparent);
   color: var(--brand);
+}
+
+:global(.dark) .member-summary strong,
+:global(.dark) .member-summary .small,
+:global(.dark) .member-summary .label,
+:global(.dark) .rule h3,
+:global(.dark) .rule p,
+:global(.dark) .performance .label,
+:global(.dark) .performance .value,
+:global(.dark) .bucket h3,
+:global(.dark) .bucket li span,
+:global(.dark) .bucket .muted,
+:global(.dark) .item-list li span:first-child {
+  color: var(--text);
 }
 @media (max-width: 720px) {
   .hero {

@@ -37,7 +37,9 @@
   --space-8: 32px;
 }
 
-:root.dark {
+:root.dark,
+html.dark,
+body.dark {
   --bg: #08132f;
   --bg-soft: #0f1c3f;
   --card: rgba(13, 25, 53, 0.88);
@@ -89,6 +91,7 @@ body {
   background-image: linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 34%, var(--bg) 100%);
   background-repeat: no-repeat;
   background-attachment: scroll;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 a {

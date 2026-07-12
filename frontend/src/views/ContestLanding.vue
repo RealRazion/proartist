@@ -582,6 +582,10 @@ function selectTournament(tournamentId) {
 function applyTheme(nextDark) {
   isDark.value = nextDark;
   document.documentElement.classList.toggle("dark", nextDark);
+  document.documentElement.classList.toggle("light", !nextDark);
+  document.body.classList.toggle("dark", nextDark);
+  document.body.classList.toggle("light", !nextDark);
+  document.documentElement.style.colorScheme = nextDark ? "dark" : "light";
   try {
     localStorage.setItem("theme", nextDark ? "dark" : "light");
   } catch {
@@ -866,6 +870,8 @@ watch(
   background: var(--arena-bg);
 }
 
+:global(html.dark) .arena-page,
+:global(body.dark) .arena-page,
 :global(.dark) .arena-page {
   --arena-bg: #090f1f;
   --arena-bg-elev: #121b2f;
@@ -892,7 +898,7 @@ watch(
 .stat-card {
   border: 1px solid var(--arena-border);
   border-radius: 16px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 96%, white 4%), var(--arena-bg-elev));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 96%, var(--arena-text) 4%), var(--arena-bg-elev));
   box-shadow: var(--arena-shadow);
 }
 
@@ -901,7 +907,7 @@ watch(
   margin-right: calc(-1 * var(--arena-gutter));
   border-bottom: 1px solid var(--arena-border);
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 93%, white 7%), var(--arena-bg-elev)),
+    linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 93%, var(--arena-text) 7%), var(--arena-bg-elev)),
     linear-gradient(120deg, color-mix(in srgb, var(--arena-accent) 10%, transparent), transparent 40%);
   padding: 18px var(--arena-gutter) 10px;
   display: grid;
@@ -1072,7 +1078,7 @@ watch(
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 36%, rgba(0, 0, 0, 0.48));
+  background: linear-gradient(180deg, transparent 36%, color-mix(in srgb, var(--arena-bg) 48%, black 52%));
 }
 
 .spotlight-content {
@@ -1233,15 +1239,15 @@ watch(
 }
 
 .podium-card.place-1 {
-  background: linear-gradient(180deg, rgba(255, 191, 70, 0.24), var(--arena-bg-elev));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-accent) 24%, transparent), var(--arena-bg-elev));
 }
 
 .podium-card.place-2 {
-  background: linear-gradient(180deg, rgba(173, 188, 207, 0.27), var(--arena-bg-elev));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-text) 18%, transparent), var(--arena-bg-elev));
 }
 
 .podium-card.place-3 {
-  background: linear-gradient(180deg, rgba(200, 150, 100, 0.26), var(--arena-bg-elev));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-accent-2) 24%, transparent), var(--arena-bg-elev));
 }
 
 .podium-rank {
@@ -1500,7 +1506,7 @@ watch(
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(5, 8, 16, 0.6);
+  background: color-mix(in srgb, var(--arena-bg) 50%, black 50%);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1624,7 +1630,7 @@ watch(
 :global(.dark) .arena-page .chip,
 :global(.dark) .arena-page .history-row,
 :global(.dark) .arena-page .empty {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 94%, white 6%), var(--arena-bg-elev));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--arena-bg-elev) 94%, var(--arena-text) 6%), var(--arena-bg-elev));
   border-color: rgba(148, 163, 184, 0.28);
   box-shadow: 0 18px 38px rgba(2, 6, 23, 0.28);
 }

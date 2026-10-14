@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="layout" :class="{ 'sidebar-collapsed': collapsed && !isMobile }">
     <aside :class="['sidebar', { collapsed: collapsed && !isMobile, 'mobile-open': mobileOpen && isMobile }]">
       <div class="sidebar-top">
@@ -136,6 +136,57 @@
           <span class="icon">🌱</span>
           <span class="label">GrowPro</span>
         </router-link>
+
+        <div class="nav-divider" v-if="!collapsed || isMobile">
+          <span class="divider-text">UNYQ APPS</span>
+        </div>
+
+        <router-link
+          to="/platforms/music"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Music Player' : null"
+        >
+          <span class="icon">🎧</span>
+          <span class="label">UNYQ Music</span>
+        </router-link>
+        <router-link
+          to="/platforms/library"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Sound Library' : null"
+        >
+          <span class="icon">📦</span>
+          <span class="label">UNYQ Library</span>
+        </router-link>
+        <router-link
+          to="/platforms/forum"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Forum' : null"
+        >
+          <span class="icon">💬</span>
+          <span class="label">UNYQ Forum</span>
+        </router-link>
+        <router-link
+          to="/platforms/finance"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Finance' : null"
+        >
+          <span class="icon">💰</span>
+          <span class="label">UNYQ Finance</span>
+        </router-link>
+        <router-link
+          to="/platforms/extra"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Extra' : null"
+        >
+          <span class="icon">🌐</span>
+          <span class="label">UNYQ Extra</span>
+        </router-link>
+
         <router-link
           to="/me"
           class="nav-link"
@@ -611,5 +662,16 @@ onBeforeUnmount(() => {
 
 :global(.dark) .chat-menu .menu-item:hover {
   background: rgba(124, 161, 255, 0.16);
+}
+
+.nav-divider {
+  padding: 12px 14px 4px;
+}
+.divider-text {
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 </style>

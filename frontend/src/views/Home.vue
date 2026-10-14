@@ -36,16 +36,44 @@
 
     <section class="features">
       <div class="feature card">
-        <h3>Team Dashboard</h3>
-        <p>Alle Kennzahlen und Aktionen auf einen Blick - inklusive Requests, Verträge und Payments.</p>
+        <span class="feat-icon">🎹</span>
+        <h3>UNYQ ProArtist</h3>
+        <p>Kuratierte Arbeitsoberfläche für Projekte, Tasks, Timeline, Reviews und Team-Workflows.</p>
       </div>
       <div class="feature card">
-        <h3>Profilnetzwerk</h3>
-        <p>Entdecke Talente nach Rollen, Genre und Standort und starte direkt einen Chat.</p>
+        <span class="feat-icon">🎧</span>
+        <h3>UNYQ Music</h3>
+        <p>Exklusiver Music Player für unreleased VIP-Drops, Studio Cuts und Artist-Präsentationen.</p>
       </div>
       <div class="feature card">
-        <h3>Projektplanung</h3>
-        <p>Organisiere Projekte und Tasks, weise Verantwortliche zu und verfolge den Status.</p>
+        <span class="feat-icon">📦</span>
+        <h3>UNYQ Library</h3>
+        <p>100% Free &amp; Open Source Sound-Bank mit 808s, Drum-Kits, Stems und Serum-Presets für Producer.</p>
+      </div>
+      <div class="feature card">
+        <span class="feat-icon">💰</span>
+        <h3>UNYQ Finance</h3>
+        <p>Zentraler Cashflow, Tantiemen, Projektbudgets und Rechnungsverwaltung.</p>
+      </div>
+      <div class="feature card">
+        <span class="feat-icon">💎</span>
+        <h3>UNYQ Earn</h3>
+        <p>Verdiene an Empfehlungen mit bis zu 30% Lifetime-Provision im Partnerprogramm.</p>
+      </div>
+      <div class="feature card">
+        <span class="feat-icon">🎨</span>
+        <h3>UNYQ Designs</h3>
+        <p>Official Merch Drops, Heavyweight Studio-Streetwear und limitierte Vinyl-Essentials.</p>
+      </div>
+      <div class="feature card">
+        <span class="feat-icon">💬</span>
+        <h3>UNYQ Forum</h3>
+        <p>Community-Austausch zu Beatmaking, Mixing, Feedback und Collab-Suche.</p>
+      </div>
+      <div class="feature card">
+        <span class="feat-icon">🌐</span>
+        <h3>UNYQ Extra</h3>
+        <p>Zentrales Verzeichnis aller Spezial-Tools, Turniere, Locations und offizieller Social Media.</p>
       </div>
     </section>
   </div>
@@ -136,8 +164,13 @@
 }
 .features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 18px;
+}
+.feat-icon {
+  font-size: 28px;
+  display: inline-block;
+  margin-bottom: 8px;
 }
 .feature h3 {
   margin-top: 0;

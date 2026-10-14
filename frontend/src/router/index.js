@@ -46,6 +46,13 @@ const ContentScheduleTool = () => import("../views/ContentScheduleTool.vue");
 const ManagePlatforms = () => import("../views/ManagePlatforms.vue");
 const SearchView = () => import("../views/SearchView.vue");
 const Testing = () => import("../views/Testing.vue");
+const EarnContainer = () => import("../views/EarnContainer.vue");
+const DesignsContainer = () => import("../views/DesignsContainer.vue");
+const FinanceContainer = () => import("../views/FinanceContainer.vue");
+const MusicPlayerView = () => import("../views/MusicPlayerView.vue");
+const LibraryView = () => import("../views/LibraryView.vue");
+const ForumView = () => import("../views/ForumView.vue");
+const ExtraView = () => import("../views/ExtraView.vue");
 const MainLayout = () => import("../layouts/MainLayout.vue");
 const PlatformLayout = () => import("../layouts/PlatformLayout.vue");
 
@@ -105,10 +112,16 @@ const routes = [
         component: TournamentDetail,
         meta: { requiresAuth: true, hidePlatformTopbar: true },
       },
-      { path: "music", name: "platform-music", component: MusicLanding, meta: { requiresAuth: true } },
-      { path: "locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
-      { path: "finance", name: "platform-finance", component: FinanceLanding, meta: { requiresAuth: true } },
+      { path: "music", name: "platform-music", component: MusicPlayerView, meta: { requiresAuth: true } },
+      { path: "finance", name: "platform-finance", component: FinanceContainer, meta: { requiresAuth: true } },
       { path: "finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
+      { path: "earn", name: "platform-earn", component: EarnContainer, meta: { requiresAuth: true } },
+      { path: "designs", name: "platform-designs", component: DesignsContainer, meta: { requiresAuth: true } },
+      { path: "library", name: "platform-library", component: LibraryView, meta: { requiresAuth: true } },
+      { path: "forum", name: "platform-forum", component: ForumView, meta: { requiresAuth: true } },
+      { path: "extra", name: "platform-extra", component: ExtraView, meta: { requiresAuth: true } },
+      { path: "proartist", redirect: { name: "dashboard" } },
+      { path: "locations", name: "platform-locations", component: LocationsLanding, meta: { requiresAuth: true } },
       { path: "content-studio", name: "platform-content-studio", component: ContentStudio, meta: { requiresAuth: true } },
       { path: "content-schedule", name: "platform-content-schedule", component: ContentScheduleLanding, meta: { requiresAuth: true } },
       { path: "content-schedule/planner", name: "content-schedule", component: ContentScheduleTool, meta: { requiresAuth: true } },

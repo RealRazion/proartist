@@ -1,156 +1,261 @@
 <template>
-  <div class="platform-hub">
-    <!-- Hero Section -->
-    <section class="hero-section">
-      <div class="hero-content">
-        <div class="hero-text">
-          <h1 class="hero-title">Willkommen{{ displayName ? `, ${displayName}` : "" }} im UNYQ Hub</h1>
-          <p class="hero-subtitle">
-            Dein zentraler Zugang zu allen UNYQ-Plattformen. Entdecke Tools und Funktionen, die auf deine Rolle zugeschnitten sind.
-          </p>
-          <div v-if="isTeam" class="audience-switch">
-            <button
-              v-for="mode in audienceModes"
-              :key="mode.key"
-              type="button"
-              class="audience-chip"
-              :class="{ active: viewMode === mode.key }"
-              @click="setAudienceMode(mode.key)"
-            >
-              {{ mode.label }}
+  <div class="unyq-hub-page" :class="{ 'user-relaxed-mode': viewMode === 'user' }">
+    <!-- Top Hero Header -->
+    <header class="hub-hero">
+      <div class="hero-inner">
+        <div class="hero-left">
+          <!-- View Mode Toggle (Available for Admin/Team or preview) -->
+          <div class="mode-switcher-bar">
+            <div class="mode-pill-toggle">
+              <button
+                type="button"
+                class="mode-btn"
+                :class="{ active: viewMode === 'admin' }"
+                @click="setViewMode('admin')"
+                v-if="isTeam"
+              >
+                <span class="mode-icon">👑</span>
+                <span>Admin Ansicht</span>
+              </button>
+              <button
+                type="button"
+                class="mode-btn"
+                :class="{ active: viewMode === 'user' }"
+                @click="setViewMode('user')"
+              >
+                <span class="mode-icon">✨</span>
+                <span>Normal User Ansicht</span>
+              </button>
+            </div>
+            <span class="mode-hint" v-if="isTeam">
+              {{ viewMode === 'admin' ? 'Admin/Team Kontrollansicht aktiv' : 'Entspannter Creator-Modus aktiv' }}
+            </span>
+          </div>
+
+          <!-- Title depending on mode -->
+          <div v-if="viewMode === 'user'" class="user-hero-copy">
+            <span class="zen-badge">🍃 Entspannt &amp; Fokussiert</span>
+            <h1 class="hero-headline">Willkommen{{ displayName ? `, ${displayName}` : '' }}</h1>
+            <p class="hero-subtext">
+              Dein kreativer Freiraum für Musik, Beats, Finanzen und Community. 
+              Alles Wichtige auf einen Blick – ohne Ablenkung.
+            </p>
+          </div>
+
+          <div v-else class="admin-hero-copy">
+            <span class="admin-badge">⚡ COMMAND CENTER // TEAM ACCESS</span>
+            <h1 class="hero-headline">UNYQ Platform Control</h1>
+            <p class="hero-subtext">
+              Zentrale Steuerung aller Plattformen, ProArtist-Workflows, Reviews und Nutzer-Berechtigungen.
+            </p>
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <!-- Quick Status Card (Different for User vs Admin) -->
+          <div v-if="viewMode === 'user'" class="card user-spotlight-card">
+            <div class="sc-head">
+              <span class="sc-icon">🎵</span>
+              <div>
+                <strong>UNYQ Music Tipp</strong>
+                <p class="muted small">Neuer exklusiver VIP-Drop verfügbar</p>
+              </div>
+            </div>
+            <div class="sc-track-preview">
+              <span class="sc-title">Midnight Drive in Berlin</span>
+              <span class="sc-artist">KAZA &amp; UNYQ</span>
+            </div>
+            <button class="btn btn-sm" @click="openPlatformByKey('music')">
+              ▶ Jetzt reinhören
+            </button>
+          </div>
+
+          <div v-else class="card admin-status-card">
+            <div class="asc-head">
+              <strong>Team Status Übersicht</strong>
+              <span class="live-pill">Live</span>
+            </div>
+            <div class="asc-grid">
+              <div class="asc-item" :class="{ alert: hubBadges.overdueTasks > 0 }">
+                <span class="asc-val">{{ hubBadges.overdueTasks }}</span>
+                <span class="asc-lbl">Überfällig</span>
+              </div>
+              <div class="asc-item" :class="{ warn: hubBadges.pendingReviews > 0 }">
+                <span class="asc-val">{{ hubBadges.pendingReviews }}</span>
+                <span class="asc-lbl">Reviews</span>
+              </div>
+              <div class="asc-item" :class="{ alert: hubBadges.staleGrowpro > 0 }">
+                <span class="asc-val">{{ hubBadges.staleGrowpro }}</span>
+                <span class="asc-lbl">GrowPro</span>
+              </div>
+              <div class="asc-item">
+                <span class="asc-val">{{ unreadNotifications }}</span>
+                <span class="asc-lbl">Alerts</span>
+              </div>
+            </div>
+            <button class="btn ghost btn-sm asc-btn" @click="openProArtistDashboard">
+              Zum ProArtist Dashboard →
             </button>
           </div>
         </div>
-        <div class="hero-visual">
-          <div class="floating-icons">
-            <div class="icon-float icon-1">🎵</div>
-            <div class="icon-float icon-2">🏆</div>
-            <div class="icon-float icon-3">📍</div>
-            <div class="icon-float icon-4">💰</div>
-            <div class="icon-float icon-5">📊</div>
-          </div>
-        </div>
       </div>
-    </section>
+    </header>
 
-    <!-- Platforms Grid -->
-    <section class="platforms-section">
-      <div class="section-header">
-        <div class="section-header-left">
-          <h2>Plattformen</h2>
-          <p>Klick zum Öffnen — ziehe Karten zum Umsortieren.</p>
-        </div>
-        <button
-          class="btn ghost edit-order-btn"
-          type="button"
-          :class="{ active: editMode }"
-          @click="editMode = !editMode"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" class="sort-icon"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-          {{ editMode ? 'Fertig' : 'Reihenfolge ändern' }}
+    <!-- ADMIN EXCLUSIVE: ProArtist Deep Workflows & Quick-Jump Bar -->
+    <section v-if="viewMode === 'admin'" class="admin-quick-dock card">
+      <div class="dock-headline">
+        <span class="dock-badge">PROARTIST WORKSPACE</span>
+        <h3>Schnellzugriff: Team &amp; Projektmanagement</h3>
+      </div>
+      <div class="dock-links">
+        <button class="dock-btn" @click="router.push('/dashboard')">
+          <span class="dock-icon">🏠</span>
+          <span>Dashboard</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/projects')">
+          <span class="dock-icon">📁</span>
+          <span>Projekte</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/tasks')">
+          <span class="dock-icon">🗒️</span>
+          <span>Tasks</span>
+          <span v-if="hubBadges.overdueTasks" class="dock-count alert">{{ hubBadges.overdueTasks }}</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/reviews')">
+          <span class="dock-icon">✅</span>
+          <span>Review</span>
+          <span v-if="hubBadges.pendingReviews" class="dock-count warn">{{ hubBadges.pendingReviews }}</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/timeline')">
+          <span class="dock-icon">🗓️</span>
+          <span>Timeline</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/analytics')">
+          <span class="dock-icon">📊</span>
+          <span>Analytics</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/profiles')">
+          <span class="dock-icon">🎤</span>
+          <span>Artists</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/growpro')">
+          <span class="dock-icon">🌱</span>
+          <span>GrowPro</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/chats')">
+          <span class="dock-icon">💬</span>
+          <span>Chats</span>
+        </button>
+        <button class="dock-btn admin-tool" @click="router.push('/platforms/admin')">
+          <span class="dock-icon">👑</span>
+          <span>Admin Hub</span>
         </button>
       </div>
-
-      <div class="platforms-grid">
-        <div
-          v-for="platform in hubCards"
-          :key="platform.key"
-          class="platform-card"
-          role="article"
-          :aria-label="`${displayTitle(platform)} - ${platform.category}`"
-          :draggable="editMode && !platform.isGroup"
-          :class="{ 'is-dragging': draggedKey === platform.key, 'drag-over': dragOverKey === platform.key, 'edit-active': editMode && !platform.isGroup, 'group-card': platform.isGroup }"
-          @dragstart="onDragStart($event, platform.key)"
-          @dragover="onDragOver($event, platform.key)"
-          @dragleave="dragOverKey = null"
-          @drop="onDrop($event, platform.key)"
-          @dragend="onDragEnd"
-          @click="!editMode && handleCardOpen(platform)"
-        >
-          <div v-if="editMode && !platform.isGroup" class="drag-handle" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M9 5a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM9 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm6 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg>
-          </div>
-          <div class="platform-header">
-            <div class="platform-icon" aria-hidden="true">{{ platform.icon }}</div>
-            <div class="platform-meta">
-              <h3>{{ displayTitle(platform) }}</h3>
-              <div class="platform-tags">
-                <span class="platform-tag">{{ platform.category }}</span>
-                <span v-if="!platform.isGroup" class="platform-tag version">v{{ platform.version || '0.1' }}</span>
-                <span
-                  v-if="!platform.isGroup"
-                  class="platform-tag status"
-                  :class="`status-${platform.status || 'live'}`"
-                >
-                  {{ platformStatusLabel(platform.status) }}
-                </span>
-                <span v-if="platform.key === 'dashboard' && unreadNotifications" class="platform-tag notif-badge">
-                  🔔 {{ unreadNotificationBadge }}
-                </span>
-                <span v-if="platform.key === 'dashboard' && hubBadges.overdueTasks" class="platform-tag badge-danger">
-                  🔴 {{ hubBadges.overdueTasks }} überfällig
-                </span>
-                <span v-if="platform.key === 'dashboard' && hubBadges.pendingReviews" class="platform-tag badge-warning">
-                  👀 {{ hubBadges.pendingReviews }} Review
-                </span>
-                <span v-if="platform.key === 'dashboard' && hubBadges.staleGrowpro" class="platform-tag badge-danger">
-                  ⏰ {{ hubBadges.staleGrowpro }} GrowPro fällig
-                </span>
-              </div>
-            </div>
-          </div>
-          <p class="platform-description">{{ platform.description }}</p>
-          <p v-if="platform.status_note" class="platform-note">{{ platform.status_note }}</p>
-          <button
-            v-if="!editMode"
-            class="platform-btn"
-            :aria-label="`${platform.buttonLabel}: ${displayTitle(platform)}`"
-            @click.stop="handleCardOpen(platform)"
-          >
-            {{ platform.buttonLabel }}
-            <svg class="arrow-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </button>
-          <div v-else class="edit-hint">{{ platform.isGroup ? "Sammel-Link" : "Ziehen zum Umsortieren" }}</div>
-        </div>
-      </div>
     </section>
 
-    <div v-if="activeGroupKey" class="group-overlay" @click.self="closeGroupLinks">
-      <div class="group-dialog card">
-        <div class="group-dialog-head">
-          <h3>{{ activeGroupTitle }}</h3>
-          <button class="btn ghost tiny" type="button" @click="closeGroupLinks">Schließen</button>
+    <!-- The 8 Core UNYQ Pillars Grid -->
+    <main class="hub-main-section">
+      <div class="section-top-bar">
+        <div>
+          <h2>{{ viewMode === 'user' ? 'Entdecke das UNYQ Universum' : 'UNYQ Haupt-Plattformen & Bereiche' }}</h2>
+          <p class="muted">
+            {{ viewMode === 'user' ? 'Klicke auf einen Bereich, um direkt loszulegen.' : 'Alle 8 Kern-Plattformen. Ziehe Karten, um die Reihenfolge zu ändern.' }}
+          </p>
         </div>
-        <p class="muted">Wähle einen Bereich:</p>
-        <div class="group-link-list">
+
+        <div v-if="viewMode === 'admin'" class="admin-grid-actions">
           <button
-            v-for="platform in activeGroupPlatforms"
-            :key="platform.key"
-            class="group-link-btn"
-            type="button"
-            @click="openGroupedPlatform(platform)"
+            class="btn ghost btn-sm edit-order-btn"
+            :class="{ active: editMode }"
+            @click="editMode = !editMode"
           >
-            <span class="group-link-icon" aria-hidden="true">{{ platform.icon }}</span>
-            <span class="group-link-copy">
-              <strong>{{ displayTitle(platform) }}</strong>
-              <small>{{ platform.category }}</small>
-            </span>
-            <span class="group-link-arrow">→</span>
+            {{ editMode ? '✓ Fertig sortiert' : '⇄ Reihenfolge anpassen' }}
           </button>
         </div>
       </div>
-    </div>
 
+      <!-- Grid of the 8 Pillars -->
+      <div class="pillars-grid" :class="{ 'edit-mode-active': editMode }">
+        <div
+          v-for="pillar in orderedPillars"
+          :key="pillar.key"
+          class="card pillar-card"
+          :class="[
+            `theme-${pillar.color}`,
+            { 'is-dragging': draggedKey === pillar.key, 'drag-over': dragOverKey === pillar.key }
+          ]"
+          :draggable="editMode"
+          @dragstart="onDragStart($event, pillar.key)"
+          @dragover="onDragOver($event, pillar.key)"
+          @dragleave="dragOverKey = null"
+          @drop="onDrop($event, pillar.key)"
+          @dragend="onDragEnd"
+          @click="!editMode && openPlatformByKey(pillar.key)"
+        >
+          <div v-if="editMode" class="drag-handle-badge">⋮⋮ Ziehen zum Verschieben</div>
+
+          <div class="pillar-top">
+            <div class="pillar-icon-box" :style="{ background: pillar.bgGlow }">
+              <span class="pillar-emoji">{{ pillar.icon }}</span>
+            </div>
+            <div class="pillar-badges">
+              <span class="badge-cat">{{ pillar.category }}</span>
+              <span class="badge-accent" :class="`pill-${pillar.color}`">{{ pillar.badge }}</span>
+            </div>
+          </div>
+
+          <div class="pillar-body">
+            <h3 class="pillar-title">{{ pillar.title }}</h3>
+            <p class="pillar-description">{{ pillar.description }}</p>
+          </div>
+
+          <div class="pillar-features-row">
+            <span v-for="feat in pillar.features" :key="feat" class="p-feat">
+              {{ feat }}
+            </span>
+          </div>
+
+          <div class="pillar-footer">
+            <button class="btn btn-pillar-action" @click.stop="openPlatformByKey(pillar.key)">
+              <span>{{ pillar.buttonLabel }}</span>
+              <span class="arrow-glyph">→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- User Inspiration / Community Highlights Banner -->
+    <section v-if="viewMode === 'user'" class="user-highlights-banner card">
+      <div class="highlight-column">
+        <span class="hl-badge">📦 FREE SOUNDS</span>
+        <h4>UNYQ Library Update</h4>
+        <p class="muted small">Neue 808s, Stems &amp; Presets jetzt 100% CC0 Free zum Download bereit.</p>
+        <button class="btn ghost btn-sm" @click="openPlatformByKey('library')">Library durchsuchen →</button>
+      </div>
+
+      <div class="highlight-column border-col">
+        <span class="hl-badge hl-forum">💬 COMMUNITY FORUM</span>
+        <h4>Austausch &amp; Feedback</h4>
+        <p class="muted small">Stelle Fragen zu Mixing &amp; Beatmaking oder finde Collab-Partner im Forum.</p>
+        <button class="btn ghost btn-sm" @click="openPlatformByKey('forum')">Zum Forum →</button>
+      </div>
+
+      <div class="highlight-column">
+        <span class="hl-badge hl-merch">🎨 LIMITED MERCH</span>
+        <h4>UNYQ Designs Drop</h4>
+        <p class="muted small">Trage dich für den exklusiven Vorab-Zugang des Studio-Drop '26 ein.</p>
+        <button class="btn ghost btn-sm" @click="openPlatformByKey('designs')">Merch ansehen →</button>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useToast } from "../composables/useToast";
 import api from "../api";
 import {
   fetchManagedPlatformAccessState,
@@ -161,326 +266,186 @@ const router = useRouter();
 const { showToast } = useToast();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 
-const viewMode = ref("default");
+const HUB_VIEW_MODE_KEY = "unyq_hub_mode_preference";
+const HUB_PILLARS_ORDER_KEY = "unyq_pillars_order";
+
+// Default view mode: team gets admin, others get user
+const viewMode = ref("user");
 const editMode = ref(false);
 const draggedKey = ref(null);
 const dragOverKey = ref(null);
-const activeGroupKey = ref("");
+
 const unreadNotifications = ref(0);
 const hubBadges = ref({ openTasks: 0, overdueTasks: 0, pendingReviews: 0, staleGrowpro: 0 });
+const accessStateBySlug = ref({});
+
+const displayName = computed(() => {
+  return (me.value?.name || me.value?.username || "").trim().split(" ")[0] || "";
+});
+
+function setViewMode(mode) {
+  viewMode.value = mode;
+  try {
+    localStorage.setItem(HUB_VIEW_MODE_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
+// The 8 Core UNYQ Pillars
+const corePillars = [
+  {
+    key: "proartist",
+    title: "UNYQ ProArtist",
+    category: "Kreativ-Workspace",
+    description: "Vollständige Arbeitsumgebung für Projekte, Aufgaben, Timelines, Reviews, Analytics und Team-Workflows.",
+    buttonLabel: "Workspace öffnen",
+    icon: "🎹",
+    badge: "Workflows & Tasks",
+    color: "blue",
+    bgGlow: "rgba(59, 130, 246, 0.15)",
+    features: ["Dashboard", "Projekte", "Tasks", "Timeline"],
+    route: "/dashboard",
+  },
+  {
+    key: "finance",
+    title: "UNYQ Finance",
+    category: "Finanz-Management",
+    description: "Zentrales Finanz-Center: Einnahmen, GEMA/GVL-Tantiemen, Projektbudgets und Vorbereitung für deine Finanz-App.",
+    buttonLabel: "Finance öffnen",
+    icon: "💰",
+    badge: "Container Bereit",
+    color: "emerald",
+    bgGlow: "rgba(16, 185, 129, 0.15)",
+    features: ["Cashflow", "Budgets", "Wallet Sync", "App Dock"],
+    route: "/platforms/finance",
+  },
+  {
+    key: "earn",
+    title: "UNYQ Earn",
+    category: "Partner & Affiliate",
+    description: "Empfehle UNYQ an Artists & Producer weiter und verdiene bis zu 30% Lifetime-Provision bei monatlicher Auszahlung.",
+    buttonLabel: "Partnerbereich öffnen",
+    icon: "💎",
+    badge: "Bis 30% Provision",
+    color: "amber",
+    bgGlow: "rgba(245, 158, 11, 0.15)",
+    features: ["Partnerlink", "Lifetime Payouts", "Tier Tiers"],
+    route: "/platforms/earn",
+  },
+  {
+    key: "designs",
+    title: "UNYQ Designs",
+    category: "Merchandise & Drops",
+    description: "Offizielles UNYQ Merchandise, hochwertige Heavyweight Streetwear, Studio-Essentials und Artist-Kollaborationen.",
+    buttonLabel: "Designs ansehen",
+    icon: "🎨",
+    badge: "Drop '26",
+    color: "pink",
+    bgGlow: "rgba(236, 72, 153, 0.15)",
+    features: ["Streetwear", "Hoodies", "Vinyl Mats", "Artist Merch"],
+    route: "/platforms/designs",
+  },
+  {
+    key: "music",
+    title: "UNYQ Music",
+    category: "Exklusiver Music Player",
+    description: "Exklusiver Music Player mit Audio-Synthesizer, VIP Drops, Unreleased Tracks und Präsentationsfläche für Artists.",
+    buttonLabel: "Music Player starten",
+    icon: "🎧",
+    badge: "VIP Player",
+    color: "purple",
+    bgGlow: "rgba(168, 85, 247, 0.15)",
+    features: ["Waveform Player", "VIP Drops", "Audio Engine", "Track Upload"],
+    route: "/platforms/music",
+  },
+  {
+    key: "library",
+    title: "UNYQ Library",
+    category: "Open Source Sound Bank",
+    description: "Große offene Free License Audio-Bibliothek: 808s, Drum-Kits, Melodic Loops, Serum Presets & MIDIs für Producer.",
+    buttonLabel: "Sound Bank öffnen",
+    icon: "📦",
+    badge: "100% Free CC0",
+    color: "cyan",
+    bgGlow: "rgba(6, 182, 212, 0.15)",
+    features: ["808s & Drums", "Serum Presets", "STEMs", "Instant Download"],
+    route: "/platforms/library",
+  },
+  {
+    key: "forum",
+    title: "UNYQ Forum",
+    category: "Community & Austausch",
+    description: "Das Community-Forum für Beatmaking, Mixing, Songwriting, Feature-Wünsche und Track-Feedback.",
+    buttonLabel: "Forum öffnen",
+    icon: "💬",
+    badge: "Live Community",
+    color: "indigo",
+    bgGlow: "rgba(99, 102, 241, 0.15)",
+    features: ["Diskussionen", "Feedback", "Collabs", "Ideen"],
+    route: "/platforms/forum",
+  },
+  {
+    key: "extra",
+    title: "UNYQ Extra",
+    category: "Ecosystem Directory",
+    description: "Zentraler Zugang zu allen weiteren UNYQ Plattformen (Turniere, Locations, Content Schedule etc.) und offiziellen Socials.",
+    buttonLabel: "Alle Plattformen",
+    icon: "🌐",
+    badge: "Plattformen & Socials",
+    color: "sky",
+    bgGlow: "rgba(14, 165, 233, 0.15)",
+    features: ["Turniere", "Locations", "Schedule", "Spotify & Socials"],
+    route: "/platforms/extra",
+  },
+];
 
 function loadSavedOrder() {
   try {
-    const raw = localStorage.getItem("unyq_platform_order");
+    const raw = localStorage.getItem(HUB_PILLARS_ORDER_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
-const platformOrder = ref(loadSavedOrder());
-const accessStateBySlug = ref({});
-const HUB_AUDIENCE_KEY = "unyq_hub_audience_mode";
 
-const audienceModes = [
-  { key: "default", label: "Team/Admin Modus" },
-  { key: "MEMBER", label: "Normal User Modus" },
-  { key: "ARTIST", label: "Artist Vorschau" },
-];
+const savedOrder = ref(loadSavedOrder());
 
-function setAudienceMode(mode) {
-  viewMode.value = mode;
-  try {
-    localStorage.setItem(HUB_AUDIENCE_KEY, mode);
-  } catch {
-    // ignore storage errors
+const orderedPillars = computed(() => {
+  if (!savedOrder.value.length) return corePillars;
+  const list = [...corePillars];
+  const ordered = [];
+  savedOrder.value.forEach((key) => {
+    const found = list.find((p) => p.key === key);
+    if (found) ordered.push(found);
+  });
+  list.forEach((p) => {
+    if (!ordered.some((o) => o.key === p.key)) ordered.push(p);
+  });
+  return ordered;
+});
+
+function openPlatformByKey(key) {
+  const pillar = corePillars.find((p) => p.key === key);
+  if (!pillar) return;
+
+  // check access state
+  const state = accessStateBySlug.value[key];
+  if (state && state.is_accessible === false) {
+    showToast(state.status_note || "Diese Plattform ist aktuell gewartet.", "warning");
+    return;
   }
+
+  router.push(pillar.route);
 }
 
-const displayName = computed(() => (me.value?.name || me.value?.username || "").trim().split(" ")[0] || "");
-const unreadNotificationBadge = computed(() => (unreadNotifications.value > 99 ? "99+" : String(unreadNotifications.value)));
-
-function asList(payload) {
-  if (Array.isArray(payload)) return payload;
-  return payload?.results || [];
+function openProArtistDashboard() {
+  router.push("/dashboard");
 }
 
-const platforms = [
-  // KI-Hinweis:
-  // Plattform-Versionen werden durch das Backend automatisch bei funktionalen Aenderungen hochgezaehlt.
-  // Nicht manuell im Frontend setzen - nur anzeigen (state.version).
-  {
-    key: "dashboard",
-    title: "ProArtist",
-    category: "Übersicht",
-    description: "Dein persönliches Dashboard mit allen wichtigen Informationen und Schnellzugriffen.",
-    buttonLabel: "Öffnen",
-    icon: "📊",
-    features: ["Übersicht", "Schnellzugriffe", "Benachrichtigungen"],
-    roles: ["TEAM", "ARTIST", "PROD", "LOC"],
-    status: "live",
-  },
-  {
-    key: "contests",
-    title: "UNYQ Turnier",
-    category: "Wettbewerbe",
-    description: "Team erstellt Turniere, Artists bewerben sich oder reichen Runden ein und Battles laufen mit Voting.",
-    buttonLabel: "Starten",
-    icon: "🏆",
-    features: ["Turniere", "Einreichungen", "Voting"],
-    roles: ["TEAM", "ARTIST", "PROD"],
-    status: "live",
-  },
-  {
-    key: "music",
-    title: "Music Manager",
-    category: "Musik",
-    description: "Verwalte deine Songs, Alben und Releases in einem professionellen Music Manager.",
-    buttonLabel: "Verwalten",
-    icon: "🎵",
-    features: ["Songs", "Releases", "Analytics"],
-    roles: ["TEAM", "ARTIST", "PROD"],
-    status: "live",
-  },
-  {
-    key: "locations",
-    title: "Locations",
-    category: "Events",
-    description: "Finde und verwalte Locations für deine Events und Auftritte.",
-    buttonLabel: "Suchen",
-    icon: "📍",
-    features: ["Locations", "Events", "Buchungen"],
-    roles: ["TEAM", "LOC", "PROD"],
-    status: "beta",
-  },
-  {
-    key: "finance",
-    title: "Finance Planner",
-    category: "Finanzen",
-    description: "Plane dein Budget, verwalte Einnahmen und Ausgaben, tilge Schulden effizient.",
-    buttonLabel: "Planen",
-    icon: "💰",
-    features: ["Budget", "Schulden", "Einnahmen"],
-    roles: ["TEAM", "MEMBER"],
-    status: "live",
-  },
-  {
-    key: "content-studio",
-    title: "Content Studio",
-    category: "Content",
-    description: "Erstelle zentral Tipps, News und Plugin-Tutorials fuer alle Nutzerbereiche.",
-    buttonLabel: "Erstellen",
-    icon: "📝",
-    features: ["Tipps", "News", "Tutorials"],
-    roles: ["TEAM", "ARTIST", "PROD", "MEMBER"],
-    status: "beta",
-  },
-  {
-    key: "content-schedule",
-    title: "ACH",
-    category: "Planung",
-    description: "Plane deinen Content von Montag bis Sonntag. Lege Content-Serien mit Header, Parts und Links per Drag & Drop an.",
-    buttonLabel: "Planen",
-    icon: "📅",
-    features: ["Wochenplan", "Drag & Drop", "Content-Serien"],
-    roles: ["TEAM", "ARTIST", "PROD", "MEMBER"],
-    status: "beta",
-  },
-  {
-    key: "fitness",
-    title: "Fitness Tracker",
-    category: "Health",
-    description: "Tracke Kalorien, schaetze deinen Tagesverbrauch und finde einfache Essensideen fuer jede Mahlzeit.",
-    buttonLabel: "Starten",
-    icon: "🏋️",
-    features: ["Kcal", "Verbrauch", "Essensideen"],
-    roles: ["TEAM", "ARTIST", "PROD", "VIDEO", "MERCH", "MKT", "LOC", "MEMBER"],
-    status: "beta",
-  },
-  {
-    key: "todo",
-    title: "Todo",
-    category: "Organisation",
-    description: "Erstelle Todos mit oder ohne Datum und exportiere einzelne Einträge direkt in deinen Kalender.",
-    buttonLabel: "Öffnen",
-    icon: "✅",
-    features: ["Todos", "Optionales Datum", "Kalender-Button"],
-    roles: ["TEAM"],
-    version: "0.2",
-    status: "live",
-  },
-  {
-    key: "plugin-guides",
-    title: "Plugin Guides",
-    category: "Wissen",
-    description: "Eigene Plattform fuer Plugin-Tutorials, Setup-Guides und Best Practices.",
-    buttonLabel: "Öffnen",
-    icon: "🔌",
-    features: ["Tutorials", "Setups", "Workflow-Docs"],
-    roles: ["TEAM", "ARTIST", "PROD", "MEMBER", "LOC"],
-    status: "live",
-  },
-  {
-    key: "api-center",
-    title: "API Platform",
-    category: "Entwicklung",
-    description: "Eigene Plattform fuer Integrationen, API-Keys und Automatisierungsregeln.",
-    buttonLabel: "Verwalten",
-    icon: "🔑",
-    features: ["Integrationen", "Automation", "Scopes"],
-    roles: ["TEAM"],
-    status: "live",
-  },
-  {
-    key: "manage-platforms",
-    title: "Platform Control",
-    category: "Verwaltung",
-    description: "Steuere Verfuegbarkeit, Versionen und Hinweise fuer einzelne Plattformen zentral.",
-    buttonLabel: "Steuern",
-    icon: "🛠️",
-    features: ["Status", "Versionen", "Hinweise"],
-    roles: ["TEAM"],
-    status: "live",
-  },
-  {
-    key: "admin",
-    title: "Admin Control Hub",
-    category: "Verwaltung",
-    description: "Zentrales Verwaltungszentrum für alle UNYQ-Plattformen, Artist-Vorschau und Nutzer.",
-    buttonLabel: "Verwalten",
-    icon: "🔧",
-    features: ["Nutzer", "Plattformen", "Artist View"],
-    roles: ["TEAM"],
-    status: "live",
-  },
-  {
-    key: "testing",
-    title: "TESTING",
-    category: "Intern",
-    description: "Interne Tests für Backend-Funktionen wie E-Mail, Notifications und mehr.",
-    buttonLabel: "Testen",
-    icon: "🧪",
-    features: ["E-Mail", "Backend", "Debug"],
-    roles: ["TEAM"],
-    status: "beta",
-  },
-];
-
-function platformStatusLabel(status) {
-  const map = {
-    live: "Live",
-    beta: "Beta",
-    preview: "Preview",
-    maintenance: "Wartung",
-    locked: "Gesperrt",
-  };
-  return map[status || "live"] || "Live";
-}
-
-function platformSlugForKey(key) {
-  return key;
-}
-
-const activeRole = computed(() => {
-  if (viewMode.value !== "default") return viewMode.value;
-  if (isTeam.value) return "TEAM";
-  const role = (me.value?.roles || []).find((roleItem) => roleItem.key !== "TEAM");
-  return role?.key || "ARTIST";
-});
-
-const defaultOrder = [
-  "dashboard", "todo", "music", "contests", "content-schedule",
-  "content-studio", "plugin-guides", "api-center", "finance", "fitness", "locations", "manage-platforms", "admin", "testing",
-];
-
-const visiblePlatforms = computed(() => {
-  const currentRole = activeRole.value;
-  return platforms
-    .filter((platform) => platform.roles.includes(currentRole))
-    .map((platform) => {
-      const slug = platformSlugForKey(platform.key);
-      const state = accessStateBySlug.value[slug];
-      if (!state) return platform;
-
-      let status = "live";
-      if (state.status === "MAINTENANCE") status = "maintenance";
-      if (state.status === "LOCKED") status = "locked";
-
-      return {
-        ...platform,
-        version: state.version || "0.1",
-        status,
-        is_accessible: state.is_accessible,
-        status_note: state.status_note || "",
-      };
-    });
-});
-
-const orderedPlatforms = computed(() => {
-  const visible = visiblePlatforms.value;
-  const order = platformOrder.value.length ? platformOrder.value : defaultOrder;
-  const known = order.filter((key) => visible.some((p) => p.key === key));
-  const rest = visible.filter((p) => !known.includes(p.key));
-  return [...known.map((key) => visible.find((p) => p.key === key)).filter(Boolean), ...rest];
-});
-
-const primaryPlatformKeys = ["dashboard", "contests", "content-schedule", "locations"];
-const toolsPlatformKeys = ["music", "finance", "fitness", "todo", "content-studio", "plugin-guides", "api-center"];
-const adminTeamPlatformKeys = ["manage-platforms", "admin", "testing"];
-
-const primaryPlatforms = computed(() => orderedPlatforms.value.filter((platform) => primaryPlatformKeys.includes(platform.key)));
-const toolsPlatforms = computed(() => orderedPlatforms.value.filter((platform) => toolsPlatformKeys.includes(platform.key)));
-const adminTeamPlatforms = computed(() => orderedPlatforms.value.filter((platform) => adminTeamPlatformKeys.includes(platform.key)));
-
-const hubCards = computed(() => {
-  const cards = [...primaryPlatforms.value];
-  if (toolsPlatforms.value.length) {
-    cards.push({
-      key: "tools-link",
-      title: "TOOLS",
-      category: "Sammelbereich",
-      description: "Alle produktiven Tools zentral gebündelt, ohne die Plattform-Übersicht zu überladen.",
-      buttonLabel: "Öffnen",
-      icon: "🧰",
-      isGroup: true,
-      groupKey: "tools",
-    });
-  }
-  if (adminTeamPlatforms.value.length && isTeam.value) {
-    cards.push({
-      key: "admin-team-link",
-      title: "Admin/Team",
-      category: "Sammelbereich",
-      description: "Administrative und Team-Funktionen in einem eigenen Zugangspunkt.",
-      buttonLabel: "Öffnen",
-      icon: "🛠️",
-      isGroup: true,
-      groupKey: "admin-team",
-    });
-  }
-  return cards;
-});
-
-const activeGroupTitle = computed(() => {
-  if (activeGroupKey.value === "tools") return "TOOLS";
-  if (activeGroupKey.value === "admin-team") return "Admin/Team";
-  return "Bereich";
-});
-
-const activeGroupPlatforms = computed(() => {
-  if (activeGroupKey.value === "tools") return toolsPlatforms.value;
-  if (activeGroupKey.value === "admin-team") return adminTeamPlatforms.value;
-  return [];
-});
-
-function displayTitle(platform) {
-  if (!platform) return "";
-  const title = platform.title;
-  if (title && typeof title === "object" && "value" in title) return title.value;
-  return title || "";
-}
-
+/* Drag & Drop */
 function onDragStart(event, key) {
-  if (!editMode.value || key === "tools-link" || key === "admin-team-link") return;
+  if (!editMode.value) return;
   draggedKey.value = key;
   event.dataTransfer.effectAllowed = "move";
 }
@@ -493,21 +458,25 @@ function onDragOver(event, key) {
 
 function onDrop(event, targetKey) {
   event.preventDefault();
-  if (targetKey === "tools-link" || targetKey === "admin-team-link") {
+  if (!draggedKey.value || draggedKey.value === targetKey) {
     dragOverKey.value = null;
     return;
   }
-  if (!draggedKey.value || draggedKey.value === targetKey) { dragOverKey.value = null; return; }
-  const list = [...orderedPlatforms.value];
+  const list = [...orderedPillars.value];
   const fromIdx = list.findIndex((p) => p.key === draggedKey.value);
   const toIdx = list.findIndex((p) => p.key === targetKey);
   if (fromIdx === -1 || toIdx === -1) return;
   const [moved] = list.splice(fromIdx, 1);
   list.splice(toIdx, 0, moved);
-  platformOrder.value = list.map((p) => p.key);
-  localStorage.setItem("unyq_platform_order", JSON.stringify(platformOrder.value));
+  savedOrder.value = list.map((p) => p.key);
+  try {
+    localStorage.setItem(HUB_PILLARS_ORDER_KEY, JSON.stringify(savedOrder.value));
+  } catch {
+    // ignore
+  }
   draggedKey.value = null;
   dragOverKey.value = null;
+  showToast("Reihenfolge gespeichert! ✨", "success");
 }
 
 function onDragEnd() {
@@ -515,60 +484,12 @@ function onDragEnd() {
   dragOverKey.value = null;
 }
 
-function handleCardOpen(platform) {
-  if (!platform) return;
-  if (platform.isGroup) {
-    activeGroupKey.value = platform.groupKey;
-    return;
-  }
-  openPlatform(platform.key, platform);
-}
-
-function closeGroupLinks() {
-  activeGroupKey.value = "";
-}
-
-function openGroupedPlatform(platform) {
-  closeGroupLinks();
-  openPlatform(platform.key, platform);
-}
-
-function openPlatform(platformKey, platformMeta = null) {
-  if (platformMeta && platformMeta.is_accessible === false) {
-    const hint = platformMeta.status_note || "Diese Plattform ist aktuell nicht verfuegbar.";
-    showToast(hint, "warning");
-    return;
-  }
-
-  const mapping = {
-    dashboard: "/app/dashboard",
-    contests: "/platforms/contests",
-    music: "/platforms/music",
-    locations: "/platforms/locations",
-    finance: "/platforms/finance",
-    "content-studio": "/platforms/content-studio",
-    "content-schedule": "/platforms/content-schedule",
-    todo: "/platforms/todo",
-    "plugin-guides": "/platforms/plugin-guides",
-    "api-center": "/platforms/api-center",
-    fitness: "/platforms/fitness",
-    admin: "/platforms/admin",
-    "manage-platforms": "/platforms/manage-platforms",
-    testing: "/app/testing",
-  };
-  const path = mapping[platformKey];
-  if (path) {
-    router.push(path);
-    return;
-  }
-  showToast("Diese Plattform wird bald verfügbar sein", "info");
-}
-
+/* Data Loading */
 async function loadAccessState() {
   try {
     const rows = await fetchManagedPlatformAccessState();
     accessStateBySlug.value = mapAccessStateRows(rows);
-  } catch (err) {
+  } catch {
     accessStateBySlug.value = {};
   }
 }
@@ -595,21 +516,12 @@ async function loadHubBadges() {
     const reviewCount = reviewRes?.data?.count ?? (Array.isArray(reviewRes?.data) ? reviewRes.data.length : 0);
     const growproItems = Array.isArray(growproRes?.data) ? growproRes.data : growproRes?.data?.results || [];
     const now = Date.now();
-    const baselineDate = new Date();
-    baselineDate.setHours(0, 0, 0, 0);
-    const staleCount = growproItems.filter((goal) => {
-      if (["DONE", "ARCHIVED"].includes(goal?.status)) return false;
-      const last = goal.last_logged_at ? new Date(goal.last_logged_at).getTime() : null;
-      const stale = !last || (now - last) / (1000 * 60 * 60) > 72;
-
-      const due = goal?.due_date ? new Date(goal.due_date) : null;
-      const dueState = due && !Number.isNaN(due.getTime())
-        ? Math.round((new Date(due.setHours(0, 0, 0, 0)).getTime() - baselineDate.getTime()) / 86400000)
-        : null;
-      const dueNeedsAttention = dueState !== null ? dueState <= 2 : false;
-
-      return stale || dueNeedsAttention;
+    const staleCount = growproItems.filter((g) => {
+      if (["DONE", "ARCHIVED"].includes(g?.status)) return false;
+      const last = g.last_logged_at ? new Date(g.last_logged_at).getTime() : null;
+      return !last || (now - last) / (1000 * 60 * 60) > 72;
     }).length;
+
     hubBadges.value = {
       openTasks: Math.min(99, taskCount),
       overdueTasks: Math.min(99, overdueCount),
@@ -617,814 +529,560 @@ async function loadHubBadges() {
       staleGrowpro: Math.min(99, staleCount),
     };
   } catch {
-    // silently ignore
+    // ignore
   }
 }
 
 onMounted(async () => {
   await fetchProfile();
-  if (isTeam.value) {
-    try {
-      const stored = localStorage.getItem(HUB_AUDIENCE_KEY);
-      if (stored && audienceModes.some((mode) => mode.key === stored)) {
-        viewMode.value = stored;
-      }
-    } catch {
-      // ignore storage errors
+  try {
+    const stored = localStorage.getItem(HUB_VIEW_MODE_KEY);
+    if (stored === "admin" || stored === "user") {
+      viewMode.value = isTeam.value ? stored : "user";
+    } else {
+      viewMode.value = isTeam.value ? "admin" : "user";
     }
+  } catch {
+    viewMode.value = isTeam.value ? "admin" : "user";
   }
   await Promise.all([loadAccessState(), loadNotificationCount(), loadHubBadges()]);
 });
 </script>
 
 <style scoped>
-.platform-hub {
+.unyq-hub-page {
   min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 16px 20px 80px;
+}
+
+/* User Relaxed Mode adjustments */
+.user-relaxed-mode {
+  gap: 36px;
 }
 
 /* Hero Section */
-.hero-section {
-  padding: clamp(28px, 4vw, 50px) 20px;
-  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
-  color: white;
+.hub-hero {
+  border-radius: 24px;
+  background: 
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.22), transparent 50%),
+    radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.12), transparent 40%),
+    linear-gradient(135deg, rgba(24, 28, 48, 0.85), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(124, 161, 255, 0.22);
+  padding: clamp(28px, 4vw, 44px);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 
-.hero-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><defs><filter id="blur"><feGaussianBlur in="SourceGraphic" stdDeviation="2"/></filter></defs><path d="M0,100 Q300,50 600,100 T1200,100 L1200,0 L0,0 Z" fill="%233b82f6" opacity="0.15" filter="url(%23blur)"/><path d="M0,150 Q300,80 600,150 T1200,150 L1200,100 Q600,50 0,100 Z" fill="%235b6ef2" opacity="0.12" filter="url(%23blur)"/><path d="M0,200 Q300,120 600,200 T1200,200 L1200,150 Q600,80 0,150 Z" fill="%237c61eb" opacity="0.12" filter="url(%23blur)"/><path d="M0,250 Q300,160 600,250 T1200,250 L1200,200 Q600,120 0,200 Z" fill="%239333ea" opacity="0.12" filter="url(%23blur)"/><path d="M0,300 Q300,200 600,300 T1200,300 L1200,250 Q600,160 0,250 Z" fill="%23a855f7" opacity="0.12" filter="url(%23blur)"/><path d="M0,350 Q300,240 600,350 T1200,350 L1200,300 Q600,200 0,300 Z" fill="%23c084fc" opacity="0.12" filter="url(%23blur)"/><path d="M0,400 Q300,280 600,400 T1200,400 L1200,350 Q600,240 0,350 Z" fill="%23e879f9" opacity="0.12" filter="url(%23blur)"/></svg>');
-  background-size: 1200px 600px;
-  background-position: 0 0;
-  opacity: 0.8;
-}
-
-@keyframes stripes-flow {
-  0%, 100% {
-    background-position: 0 0;
-    opacity: 0.8;
-  }
-}
-
-.hero-content {
-  max-width: 1200px;
-  margin: 0 auto;
+.hero-inner {
   display: grid;
-  grid-template-columns: 1.25fr 0.75fr;
-  gap: 28px;
+  grid-template-columns: 1.35fr 0.9fr;
+  gap: 32px;
   align-items: center;
-  position: relative;
-  z-index: 1;
 }
 
-.hero-text h1 {
-  font-size: clamp(1.9rem, 4.2vw, 3.2rem);
-  font-weight: 800;
-  margin: 0 0 14px;
-  line-height: 1.1;
-}
-
-.hero-subtitle {
-  font-size: clamp(1rem, 1.8vw, 1.16rem);
-  line-height: 1.5;
-  opacity: 0.94;
-  margin: 0;
-}
-
-.hero-shortcuts {
-  margin-top: 14px;
+/* Mode Switcher */
+.mode-switcher-bar {
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
-.shortcut-btn {
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+.mode-pill-toggle {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  padding: 7px 14px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-weight: 600;
+  gap: 6px;
+  transition: all 0.2s ease;
 }
 
-.shortcut-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.audience-switch {
-  margin-top: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.audience-chip {
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.audience-chip.active {
+.mode-btn.active {
   background: #fff;
   color: #0f172a;
-  border-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.hero-visual {
-  position: relative;
-  height: 300px;
-}
-
-.floating-icons {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.icon-float {
-  position: absolute;
-  font-size: 3rem;
-  animation: float 6s ease-in-out infinite;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
-}
-
-.icon-1 { top: 10%; left: 10%; animation-delay: 0s; }
-.icon-2 { top: 20%; right: 20%; animation-delay: 1s; }
-.icon-3 { bottom: 20%; left: 20%; animation-delay: 2s; }
-.icon-4 { bottom: 10%; right: 10%; animation-delay: 3s; }
-.icon-5 { top: 50%; left: 50%; animation-delay: 4s; }
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  25% { transform: translateY(-20px) rotate(5deg); }
-  50% { transform: translateY(-10px) rotate(-5deg); }
-  75% { transform: translateY(-25px) rotate(3deg); }
-}
-
-/* Platforms Section */
-.platforms-section {
-  padding: 44px 20px 56px;
-  background: var(--bg);
-}
-
-.section-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.section-header-left h2 {
-  font-size: clamp(1.5rem, 2.2vw, 2rem);
-  font-weight: 700;
-  margin: 0 0 4px;
-  color: var(--text);
-}
-
-.section-header-left p {
-  font-size: 0.9rem;
+.mode-hint {
+  font-size: 11.5px;
   color: var(--muted);
+  font-style: italic;
+}
+
+/* Hero Headings */
+.zen-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #34d399;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.admin-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.hero-headline {
+  font-size: clamp(2.2rem, 4vw, 3.2rem);
+  font-weight: 900;
+  margin: 0 0 10px;
+  line-height: 1.1;
+  background: linear-gradient(120deg, #ffffff 40%, #c7d2fe 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-subtext {
+  font-size: clamp(14px, 1.6vw, 16px);
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 620px;
   margin: 0;
 }
 
-.edit-order-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.edit-order-btn.active {
-  background: color-mix(in srgb, var(--brand) 14%, var(--surface) 86%);
-  border-color: var(--brand);
-  color: var(--brand);
-}
-
-.sort-icon {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.platforms-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 18px;
-}
-
-.platform-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+/* User Spotlight Card */
+.user-spotlight-card {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(168, 85, 247, 0.25);
   padding: 22px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
-  box-shadow: var(--shadow-soft);
-  position: relative;
-  overflow: hidden;
-}
-
-.platform-card.group-card {
-  border-style: dashed;
-  background: color-mix(in srgb, var(--card) 80%, var(--bg-soft) 20%);
-}
-
-.platform-card.edit-active {
-  cursor: grab;
-}
-
-.platform-card.edit-active:active {
-  cursor: grabbing;
-}
-
-.platform-card.is-dragging {
-  opacity: 0.45;
-  transform: scale(0.97);
-}
-
-.platform-card.drag-over {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--ring);
-  transform: scale(1.01);
-}
-
-.drag-handle {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  opacity: 0.4;
-  cursor: grab;
-}
-
-.drag-handle svg {
-  width: 18px;
-  height: 18px;
-  fill: var(--text);
-}
-
-.edit-hint {
-  font-size: 0.8rem;
-  color: var(--muted);
-  text-align: center;
-  padding: 8px 0;
-  border-top: 1px dashed var(--border);
-  margin-top: 8px;
-}
-
-.platform-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, var(--brand), var(--brand-2));
-  transform: scaleX(0);
-  transition: transform 0.3s ease;
-}
-
-.platform-card:hover::before {
-  transform: scaleX(1);
-}
-
-.platform-card:hover {
-  transform: translateY(-8px);
-  box-shadow: var(--shadow-strong);
-  border-color: var(--brand);
-}
-
-.platform-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.platform-icon {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  aspect-ratio: 1 / 1;
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  font-size: 1.5rem;
-  box-shadow: var(--shadow-soft);
-}
-
-.platform-meta h3 {
-  margin: 0 0 4px;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.platform-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.platform-tag {
-  background: rgba(47, 99, 255, 0.1);
-  color: var(--brand);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.platform-tag.version {
-  background: color-mix(in srgb, var(--card) 80%, var(--brand) 20%);
-  color: var(--text);
-}
-
-.platform-tag.status {
-  color: #1f2937;
-  background: rgba(148, 163, 184, 0.2);
-}
-
-.platform-tag.status.status-live {
-  color: #065f46;
-  background: rgba(16, 185, 129, 0.2);
-}
-
-.platform-tag.status.status-beta {
-  color: #9a3412;
-  background: rgba(251, 146, 60, 0.25);
-}
-
-.platform-tag.status.status-preview {
-  color: #9f1239;
-  background: rgba(248, 113, 113, 0.22);
-}
-
-.platform-tag.status.status-maintenance {
-  color: #78350f;
-  background: rgba(251, 191, 36, 0.25);
-}
-
-.platform-tag.status.status-locked {
-  color: #991b1b;
-  background: rgba(239, 68, 68, 0.2);
-}
-
-.platform-tag.notif-badge {
-  color: #7c2d12;
-  background: rgba(251, 146, 60, 0.26);
-}
-
-.platform-tag.badge-warning {
-  color: #78350f;
-  background: rgba(234, 179, 8, 0.22);
-}
-
-.platform-tag.badge-danger {
-  color: #991b1b;
-  background: rgba(239, 68, 68, 0.2);
-}
-
-:global(.dark) .platform-tag {
-  background: rgba(59, 130, 246, 0.2);
-  color: #bfdbfe;
-}
-
-:global(.dark) .platform-tag.version {
-  background: rgba(148, 163, 184, 0.18);
-  color: #e2e8f0;
-}
-
-:global(.dark) .platform-tag.status {
-  color: #f1f5f9;
-  background: rgba(71, 85, 105, 0.42);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-}
-
-:global(.dark) .platform-tag.status.status-live {
-  color: #bbf7d0;
-  background: rgba(5, 150, 105, 0.36);
-  border-color: rgba(52, 211, 153, 0.45);
-}
-
-:global(.dark) .platform-tag.status.status-beta {
-  color: #fed7aa;
-  background: rgba(194, 65, 12, 0.36);
-  border-color: rgba(251, 146, 60, 0.45);
-}
-
-:global(.dark) .platform-tag.status.status-preview {
-  color: #fecdd3;
-  background: rgba(190, 24, 93, 0.36);
-  border-color: rgba(244, 114, 182, 0.45);
-}
-
-:global(.dark) .platform-tag.status.status-maintenance {
-  color: #fef3c7;
-  background: rgba(180, 83, 9, 0.42);
-  border-color: rgba(251, 191, 36, 0.5);
-}
-
-:global(.dark) .platform-tag.status.status-locked {
-  color: #fee2e2;
-  background: rgba(153, 27, 27, 0.4);
-  border-color: rgba(248, 113, 113, 0.45);
-}
-
-:global(.dark) .platform-tag.notif-badge {
-  color: #ffedd5;
-  background: rgba(194, 65, 12, 0.4);
-  border: 1px solid rgba(251, 146, 60, 0.45);
-}
-
-:global(.dark) .platform-tag.badge-warning {
-  color: #fef3c7;
-  background: rgba(180, 83, 9, 0.42);
-  border: 1px solid rgba(251, 191, 36, 0.5);
-}
-
-:global(.dark) .platform-tag.badge-danger {
-  color: #fee2e2;
-  background: rgba(153, 27, 27, 0.4);
-  border: 1px solid rgba(248, 113, 113, 0.45);
-}
-
-:global(.dark) .platform-note {
-  color: #fdba74;
-}
-
-.platform-description {
-  color: var(--muted);
-  line-height: 1.45;
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.platform-note {
-  margin: 0;
-  color: #9a3412;
-  font-size: 0.84rem;
-  line-height: 1.35;
-}
-
-.platform-btn {
-  margin-top: auto;
-  width: 100%;
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  color: white;
-  border: none;
-  padding: 12px 18px;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.platform-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(47, 99, 255, 0.3);
-}
-
-.group-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(2, 6, 23, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-}
-
-.group-dialog {
-  width: min(680px, 100%);
-  max-height: 88vh;
-  overflow: auto;
-  display: grid;
-  gap: 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 18px;
-  box-shadow: var(--shadow-strong);
-  backdrop-filter: blur(16px);
-}
-
-.group-dialog-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
 }
 
-.group-dialog-head h3 {
-  margin: 0;
-}
-
-.group-link-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-}
-
-.group-link-btn {
-  border: 1px solid var(--border);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--surface) 92%, var(--card) 8%), var(--surface));
-  color: var(--text);
-  border-radius: 12px;
-  padding: 12px 13px;
+.sc-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: pointer;
-  text-align: left;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.group-link-btn:hover {
-  border-color: var(--brand);
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px rgba(47, 99, 255, 0.16);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--brand) 12%, var(--surface)), var(--surface));
-}
-
-.group-link-icon {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
+.sc-icon {
+  font-size: 26px;
+  background: rgba(168, 85, 247, 0.18);
+  width: 44px;
+  height: 44px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--brand) 16%, transparent 84%);
+  border-radius: 12px;
 }
 
-.group-link-copy {
+.sc-track-preview {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  border-left: 3px solid #a855f7;
 }
 
-.group-link-copy strong {
-  color: var(--text);
+.sc-title {
+  font-weight: 700;
+  font-size: 14px;
 }
 
-.group-link-copy small {
+.sc-artist {
+  font-size: 12px;
   color: var(--muted);
 }
 
-.group-link-arrow {
-  color: var(--brand);
-  font-weight: 700;
+/* Admin Status Card */
+.admin-status-card {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-:global(.dark) .group-dialog {
-  background: color-mix(in srgb, var(--card) 96%, #020617 4%);
-  border-color: rgba(148, 163, 184, 0.28);
-  box-shadow: 0 24px 64px rgba(2, 6, 23, 0.7);
+.asc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
 }
 
-:global(.dark) .group-link-btn {
-  background: linear-gradient(135deg, rgba(15, 32, 67, 0.96), rgba(13, 25, 53, 0.95));
-  border-color: rgba(148, 163, 184, 0.26);
-  color: #f8fafc;
+.live-pill {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
-:global(.dark) .group-link-btn:hover {
-  background: linear-gradient(135deg, rgba(124, 161, 255, 0.22), rgba(15, 32, 67, 0.98));
-  border-color: rgba(124, 161, 255, 0.38);
-  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.45);
-}
-
-:global(.dark) .group-link-copy small {
-  color: #cbd5e1;
-}
-
-:global(.dark) .group-link-arrow {
-  color: #7ca1ff;
-}
-
-.arrow-icon {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* Stats Section */
-.stats-section {
-  padding: 40px 20px;
-  background: var(--bg-soft);
-}
-
-.stats-grid {
-  margin: 0;
+.asc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+
+.asc-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.asc-item.alert .asc-val { color: #f87171; }
+.asc-item.warn .asc-val { color: #fbbf24; }
+
+.asc-val {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #60a5fa;
+}
+
+.asc-lbl {
+  font-size: 10.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.asc-btn {
+  width: 100%;
+}
+
+/* Admin Quick Dock */
+.admin-quick-dock {
+  padding: 20px 24px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dock-headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dock-badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+}
+
+.dock-headline h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.dock-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dock-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.dock-btn:hover {
+  background: rgba(124, 161, 255, 0.18);
+  border-color: rgba(124, 161, 255, 0.4);
+}
+
+.dock-btn.admin-tool {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.dock-count {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 999px;
+}
+
+.dock-count.alert { background: #ef4444; color: #fff; }
+.dock-count.warn { background: #f59e0b; color: #fff; }
+
+/* Main Section */
+.hub-main-section {
+  display: flex;
+  flex-direction: column;
   gap: 20px;
 }
 
-.stat-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
-  text-align: center;
-  box-shadow: var(--shadow-soft);
+.section-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
-.stat-number {
-  font-size: 2.5rem;
+.section-top-bar h2 {
+  margin: 0 0 4px;
+  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
   font-weight: 800;
-  color: var(--brand);
-  margin-bottom: 8px;
 }
 
-.stat-label {
+/* Pillars Grid */
+.pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 22px;
+}
+
+.pillar-card {
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  border-radius: 20px;
+  background: rgba(20, 26, 46, 0.75);
+}
+
+.pillar-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+}
+
+/* Theme accent hover borders */
+.pillar-card.theme-blue:hover { border-color: rgba(59, 130, 246, 0.6); }
+.pillar-card.theme-emerald:hover { border-color: rgba(16, 185, 129, 0.6); }
+.pillar-card.theme-amber:hover { border-color: rgba(245, 158, 11, 0.6); }
+.pillar-card.theme-pink:hover { border-color: rgba(236, 72, 153, 0.6); }
+.pillar-card.theme-purple:hover { border-color: rgba(168, 85, 247, 0.6); }
+.pillar-card.theme-cyan:hover { border-color: rgba(6, 182, 212, 0.6); }
+.pillar-card.theme-indigo:hover { border-color: rgba(99, 102, 241, 0.6); }
+.pillar-card.theme-sky:hover { border-color: rgba(14, 165, 233, 0.6); }
+
+.drag-handle-badge {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 11px;
   color: var(--muted);
-  font-weight: 500;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.pillar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.pillar-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.pillar-emoji {
+  font-size: 26px;
+}
+
+.pillar-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.badge-cat {
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-size: 0.9rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
 }
 
-/* Responsive - Tablet & Mobile */
-@media (max-width: 1024px) {
-  .platforms-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
-  }
-
-  .hero-title {
-    font-size: clamp(1.8rem, 5vw, 2.5rem);
-  }
+.badge-accent {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
 }
 
-@media (max-width: 768px) {
-  .hero-section {
-    padding: 28px 16px;
-  }
+.pill-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+.pill-emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+.pill-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+.pill-pink { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+.pill-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+.pill-cyan { background: rgba(6, 182, 212, 0.15); color: #22d3ee; }
+.pill-indigo { background: rgba(99, 102, 241, 0.15); color: #818cf8; }
+.pill-sky { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
 
-  .hero-content {
+.pillar-title {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.pillar-description {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.55;
+  flex: 1;
+}
+
+.pillar-features-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.p-feat {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+}
+
+.pillar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.btn-pillar-action {
+  width: 100%;
+  justify-content: space-between;
+  min-height: 40px;
+  font-size: 13.5px;
+}
+
+.arrow-glyph {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.pillar-card:hover .arrow-glyph {
+  transform: translateX(4px);
+}
+
+/* User Highlights Banner */
+.user-highlights-banner {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  padding: 28px;
+  background: 
+    radial-gradient(circle at bottom right, rgba(99, 102, 241, 0.12), transparent 50%),
+    rgba(15, 23, 42, 0.65);
+}
+
+.highlight-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.border-col {
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  padding: 0 24px;
+}
+
+.hl-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.06em;
+}
+
+.hl-forum { color: #818cf8; }
+.hl-merch { color: #f472b6; }
+
+.highlight-column h4 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.highlight-column p {
+  margin: 0 0 12px;
+  line-height: 1.5;
+  flex: 1;
+}
+
+@media (max-width: 960px) {
+  .hero-inner {
     grid-template-columns: 1fr;
-    text-align: center;
-    gap: 12px;
   }
-
-  .hero-visual {
-    display: none;
-  }
-
-  .icon-float {
-    font-size: 2rem;
-    animation: float 8s ease-in-out infinite;
-  }
-
-  .platforms-section {
-    padding: 40px 16px;
-  }
-
-  .platforms-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .platform-card {
-    padding: 18px;
-  }
-
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .stat-card {
-    padding: 16px;
-  }
-
-  .stat-number {
-    font-size: 2rem;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-section {
-    padding: 24px 12px;
-  }
-
-  .hero-title {
-    font-size: 1.5rem;
-  }
-
-  .hero-subtitle {
-    font-size: 1rem;
-  }
-
-  .platform-card {
-    padding: 16px;
-    border-radius: 12px;
-  }
-
-  .platform-header {
-    gap: 12px;
-  }
-
-  .platform-icon {
-    width: 48px;
-    height: 48px;
-    font-size: 1.2rem;
-  }
-
-  .platform-meta h3 {
-    font-size: 1.1rem;
-  }
-
-  .platform-btn {
-    width: 100%;
-    padding: 12px 14px;
-    font-size: 0.9rem;
-  }
-
-  .stats-grid {
+  .user-highlights-banner {
     grid-template-columns: 1fr;
   }
-
-  .stat-number {
-    font-size: 1.5rem;
-  }
-
-  .stat-label {
-    font-size: 0.8rem;
-  }
-
-  .floating-icons {
-    display: none;
-  }
-
-  .section-header h2 {
-    font-size: 1.3rem;
-  }
-}
-
-/* Touch devices */
-@media (hover: none) {
-  .platform-card:active {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-strong);
-  }
-
-  .platform-btn {
-    padding: 14px 20px;
+  .border-col {
+    border-left: none;
+    border-right: none;
+    padding: 16px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
   }
 }
 </style>

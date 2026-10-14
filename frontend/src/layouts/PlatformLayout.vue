@@ -67,18 +67,27 @@ const theme = ref("light");
 
 const pageMeta = {
   platforms: { title: "UNYQ Hub", kicker: "Plattformen und Tools" },
+  "platform-proartist": { title: "UNYQ ProArtist", kicker: "Kreativ-Workspace" },
+  "platform-finance": { title: "UNYQ Finance", kicker: "Finanz-Management" },
+  finance: { title: "UNYQ Finanzplaner", kicker: "Budget, Schulden und Monatsbild" },
+  "platform-earn": { title: "UNYQ Earn", kicker: "Partner & Affiliate Program" },
+  "platform-designs": { title: "UNYQ Designs", kicker: "Merchandise & Drops" },
+  "platform-music": { title: "UNYQ Music", kicker: "Exklusiver Music Player" },
+  "platform-library": { title: "UNYQ Library", kicker: "Open Source Sound Bank" },
+  "platform-forum": { title: "UNYQ Forum", kicker: "Community & Diskussionen" },
+  "platform-extra": { title: "UNYQ Extra", kicker: "Plattformen & Socials" },
   "platform-contests": { title: "Contests", kicker: "Wettbewerbe und Chancen" },
-  "platform-music": { title: "Music Manager", kicker: "Musikplanung und Releases" },
   "platform-locations": { title: "Locations", kicker: "Orte, Events und Buchungen" },
-  "platform-finance": { title: "Finance", kicker: "Finanzprojekt anlegen" },
-  finance: { title: "Finanzplaner", kicker: "Budget, Schulden und Monatsbild" },
   "platform-content-studio": { title: "Content Studio", kicker: "Tipps, News und Tutorials" },
+  "platform-content-schedule": { title: "ACH Content Schedule", kicker: "Content-Planung" },
+  "content-schedule": { title: "ACH Planer", kicker: "Wochenplan Drag & Drop" },
   "platform-plugin-guides": { title: "Plugin Guide", kicker: "Workflows, Tutorials und Setups" },
   "platform-api-center": { title: "API Platform", kicker: "Integrationen und Automationen" },
   "platform-fitness": { title: "Fitness", kicker: "Tracker und Essensideen" },
   fitness: { title: "Fitness Tracker", kicker: "Kalorien und Tagesprofil" },
   "platform-todo": { title: "Todo", kicker: "Todos mit optionalem Datum" },
   "manage-platforms": { title: "Manage Platforms", kicker: "Status und Zugriff steuern" },
+  "admin-platform": { title: "Admin Platform", kicker: "Kontrollzentrum" },
 };
 
 const pageMetaCurrent = computed(() => pageMeta[route.name] || { title: "UNYQ", kicker: "Plattform" });

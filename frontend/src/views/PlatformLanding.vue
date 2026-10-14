@@ -112,6 +112,14 @@
           <span class="dock-icon">🏠</span>
           <span>Dashboard</span>
         </button>
+        <button class="dock-btn" @click="router.push('/songs')">
+          <span class="dock-icon">🎵</span>
+          <span>Songs &amp; Beats</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/app/tournaments')">
+          <span class="dock-icon">🏆</span>
+          <span>Turniere &amp; Arena</span>
+        </button>
         <button class="dock-btn" @click="router.push('/projects')">
           <span class="dock-icon">📁</span>
           <span>Projekte</span>
@@ -304,7 +312,7 @@ const corePillars = [
     badge: "Workflows & Tasks",
     color: "blue",
     bgGlow: "rgba(59, 130, 246, 0.15)",
-    features: ["Dashboard", "Projekte", "Tasks", "Timeline"],
+    features: ["Studio Pipeline", "Songs & Stems", "Daily Tasks", "Arena Battles"],
     route: "/dashboard",
   },
   {

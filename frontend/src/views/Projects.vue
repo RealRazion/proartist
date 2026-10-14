@@ -1,10 +1,15 @@
 <template>
   <div class="projects">
-    <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur für Team</h2>
+    <section v-if="!isTeam && !projects.length" class="card info artist-project-hero">
+      <h2>Willkommen in deiner Projekt- &amp; Release-Übersicht</h2>
       <p class="muted">
-        Projekte können nur von Team-Mitgliedern verwaltet werden. Falls du Zugriff brauchst, kontaktiere dein Team.
+        Aktuell bist du noch keinem offiziellen Label-Release zugeordnet. Du kannst eigene Tracks in deiner Musik-Bibliothek anlegen, Stems hochladen oder dich mit Producern vernetzen.
       </p>
+      <div class="artist-quick-btns" style="display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;">
+        <router-link to="/songs" class="btn btn-sm">🎵 Zu meinen Songs &amp; Beats</router-link>
+        <router-link to="/profiles" class="btn ghost btn-sm">🎤 Artists &amp; Producer finden</router-link>
+        <router-link to="/app/tournaments" class="btn ghost btn-sm">🏆 Turniere &amp; Arena</router-link>
+      </div>
     </section>
 
     <section v-else class="stack">
@@ -419,7 +424,10 @@ async function loadProfiles() {
 }
 
 async function loadProjectSummary() {
-  if (!isTeam.value) return;
+  if (!isTeam.value) {
+    projectSummary.value = computeProjectSummary(projects.value);
+    return;
+  }
   try {
     const { data } = await api.get("projects/summary/", { params: { include_archived: 0 } });
     projectSummary.value = {

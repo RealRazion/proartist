@@ -4,6 +4,7 @@
       <div class="sidebar-top">
         <div class="brand">
           <span class="brand-mark">UNYQ</span>
+          <span class="brand-sub" v-if="!collapsed || isMobile">PROARTIST</span>
           <span v-if="isTeam" class="badge">Team</span>
           <span v-else-if="me" class="badge artist">Artist</span>
         </div>
@@ -19,24 +20,120 @@
       </div>
 
       <nav>
-        <router-link
-          to="/platforms"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Hub' : null"
-        >
-          <span class="icon">🧭</span>
-          <span class="label">Hub</span>
-          <small v-if="notificationCount" class="pill">{{ notificationBadge }}</small>
-        </router-link>
+        <!-- SECTION 1: CREATOR STUDIO -->
+        <div class="nav-section-title" v-if="!collapsed || isMobile">
+          <span>CREATOR STUDIO</span>
+        </div>
         <router-link
           to="/dashboard"
           class="nav-link"
           @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Dashboard' : null"
+          :title="collapsed && !isMobile ? 'Studio Dashboard' : null"
         >
           <span class="icon">🏠</span>
           <span class="label">Dashboard</span>
+        </router-link>
+        <router-link
+          to="/songs"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Songs & Beats' : null"
+        >
+          <span class="icon">🎵</span>
+          <span class="label">Songs &amp; Beats</span>
+        </router-link>
+        <router-link
+          to="/projects"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Projekte & Releases' : null"
+        >
+          <span class="icon">📁</span>
+          <span class="label">Projekte</span>
+        </router-link>
+        <router-link
+          to="/tasks"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Tasks & To-Dos' : null"
+        >
+          <span class="icon">🗒️</span>
+          <span class="label">Tasks</span>
+        </router-link>
+        <router-link
+          to="/timeline"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Release Timeline' : null"
+        >
+          <span class="icon">🗓️</span>
+          <span class="label">Timeline</span>
+        </router-link>
+
+        <!-- SECTION 2: COMMUNITY & ARENA -->
+        <div class="nav-section-title" v-if="!collapsed || isMobile">
+          <span>COMMUNITY &amp; ARENA</span>
+        </div>
+        <router-link
+          to="/app/tournaments"
+          class="nav-link highlight-arena"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Turniere & Battles' : null"
+        >
+          <span class="icon">🏆</span>
+          <span class="label">Turniere &amp; Arena</span>
+          <span class="nav-live-dot" title="Live Turniere & Battles"></span>
+        </router-link>
+        <router-link
+          to="/profiles"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Artists & Collabs' : null"
+        >
+          <span class="icon">🎤</span>
+          <span class="label">Artists &amp; Collabs</span>
+        </router-link>
+        <router-link
+          to="/reviews"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Review & Feedback' : null"
+        >
+          <span class="icon">✅</span>
+          <span class="label">Review Queue</span>
+        </router-link>
+        <router-link
+          to="/chats"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Studio Chat' : null"
+        >
+          <span class="icon">💬</span>
+          <span class="label">Studio Chat</span>
+          <small v-if="unreadCount" class="pill">{{ unreadCount }}</small>
+        </router-link>
+
+        <!-- SECTION 3: KARRIERE & GROWTH -->
+        <div class="nav-section-title" v-if="!collapsed || isMobile">
+          <span>KARRIERE &amp; GROWTH</span>
+        </div>
+        <router-link
+          to="/growpro"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'GrowPro Ziele' : null"
+        >
+          <span class="icon">🌱</span>
+          <span class="label">GrowPro Ziele</span>
+        </router-link>
+        <router-link
+          to="/points"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Points & XP' : null"
+        >
+          <span class="icon">🧮</span>
+          <span class="label">Points &amp; XP</span>
         </router-link>
         <router-link
           v-if="isTeam"
@@ -48,166 +145,55 @@
           <span class="icon">📊</span>
           <span class="label">Analytics</span>
         </router-link>
-        <router-link
-          to="/profiles"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Artists' : null"
-        >
-          <span class="icon">🎤</span>
-          <span class="label">Artists</span>
-        </router-link>
-        <router-link
-          to="/app/tournaments"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Turniere' : null"
-        >
-          <span class="icon">🏆</span>
-          <span class="label">Turniere</span>
-        </router-link>
-        <router-link
-          to="/notifications"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Benachrichtigungen' : null"
-        >
-          <span class="icon">🔔</span>
-          <span class="label">Notifications</span>
-          <small v-if="notificationCount" class="pill">{{ notificationBadge }}</small>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/projects"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Projekte' : null"
-        >
-          <span class="icon">📁</span>
-          <span class="label">Projekte</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/tasks"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Tasks' : null"
-        >
-          <span class="icon">🗒️</span>
-          <span class="label">Tasks</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/reviews"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Review' : null"
-        >
-          <span class="icon">✅</span>
-          <span class="label">Review</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/timeline"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Timeline' : null"
-        >
-          <span class="icon">🗓️</span>
-          <span class="label">Timeline</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/activity"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Aktivität' : null"
-        >
-          <span class="icon">🕒</span>
-          <span class="label">Aktivität</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/points"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Points' : null"
-        >
-          <span class="icon">🧮</span>
-          <span class="label">Points</span>
-        </router-link>
-        <router-link
-          to="/growpro"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'GrowPro' : null"
-        >
-          <span class="icon">🌱</span>
-          <span class="label">GrowPro</span>
-        </router-link>
 
-        <div class="nav-divider" v-if="!collapsed || isMobile">
-          <span class="divider-text">UNYQ APPS</span>
+        <!-- SECTION 4: UNYQ ECOSYSTEM (Kompakt gebündelt) -->
+        <div class="nav-section-title" v-if="!collapsed || isMobile">
+          <span>UNYQ ECOSYSTEM</span>
         </div>
-
+        <div class="apps-quick-dock" v-if="!collapsed || isMobile">
+          <router-link to="/platforms" class="app-dock-btn" title="UNYQ Hub">
+            <span class="dock-ico">🧭</span>
+            <span class="dock-name">Hub</span>
+          </router-link>
+          <router-link to="/platforms/music" class="app-dock-btn" title="UNYQ Music Player">
+            <span class="dock-ico">🎧</span>
+            <span class="dock-name">Music</span>
+          </router-link>
+          <router-link to="/platforms/library" class="app-dock-btn" title="Free Sound Library">
+            <span class="dock-ico">📦</span>
+            <span class="dock-name">Library</span>
+          </router-link>
+          <router-link to="/platforms/forum" class="app-dock-btn" title="Community Forum">
+            <span class="dock-ico">💭</span>
+            <span class="dock-name">Forum</span>
+          </router-link>
+          <router-link to="/platforms/finance" class="app-dock-btn" title="Finance & Royalties">
+            <span class="dock-ico">💰</span>
+            <span class="dock-name">Finance</span>
+          </router-link>
+          <router-link to="/platforms/extra" class="app-dock-btn" title="Tools & Socials">
+            <span class="dock-ico">🌐</span>
+            <span class="dock-name">Extra</span>
+          </router-link>
+        </div>
         <router-link
-          to="/platforms/music"
+          v-else
+          to="/platforms"
           class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Music Player' : null"
+          :title="'UNYQ Hub & Apps'"
         >
-          <span class="icon">🎧</span>
-          <span class="label">UNYQ Music</span>
-        </router-link>
-        <router-link
-          to="/platforms/library"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Sound Library' : null"
-        >
-          <span class="icon">📦</span>
-          <span class="label">UNYQ Library</span>
-        </router-link>
-        <router-link
-          to="/platforms/forum"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Forum' : null"
-        >
-          <span class="icon">💬</span>
-          <span class="label">UNYQ Forum</span>
-        </router-link>
-        <router-link
-          to="/platforms/finance"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Finance' : null"
-        >
-          <span class="icon">💰</span>
-          <span class="label">UNYQ Finance</span>
-        </router-link>
-        <router-link
-          to="/platforms/extra"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Extra' : null"
-        >
-          <span class="icon">🌐</span>
-          <span class="label">UNYQ Extra</span>
-        </router-link>
-
-        <router-link
-          to="/me"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Mein Profil' : null"
-        >
-          <span class="icon">👤</span>
-          <span class="label">Mein Profil</span>
+          <span class="icon">🧭</span>
         </router-link>
       </nav>
-      <div class="sidebar-footer">
-        <span class="version">v{{ APP_VERSION }}</span>
+
+      <!-- Sidebar User Footer -->
+      <div class="sidebar-user-footer" @click="router.push('/me')" title="Zu meinem Profil">
+        <div class="user-avatar-mini">{{ initial }}</div>
+        <div class="user-info-mini" v-if="!collapsed || isMobile">
+          <span class="user-name-text">{{ me?.name || me?.username || 'Mein Account' }}</span>
+          <span class="user-role-text">{{ isTeam ? 'Team Member' : 'Artist / Producer' }}</span>
+        </div>
+        <span class="version-tag" v-if="!collapsed || isMobile">v{{ APP_VERSION }}</span>
       </div>
     </aside>
 
@@ -673,14 +659,155 @@ onBeforeUnmount(() => {
   background: rgba(124, 161, 255, 0.16);
 }
 
-.nav-divider {
-  padding: 12px 14px 4px;
-}
-.divider-text {
+/* Sidebar Section Headers */
+.brand-sub {
   font-size: 10px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.4);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.nav-section-title {
+  padding: 14px 12px 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--muted);
   text-transform: uppercase;
+  opacity: 0.75;
+}
+
+/* Arena Highlight Link */
+.highlight-arena {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.08));
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+.highlight-arena:hover {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.14), rgba(245, 158, 11, 0.14));
+}
+
+.nav-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  margin-left: auto;
+  box-shadow: 0 0 8px #ef4444;
+  animation: pulse 1.8s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+/* UNYQ Ecosystem Mini-Dock */
+.apps-quick-dock {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.app-dock-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  text-decoration: none;
+  color: inherit;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.app-dock-btn:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+
+.dock-ico {
+  font-size: 16px;
+  margin-bottom: 2px;
+}
+
+.dock-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.app-dock-btn:hover .dock-name {
+  color: #fff;
+}
+
+/* Sidebar User Footer */
+.sidebar-user-footer {
+  margin-top: auto;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sidebar-user-footer:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.user-avatar-mini {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.user-info-mini {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1;
+}
+
+.user-name-text {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-role-text {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.version-tag {
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.6;
+  font-family: monospace;
 }
 </style>

@@ -1,11 +1,6 @@
 <template>
   <div class="tasks">
-    <section v-if="!isTeam" class="card info">
-      <h2>Zugriff nur für Team</h2>
-      <p class="muted">Nur Team-Mitglieder können Aufgaben verwalten. Bitte wende dich an das Team.</p>
-    </section>
-
-    <section v-else class="workspace">
+    <section class="workspace">
       <div class="board card">
         <div class="board-head">
           <div>
@@ -525,7 +520,6 @@ function projectThemeStyle(projectId) {
 }
 
 async function loadCompletedTasks() {
-  if (!isTeam.value) return;
   loadingCompletedTasks.value = true;
   try {
     const { data } = await api.get("tasks/", {
@@ -926,7 +920,6 @@ function buildDueParams() {
 }
 
 async function loadProjects() {
-  if (!isTeam.value) return;
   loadingProjects.value = true;
   try {
     const { data } = await api.get("projects/");
@@ -955,7 +948,6 @@ function buildTaskParams() {
 }
 
 async function loadTasks({ append = false, pageUrl = null } = {}) {
-  if (!isTeam.value) return;
   if (append && !taskPagination.value.next && !pageUrl) return;
   const target = append ? loadingMoreTasks : loadingTasks;
   if (target.value) return;

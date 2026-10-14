@@ -1,12 +1,59 @@
-<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bronze Rank">
+<svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="b1" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#f4a261" />
-      <stop offset="100%" stop-color="#7f4a21" />
+    <radialGradient id="brz-glow-2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.45" />
+      <stop offset="60%" stop-color="#b45309" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#78350f" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="brz-metal-2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fed7aa" />
+      <stop offset="30%" stop-color="#d97706" />
+      <stop offset="70%" stop-color="#92400e" />
+      <stop offset="100%" stop-color="#451a03" />
     </linearGradient>
+    <linearGradient id="brz-rim-2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#78350f" />
+      <stop offset="50%" stop-color="#fde68a" />
+      <stop offset="100%" stop-color="#92400e" />
+    </linearGradient>
+    <linearGradient id="brz-plate-2" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#2a1608" />
+      <stop offset="100%" stop-color="#140a04" />
+    </linearGradient>
+    <filter id="brz-shadow-2" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#b45309" flood-opacity="0.5" />
+    </filter>
   </defs>
-  <rect x="10" y="10" width="200" height="200" rx="42" fill="#1f1310" stroke="#b56a33" stroke-width="6" />
-  <polygon points="110,38 175,72 175,148 110,182 45,148 45,72" fill="url(#b1)" stroke="#f7c79d" stroke-width="4" />
-  <circle cx="110" cy="110" r="28" fill="#24140f" stroke="#ffd2ad" stroke-width="4" />
-  <path d="M90 112l14 14 26-34" fill="none" stroke="#ffd7b5" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+
+  <circle cx="120" cy="120" r="105" fill="url(#brz-glow-2)" />
+
+  <g filter="url(#brz-shadow-2)">
+    <path d="M 40 70 L 65 62 L 75 95 L 50 115 L 35 90 Z" fill="url(#brz-metal-2)" stroke="url(#brz-rim-2)" stroke-width="2" />
+    <path d="M 30 92 L 52 118 L 45 140 L 25 110 Z" fill="url(#brz-metal-2)" opacity="0.8" />
+    <path d="M 22 112 L 42 142 L 35 160 L 18 128 Z" fill="url(#brz-metal-2)" opacity="0.6" />
+
+    <path d="M 200 70 L 175 62 L 165 95 L 190 115 L 205 90 Z" fill="url(#brz-metal-2)" stroke="url(#brz-rim-2)" stroke-width="2" />
+    <path d="M 210 92 L 188 118 L 195 140 L 215 110 Z" fill="url(#brz-metal-2)" opacity="0.8" />
+    <path d="M 218 112 L 198 142 L 205 160 L 222 128 Z" fill="url(#brz-metal-2)" opacity="0.6" />
+
+    <path d="M 120 22 L 182 55 L 170 145 L 120 208 L 70 145 L 58 55 Z" 
+          fill="url(#brz-metal-2)" stroke="url(#brz-rim-2)" stroke-width="3" stroke-linejoin="round" />
+
+    <path d="M 120 36 L 168 64 L 158 138 L 120 190 L 82 138 L 72 64 Z" 
+          fill="url(#brz-plate-2)" stroke="#92400e" stroke-width="2" />
+
+    <path d="M 120 52 L 152 75 L 120 168 L 88 75 Z" fill="#451a03" stroke="#b45309" stroke-width="1.5" />
+    <path d="M 120 52 L 120 168 L 88 75 Z" fill="#2e1102" />
+
+    <polygon points="120,70 133,98 163,101 140,121 147,150 120,135 93,150 100,121 77,101 107,98" 
+             fill="url(#brz-rim-2)" stroke="#fff" stroke-width="0.8" />
+
+    <text x="120" y="128" font-family="'Poppins', system-ui, sans-serif" font-size="20" font-weight="900" 
+          text-anchor="middle" fill="#451a03">I</text>
+
+    <path d="M 68 185 L 120 178 L 172 185 L 180 205 L 120 216 L 60 205 Z" 
+          fill="url(#brz-metal-2)" stroke="url(#brz-rim-2)" stroke-width="2" />
+    <text x="120" y="202" font-family="'Poppins', system-ui, sans-serif" font-size="12" font-weight="900" 
+          letter-spacing="3" text-anchor="middle" fill="#fff" filter="drop-shadow(0 2px 4px #000)">BRONZE</text>
+  </g>
 </svg>

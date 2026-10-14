@@ -1,12 +1,80 @@
-<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Rubin Rank">
+<svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="r1" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fb7185" />
-      <stop offset="100%" stop-color="#9f1239" />
+    <radialGradient id="rbn-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.65" />
+      <stop offset="50%" stop-color="#be123c" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#4c0519" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="rbn-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="25%" stop-color="#fb7185" />
+      <stop offset="60%" stop-color="#e11d48" />
+      <stop offset="90%" stop-color="#9f1239" />
+      <stop offset="100%" stop-color="#4c0519" />
     </linearGradient>
+    <linearGradient id="rbn-rim" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#881337" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#fda4af" />
+    </linearGradient>
+    <linearGradient id="rbn-plate" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#2a0a18" />
+      <stop offset="100%" stop-color="#0e0207" />
+    </linearGradient>
+    <linearGradient id="rbn-gem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff1f2" />
+      <stop offset="35%" stop-color="#f43f5e" />
+      <stop offset="75%" stop-color="#be123c" />
+      <stop offset="100%" stop-color="#881337" />
+    </linearGradient>
+    <filter id="rbn-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-color="#f43f5e" flood-opacity="0.7" />
+    </filter>
   </defs>
-  <rect x="10" y="10" width="200" height="200" rx="42" fill="#2a0a18" stroke="#f43f5e" stroke-width="6" />
-  <path d="M42 86l28-36h80l28 36-18 82H60z" fill="url(#r1)" stroke="#fecdd3" stroke-width="4" />
-  <path d="M70 50l40 118 40-118" fill="none" stroke="#ffe4ea" stroke-width="5" />
-  <path d="M42 86h136" stroke="#ffd3de" stroke-width="4" />
+
+  <circle cx="120" cy="120" r="110" fill="url(#rbn-glow)" />
+
+  <g filter="url(#rbn-shadow)">
+    <!-- Crimson Horn / Wing Blades Left -->
+    <path d="M 30 52 L 70 44 L 80 84 L 42 114 L 20 78 Z" fill="url(#rbn-metal)" stroke="url(#rbn-rim)" stroke-width="2" />
+    <path d="M 14 78 L 48 112 L 34 142 L 8 102 Z" fill="url(#rbn-metal)" opacity="0.85" />
+    <path d="M 6 104 L 32 138 L 22 162 L 2 122 Z" fill="url(#rbn-metal)" opacity="0.65" />
+
+    <!-- Crimson Horn / Wing Blades Right -->
+    <path d="M 210 52 L 170 44 L 160 84 L 198 114 L 220 78 Z" fill="url(#rbn-metal)" stroke="url(#rbn-rim)" stroke-width="2" />
+    <path d="M 226 78 L 192 112 L 206 142 L 232 102 Z" fill="url(#rbn-metal)" opacity="0.85" />
+    <path d="M 234 104 L 208 138 L 218 162 L 238 122 Z" fill="url(#rbn-metal)" opacity="0.65" />
+
+    <!-- Crown / Horn Apex Crest -->
+    <polygon points="120,10 134,36 106,36" fill="url(#rbn-rim)" stroke="#fff" stroke-width="1.5" />
+    <polygon points="90,18 102,42 84,42" fill="url(#rbn-metal)" />
+    <polygon points="150,18 156,42 138,42" fill="url(#rbn-metal)" />
+
+    <!-- Main Outer Aegis -->
+    <path d="M 120 26 L 192 56 L 180 150 L 120 216 L 60 150 L 48 56 Z" 
+          fill="url(#rbn-metal)" stroke="url(#rbn-rim)" stroke-width="3" stroke-linejoin="round" />
+
+    <!-- Obsidian Inner Plate -->
+    <path d="M 120 40 L 178 66 L 168 142 L 120 198 L 72 142 L 62 66 Z" 
+          fill="url(#rbn-plate)" stroke="#be123c" stroke-width="2" />
+
+    <!-- Faceted Heart Ruby Gem -->
+    <polygon points="120,56 162,90 120,168 78,90" fill="#4c0519" stroke="#fb7185" stroke-width="2" />
+    <polygon points="120,56 120,168 78,90" fill="#2a0a18" />
+
+    <!-- Core Radiant Ruby Prism -->
+    <polygon points="120,70 150,96 120,148 90,96" fill="url(#rbn-gem)" stroke="#ffe4e6" stroke-width="2" />
+    <polygon points="120,70 120,148 90,96" fill="#9f1239" />
+    <polygon points="120,82 140,102 120,136 100,102" fill="#fda4af" opacity="0.85" />
+
+    <!-- Roman Numeral V -->
+    <text x="120" y="122" font-family="'Poppins', system-ui, sans-serif" font-size="20" font-weight="900" 
+          text-anchor="middle" fill="#ffffff" filter="drop-shadow(0 2px 4px #be123c)">V</text>
+
+    <!-- Bottom Ribbon Banner -->
+    <path d="M 60 184 L 120 176 L 180 184 L 192 206 L 120 218 L 48 206 Z" 
+          fill="url(#rbn-metal)" stroke="url(#rbn-rim)" stroke-width="2" />
+    <text x="120" y="202" font-family="'Poppins', system-ui, sans-serif" font-size="12" font-weight="900" 
+          letter-spacing="3" text-anchor="middle" fill="#fff" filter="drop-shadow(0 1px 3px #000)">RUBIN</text>
+  </g>
 </svg>

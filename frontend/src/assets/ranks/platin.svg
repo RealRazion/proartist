@@ -1,12 +1,71 @@
-<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Platin Rank">
+<svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="p1" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#99f6e4" />
-      <stop offset="100%" stop-color="#0f766e" />
+    <radialGradient id="plt-glow-2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.65" />
+      <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="plt-metal-2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ecfeff" />
+      <stop offset="30%" stop-color="#a5f3fc" />
+      <stop offset="60%" stop-color="#0891b2" />
+      <stop offset="90%" stop-color="#0e7490" />
+      <stop offset="100%" stop-color="#164e63" />
     </linearGradient>
+    <linearGradient id="plt-rim-2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0891b2" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#67e8f9" />
+    </linearGradient>
+    <linearGradient id="plt-plate-2" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#082f49" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="plt-diamond-2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#67e8f9" />
+      <stop offset="80%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <filter id="plt-shadow-2" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#06b6d4" flood-opacity="0.65" />
+    </filter>
   </defs>
-  <rect x="10" y="10" width="200" height="200" rx="42" fill="#06201f" stroke="#2dd4bf" stroke-width="6" />
-  <polygon points="110,30 184,72 184,148 110,190 36,148 36,72" fill="url(#p1)" stroke="#ccfbf1" stroke-width="4" />
-  <polygon points="110,58 152,82 152,138 110,162 68,138 68,82" fill="#08302d" stroke="#99f6e4" stroke-width="4" />
-  <circle cx="110" cy="110" r="12" fill="#e6fffb" />
+
+  <circle cx="120" cy="120" r="110" fill="url(#plt-glow-2)" />
+
+  <g filter="url(#plt-shadow-2)">
+    <path d="M 32 58 L 68 50 L 80 88 L 44 116 L 24 82 Z" fill="url(#plt-metal-2)" stroke="url(#plt-rim-2)" stroke-width="2" />
+    <path d="M 18 84 L 50 114 L 38 142 L 12 108 Z" fill="url(#plt-metal-2)" opacity="0.85" />
+    <path d="M 10 108 L 36 140 L 26 162 L 6 126 Z" fill="url(#plt-metal-2)" opacity="0.65" />
+
+    <path d="M 208 58 L 172 50 L 160 88 L 196 116 L 216 82 Z" fill="url(#plt-metal-2)" stroke="url(#plt-rim-2)" stroke-width="2" />
+    <path d="M 222 84 L 190 114 L 202 142 L 228 108 Z" fill="url(#plt-metal-2)" opacity="0.85" />
+    <path d="M 230 108 L 204 140 L 214 162 L 234 126 Z" fill="url(#plt-metal-2)" opacity="0.65" />
+
+    <polygon points="120,12 132,38 108,38" fill="url(#plt-rim-2)" stroke="#fff" stroke-width="1.5" />
+    <polygon points="96,22 106,44 88,44" fill="url(#plt-metal-2)" />
+    <polygon points="144,22 152,44 134,44" fill="url(#plt-metal-2)" />
+
+    <path d="M 120 28 L 190 56 L 178 148 L 120 214 L 62 148 L 50 56 Z" 
+          fill="url(#plt-metal-2)" stroke="url(#plt-rim-2)" stroke-width="3" stroke-linejoin="round" />
+
+    <path d="M 120 42 L 176 66 L 166 140 L 120 196 L 74 140 L 64 66 Z" 
+          fill="url(#plt-plate-2)" stroke="#0891b2" stroke-width="2" />
+
+    <polygon points="120,58 160,92 120,166 80,92" fill="#0c4a6e" stroke="#22d3ee" stroke-width="2" />
+    <polygon points="120,58 120,166 80,92" fill="#082f49" />
+
+    <polygon points="120,72 148,96 120,146 92,96" fill="url(#plt-diamond-2)" stroke="#fff" stroke-width="2" />
+    <polygon points="120,72 120,146 92,96" fill="#0284c7" />
+    <polygon points="120,84 138,102 120,136 102,102" fill="#a5f3fc" opacity="0.85" />
+
+    <text x="120" y="122" font-family="'Poppins', system-ui, sans-serif" font-size="20" font-weight="900" 
+          text-anchor="middle" fill="#ffffff" filter="drop-shadow(0 2px 4px #0891b2)">IV</text>
+
+    <path d="M 62 184 L 120 176 L 178 184 L 190 206 L 120 218 L 50 206 Z" 
+          fill="url(#plt-metal-2)" stroke="url(#plt-rim-2)" stroke-width="2" />
+    <text x="120" y="202" font-family="'Poppins', system-ui, sans-serif" font-size="12" font-weight="900" 
+          letter-spacing="3" text-anchor="middle" fill="#000" filter="drop-shadow(0 1px 3px #fff)">PLATIN</text>
+  </g>
 </svg>

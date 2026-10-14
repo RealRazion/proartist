@@ -1,11 +1,68 @@
-<svg width="220" height="220" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gold Rank">
+<svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fde68a" />
+    <radialGradient id="gld-glow-2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#d97706" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#78350f" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="gld-metal-2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffbeb" />
+      <stop offset="20%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="80%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+    <linearGradient id="gld-rim-2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#92400e" />
+      <stop offset="50%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="gld-plate-2" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#1e1305" />
+      <stop offset="100%" stop-color="#0b0702" />
+    </linearGradient>
+    <linearGradient id="gld-gem-2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
       <stop offset="100%" stop-color="#b45309" />
     </linearGradient>
+    <filter id="gld-shadow-2" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#f59e0b" flood-opacity="0.6" />
+    </filter>
   </defs>
-  <rect x="10" y="10" width="200" height="200" rx="42" fill="#241300" stroke="#f59e0b" stroke-width="6" />
-  <path d="M110 26l28 48 54 8-38 38 10 54-54-28-54 28 10-54-38-38 54-8z" fill="url(#g1)" stroke="#fff1bf" stroke-width="4" />
-  <circle cx="110" cy="110" r="22" fill="#3a2000" stroke="#fef3c7" stroke-width="4" />
+
+  <circle cx="120" cy="120" r="110" fill="url(#gld-glow-2)" />
+
+  <g filter="url(#gld-shadow-2)">
+    <path d="M 46 64 C 34 82, 32 108, 44 134 C 40 114, 46 92, 60 74 Z" fill="url(#gld-metal-2)" stroke="url(#gld-rim-2)" stroke-width="1.5" />
+    <path d="M 32 94 C 20 112, 22 136, 36 156 C 30 138, 38 120, 50 106 Z" fill="url(#gld-metal-2)" opacity="0.85" />
+    <path d="M 28 124 C 22 144, 30 166, 48 180 C 38 164, 42 146, 50 134 Z" fill="url(#gld-metal-2)" opacity="0.65" />
+
+    <path d="M 194 64 C 206 82, 208 108, 196 134 C 200 114, 194 92, 180 74 Z" fill="url(#gld-metal-2)" stroke="url(#gld-rim-2)" stroke-width="1.5" />
+    <path d="M 208 94 C 220 112, 218 136, 204 156 C 210 138, 202 120, 190 106 Z" fill="url(#gld-metal-2)" opacity="0.85" />
+    <path d="M 212 124 C 218 144, 210 166, 192 180 C 202 164, 198 146, 190 134 Z" fill="url(#gld-metal-2)" opacity="0.65" />
+
+    <path d="M 88 44 L 98 22 L 120 34 L 142 22 L 152 44 Z" fill="url(#gld-metal-2)" stroke="url(#gld-rim-2)" stroke-width="2" />
+    <circle cx="98" cy="22" r="3.5" fill="#fef08a" />
+    <circle cx="120" cy="34" r="4.5" fill="#fff" />
+    <circle cx="142" cy="22" r="3.5" fill="#fef08a" />
+
+    <path d="M 120 38 L 188 64 L 176 152 L 120 214 L 64 152 L 52 64 Z" 
+          fill="url(#gld-metal-2)" stroke="url(#gld-rim-2)" stroke-width="3" stroke-linejoin="round" />
+
+    <path d="M 120 50 L 174 72 L 164 144 L 120 196 L 76 144 L 66 72 Z" 
+          fill="url(#gld-plate-2)" stroke="#b45309" stroke-width="2" />
+
+    <polygon points="120,70 155,98 120,168 85,98" fill="url(#gld-gem-2)" stroke="#fef08a" stroke-width="2" />
+    <polygon points="120,70 120,168 85,98" fill="#92400e" opacity="0.5" />
+    <polygon points="120,84 140,102 120,150 100,102" fill="#fef08a" opacity="0.75" />
+
+    <text x="120" y="125" font-family="'Poppins', system-ui, sans-serif" font-size="20" font-weight="900" 
+          text-anchor="middle" fill="#451a03" filter="drop-shadow(0 1px 2px #fef08a)">III</text>
+
+    <path d="M 64 184 L 120 176 L 176 184 L 188 206 L 120 218 L 52 206 Z" 
+          fill="url(#gld-metal-2)" stroke="url(#gld-rim-2)" stroke-width="2" />
+    <text x="120" y="202" font-family="'Poppins', system-ui, sans-serif" font-size="12" font-weight="900" 
+          letter-spacing="3" text-anchor="middle" fill="#000" filter="drop-shadow(0 1px 2px #fff)">GOLD</text>
+  </g>
 </svg>

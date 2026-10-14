@@ -1,13 +1,80 @@
-<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="platinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e5e8ed;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#4a5c7c;stop-opacity:1" />
+    <radialGradient id="plt-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.65" />
+      <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="plt-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ecfeff" />
+      <stop offset="30%" stop-color="#a5f3fc" />
+      <stop offset="60%" stop-color="#0891b2" />
+      <stop offset="90%" stop-color="#0e7490" />
+      <stop offset="100%" stop-color="#164e63" />
     </linearGradient>
+    <linearGradient id="plt-rim" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0891b2" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#67e8f9" />
+    </linearGradient>
+    <linearGradient id="plt-plate" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#082f49" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="plt-diamond" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#67e8f9" />
+      <stop offset="80%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <filter id="plt-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#06b6d4" flood-opacity="0.65" />
+    </filter>
   </defs>
-  <circle cx="100" cy="100" r="95" fill="url(#platinGrad)" stroke="#2a3c5c" stroke-width="3"/>
-  <path d="M 100 20 L 160 60 L 215 60 L 165 105 L 200 170 L 100 115 L 0 170 L 35 105 L -15 60 L 40 60 Z" fill="#d4d4e8" stroke="#8fa3c8" stroke-width="2"/>
-  <circle cx="100" cy="100" r="50" fill="none" stroke="#8fa3c8" stroke-width="3" opacity="0.6"/>
-  <circle cx="100" cy="100" r="35" fill="none" stroke="#d4d4e8" stroke-width="2" opacity="0.4"/>
-  <text x="100" y="180" font-size="18" font-weight="bold" text-anchor="middle" fill="#fff">PLATIN</text>
+
+  <circle cx="120" cy="120" r="110" fill="url(#plt-glow)" />
+
+  <g filter="url(#plt-shadow)">
+    <!-- Aerodynamic Stealth Wings Left -->
+    <path d="M 32 58 L 68 50 L 80 88 L 44 116 L 24 82 Z" fill="url(#plt-metal)" stroke="url(#plt-rim)" stroke-width="2" />
+    <path d="M 18 84 L 50 114 L 38 142 L 12 108 Z" fill="url(#plt-metal)" opacity="0.85" />
+    <path d="M 10 108 L 36 140 L 26 162 L 6 126 Z" fill="url(#plt-metal)" opacity="0.65" />
+
+    <!-- Aerodynamic Stealth Wings Right -->
+    <path d="M 208 58 L 172 50 L 160 88 L 196 116 L 216 82 Z" fill="url(#plt-metal)" stroke="url(#plt-rim)" stroke-width="2" />
+    <path d="M 222 84 L 190 114 L 202 142 L 228 108 Z" fill="url(#plt-metal)" opacity="0.85" />
+    <path d="M 230 108 L 204 140 L 214 162 L 234 126 Z" fill="url(#plt-metal)" opacity="0.65" />
+
+    <!-- Top Plasma Spikes -->
+    <polygon points="120,12 132,38 108,38" fill="url(#plt-rim)" stroke="#fff" stroke-width="1.5" />
+    <polygon points="96,22 106,44 88,44" fill="url(#plt-metal)" />
+    <polygon points="144,22 152,44 134,44" fill="url(#plt-metal)" />
+
+    <!-- Main Outer Aegis -->
+    <path d="M 120 28 L 190 56 L 178 148 L 120 214 L 62 148 L 50 56 Z" 
+          fill="url(#plt-metal)" stroke="url(#plt-rim)" stroke-width="3" stroke-linejoin="round" />
+
+    <!-- Inner High-Tech Plate -->
+    <path d="M 120 42 L 176 66 L 166 140 L 120 196 L 74 140 L 64 66 Z" 
+          fill="url(#plt-plate)" stroke="#0891b2" stroke-width="2" />
+
+    <!-- Prismatic Diamond Inlay -->
+    <polygon points="120,58 160,92 120,166 80,92" fill="#0c4a6e" stroke="#22d3ee" stroke-width="2" />
+    <polygon points="120,58 120,166 80,92" fill="#082f49" />
+
+    <!-- Multi-Faceted Crystal Polygon -->
+    <polygon points="120,72 148,96 120,146 92,96" fill="url(#plt-diamond)" stroke="#fff" stroke-width="2" />
+    <polygon points="120,72 120,146 92,96" fill="#0284c7" />
+    <polygon points="120,84 138,102 120,136 102,102" fill="#a5f3fc" opacity="0.85" />
+
+    <!-- Roman Numeral IV -->
+    <text x="120" y="122" font-family="'Poppins', system-ui, sans-serif" font-size="20" font-weight="900" 
+          text-anchor="middle" fill="#ffffff" filter="drop-shadow(0 2px 4px #0891b2)">IV</text>
+
+    <!-- Bottom Ribbon Banner -->
+    <path d="M 62 184 L 120 176 L 178 184 L 190 206 L 120 218 L 50 206 Z" 
+          fill="url(#plt-metal)" stroke="url(#plt-rim)" stroke-width="2" />
+    <text x="120" y="202" font-family="'Poppins', system-ui, sans-serif" font-size="12" font-weight="900" 
+          letter-spacing="3" text-anchor="middle" fill="#000" filter="drop-shadow(0 1px 3px #fff)">PLATIN</text>
+  </g>
 </svg>

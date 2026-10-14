@@ -1,429 +1,847 @@
 <template>
   <div class="tournament-arena-page" :class="{ 'artist-view-mode': currentRoleMode === 'ARTIST' }">
-    <!-- Top Ambient Glow -->
-    <div class="arena-ambient-glow"></div>
+    <!-- Floating Particle FX Container -->
+    <div class="reaction-particles-container" aria-hidden="true">
+      <span
+        v-for="p in activeParticles"
+        :key="p.id"
+        class="floating-particle"
+        :style="{ left: p.x + 'px', top: p.y + 'px', animationDuration: p.duration + 's' }"
+      >
+        {{ p.emoji }}
+      </span>
+    </div>
 
-    <!-- Arena Header -->
+    <!-- Background Cyber Ambient Lighting -->
+    <div class="arena-mesh-glow"></div>
+    <div class="arena-secondary-glow"></div>
+
+    <!-- TOP HEADER: ARENA COMMAND CENTER -->
     <header class="arena-header card">
-      <div class="header-left">
-        <div class="league-pill">
-          <span class="live-pulse-dot"></span>
-          <span>UNYQ TOURNAMENT ARENA // SEASON '26</span>
+      <div class="header-main-col">
+        <div class="arena-status-strip">
+          <div class="league-broadcast-badge">
+            <span class="live-pulse-dot"></span>
+            <span class="league-text">UNYQ TOURNAMENT ARENA // SEASON '26 CIRCUIT</span>
+          </div>
+          <div class="ticker-pill">
+            <span class="ticker-dot"></span>
+            <span>{{ activeBattlesCount }} Battles live im Community-Voting</span>
+          </div>
         </div>
-        <h1 class="arena-title">Turniere &amp; Battles</h1>
+
+        <h1 class="arena-title">
+          Turniere &amp; <span class="gradient-text">Battle Arena</span>
+        </h1>
         <p class="arena-lead">
-          Trete gegen die besten Artists und Producer an. Reiche deine Runden ein, 
-          steige in den Rängen auf und gewinne exklusive Preisgelder &amp; Releases.
+          Tritt im 1v1 gegen die stärksten Beatmaker, Rapper und Produzenten an. 
+          Reiche deine Runden ein, erklimme die Leaderboard-Ränge und sichere dir 
+          Cash-Preise, Studio-Gear und exklusive UNYQ Label-Releases.
         </p>
 
-        <!-- Mode Toggle (for Admin / Preview) -->
-        <div class="role-mode-bar" v-if="isTeam">
-          <span class="mode-label">Ansichtsmodus:</span>
-          <div class="role-pill-group">
+        <!-- Role Mode Switcher & Quick CTAs -->
+        <div class="header-action-toolbar">
+          <div class="role-mode-box" v-if="isTeam">
+            <span class="toolbar-label">Ansichtsmodus:</span>
+            <div class="role-pill-group">
+              <button
+                type="button"
+                class="role-pill-btn"
+                :class="{ active: currentRoleMode === 'TEAM' }"
+                @click="setRoleMode('TEAM')"
+              >
+                👑 Admin &amp; Jury
+              </button>
+              <button
+                type="button"
+                class="role-pill-btn"
+                :class="{ active: currentRoleMode === 'ARTIST' }"
+                @click="setRoleMode('ARTIST')"
+              >
+                🎤 Artist &amp; Contender
+              </button>
+            </div>
+          </div>
+
+          <div class="header-quick-buttons">
             <button
-              type="button"
-              class="role-pill-btn"
-              :class="{ active: currentRoleMode === 'TEAM' }"
-              @click="setRoleMode('TEAM')"
+              v-if="currentRoleMode === 'TEAM'"
+              class="btn btn-create-tournament"
+              @click="showCreateModal = true"
             >
-              👑 Admin Modus
+              <span class="btn-icon">⚡</span>
+              <span>Neues Turnier erstellen</span>
             </button>
             <button
-              type="button"
-              class="role-pill-btn"
-              :class="{ active: currentRoleMode === 'ARTIST' }"
-              @click="setRoleMode('ARTIST')"
+              v-else
+              class="btn btn-hero-apply"
+              @click="openSpotlightApply"
             >
-              🎤 Artist Modus
+              <span class="btn-icon">✍️</span>
+              <span>Jetzt als Artist bewerben</span>
+            </button>
+            <button class="btn ghost btn-refresh-arena" @click="loadData" title="Daten aktualisieren">
+              ↻
             </button>
           </div>
-          <span class="mode-desc-text">
-            {{ currentRoleMode === 'TEAM' ? 'Vollständige Admin-Steuerung & Battle-Schließung aktiv' : 'Artist-Erlebnis Vorschau aktiv' }}
-          </span>
         </div>
       </div>
 
-      <div class="header-right">
-        <!-- Spotlight Arena Stats -->
-        <div class="arena-stats-card">
-          <div class="asc-title-row">
-            <span class="trophy-ico">🏆</span>
-            <strong>Arena Stats</strong>
+      <!-- Header Right: Arena Stats & Jackpot -->
+      <div class="header-stats-col">
+        <div class="jackpot-spotlight-card">
+          <div class="jsc-top">
+            <div class="jsc-badge">💰 ARENA PRIZE POOL</div>
+            <span class="jsc-live-pulse"></span>
           </div>
-          <div class="asc-grid">
-            <div class="asc-stat">
-              <span class="num">{{ tournamentsList.length }}</span>
-              <span class="lbl">Turniere</span>
+          <div class="jsc-amount">{{ formatCurrency(totalPrizePool) }} €</div>
+          <p class="jsc-sub">+ Official Vinyl Pressung &amp; Master Distribution</p>
+
+          <div class="asc-stat-grid">
+            <div class="asc-stat-box">
+              <span class="stat-number">{{ tournamentsList.length }}</span>
+              <span class="stat-caption">Turniere</span>
             </div>
-            <div class="asc-stat">
-              <span class="num highlight">{{ activeBattlesCount }}</span>
-              <span class="lbl">Live Battles</span>
+            <div class="asc-stat-box highlight">
+              <span class="stat-number">{{ activeBattlesCount }}</span>
+              <span class="stat-caption">Live Battles</span>
             </div>
-            <div class="asc-stat">
-              <span class="num">{{ myProfileRank }}</span>
-              <span class="lbl">Dein Rang</span>
+            <div class="asc-stat-box">
+              <span class="stat-number">{{ totalRegisteredArtists }}</span>
+              <span class="stat-caption">Artists</span>
+            </div>
+            <div class="asc-stat-box user-rank">
+              <span class="stat-number">{{ userStats.rankDisplay }}</span>
+              <span class="stat-caption">Dein Rang</span>
             </div>
           </div>
-          <div class="asc-footer">
-            <span class="prize-tag">💰 Gesamt-Pool: 3.500 €</span>
+
+          <!-- User Quick Rank Progress Strip -->
+          <div class="user-rp-progress-strip" @click="activeTab = 'ranks'">
+            <div class="urps-info">
+              <span class="urps-tier">{{ userStats.tier }} Tier</span>
+              <span class="urps-rp">{{ userStats.rp }} / {{ userStats.nextTierRP }} RP</span>
+            </div>
+            <div class="urps-progress-bar">
+              <div class="urps-progress-fill" :style="{ width: userProgressPercent + '%' }"></div>
+            </div>
+            <small class="urps-hint">Noch {{ userStats.nextTierRP - userStats.rp }} RP bis zum nächsten Rang</small>
           </div>
         </div>
       </div>
     </header>
 
-    <!-- Navigation Tabs -->
-    <nav class="arena-nav-bar">
-      <div class="tabs-group">
+    <!-- NAVIGATION TABS -->
+    <nav class="arena-navigation-bar">
+      <div class="tabs-scroll-container">
         <button
           v-for="tab in arenaTabs"
           :key="tab.key"
-          class="nav-tab-btn"
+          class="nav-tab-button"
           :class="{ active: activeTab === tab.key }"
           @click="activeTab = tab.key"
         >
-          <span class="tab-icon">{{ tab.icon }}</span>
-          <span>{{ tab.label }}</span>
-          <span v-if="tab.badge" class="tab-badge" :class="tab.badgeClass">{{ tab.badge }}</span>
-        </button>
-      </div>
-
-      <div class="arena-top-actions">
-        <button
-          v-if="currentRoleMode === 'TEAM'"
-          class="btn btn-sm btn-create"
-          @click="showCreateModal = true"
-        >
-          + Neues Turnier anlegen
-        </button>
-        <button class="btn ghost btn-sm" @click="loadData">
-          ↻ Aktualisieren
+          <span class="tab-emoji">{{ tab.icon }}</span>
+          <span class="tab-text">{{ tab.label }}</span>
+          <span v-if="tab.badge" class="tab-counter-badge" :class="tab.badgeClass">
+            {{ tab.badge }}
+          </span>
         </button>
       </div>
     </nav>
 
-    <!-- TAB 1: TOURNAMENTS OVERVIEW -->
-    <section v-if="activeTab === 'tournaments'" class="tab-section">
-      <!-- Spotlight Tournament Card -->
-      <div v-if="spotlightTournament" class="card spotlight-card">
-        <div class="spotlight-left">
-          <div class="spotlight-badge-row">
-            <span class="badge-featured">⭐ FEATURED TOURNAMENT</span>
-            <span class="badge-status" :class="`status-${spotlightTournament.status.toLowerCase()}`">
+    <!-- ================================================================= -->
+    <!-- TAB 1: TURNIERE & ARENA OVERVIEW -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'tournaments'" class="tab-view-container">
+      <!-- Spotlight Featured Tournament -->
+      <div v-if="spotlightTournament" class="card spotlight-arena-banner">
+        <div class="spotlight-visual-backdrop">
+          <div class="glow-orb"></div>
+        </div>
+
+        <div class="spotlight-content-wrap">
+          <div class="spotlight-badges">
+            <span class="tag-gold-featured">⭐ HIGHLIGHT CONTEST</span>
+            <span class="tag-status" :class="`status-${spotlightTournament.status.toLowerCase()}`">
               {{ statusLabel(spotlightTournament.status) }}
             </span>
-            <span v-if="spotlightTournament.is_no_loss" class="badge-accent">🛡️ No Loss Bracket</span>
-          </div>
-          <h2 class="spotlight-title">{{ spotlightTournament.title }}</h2>
-          <p class="spotlight-desc">{{ spotlightTournament.description }}</p>
-
-          <div class="spotlight-meta-row">
-            <div class="sm-item">
-              <span class="sm-icon">💰</span>
-              <div>
-                <span class="sm-val">{{ spotlightTournament.prize_pool || '1.000 € Cash + Studio Gear' }}</span>
-                <span class="sm-lbl">Preispool</span>
-              </div>
-            </div>
-            <div class="sm-item">
-              <span class="sm-icon">👥</span>
-              <div>
-                <span class="sm-val">{{ spotlightTournament.participants_count || 16 }} Artists</span>
-                <span class="sm-lbl">Teilnehmer</span>
-              </div>
-            </div>
-            <div class="sm-item">
-              <span class="sm-icon">📅</span>
-              <div>
-                <span class="sm-val">{{ formatDate(spotlightTournament.ends_at) }}</span>
-                <span class="sm-lbl">Finale Deadline</span>
-              </div>
-            </div>
+            <span v-if="spotlightTournament.is_no_loss" class="tag-bracket-type">
+              🛡️ No-Loss Double Elimination
+            </span>
+            <span class="tag-genre">{{ spotlightTournament.genre || 'Trap & 808' }}</span>
           </div>
 
-          <div class="spotlight-actions">
-            <button class="btn btn-hero" @click="openTournamentDetail(spotlightTournament)">
-              Turnier &amp; Runden öffnen →
+          <h2 class="spotlight-heading">{{ spotlightTournament.title }}</h2>
+          <p class="spotlight-description">{{ spotlightTournament.description }}</p>
+
+          <div class="spotlight-features-row">
+            <div class="sf-feature">
+              <span class="sf-icon">🏆</span>
+              <div class="sf-body">
+                <strong class="sf-val">{{ spotlightTournament.prize_pool || '2.000 € Cash' }}</strong>
+                <span class="sf-lbl">Preisgeld &amp; Gear</span>
+              </div>
+            </div>
+            <div class="sf-feature">
+              <span class="sf-icon">👥</span>
+              <div class="sf-body">
+                <strong class="sf-val">{{ spotlightTournament.participants_count || 16 }} Artists</strong>
+                <span class="sf-lbl">Plätze im Baum</span>
+              </div>
+            </div>
+            <div class="sf-feature">
+              <span class="sf-icon">⚔️</span>
+              <div class="sf-body">
+                <strong class="sf-val">{{ spotlightTournament.battles_count || 8 }} Battles</strong>
+                <span class="sf-lbl">Runden gesamt</span>
+              </div>
+            </div>
+            <div class="sf-feature">
+              <span class="sf-icon">⏳</span>
+              <div class="sf-body">
+                <strong class="sf-val">{{ formatCountdown(spotlightTournament.ends_at) }}</strong>
+                <span class="sf-lbl">Runden-Deadline</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="spotlight-cta-row">
+            <button class="btn btn-hero-primary" @click="openTournamentDetail(spotlightTournament)">
+              Turnierbaum &amp; Runden öffnen →
             </button>
             <button
               v-if="spotlightTournament.status === 'APPLICATION_OPEN'"
-              class="btn ghost"
+              class="btn btn-hero-secondary"
               @click="openApplicationModal(spotlightTournament)"
             >
-              ✍️ Jetzt als Artist bewerben
+              ✍️ Als Artist bewerben
+            </button>
+            <button
+              v-else-if="spotlightTournament.status === 'BATTLES'"
+              class="btn btn-hero-secondary"
+              @click="activeTab = 'battles'"
+            >
+              ⚔️ Jetzt abstimmen
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Filter and Search -->
-      <div class="filter-controls-row">
-        <div class="search-box">
+      <!-- Filters & Search Toolbar -->
+      <div class="discovery-filter-toolbar card">
+        <div class="search-input-wrapper">
+          <span class="search-icon-symbol">🔍</span>
           <input
             v-model.trim="tournamentSearch"
             type="text"
-            class="input search-input"
-            placeholder="Turnier, Genre oder Preispool suchen..."
+            class="input discovery-search-input"
+            placeholder="Turnier, Genre (Trap, Drill, Lo-Fi, Vocal) oder Preis suchen..."
           />
+          <button v-if="tournamentSearch" class="search-clear-btn" @click="tournamentSearch = ''">✕</button>
         </div>
-        <div class="status-filters">
+
+        <div class="filter-pills-row">
+          <div class="pill-group">
+            <button
+              v-for="st in statusFilters"
+              :key="st.key"
+              class="filter-pill"
+              :class="{ active: selectedStatusFilter === st.key }"
+              @click="selectedStatusFilter = st.key"
+            >
+              {{ st.label }}
+            </button>
+          </div>
+
+          <div class="pill-group-right">
+            <button
+              class="view-toggle-btn"
+              :class="{ active: viewMode === 'grid' }"
+              @click="viewMode = 'grid'"
+              title="Rasteransicht"
+            >
+              ▦
+            </button>
+            <button
+              class="view-toggle-btn"
+              :class="{ active: viewMode === 'list' }"
+              @click="viewMode = 'list'"
+              title="Listenansicht"
+            >
+              ☰
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tournaments Grid / List -->
+      <div v-if="filteredTournaments.length" :class="viewMode === 'grid' ? 'tournaments-card-grid' : 'tournaments-list-view'">
+        <div
+          v-for="t in filteredTournaments"
+          :key="t.id"
+          class="card tournament-interactive-card"
+          @click="openTournamentDetail(t)"
+        >
+          <div class="tic-header">
+            <div class="tic-status-badges">
+              <span class="badge-status-pill" :class="`status-${t.status.toLowerCase()}`">
+                {{ statusLabel(t.status) }}
+              </span>
+              <span v-if="t.is_no_loss" class="badge-no-loss">No-Loss</span>
+              <span class="badge-genre-tag">{{ t.genre || 'Beat Battle' }}</span>
+            </div>
+            <div class="tic-prize-chip">
+              💰 {{ t.prize_pool || '500 €' }}
+            </div>
+          </div>
+
+          <div class="tic-body">
+            <h3 class="tic-title">{{ t.title }}</h3>
+            <p class="tic-desc">{{ t.description || 'Spannender Battle-Wettbewerb im UNYQ Circuit.' }}</p>
+          </div>
+
+          <!-- Roster Slots Visualizer -->
+          <div class="roster-slots-bar">
+            <div class="rsb-labels">
+              <span>Teilnehmer-Slots</span>
+              <strong>{{ t.participants_count || 8 }} / 16 belegt</strong>
+            </div>
+            <div class="rsb-track">
+              <div
+                class="rsb-fill"
+                :style="{ width: Math.min(100, Math.round(((t.participants_count || 8) / 16) * 100)) + '%' }"
+              ></div>
+            </div>
+          </div>
+
+          <div class="tic-meta-row">
+            <div class="tic-meta-item">
+              <span class="ico">⚔️</span>
+              <span>{{ t.battles_count || 4 }} Battles</span>
+            </div>
+            <div class="tic-meta-item">
+              <span class="ico">📅</span>
+              <span>{{ formatDate(t.ends_at) }}</span>
+            </div>
+          </div>
+
+          <div class="tic-actions">
+            <button class="btn btn-sm btn-open-card" @click.stop="openTournamentDetail(t)">
+              Details &amp; Bracket →
+            </button>
+            <button
+              v-if="t.status === 'APPLICATION_OPEN'"
+              class="btn ghost btn-sm btn-apply-card"
+              @click.stop="openApplicationModal(t)"
+            >
+              Bewerben 🎤
+            </button>
+            <button
+              v-else-if="t.status === 'SUBMISSION_OPEN'"
+              class="btn ghost btn-sm btn-submit-card"
+              @click.stop="openUploadRoundModal({ tournament_id: t.id, tournament_title: t.title })"
+            >
+              Runde einreichen 📤
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="card empty-tournaments-state">
+        <div class="ets-icon">🔍</div>
+        <h3>Keine Turniere gefunden</h3>
+        <p class="muted">Versuche einen anderen Suchbegriff oder ändere deine Statusfilter.</p>
+        <button class="btn ghost btn-sm" @click="resetFilters">Filter zurücksetzen</button>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 2: LIVE BATTLES & VOTING (HEAD-TO-HEAD SHOWDOWN) -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'battles'" class="tab-view-container">
+      <div class="section-hero-header">
+        <div>
+          <h2>⚔️ Live Battles &amp; Community-Voting</h2>
+          <p class="muted">
+            Höre dir beide Runden im direkten A/B-Vergleich an und vote für deinen Favoriten. 
+            Jeder Vote bringt dir +10 Community-RP!
+          </p>
+        </div>
+        <div class="voting-rules-pill">
+          <span>🛡️ 1 Vote pro User &amp; Battle aktiv</span>
+        </div>
+      </div>
+
+      <div class="battles-showdown-grid">
+        <div
+          v-for="b in liveBattlesList"
+          :key="b.id"
+          class="card battle-duel-card"
+          :class="{ 'battle-resolved': b.status === 'CLOSED' }"
+        >
+          <!-- Battle Top Bar -->
+          <div class="bd-top-bar">
+            <div class="bd-round-tag">
+              <span class="live-dot" v-if="b.status === 'OPEN'"></span>
+              <span>RUNDE {{ b.round_number || 1 }}</span>
+            </div>
+            <span class="bd-tourney-name">{{ b.tournament_title }}</span>
+            <span class="bd-status-badge" :class="b.status.toLowerCase()">
+              {{ b.status === 'OPEN' ? '🔥 Voting Live' : 'Beendet' }}
+            </span>
+          </div>
+
+          <!-- THE FIGHTER SHOWDOWN (LEFT VS RIGHT) -->
+          <div class="duel-arena-ring">
+            <!-- Left Fighter Box -->
+            <div
+              class="fighter-card left-fighter"
+              :class="{
+                winner: b.winner === 'left' || (b.status === 'CLOSED' && b.votes_left > b.votes_right),
+                voted: hasVotedSide(b, 'left'),
+              }"
+            >
+              <div class="fighter-avatar-wrap">
+                <div class="fighter-avatar">
+                  {{ (b.left_profile_name || 'A').charAt(0).toUpperCase() }}
+                </div>
+                <img :src="getTierBadge(b.left_tier || 'Gold')" class="fighter-tier-icon" alt="Tier" />
+              </div>
+
+              <div class="fighter-info">
+                <strong class="fighter-name">{{ b.left_profile_name }}</strong>
+                <span class="fighter-tier-label">{{ b.left_tier || 'Gold' }} Tier • {{ b.left_rp || '1.820' }} RP</span>
+              </div>
+
+              <!-- Audio Player Box Left -->
+              <div class="fighter-audio-deck">
+                <button
+                  class="audio-play-trigger-btn"
+                  :class="{ playing: currentPlayingTrack === `battle-${b.id}-left` }"
+                  @click="toggleAudio(`battle-${b.id}-left`, b.left_profile_name)"
+                >
+                  <span v-if="currentPlayingTrack === `battle-${b.id}-left`">⏸ Pause</span>
+                  <span v-else>▶ Runde anhören</span>
+                </button>
+
+                <!-- Animated Waveform Bars -->
+                <div class="audio-wave-bars" :class="{ active: currentPlayingTrack === `battle-${b.id}-left` }">
+                  <span v-for="i in 16" :key="i" class="wave-bar" :style="{ animationDelay: `${(i % 5) * 0.12}s` }"></span>
+                </div>
+              </div>
+
+              <div class="fighter-votes-badge">
+                <span class="votes-count">{{ b.votes_left }}</span>
+                <span class="votes-lbl">Votes</span>
+              </div>
+            </div>
+
+            <!-- Central VS Badge & A/B Switcher -->
+            <div class="duel-center-divider">
+              <div class="vs-emblem">VS</div>
+              <button
+                class="btn-ab-switch"
+                @click="quickSwitchAB(b)"
+                title="Zwischen beiden Runden nahtlos umschalten"
+              >
+                ⇄ A/B Wechsel
+              </button>
+            </div>
+
+            <!-- Right Fighter Box -->
+            <div
+              class="fighter-card right-fighter"
+              :class="{
+                winner: b.winner === 'right' || (b.status === 'CLOSED' && b.votes_right > b.votes_left),
+                voted: hasVotedSide(b, 'right'),
+              }"
+            >
+              <div class="fighter-avatar-wrap">
+                <div class="fighter-avatar right-avatar">
+                  {{ (b.right_profile_name || 'B').charAt(0).toUpperCase() }}
+                </div>
+                <img :src="getTierBadge(b.right_tier || 'Platin')" class="fighter-tier-icon" alt="Tier" />
+              </div>
+
+              <div class="fighter-info">
+                <strong class="fighter-name">{{ b.right_profile_name }}</strong>
+                <span class="fighter-tier-label">{{ b.right_tier || 'Platin' }} Tier • {{ b.right_rp || '2.940' }} RP</span>
+              </div>
+
+              <!-- Audio Player Box Right -->
+              <div class="fighter-audio-deck">
+                <button
+                  class="audio-play-trigger-btn"
+                  :class="{ playing: currentPlayingTrack === `battle-${b.id}-right` }"
+                  @click="toggleAudio(`battle-${b.id}-right`, b.right_profile_name)"
+                >
+                  <span v-if="currentPlayingTrack === `battle-${b.id}-right`">⏸ Pause</span>
+                  <span v-else>▶ Runde anhören</span>
+                </button>
+
+                <div class="audio-wave-bars" :class="{ active: currentPlayingTrack === `battle-${b.id}-right` }">
+                  <span v-for="i in 16" :key="i" class="wave-bar" :style="{ animationDelay: `${(i % 5) * 0.12}s` }"></span>
+                </div>
+              </div>
+
+              <div class="fighter-votes-badge">
+                <span class="votes-count">{{ b.votes_right }}</span>
+                <span class="votes-lbl">Votes</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Live Vote Meter -->
+          <div class="live-vote-meter-container">
+            <div class="lvm-bar-left" :style="{ width: getVotePct(b, 'left') + '%' }">
+              <span>{{ getVotePct(b, 'left') }}%</span>
+            </div>
+            <div class="lvm-bar-right" :style="{ width: getVotePct(b, 'right') + '%' }">
+              <span>{{ getVotePct(b, 'right') }}%</span>
+            </div>
+          </div>
+
+          <!-- Voting Action Buttons -->
+          <div class="battle-vote-action-bar" v-if="b.status !== 'CLOSED'">
+            <button
+              class="btn-vote-fighter left-vote-btn"
+              :class="{ 'has-voted': hasVotedSide(b, 'left') }"
+              :disabled="hasVoted(b)"
+              @click="castVote(b, 'left', $event)"
+            >
+              <span class="vote-icon">👍</span>
+              <span>Vote für {{ b.left_profile_name }}</span>
+            </button>
+
+            <button
+              class="btn-vote-fighter right-vote-btn"
+              :class="{ 'has-voted': hasVotedSide(b, 'right') }"
+              :disabled="hasVoted(b)"
+              @click="castVote(b, 'right', $event)"
+            >
+              <span class="vote-icon">👍</span>
+              <span>Vote für {{ b.right_profile_name }}</span>
+            </button>
+          </div>
+
+          <div v-else class="battle-resolved-banner">
+            🏆 Sieger: 
+            <strong>{{ b.votes_left >= b.votes_right ? b.left_profile_name : b.right_profile_name }}</strong>
+            nach Community-Voting bestätigt!
+          </div>
+
+          <!-- Crowd Hype Reaction Floating Bar -->
+          <div class="crowd-hype-toolbar">
+            <span class="hype-title">Crowd Hype:</span>
+            <div class="hype-buttons-group">
+              <button
+                v-for="emoji in ['🔥', '💥', '🤯', '👑', '👏']"
+                :key="emoji"
+                class="hype-react-btn"
+                @click="spawnReactionParticle(emoji, $event)"
+              >
+                {{ emoji }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Admin Decision Controls (Team Only) -->
+          <div class="admin-decision-bar" v-if="currentRoleMode === 'TEAM' && b.status !== 'CLOSED'">
+            <span class="admin-verdict-label">👑 Admin Urteil:</span>
+            <div class="admin-verdict-buttons">
+              <button class="btn ghost btn-sm" @click="adminResolveBattle(b, 'left')">
+                🏆 {{ b.left_profile_name }} Sieg
+              </button>
+              <button class="btn ghost btn-sm" @click="adminResolveBattle(b, 'right')">
+                🏆 {{ b.right_profile_name }} Sieg
+              </button>
+              <button class="btn ghost btn-sm" @click="adminResolveBattle(b, 'auto')">
+                ⚡ Nach Votes schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 3: LEADERBOARD & PODIUM -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'leaderboard'" class="tab-view-container">
+      <div class="section-hero-header">
+        <div>
+          <h2>🥇 Ranked Leaderboard // Season '26</h2>
+          <p class="muted">
+            Punkte sammeln durch Siege in Runden, Battle-Votes und Jury-Auszeichnungen. 
+            Die Top 3 qualifizieren sich direkt für die Champions Finals.
+          </p>
+        </div>
+        <div class="leaderboard-division-select">
           <button
-            v-for="st in statusFilters"
-            :key="st.key"
-            class="filter-pill-btn"
-            :class="{ active: selectedStatusFilter === st.key }"
-            @click="selectedStatusFilter = st.key"
+            v-for="div in leaderboardDivisions"
+            :key="div.key"
+            class="filter-pill"
+            :class="{ active: selectedDivision === div.key }"
+            @click="selectedDivision = div.key"
           >
-            {{ st.label }}
+            {{ div.label }}
           </button>
         </div>
       </div>
 
-      <!-- Tournaments Grid -->
-      <div class="tournaments-grid">
-        <div
-          v-for="tournament in filteredTournaments"
-          :key="tournament.id"
-          class="card tournament-card"
-          @click="openTournamentDetail(tournament)"
-        >
-          <div class="card-head">
-            <span class="badge-status" :class="`status-${tournament.status.toLowerCase()}`">
-              {{ statusLabel(tournament.status) }}
-            </span>
-            <span v-if="tournament.is_no_loss" class="badge-accent">No Loss</span>
+      <!-- 3D GRAND CHAMPIONS PODIUM (TOP 3) -->
+      <div class="champions-podium-wrap" v-if="filteredLeaderboard.length >= 3">
+        <!-- 2nd Place: Silver -->
+        <div class="podium-pillar rank-2-pillar" @click="inspectArtist(filteredLeaderboard[1])">
+          <div class="podium-avatar-box">
+            <span class="podium-badge-silver">2</span>
+            <div class="podium-avatar silver-avatar">
+              {{ filteredLeaderboard[1].name.charAt(0) }}
+            </div>
+            <img :src="silberRank" class="podium-tier-crest" alt="Silber" />
           </div>
-
-          <h3 class="tournament-name">{{ tournament.title }}</h3>
-          <p class="tournament-summary">{{ tournament.description || 'Spannender Battle-Wettbewerb im UNYQ Circuit.' }}</p>
-
-          <div class="tournament-stats-pills">
-            <span class="pill-stat">💰 {{ tournament.prize_pool || '500 €' }}</span>
-            <span class="pill-stat">👥 {{ tournament.participants_count || 8 }} Teilnehmer</span>
-            <span class="pill-stat" v-if="tournament.battles_count">⚔️ {{ tournament.battles_count }} Battles</span>
-          </div>
-
-          <div class="card-footer">
-            <button class="btn btn-sm" @click.stop="openTournamentDetail(tournament)">
-              Details &amp; Bracket →
-            </button>
-            <button
-              v-if="tournament.status === 'APPLICATION_OPEN'"
-              class="btn ghost btn-sm"
-              @click.stop="openApplicationModal(tournament)"
-            >
-              Bewerben
-            </button>
+          <strong class="podium-artist-name">{{ filteredLeaderboard[1].name }}</strong>
+          <span class="podium-rp-pill">{{ filteredLeaderboard[1].ranked_points }} RP</span>
+          <span class="podium-tier-name">{{ filteredLeaderboard[1].tier }} Tier</span>
+          <span class="podium-streak-tag">🔥 {{ filteredLeaderboard[1].wins }}W - {{ filteredLeaderboard[1].losses }}L</span>
+          <div class="podium-stand silver-stand">
+            <span class="stand-number">#2</span>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- TAB 2: LIVE BATTLES & VOTING -->
-    <section v-if="activeTab === 'battles'" class="tab-section">
-      <div class="section-title-row">
-        <div>
-          <h2>Live Battles &amp; Community Voting ({{ liveBattlesList.length }})</h2>
-          <p class="muted">Höre beide Runden an und stimme für den besseren Artist ab.</p>
-        </div>
-      </div>
-
-      <div class="battles-grid">
-        <div
-          v-for="battle in liveBattlesList"
-          :key="battle.id"
-          class="card battle-showdown-card"
-        >
-          <div class="battle-top-bar">
-            <span class="battle-round-badge">RUNDE {{ battle.round_number || 1 }}</span>
-            <span class="battle-title-tag">{{ battle.tournament_title || 'Battle Arena' }}</span>
-            <span class="battle-status-badge" :class="battle.status.toLowerCase()">{{ battle.status }}</span>
+        <!-- 1st Place: Gold / Legendary Crown -->
+        <div class="podium-pillar rank-1-pillar" @click="inspectArtist(filteredLeaderboard[0])">
+          <div class="crown-animated-halo">👑</div>
+          <div class="podium-avatar-box">
+            <span class="podium-badge-gold">1</span>
+            <div class="podium-avatar gold-avatar">
+              {{ filteredLeaderboard[0].name.charAt(0) }}
+            </div>
+            <img :src="legendarRank" class="podium-tier-crest legendary-crest" alt="Legendär" />
           </div>
-
-          <!-- The VS Matchup -->
-          <div class="matchup-container">
-            <!-- Left Competitor -->
-            <div class="competitor-box left" :class="{ winning: battle.votes_left > battle.votes_right }">
-              <div class="competitor-avatar">{{ (battle.left_profile_name || 'Artist A').charAt(0).toUpperCase() }}</div>
-              <strong class="competitor-name">{{ battle.left_profile_name || 'Artist A' }}</strong>
-              <span class="competitor-tier">Gold Tier</span>
-              <button class="btn ghost btn-sm btn-play-round" @click="previewBattleRound(battle, 'left')">
-                ▶ Runde hören
-              </button>
-              <div class="vote-count-badge">{{ battle.votes_left }} Votes</div>
-            </div>
-
-            <!-- VS Badge in middle -->
-            <div class="vs-divider">
-              <span class="vs-text">VS</span>
-              <div class="vs-bar"></div>
-            </div>
-
-            <!-- Right Competitor -->
-            <div class="competitor-box right" :class="{ winning: battle.votes_right > battle.votes_left }">
-              <div class="competitor-avatar right-avatar">{{ (battle.right_profile_name || 'Artist B').charAt(0).toUpperCase() }}</div>
-              <strong class="competitor-name">{{ battle.right_profile_name || 'Artist B' }}</strong>
-              <span class="competitor-tier">Platin Tier</span>
-              <button class="btn ghost btn-sm btn-play-round" @click="previewBattleRound(battle, 'right')">
-                ▶ Runde hören
-              </button>
-              <div class="vote-count-badge">{{ battle.votes_right }} Votes</div>
-            </div>
-          </div>
-
-          <!-- Vote Percentage Visualizer -->
-          <div class="vote-meter">
-            <div class="meter-bar left-bar" :style="{ width: getVotePct(battle, 'left') + '%' }">
-              <span>{{ getVotePct(battle, 'left') }}%</span>
-            </div>
-            <div class="meter-bar right-bar" :style="{ width: getVotePct(battle, 'right') + '%' }">
-              <span>{{ getVotePct(battle, 'right') }}%</span>
-            </div>
-          </div>
-
-          <!-- User Voting Action -->
-          <div class="battle-vote-actions" v-if="battle.status !== 'CLOSED'">
-            <button
-              class="btn btn-vote-left"
-              :disabled="hasVoted(battle)"
-              @click="castVote(battle, 'left')"
-            >
-              👍 Vote für {{ battle.left_profile_name }}
-            </button>
-            <button
-              class="btn btn-vote-right"
-              :disabled="hasVoted(battle)"
-              @click="castVote(battle, 'right')"
-            >
-              👍 Vote für {{ battle.right_profile_name }}
-            </button>
-          </div>
-
-          <!-- Admin Decision Actions (if Admin) -->
-          <div class="admin-battle-bar" v-if="currentRoleMode === 'TEAM' && battle.status !== 'CLOSED'">
-            <span class="admin-label">👑 Admin Entscheidung:</span>
-            <div class="admin-btn-row">
-              <button class="btn ghost btn-sm" @click="resolveBattle(battle, 'left')">Left Win</button>
-              <button class="btn ghost btn-sm" @click="resolveBattle(battle, 'right')">Right Win</button>
-              <button class="btn ghost btn-sm" @click="resolveBattle(battle, 'auto')">Auto Close</button>
-            </div>
+          <strong class="podium-artist-name champion">{{ filteredLeaderboard[0].name }}</strong>
+          <span class="podium-rp-pill champion-rp">{{ filteredLeaderboard[0].ranked_points }} RP</span>
+          <span class="podium-tier-name champion-tier">{{ filteredLeaderboard[0].tier }} Tier</span>
+          <span class="podium-streak-tag champion-streak">🔥 {{ filteredLeaderboard[0].wins }}W - {{ filteredLeaderboard[0].losses }}L ({{ getWinRate(filteredLeaderboard[0]) }}%)</span>
+          <div class="podium-stand gold-stand">
+            <span class="stand-number">#1</span>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- TAB 3: LEADERBOARD & RANKS -->
-    <section v-if="activeTab === 'leaderboard'" class="tab-section">
-      <div class="section-title-row">
-        <div>
-          <h2>Artist Leaderboard &amp; Ränge</h2>
-          <p class="muted">Punkte sammeln durch Siege, Runden-Einreichungen und Community-Voting.</p>
-        </div>
-      </div>
-
-      <!-- Tier Levels Bar -->
-      <div class="tiers-showcase card">
-        <div class="tier-chip" v-for="tier in tiersList" :key="tier.key">
-          <img :src="tier.icon" :alt="tier.name" class="tier-img" />
-          <div class="tier-info">
-            <strong>{{ tier.name }}</strong>
-            <small>{{ tier.minRP }} RP</small>
+        <!-- 3rd Place: Bronze -->
+        <div class="podium-pillar rank-3-pillar" @click="inspectArtist(filteredLeaderboard[2])">
+          <div class="podium-avatar-box">
+            <span class="podium-badge-bronze">3</span>
+            <div class="podium-avatar bronze-avatar">
+              {{ filteredLeaderboard[2].name.charAt(0) }}
+            </div>
+            <img :src="bronzeRank" class="podium-tier-crest" alt="Bronze" />
+          </div>
+          <strong class="podium-artist-name">{{ filteredLeaderboard[2].name }}</strong>
+          <span class="podium-rp-pill">{{ filteredLeaderboard[2].ranked_points }} RP</span>
+          <span class="podium-tier-name">{{ filteredLeaderboard[2].tier }} Tier</span>
+          <span class="podium-streak-tag">🔥 {{ filteredLeaderboard[2].wins }}W - {{ filteredLeaderboard[2].losses }}L</span>
+          <div class="podium-stand bronze-stand">
+            <span class="stand-number">#3</span>
           </div>
         </div>
       </div>
 
-      <!-- Leaderboard Podium (Top 3) -->
-      <div class="podium-row" v-if="leaderboardRows.length >= 3">
-        <!-- 2nd Place -->
-        <div class="podium-card rank-2 card">
-          <div class="medal-circle silver">2</div>
-          <strong class="podium-name">{{ leaderboardRows[1].name }}</strong>
-          <span class="podium-rp">{{ leaderboardRows[1].ranked_points }} RP</span>
-          <span class="podium-tier">{{ leaderboardRows[1].tier }}</span>
-        </div>
-        <!-- 1st Place -->
-        <div class="podium-card rank-1 card">
-          <div class="crown-icon">👑</div>
-          <div class="medal-circle gold">1</div>
-          <strong class="podium-name">{{ leaderboardRows[0].name }}</strong>
-          <span class="podium-rp">{{ leaderboardRows[0].ranked_points }} RP</span>
-          <span class="podium-tier">{{ leaderboardRows[0].tier }}</span>
-        </div>
-        <!-- 3rd Place -->
-        <div class="podium-card rank-3 card">
-          <div class="medal-circle bronze">3</div>
-          <strong class="podium-name">{{ leaderboardRows[2].name }}</strong>
-          <span class="podium-rp">{{ leaderboardRows[2].ranked_points }} RP</span>
-          <span class="podium-tier">{{ leaderboardRows[2].tier }}</span>
-        </div>
-      </div>
-
-      <!-- Leaderboard Table -->
-      <div class="leaderboard-table card">
-        <div class="table-head">
+      <!-- LEADERBOARD DATA TABLE -->
+      <div class="card leaderboard-table-card">
+        <div class="lt-header-row">
           <span class="col-rank">Rang</span>
           <span class="col-artist">Artist / Producer</span>
           <span class="col-tier">Tier</span>
-          <span class="col-rp">Ranked Points (RP)</span>
-          <span class="col-record">W - L</span>
+          <span class="col-rp">Ranked Points</span>
+          <span class="col-record">Bilanz</span>
+          <span class="col-winrate">Win-Rate</span>
+          <span class="col-actions">Aktion</span>
         </div>
+
         <div
-          v-for="(row, idx) in leaderboardRows"
+          v-for="(row, idx) in filteredLeaderboard"
           :key="row.id || idx"
-          class="table-row"
-          :class="{ 'is-me': row.isMe }"
+          class="lt-data-row"
+          :class="{ 'is-user': row.isMe }"
         >
-          <span class="col-rank font-mono">#{{ idx + 1 }}</span>
-          <div class="col-artist artist-cell">
-            <span class="artist-avatar">{{ row.name.charAt(0) }}</span>
-            <span class="artist-name">{{ row.name }}</span>
-            <span v-if="row.isMe" class="me-pill">Du</span>
+          <div class="col-rank">
+            <span class="rank-pos-number">#{{ idx + 1 }}</span>
           </div>
-          <span class="col-tier"><span class="tier-tag">{{ row.tier }}</span></span>
-          <span class="col-rp rp-val">{{ row.ranked_points }} RP</span>
-          <span class="col-record font-mono">{{ row.wins || 0 }}W - {{ row.losses || 0 }}L</span>
+
+          <div class="col-artist artist-info-cell">
+            <div class="artist-thumb">{{ row.name.charAt(0) }}</div>
+            <div class="artist-names">
+              <strong class="name">{{ row.name }}</strong>
+              <span v-if="row.isMe" class="badge-me-pill">Du</span>
+              <span v-if="row.wins >= 20" class="badge-veteran">PRO</span>
+            </div>
+          </div>
+
+          <div class="col-tier">
+            <div class="tier-pill-display">
+              <img :src="getTierBadge(row.tier)" class="table-tier-icon" :alt="row.tier" />
+              <span>{{ row.tier }}</span>
+            </div>
+          </div>
+
+          <div class="col-rp">
+            <span class="rp-bold">{{ row.ranked_points }} RP</span>
+            <small class="rp-trend positive">+{{ Math.round(row.ranked_points * 0.05) }} diese Woche</small>
+          </div>
+
+          <div class="col-record font-mono">
+            {{ row.wins || 0 }}W - {{ row.losses || 0 }}L
+          </div>
+
+          <div class="col-winrate">
+            <div class="winrate-bar-wrap">
+              <span>{{ getWinRate(row) }}%</span>
+              <div class="winrate-bar-track">
+                <div class="winrate-bar-fill" :style="{ width: getWinRate(row) + '%' }"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-actions">
+            <button class="btn ghost btn-micro" @click="inspectArtist(row)">
+              Profil ↗
+            </button>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- TAB 4: MEINE TURNIERE & BEWERBUNGEN (ARTIST HUB) -->
-    <section v-if="activeTab === 'my-tournaments'" class="tab-section">
-      <div class="section-title-row">
+    <!-- ================================================================= -->
+    <!-- TAB 4: RÄNGE & TIERS SYSTEM (INSPECTOR) -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'ranks'" class="tab-view-container">
+      <div class="section-hero-header">
         <div>
-          <h2>Meine Turniere, Bewerbungen &amp; Runden</h2>
-          <p class="muted">Übersicht deiner laufenden Teilnahme, Battle-Gegner und Runden-Uploads.</p>
+          <h2>🛡️ UNYQ Ränge &amp; Tiers System</h2>
+          <p class="muted">
+            Kämpfe dich von Bronze bis Legendär hoch. Jeder Rang schaltet exklusive Vorteile, 
+            höhere Preisgeld-Anteile und VIP-Events frei.
+          </p>
         </div>
       </div>
 
-      <!-- Artist Stats Quickbox -->
-      <div class="card artist-quick-card">
-        <div class="aq-col">
-          <span class="aq-lbl">Dein Ranked Status</span>
-          <strong class="aq-val">Gold Tier (1.840 RP)</strong>
-        </div>
-        <div class="aq-col">
-          <span class="aq-lbl">Aktive Turniere</span>
-          <strong class="aq-val">{{ myApplications.length }}</strong>
-        </div>
-        <div class="aq-col">
-          <span class="aq-lbl">Battle Bilanz</span>
-          <strong class="aq-val">8 Wins / 2 Losses</strong>
-        </div>
-      </div>
-
-      <!-- Applications & Submissions List -->
-      <div class="my-items-grid">
-        <div v-for="app in myApplications" :key="app.id" class="card my-tournament-item">
-          <div class="mti-head">
-            <h3>{{ app.tournament_title }}</h3>
-            <span class="badge-status" :class="app.status.toLowerCase()">{{ app.status }}</span>
+      <!-- Rank Tier Cards Grid -->
+      <div class="ranks-deck-grid">
+        <div
+          v-for="tier in tiersMasterList"
+          :key="tier.key"
+          class="card rank-tier-card"
+          :class="{
+            active: selectedTierDetail.key === tier.key,
+            'is-my-tier': userStats.tier.toUpperCase() === tier.key,
+          }"
+          @click="selectedTierDetail = tier"
+        >
+          <div class="rtc-badge-top" v-if="userStats.tier.toUpperCase() === tier.key">
+            DEIN AKTUELLER RANG
           </div>
-          <p class="muted small">{{ app.message || 'Bewerbung eingereicht. Viel Erfolg!' }}</p>
 
-          <div class="mti-actions">
-            <button class="btn btn-sm" @click="openUploadRoundModal(app)">
+          <div class="rtc-image-wrap">
+            <img :src="tier.icon" :alt="tier.name" class="rtc-tier-img" />
+          </div>
+
+          <h3 class="rtc-name">{{ tier.name }}</h3>
+          <span class="rtc-rp-req">ab {{ tier.minRP }} RP</span>
+          <p class="rtc-perks-summary">{{ tier.shortDesc }}</p>
+
+          <button class="btn ghost btn-sm rtc-inspect-btn">
+            Details ansehen →
+          </button>
+        </div>
+      </div>
+
+      <!-- Selected Tier Deep Dive Panel -->
+      <div class="card tier-deep-dive-panel">
+        <div class="tdd-left">
+          <div class="tdd-img-box">
+            <img :src="selectedTierDetail.icon" :alt="selectedTierDetail.name" class="tdd-big-img" />
+          </div>
+          <div>
+            <span class="tdd-eyebrow">RANG DETAILS</span>
+            <h2>{{ selectedTierDetail.name }} Tier</h2>
+            <p class="muted">Mindestanforderung: {{ selectedTierDetail.minRP }} Ranked Points</p>
+          </div>
+        </div>
+
+        <div class="tdd-perks-list">
+          <h4>Freigeschaltete Perks &amp; Arena Privilegien:</h4>
+          <ul>
+            <li v-for="(perk, i) in selectedTierDetail.perks" :key="i">
+              <span class="perk-check">✓</span>
+              <span>{{ perk }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 5: MEIN BATTLE HUB (ARTIST PASSPORT) -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'my-tournaments'" class="tab-view-container">
+      <div class="section-hero-header">
+        <div>
+          <h2>👤 Mein Battle Hub &amp; Runden</h2>
+          <p class="muted">
+            Deine laufenden Bewerbungen, aktive Matches und eingereichte Runden im Überblick.
+          </p>
+        </div>
+        <button class="btn" @click="openSpotlightApply">
+          + Neue Bewerbung einreichen
+        </button>
+      </div>
+
+      <!-- Quick Stats Card -->
+      <div class="card artist-passport-card">
+        <div class="apc-stat">
+          <span class="lbl">Ranked Status</span>
+          <strong class="val">{{ userStats.tier }} Tier ({{ userStats.rp }} RP)</strong>
+        </div>
+        <div class="apc-stat">
+          <span class="lbl">Turnier-Teilnahmen</span>
+          <strong class="val">{{ myApplications.length }} Contests</strong>
+        </div>
+        <div class="apc-stat">
+          <span class="lbl">Battle-Bilanz</span>
+          <strong class="val">8 Wins / 2 Losses (80%)</strong>
+        </div>
+        <div class="apc-stat">
+          <span class="lbl">Gewonnene Preisgelder</span>
+          <strong class="val highlight">750,00 €</strong>
+        </div>
+      </div>
+
+      <!-- Applications & Matchups List -->
+      <div class="my-battles-grid">
+        <div v-for="app in myApplications" :key="app.id" class="card my-entry-card">
+          <div class="mec-head">
+            <span class="badge-status-pill" :class="app.status.toLowerCase()">{{ app.status }}</span>
+            <span class="mec-date">Eingereicht vor kurzem</span>
+          </div>
+
+          <h3 class="mec-title">{{ app.tournament_title }}</h3>
+          <p class="mec-msg">"{{ app.message }}"</p>
+
+          <div class="mec-actions">
+            <button
+              v-if="app.status === 'ACCEPTED'"
+              class="btn btn-sm btn-submit-round"
+              @click="openUploadRoundModal(app)"
+            >
               📤 Runde einreichen (Audio/Video)
             </button>
-            <button class="btn ghost btn-sm" @click="openTournamentDetail({ id: app.tournament_id, title: app.tournament_title })">
+            <button
+              class="btn ghost btn-sm"
+              @click="openTournamentDetail({ id: app.tournament_id, title: app.tournament_title })"
+            >
               Turnier ansehen →
             </button>
           </div>
@@ -431,31 +849,178 @@
       </div>
     </section>
 
-    <!-- TAB 5: ADMIN ARENA MANAGER (TEAM EXCLUSIVE) -->
-    <section v-if="activeTab === 'admin' && currentRoleMode === 'TEAM'" class="tab-section">
-      <div class="section-title-row">
+    <!-- ================================================================= -->
+    <!-- TAB 6: CONTEST & ARENA SETTINGS -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'settings'" class="tab-view-container">
+      <div class="section-hero-header">
         <div>
-          <h2>👑 Admin Arena Management</h2>
-          <p class="muted">Verwalte Bewerbungen, erstelle Turniere und steuere Battle-Phasen.</p>
+          <h2>⚙️ Arena &amp; Contest Einstellungen</h2>
+          <p class="muted">
+            Passe Voting-Regeln, Audio-Wiedergabe, Benachrichtigungen und dein Artist-Arena-Profil an.
+          </p>
         </div>
-        <button class="btn" @click="showCreateModal = true">+ Neues Turnier anlegen</button>
+        <button class="btn" @click="saveArenaSettings">
+          Einstellungen speichern 💾
+        </button>
       </div>
 
-      <!-- Pending Applications Moderation Card -->
-      <div class="card admin-mod-card">
-        <div class="mod-head">
-          <h3>Eingegangene Artist-Bewerbungen</h3>
-          <span class="count-badge">{{ pendingApplications.length }} Ausstehend</span>
+      <div class="settings-sections-grid">
+        <!-- Panel 1: Voting & Battle Mechanics -->
+        <div class="card settings-panel">
+          <div class="sp-head">
+            <span class="sp-icon">🗳️</span>
+            <h3>Voting &amp; Battle-Regeln</h3>
+          </div>
+
+          <div class="sp-fields">
+            <label class="setting-field">
+              <span>Standard Voting-Dauer pro Runde</span>
+              <select v-model="arenaSettings.votingDuration" class="input">
+                <option value="24">24 Stunden (Blitz-Voting)</option>
+                <option value="48">48 Stunden (Standard)</option>
+                <option value="72">72 Stunden (Ausführlich)</option>
+              </select>
+            </label>
+
+            <label class="setting-field">
+              <span>Stimmen-Gewichtung (Jury vs Community)</span>
+              <select v-model="arenaSettings.voteWeighting" class="input">
+                <option value="100_COMMUNITY">100% Community-Voting</option>
+                <option value="50_50">50% Community + 50% UNYQ Jury</option>
+                <option value="100_JURY">100% Experten-Jury</option>
+              </select>
+            </label>
+
+            <label class="toggle-setting-row">
+              <input type="checkbox" v-model="arenaSettings.requireMinimumListening" />
+              <div>
+                <strong>Mindest-Hördauer voraussetzen</strong>
+                <p class="muted small">User müssen min. 15 Sekunden jeder Runde hören, bevor der Vote freigeschaltet wird.</p>
+              </div>
+            </label>
+
+            <label class="toggle-setting-row">
+              <input type="checkbox" v-model="arenaSettings.preventSelfVoting" />
+              <div>
+                <strong>Eigen-Vote Sperre aktiv</strong>
+                <p class="muted small">Artists können in eigenen Battles nicht für sich selbst abstimmen.</p>
+              </div>
+            </label>
+          </div>
         </div>
 
-        <div class="mod-list" v-if="pendingApplications.length">
-          <div v-for="app in pendingApplications" :key="app.id" class="mod-row">
-            <div class="mod-info">
-              <strong>{{ app.artist_name || 'Artist' }}</strong>
-              <span class="mod-meta">Turnier: {{ app.tournament_title }} • {{ app.created_at || 'Heute' }}</span>
-              <p class="mod-msg">"{{ app.message }}"</p>
+        <!-- Panel 2: Sound & Audio Experience -->
+        <div class="card settings-panel">
+          <div class="sp-head">
+            <span class="sp-icon">🎧</span>
+            <h3>Audio-Engine &amp; Player</h3>
+          </div>
+
+          <div class="sp-fields">
+            <label class="setting-field">
+              <span>Audio-Streaming-Qualität</span>
+              <select v-model="arenaSettings.audioQuality" class="input">
+                <option value="lossless">Studio Master (Hi-Fi 320 kbps / Lossless)</option>
+                <option value="standard">Standard (192 kbps MP3)</option>
+                <option value="data_saver">Datensparmodus (128 kbps)</option>
+              </select>
+            </label>
+
+            <label class="setting-field">
+              <span>Visualizer-Stil</span>
+              <select v-model="arenaSettings.visualizerStyle" class="input">
+                <option value="neon_bars">Neon Spectrum Equalizer</option>
+                <option value="oscilloscope">Cyber Oscilloscope Wave</option>
+                <option value="pulse_circle">Pulsierender Core</option>
+              </select>
+            </label>
+
+            <label class="toggle-setting-row">
+              <input type="checkbox" v-model="arenaSettings.autoPlayNextRound" />
+              <div>
+                <strong>A/B Autoplay umschalten</strong>
+                <p class="muted small">Nach Ende von Runde A automatisch Runde B nahtlos abspielen.</p>
+              </div>
+            </label>
+
+            <label class="toggle-setting-row">
+              <input type="checkbox" v-model="arenaSettings.soundEffectsEnabled" />
+              <div>
+                <strong>Arena Sound FX &amp; Hype-Sounds</strong>
+                <p class="muted small">Gong bei Battle-Start und Jubel-Effekt beim Abstimmen.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Panel 3: Artist Arena Profil -->
+        <div class="card settings-panel">
+          <div class="sp-head">
+            <span class="sp-icon">🎤</span>
+            <h3>Artist Arena-Profil</h3>
+          </div>
+
+          <div class="sp-fields">
+            <label class="setting-field">
+              <span>Battle Stage-Name</span>
+              <input v-model.trim="arenaSettings.stageName" class="input" placeholder="z. B. DJ Phantom" />
+            </label>
+
+            <label class="setting-field">
+              <span>Haupt-Disziplin</span>
+              <select v-model="arenaSettings.primaryDiscipline" class="input">
+                <option value="BEATS">Beatmaking / Produzent</option>
+                <option value="RAP">Rap &amp; Lyrics</option>
+                <option value="VOCAL">Melodic Vocals &amp; R&amp;B</option>
+                <option value="ALLROUND">Allrounder / Singer-Songwriter</option>
+              </select>
+            </label>
+
+            <label class="setting-field">
+              <span>Battle Tagline / Ansage</span>
+              <input v-model.trim="arenaSettings.tagline" class="input" placeholder="Härtester 808 aus Berlin..." />
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB 7: ADMIN ARENA MANAGER (TEAM ONLY) -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'admin' && currentRoleMode === 'TEAM'" class="tab-view-container">
+      <div class="section-hero-header">
+        <div>
+          <h2>👑 Admin Arena Director</h2>
+          <p class="muted">
+            Bewerbungen prüfen, neue Turniere erstellen und Runden manuell verwalten.
+          </p>
+        </div>
+        <button class="btn" @click="showCreateModal = true">
+          + Neues Turnier anlegen
+        </button>
+      </div>
+
+      <!-- Application Moderation Queue -->
+      <div class="card admin-queue-card">
+        <div class="aqc-head">
+          <h3>Eingegangene Artist-Bewerbungen ({{ pendingApplications.length }})</h3>
+          <span class="aqc-badge" v-if="pendingApplications.length">{{ pendingApplications.length }} Ausstehend</span>
+        </div>
+
+        <div class="aqc-list" v-if="pendingApplications.length">
+          <div v-for="app in pendingApplications" :key="app.id" class="aqc-row">
+            <div class="aqc-info">
+              <div class="aqc-artist-title">
+                <strong>{{ app.artist_name }}</strong>
+                <span class="aqc-tag">{{ app.tournament_title }}</span>
+                <span class="aqc-time">{{ app.created_at }}</span>
+              </div>
+              <p class="aqc-msg">"{{ app.message }}"</p>
             </div>
-            <div class="mod-actions">
+
+            <div class="aqc-actions">
               <button class="btn btn-sm btn-accept" @click="handleApplicationDecision(app, 'ACCEPTED')">
                 ✓ Zulassen
               </button>
@@ -465,11 +1030,13 @@
             </div>
           </div>
         </div>
-        <div v-else class="empty-mod muted">Keine ausstehenden Bewerbungen.</div>
+        <div v-else class="empty-muted-box muted">Keine offenen Bewerbungen zur Prüfung.</div>
       </div>
     </section>
 
-    <!-- MODAL 1: Create Tournament Modal -->
+    <!-- ================================================================= -->
+    <!-- MODAL 1: CREATE TOURNAMENT MODAL -->
+    <!-- ================================================================= -->
     <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
       <div class="modal card">
         <div class="modal-header">
@@ -481,15 +1048,24 @@
             <span>Turnier-Titel *</span>
             <input v-model.trim="newTournament.title" class="input" required placeholder="z. B. UNYQ Beat Battle Season 2" />
           </label>
+
           <label>
-            <span>Beschreibung &amp; Regeln</span>
-            <textarea v-model.trim="newTournament.description" class="input" rows="3" placeholder="Format, Anforderungen, Kriterien..."></textarea>
+            <span>Beschreibung &amp; Vorgaben</span>
+            <textarea v-model.trim="newTournament.description" class="input" rows="3" placeholder="Genre, Sample-Regeln, Rundendauer..."></textarea>
           </label>
+
           <div class="split-form-row">
             <label>
-              <span>Preispool</span>
-              <input v-model.trim="newTournament.prize_pool" class="input" placeholder="1.000 € Cash + Vinyl Pressung" />
+              <span>Preispool *</span>
+              <input v-model.trim="newTournament.prize_pool" class="input" required placeholder="1.500 € Cash + Vinyl Edition" />
             </label>
+            <label>
+              <span>Genre / Kategorie</span>
+              <input v-model.trim="newTournament.genre" class="input" placeholder="Trap / Drill / Lo-Fi" />
+            </label>
+          </div>
+
+          <div class="split-form-row">
             <label>
               <span>Start-Status</span>
               <select v-model="newTournament.status" class="input">
@@ -499,7 +1075,16 @@
                 <option value="DRAFT">Entwurf</option>
               </select>
             </label>
+            <label>
+              <span>Teilnehmer-Slots</span>
+              <select v-model.number="newTournament.slots" class="input">
+                <option :value="8">8 Artists (Viertelfinale)</option>
+                <option :value="16">16 Artists (Achtelfinale)</option>
+                <option :value="32">32 Artists (Grand Bracket)</option>
+              </select>
+            </label>
           </div>
+
           <div class="checkbox-row">
             <label class="check-label">
               <input type="checkbox" v-model="newTournament.is_no_loss" />
@@ -509,13 +1094,15 @@
 
           <div class="modal-actions">
             <button class="btn ghost" type="button" @click="showCreateModal = false">Abbrechen</button>
-            <button class="btn" type="submit">Turnier live schalten 🚀</button>
+            <button class="btn" type="submit">Turnier jetzt live schalten 🚀</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- MODAL 2: Artist Apply Modal -->
+    <!-- ================================================================= -->
+    <!-- MODAL 2: ARTIST APPLICATION MODAL -->
+    <!-- ================================================================= -->
     <div v-if="showApplyModal" class="modal-overlay" @click.self="showApplyModal = false">
       <div class="modal card">
         <div class="modal-header">
@@ -533,18 +1120,20 @@
           </label>
           <label>
             <span>Nachricht an die Jury (optional)</span>
-            <textarea v-model.trim="applicationForm.message" class="input" rows="3" placeholder="Warum möchtest du antreten? Deine Stärken..."></textarea>
+            <textarea v-model.trim="applicationForm.message" class="input" rows="3" placeholder="Warum möchtest du antreten? Dein Style..."></textarea>
           </label>
 
           <div class="modal-actions">
             <button class="btn ghost" type="button" @click="showApplyModal = false">Abbrechen</button>
-            <button class="btn" type="submit">Bewerbung einreichen 🎤</button>
+            <button class="btn" type="submit">Bewerbung abschicken 🎤</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- MODAL 3: Submit Round Modal -->
+    <!-- ================================================================= -->
+    <!-- MODAL 3: SUBMIT ROUND MODAL -->
+    <!-- ================================================================= -->
     <div v-if="showUploadModal" class="modal-overlay" @click.self="showUploadModal = false">
       <div class="modal card">
         <div class="modal-header">
@@ -554,15 +1143,25 @@
         <form class="modal-form" @submit.prevent="submitRoundFile">
           <label>
             <span>Track-Titel für diese Runde *</span>
-            <input v-model.trim="roundUploadForm.title" class="input" required placeholder="z. B. Runde 1 - Dark Night Heat" />
+            <input v-model.trim="roundUploadForm.title" class="input" required placeholder="z. B. Runde 1 - Dark Heat" />
           </label>
           <label>
             <span>Audio- / Video-URL (SoundCloud, YouTube, Drive) *</span>
             <input v-model.trim="roundUploadForm.file_url" class="input" required placeholder="https://..." />
           </label>
+          <div class="split-form-row">
+            <label>
+              <span>BPM</span>
+              <input v-model.trim="roundUploadForm.bpm" class="input" placeholder="140" />
+            </label>
+            <label>
+              <span>Key / Tonart</span>
+              <input v-model.trim="roundUploadForm.key" class="input" placeholder="C# Minor" />
+            </label>
+          </div>
           <label>
             <span>Lyrics / Songtext / Producer Notes</span>
-            <textarea v-model.trim="roundUploadForm.notes" class="input" rows="4" placeholder="Text, BPM, Mitwirkende..."></textarea>
+            <textarea v-model.trim="roundUploadForm.notes" class="input" rows="3" placeholder="Lyrics, VSTs, Mitwirkende..."></textarea>
           </label>
 
           <div class="modal-actions">
@@ -570,6 +1169,56 @@
             <button class="btn" type="submit">Runde abschicken 🚀</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 4: ARTIST INSPECT MODAL -->
+    <!-- ================================================================= -->
+    <div v-if="inspectedArtist" class="modal-overlay" @click.self="inspectedArtist = null">
+      <div class="modal card artist-profile-modal">
+        <div class="modal-header">
+          <h3>Artist Dossier</h3>
+          <button class="btn ghost tiny" @click="inspectedArtist = null">✕</button>
+        </div>
+        <div class="apm-body">
+          <div class="apm-top">
+            <div class="apm-avatar">{{ inspectedArtist.name.charAt(0) }}</div>
+            <div>
+              <h2>{{ inspectedArtist.name }}</h2>
+              <span class="apm-tier">{{ inspectedArtist.tier }} Tier • {{ inspectedArtist.ranked_points }} RP</span>
+            </div>
+            <img :src="getTierBadge(inspectedArtist.tier)" class="apm-badge-img" alt="Badge" />
+          </div>
+
+          <div class="apm-stats-grid">
+            <div class="apm-stat-box">
+              <span class="num">{{ inspectedArtist.wins }}</span>
+              <span class="lbl">Siege</span>
+            </div>
+            <div class="apm-stat-box">
+              <span class="num">{{ inspectedArtist.losses }}</span>
+              <span class="lbl">Niederlagen</span>
+            </div>
+            <div class="apm-stat-box">
+              <span class="num">{{ getWinRate(inspectedArtist) }}%</span>
+              <span class="lbl">Win Rate</span>
+            </div>
+          </div>
+
+          <div class="apm-achievements">
+            <h4>Auszeichnungen in Season '26:</h4>
+            <div class="achieve-tags">
+              <span class="achieve-pill">🔥 5er Win-Streak</span>
+              <span class="achieve-pill">👑 Season 1 Finalist</span>
+              <span class="achieve-pill">🎧 Best 808 Award</span>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn ghost" @click="inspectedArtist = null">Schließen</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -581,10 +1230,13 @@ import { useRouter } from "vue-router";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 import api from "../api";
+
+/* High-res Vector Rank Badges */
 import bronzeRank from "../assets/ranks/bronze-icon.svg";
 import silberRank from "../assets/ranks/silber-icon.svg";
 import goldRank from "../assets/ranks/gold-icon.svg";
 import platinRank from "../assets/ranks/platin-icon.svg";
+import rubinRank from "../assets/ranks/rubin.svg";
 import legendarRank from "../assets/ranks/legendaer-icon.svg";
 
 const router = useRouter();
@@ -593,47 +1245,166 @@ const { showToast } = useToast();
 
 const currentRoleMode = ref("TEAM");
 const activeTab = ref("tournaments");
+const viewMode = ref("grid");
 
 const tournamentSearch = ref("");
 const selectedStatusFilter = ref("ALL");
+const selectedDivision = ref("ALL");
 
 const showCreateModal = ref(false);
 const showApplyModal = ref(false);
 const applyingTournament = ref(null);
 const showUploadModal = ref(false);
+const inspectedArtist = ref(null);
 
-const votedBattleIds = ref(new Set());
+/* Active audio tracking */
+const currentPlayingTrack = ref(null);
+const activeParticles = ref([]);
 
+/* Persisted user votes: battleId -> 'left'|'right' */
+const userVotes = ref({});
+
+/* User RP & stats */
+const userStats = ref({
+  rankDisplay: "#2",
+  tier: "Gold",
+  rp: 2410,
+  nextTierRP: 2800,
+});
+
+const userProgressPercent = computed(() => {
+  const min = 1600;
+  const max = 2800;
+  const pct = Math.round(((userStats.value.rp - min) / (max - min)) * 100);
+  return Math.max(5, Math.min(100, pct));
+});
+
+/* Arena Navigation Tabs */
 const arenaTabs = computed(() => {
   const tabs = [
     { key: "tournaments", label: "Turniere & Arena", icon: "🏆" },
-    { key: "battles", label: "Live Battles", icon: "⚔️", badge: activeBattlesCount.value ? `${activeBattlesCount.value}` : null, badgeClass: "badge-live" },
-    { key: "leaderboard", label: "Leaderboard & Ränge", icon: "🥇" },
-    { key: "my-tournaments", label: "Meine Battles", icon: "👤", badge: myApplications.value.length ? `${myApplications.value.length}` : null },
+    {
+      key: "battles",
+      label: "Live Battles",
+      icon: "⚔️",
+      badge: activeBattlesCount.value ? `${activeBattlesCount.value}` : null,
+      badgeClass: "badge-live",
+    },
+    { key: "leaderboard", label: "Ranked Leaderboard", icon: "🥇" },
+    { key: "ranks", label: "Ränge & Tiers", icon: "🛡️" },
+    {
+      key: "my-tournaments",
+      label: "Mein Battle Hub",
+      icon: "👤",
+      badge: myApplications.value.length ? `${myApplications.value.length}` : null,
+    },
+    { key: "settings", label: "Arena Settings", icon: "⚙️" },
   ];
   if (currentRoleMode.value === "TEAM") {
-    tabs.push({ key: "admin", label: "Admin Manager", icon: "👑", badge: pendingApplications.value.length ? `${pendingApplications.value.length}` : null, badgeClass: "badge-warn" });
+    tabs.push({
+      key: "admin",
+      label: "Admin Director",
+      icon: "👑",
+      badge: pendingApplications.value.length ? `${pendingApplications.value.length}` : null,
+      badgeClass: "badge-warn",
+    });
   }
   return tabs;
 });
 
 const statusFilters = [
-  { key: "ALL", label: "Alle" },
+  { key: "ALL", label: "Alle Turniere" },
   { key: "APPLICATION_OPEN", label: "Bewerbung offen" },
   { key: "SUBMISSION_OPEN", label: "Einreichung offen" },
   { key: "BATTLES", label: "Battles live" },
   { key: "CLOSED", label: "Beendet" },
 ];
 
-const tiersList = [
-  { key: "BRONZE", name: "Bronze", minRP: 0, icon: bronzeRank },
-  { key: "SILBER", name: "Silber", minRP: 800, icon: silberRank },
-  { key: "GOLD", name: "Gold", minRP: 1600, icon: goldRank },
-  { key: "PLATIN", name: "Platin", minRP: 2800, icon: platinRank },
-  { key: "LEGENDAER", name: "Legendär", minRP: 4200, icon: legendarRank },
+const leaderboardDivisions = [
+  { key: "ALL", label: "Alle Divisionen" },
+  { key: "BEATS", label: "Beat Producers" },
+  { key: "VOCAL", label: "Vocalists & Rappers" },
 ];
 
-/* Default Tournaments Dataset (rich fallback) */
+/* Tiers Master List */
+const tiersMasterList = [
+  {
+    key: "BRONZE",
+    name: "Bronze",
+    minRP: 0,
+    icon: bronzeRank,
+    shortDesc: "Einstieg in den UNYQ Circuit. Sammle erste Siege und Reputation.",
+    perks: [
+      "Teilnahmeberechtigt an allen offenen Rookie-Turnieren",
+      "Community Voting Rechte (+10 RP pro Vote)",
+      "Basis Artist-Profil in der UNYQ Arena",
+    ],
+  },
+  {
+    key: "SILBER",
+    name: "Silber",
+    minRP: 800,
+    icon: silberRank,
+    shortDesc: "Aufsteiger-Klasse mit nachgewiesener Battle-Erfahrung.",
+    perks: [
+      "Zugang zu silbernen Preisgeld-Turnieren",
+      "Erweitertes Waveform-Audio-Profil",
+      "10% Rabatt auf UNYQ Sample Packs & Plugins",
+    ],
+  },
+  {
+    key: "GOLD",
+    name: "Gold",
+    minRP: 1600,
+    icon: goldRank,
+    shortDesc: "Erprobte Battle-Veteranen mit konstanter Win-Rate.",
+    perks: [
+      "Freilos in Runde 1 bei ausgewählten Turnieren (Bye Seeding)",
+      "Jury-Stimmrecht bei Community Showdowns",
+      "Exklusives Discord Champion-Badge & Sound-Kits",
+    ],
+  },
+  {
+    key: "PLATIN",
+    name: "Platin",
+    minRP: 2800,
+    icon: platinRank,
+    shortDesc: "Elite-Produzenten und Top-Tier Artists.",
+    perks: [
+      "Direkte Qualifikation für Major Turniere",
+      "A&R Feedback von UNYQ Records zu jeder Runde",
+      "Garantierte Auszahlung bei Erreichen der Top 4",
+    ],
+  },
+  {
+    key: "RUBIN",
+    name: "Rubin",
+    minRP: 4200,
+    icon: rubinRank,
+    shortDesc: "Apex Champions des UNYQ Circuits.",
+    perks: [
+      "Offizielle UNYQ Release-Option & Playlist Pitching",
+      "Erhöhter Preispool-Anteil (+15% Bonus)",
+      "Eigenes Jurymitglied bei Season Finals",
+    ],
+  },
+  {
+    key: "LEGENDAER",
+    name: "Legendär",
+    minRP: 6000,
+    icon: legendarRank,
+    shortDesc: "Die Hall of Fame der Musikproduktion. Absolute Spitze.",
+    perks: [
+      "Lebenslanger Champion-Status & Custom 3D Avatar Halo",
+      "Vollständige Album-Finanzierung & Vinyl Pressung",
+      "Direkter Beteiligungs-Anteil am Arena Gesamt-Jackpot",
+    ],
+  },
+];
+
+const selectedTierDetail = ref(tiersMasterList[2]); // Default Gold
+
+/* Tournaments Dataset */
 const tournamentsList = ref([
   {
     id: 1,
@@ -641,10 +1412,11 @@ const tournamentsList = ref([
     description: "Der ultimative Beatmaking-Wettbewerb. Produziere den härtesten Trap/Drill Track und kämpfe dich durch die Bracket.",
     status: "BATTLES",
     is_no_loss: true,
-    prize_pool: "1.500 € Cash + Studio Gear",
+    genre: "Trap / 808",
+    prize_pool: "2.500 € Cash + Studio Gear",
     participants_count: 16,
     battles_count: 8,
-    ends_at: "2026-11-01T20:00:00Z",
+    ends_at: "2026-11-05T20:00:00Z",
   },
   {
     id: 2,
@@ -652,9 +1424,10 @@ const tournamentsList = ref([
     description: "Artists reichen ihre 16-Bars Runden ein. Die UNYQ Community und Jury voten für Flow, Lyrics und Delivery.",
     status: "APPLICATION_OPEN",
     is_no_loss: false,
-    prize_pool: "1.000 € + Exclusive Single Release",
+    genre: "Vocal / Rap",
+    prize_pool: "1.500 € + Exclusive Single Release",
     participants_count: 12,
-    battles_count: 4,
+    battles_count: 6,
     ends_at: "2026-11-15T18:00:00Z",
   },
   {
@@ -663,10 +1436,23 @@ const tournamentsList = ref([
     description: "Gemütliche Akkorde, warme Rhyme-Schemes und organische Drums. Zeige dein Gespür für Sound-Design.",
     status: "SUBMISSION_OPEN",
     is_no_loss: true,
-    prize_pool: "750 € + Vinyl Pressung",
+    genre: "Lo-Fi / Soul",
+    prize_pool: "1.000 € + Vinyl Pressung",
     participants_count: 8,
     battles_count: 0,
     ends_at: "2026-11-20T22:00:00Z",
+  },
+  {
+    id: 4,
+    title: "Electronic Melodic Bass Clash",
+    description: "Future Bass, Wave und Synthwave Producers duellieren sich im K.O.-Modus um den Sound-Krone.",
+    status: "APPLICATION_OPEN",
+    is_no_loss: false,
+    genre: "Wave / Electro",
+    prize_pool: "800 € + Sample Library",
+    participants_count: 6,
+    battles_count: 0,
+    ends_at: "2026-11-30T19:00:00Z",
   },
 ]);
 
@@ -674,13 +1460,17 @@ const tournamentsList = ref([
 const liveBattlesList = ref([
   {
     id: 101,
-    tournament_title: "UNYQ Beat Battle Season 1",
+    tournament_title: "UNYQ Beat Battle Season 1 // 808 Showcase",
     round_number: 2,
     status: "OPEN",
     left_profile_name: "Neo_Producer",
-    votes_left: 64,
+    left_tier: "Legendär",
+    left_rp: 4450,
+    votes_left: 84,
     right_profile_name: "808_Phantom",
-    votes_right: 48,
+    right_tier: "Gold",
+    right_rp: 2410,
+    votes_right: 68,
   },
   {
     id: 102,
@@ -688,19 +1478,39 @@ const liveBattlesList = ref([
     round_number: 1,
     status: "OPEN",
     left_profile_name: "KAZA",
-    votes_left: 89,
+    left_tier: "Platin",
+    left_rp: 3820,
+    votes_left: 112,
     right_profile_name: "Aura_Vox",
-    votes_right: 82,
+    right_tier: "Gold",
+    right_rp: 2180,
+    votes_right: 98,
+  },
+  {
+    id: 103,
+    tournament_title: "Electronic Melodic Bass Clash",
+    round_number: 1,
+    status: "OPEN",
+    left_profile_name: "Synth_Valkyrie",
+    left_tier: "Silber",
+    left_rp: 1420,
+    votes_left: 45,
+    right_profile_name: "Cyber_Pulse",
+    right_tier: "Silber",
+    right_rp: 1390,
+    votes_right: 52,
   },
 ]);
 
-/* Leaderboard */
+/* Leaderboard Rows */
 const leaderboardRows = ref([
-  { id: 1, name: "Neo_Producer", tier: "Legendär", ranked_points: 4450, wins: 28, losses: 3 },
-  { id: 2, name: "KAZA", tier: "Platin", ranked_points: 3820, wins: 22, losses: 5 },
-  { id: 3, name: "808_Phantom", tier: "Gold", ranked_points: 2410, wins: 18, losses: 7 },
-  { id: 4, name: "Aura_Vox", tier: "Gold", ranked_points: 1980, wins: 14, losses: 6 },
-  { id: 5, name: "Mika_LoFi", tier: "Silber", ranked_points: 1420, wins: 11, losses: 8 },
+  { id: 1, name: "Neo_Producer", division: "BEATS", tier: "Legendär", ranked_points: 4450, wins: 32, losses: 4 },
+  { id: 2, name: "KAZA", division: "VOCAL", tier: "Platin", ranked_points: 3820, wins: 26, losses: 5, isMe: true },
+  { id: 3, name: "808_Phantom", division: "BEATS", tier: "Gold", ranked_points: 2410, wins: 20, losses: 8 },
+  { id: 4, name: "Aura_Vox", division: "VOCAL", tier: "Gold", ranked_points: 2180, wins: 18, losses: 7 },
+  { id: 5, name: "Mika_LoFi", division: "BEATS", tier: "Silber", ranked_points: 1540, wins: 14, losses: 9 },
+  { id: 6, name: "Synth_Valkyrie", division: "BEATS", tier: "Silber", ranked_points: 1420, wins: 12, losses: 8 },
+  { id: 7, name: "DrillKing_030", division: "VOCAL", tier: "Bronze", ranked_points: 780, wins: 8, losses: 6 },
 ]);
 
 /* My Applications */
@@ -721,17 +1531,17 @@ const myApplications = ref([
   },
 ]);
 
-/* Pending Applications for Admin */
+/* Admin Applications Queue */
 const pendingApplications = ref([
   {
-    id: 101,
+    id: 201,
     artist_name: "DrillKing_030",
     tournament_title: "UNYQ Beat Battle Season 1",
     message: "Hab einen extrem harten Drill Beat vorbereitet, bin bereit für die Arena!",
     created_at: "vor 2 Stunden",
   },
   {
-    id: 102,
+    id: 202,
     artist_name: "Sarah_Soul",
     tournament_title: "Berlin Vocal & Rap Showdown",
     message: "Mein Song ist bereits gemastert. Würde mich riesig über die Teilnahme freuen.",
@@ -739,8 +1549,32 @@ const pendingApplications = ref([
   },
 ]);
 
+/* Arena Settings State */
+const arenaSettings = ref({
+  votingDuration: "48",
+  voteWeighting: "50_50",
+  requireMinimumListening: true,
+  preventSelfVoting: true,
+  audioQuality: "lossless",
+  visualizerStyle: "neon_bars",
+  autoPlayNextRound: true,
+  soundEffectsEnabled: true,
+  stageName: "KAZA",
+  primaryDiscipline: "VOCAL",
+  tagline: "UNYQ Circuit Heavyweight",
+});
+
+/* Computeds */
 const activeBattlesCount = computed(() => {
   return liveBattlesList.value.filter((b) => b.status === "OPEN").length;
+});
+
+const totalPrizePool = computed(() => {
+  return 15000;
+});
+
+const totalRegisteredArtists = computed(() => {
+  return 148;
 });
 
 const spotlightTournament = computed(() => {
@@ -755,18 +1589,34 @@ const filteredTournaments = computed(() => {
     const matchQuery =
       !q ||
       t.title.toLowerCase().includes(q) ||
-      (t.description && t.description.toLowerCase().includes(q));
+      (t.description && t.description.toLowerCase().includes(q)) ||
+      (t.genre && t.genre.toLowerCase().includes(q));
     return matchStatus && matchQuery;
   });
 });
 
-const myProfileRank = computed(() => {
-  return "#2";
+const filteredLeaderboard = computed(() => {
+  return leaderboardRows.value.filter((row) => {
+    if (selectedDivision.value === "ALL") return true;
+    return row.division === selectedDivision.value;
+  });
 });
 
-function setRoleMode(mode) {
-  currentRoleMode.value = mode;
-  showToast(mode === "TEAM" ? "👑 Admin-Modus aktiviert" : "🎤 Artist-Modus aktiviert", "info");
+/* Helper Methods */
+function getTierBadge(tierName) {
+  const norm = (tierName || "").toUpperCase();
+  if (norm.includes("LEGEN")) return legendarRank;
+  if (norm.includes("RUBIN")) return rubinRank;
+  if (norm.includes("PLATIN")) return platinRank;
+  if (norm.includes("GOLD")) return goldRank;
+  if (norm.includes("SILBER")) return silberRank;
+  return bronzeRank;
+}
+
+function getWinRate(artist) {
+  const total = (artist.wins || 0) + (artist.losses || 0);
+  if (!total) return 100;
+  return Math.round(((artist.wins || 0) / total) * 100);
 }
 
 function statusLabel(status) {
@@ -782,14 +1632,93 @@ function statusLabel(status) {
 
 function formatDate(iso) {
   if (!iso) return "Demnächst";
-  return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatCountdown(iso) {
+  if (!iso) return "Noch 4 Tage";
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return "Abgelaufen";
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  return `${days}d ${hours}h verbleibend`;
+}
+
+function formatCurrency(val) {
+  return new Intl.NumberFormat("de-DE").format(val);
+}
+
+function resetFilters() {
+  tournamentSearch.value = "";
+  selectedStatusFilter.value = "ALL";
+}
+
+function setRoleMode(mode) {
+  currentRoleMode.value = mode;
+  showToast(
+    mode === "TEAM" ? "👑 Admin & Jury Modus aktiv" : "🎤 Artist & Contender Modus aktiv",
+    "info"
+  );
 }
 
 function openTournamentDetail(tournament) {
   router.push({ name: "tournament-detail", params: { tournamentId: tournament.id } });
 }
 
-/* Voting Logic */
+/* Audio Player Synthesizer / Player Engine */
+function playAudioChime(freq = 440, type = "sine", duration = 0.2) {
+  if (!arenaSettings.value.soundEffectsEnabled) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch {
+    // ignore
+  }
+}
+
+function toggleAudio(trackKey, artistName) {
+  if (currentPlayingTrack.value === trackKey) {
+    currentPlayingTrack.value = null;
+    showToast(`Wiedergabe pausiert`, "info");
+  } else {
+    currentPlayingTrack.value = trackKey;
+    playAudioChime(587.33, "triangle", 0.3); // D5 chime
+    showToast(`▶ Spiele Runde von ${artistName} ab (320 kbps Studio Stream)`, "info");
+  }
+}
+
+function quickSwitchAB(battle) {
+  const current = currentPlayingTrack.value;
+  const leftKey = `battle-${battle.id}-left`;
+  const rightKey = `battle-${battle.id}-right`;
+
+  if (current === leftKey) {
+    currentPlayingTrack.value = rightKey;
+    playAudioChime(659.25, "sawtooth", 0.15); // E5 switch
+    showToast(`⇄ Umschalten auf ${battle.right_profile_name} Runde`, "info");
+  } else {
+    currentPlayingTrack.value = leftKey;
+    playAudioChime(523.25, "sawtooth", 0.15); // C5 switch
+    showToast(`⇄ Umschalten auf ${battle.left_profile_name} Runde`, "info");
+  }
+}
+
+/* Voting Mechanics */
 function getVotePct(battle, side) {
   const total = (battle.votes_left || 0) + (battle.votes_right || 0);
   if (!total) return 50;
@@ -798,47 +1727,80 @@ function getVotePct(battle, side) {
 }
 
 function hasVoted(battle) {
-  return votedBattleIds.value.has(battle.id);
+  return Boolean(userVotes.value[battle.id]);
 }
 
-async function castVote(battle, side) {
+function hasVotedSide(battle, side) {
+  return userVotes.value[battle.id] === side;
+}
+
+function castVote(battle, side, event) {
   if (hasVoted(battle)) {
-    showToast("Du hast in diesem Battle bereits abgestimmt!", "warning");
+    showToast("Du hast für dieses Battle bereits abgestimmt!", "warning");
     return;
   }
+
   if (side === "left") {
     battle.votes_left++;
   } else {
     battle.votes_right++;
   }
-  votedBattleIds.value.add(battle.id);
-  showToast(`Vote gezählt für ${side === 'left' ? battle.left_profile_name : battle.right_profile_name}! 🗳️`, "success");
 
-  // Attempt backend API
+  userVotes.value[battle.id] = side;
+  localStorage.setItem("unyq_arena_votes", JSON.stringify(userVotes.value));
+
+  // Audio & Particle FX
+  playAudioChime(880, "sine", 0.4); // A5 celebration
+  spawnReactionParticle("🗳️", event);
+  spawnReactionParticle("🔥", event);
+
+  // User XP
+  userStats.value.rp += 10;
+  showToast(
+    `Vote gezählt für ${side === "left" ? battle.left_profile_name : battle.right_profile_name}! +10 Community RP erhalten ⚡`,
+    "success"
+  );
+
+  // Backend Sync
   try {
-    await api.post(`tournaments/battles/${battle.id}/vote/`, { side });
+    api.post(`tournaments/battles/${battle.id}/vote/`, { side });
   } catch {
-    // fallback gracefully
+    // fallback
   }
 }
 
-function previewBattleRound(battle, side) {
-  const artist = side === "left" ? battle.left_profile_name : battle.right_profile_name;
-  showToast(`Spiele Runde von ${artist} 🎵`, "info");
+/* Floating Reactions */
+function spawnReactionParticle(emoji, event) {
+  const x = event?.clientX || window.innerWidth / 2;
+  const y = event?.clientY || window.innerHeight / 2;
+  const id = Date.now() + Math.random();
+
+  activeParticles.value.push({
+    id,
+    emoji,
+    x: x - 16 + (Math.random() * 40 - 20),
+    y: y - 20,
+    duration: 1.2 + Math.random() * 0.6,
+  });
+
+  setTimeout(() => {
+    activeParticles.value = activeParticles.value.filter((p) => p.id !== id);
+  }, 1800);
 }
 
 /* Admin Actions */
-function resolveBattle(battle, resolution) {
+function adminResolveBattle(battle, resolution) {
+  battle.status = "CLOSED";
   if (resolution === "left") {
-    battle.status = "CLOSED";
-    showToast(`${battle.left_profile_name} zum Sieger erklärt! 🏆`, "success");
+    battle.winner = "left";
+    showToast(`🏆 ${battle.left_profile_name} offiziell zum Sieger erklärt!`, "success");
   } else if (resolution === "right") {
-    battle.status = "CLOSED";
-    showToast(`${battle.right_profile_name} zum Sieger erklärt! 🏆`, "success");
+    battle.winner = "right";
+    showToast(`🏆 ${battle.right_profile_name} offiziell zum Sieger erklärt!`, "success");
   } else {
-    battle.status = "CLOSED";
     const winner = battle.votes_left >= battle.votes_right ? battle.left_profile_name : battle.right_profile_name;
-    showToast(`Battle geschlossen: ${winner} gewinnt nach Stimmen! ✨`, "success");
+    battle.winner = battle.votes_left >= battle.votes_right ? "left" : "right";
+    showToast(`Battle geschlossen: ${winner} gewinnt durch Stimmenmehrheit! ✨`, "success");
   }
 }
 
@@ -854,13 +1816,15 @@ function handleApplicationDecision(app, decision) {
   }
 }
 
-/* Modals */
+/* Modals & Creation */
 const newTournament = ref({
   title: "",
   description: "",
-  prize_pool: "1.000 € Cash",
+  prize_pool: "1.500 € Cash + Studio Gear",
+  genre: "Trap & 808",
   status: "APPLICATION_OPEN",
-  is_no_loss: false,
+  slots: 16,
+  is_no_loss: true,
 });
 
 async function submitCreateTournament() {
@@ -869,6 +1833,7 @@ async function submitCreateTournament() {
     title: newTournament.value.title,
     description: newTournament.value.description,
     prize_pool: newTournament.value.prize_pool,
+    genre: newTournament.value.genre,
     status: newTournament.value.status,
     is_no_loss: newTournament.value.is_no_loss,
     participants_count: 0,
@@ -879,7 +1844,6 @@ async function submitCreateTournament() {
   showCreateModal.value = false;
   showToast("Turnier erfolgreich erstellt & live geschaltet! 🏆", "success");
 
-  // Attempt backend API
   try {
     await api.post("tournaments/", newTournament.value);
   } catch {
@@ -893,9 +1857,16 @@ const applicationForm = ref({
   message: "",
 });
 
+function openSpotlightApply() {
+  if (spotlightTournament.value) {
+    openApplicationModal(spotlightTournament.value);
+  }
+}
+
 function openApplicationModal(tournament) {
   applyingTournament.value = tournament;
-  applicationForm.value.artist_name = me.value?.name || me.value?.username || "";
+  applicationForm.value.artist_name =
+    arenaSettings.value.stageName || me.value?.name || me.value?.username || "";
   showApplyModal.value = true;
 }
 
@@ -914,20 +1885,31 @@ function submitArtistApplication() {
 const roundUploadForm = ref({
   title: "",
   file_url: "",
+  bpm: "140",
+  key: "C# Minor",
   notes: "",
 });
 
 function openUploadRoundModal(app) {
-  roundUploadForm.value.title = `${app.tournament_title} - Runde`;
+  roundUploadForm.value.title = `${app.tournament_title || 'Turnier'} - Runde`;
   showUploadModal.value = true;
 }
 
 function submitRoundFile() {
   showUploadModal.value = false;
-  showToast("Runde erfolgreich eingereicht! Deine Einreichung ist jetzt aktiv. 🚀", "success");
+  showToast("Runde erfolgreich hochgeladen! Die Jury & Community können sie nun bewerten. 🚀", "success");
 }
 
-/* Data Loading */
+function inspectArtist(artist) {
+  inspectedArtist.value = artist;
+}
+
+function saveArenaSettings() {
+  localStorage.setItem("unyq_arena_settings", JSON.stringify(arenaSettings.value));
+  showToast("Arena Einstellungen erfolgreich gespeichert! 💾", "success");
+}
+
+/* Lifecycle */
 async function loadData() {
   try {
     const { data } = await api.get("tournaments/");
@@ -936,7 +1918,7 @@ async function loadData() {
       tournamentsList.value = list;
     }
   } catch {
-    // fallback to curated state
+    // fallback curated
   }
 
   try {
@@ -952,61 +1934,121 @@ async function loadData() {
 onMounted(async () => {
   await fetchProfile();
   currentRoleMode.value = isTeam.value ? "TEAM" : "ARTIST";
+
+  // Load persisted votes & settings
+  try {
+    const savedVotes = localStorage.getItem("unyq_arena_votes");
+    if (savedVotes) userVotes.value = JSON.parse(savedVotes);
+    const savedSettings = localStorage.getItem("unyq_arena_settings");
+    if (savedSettings) arenaSettings.value = { ...arenaSettings.value, ...JSON.parse(savedSettings) };
+  } catch {
+    // ignore
+  }
+
   await loadData();
 });
 </script>
 
 <style scoped>
+/* =========================================================================
+   ARENA BASE & AMBIENCE
+   ========================================================================= */
 .tournament-arena-page {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  max-width: 1300px;
+  gap: 28px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 8px 0 80px;
+  padding: 8px 16px 90px;
   position: relative;
+  min-height: 100vh;
 }
 
-.arena-ambient-glow {
+.arena-mesh-glow {
   position: absolute;
   top: 0;
-  left: 20%;
-  width: 60%;
-  height: 240px;
-  background: radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, rgba(99, 102, 241, 0.08) 50%, transparent 70%);
+  left: 15%;
+  width: 70%;
+  height: 380px;
+  background: radial-gradient(circle at 50% 30%, rgba(245, 158, 11, 0.16) 0%, rgba(59, 130, 246, 0.12) 45%, transparent 75%);
   pointer-events: none;
   z-index: 0;
 }
 
-/* Arena Header */
-.arena-header {
-  display: grid;
-  grid-template-columns: 1.4fr 0.9fr;
-  gap: 32px;
-  align-items: center;
-  padding: 36px 32px;
-  background: 
-    radial-gradient(circle at top right, rgba(245, 158, 11, 0.15), transparent 50%),
-    linear-gradient(135deg, rgba(28, 25, 44, 0.85), rgba(15, 23, 42, 0.95));
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: 24px;
-  position: relative;
+.arena-secondary-glow {
+  position: absolute;
+  top: 250px;
+  right: 5%;
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating Particles */
+.reaction-particles-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
   overflow: hidden;
 }
 
-.league-pill {
+.floating-particle {
+  position: absolute;
+  font-size: 26px;
+  user-select: none;
+  animation: floatUpFade 1.6s ease-out forwards;
+}
+
+@keyframes floatUpFade {
+  0% { transform: translateY(0) scale(0.6); opacity: 1; }
+  50% { transform: translateY(-70px) scale(1.3); opacity: 0.9; }
+  100% { transform: translateY(-160px) scale(1); opacity: 0; }
+}
+
+/* =========================================================================
+   ARENA HERO HEADER
+   ========================================================================= */
+.arena-header {
+  display: grid;
+  grid-template-columns: 1.35fr 0.95fr;
+  gap: 32px;
+  align-items: center;
+  padding: 38px 36px;
+  background: 
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 55%),
+    radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 45%),
+    linear-gradient(135deg, rgba(24, 21, 40, 0.92), rgba(12, 19, 36, 0.96));
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 28px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.arena-status-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.league-broadcast-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 14px;
+  padding: 6px 14px;
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.14);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   color: #fbbf24;
   font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  margin-bottom: 12px;
 }
 
 .live-pulse-dot {
@@ -1015,21 +2057,44 @@ onMounted(async () => {
   border-radius: 50%;
   background: #f59e0b;
   box-shadow: 0 0 10px #f59e0b;
-  animation: pulse 1.6s infinite;
+  animation: arenaPulse 1.6s infinite ease-in-out;
 }
 
-@keyframes pulse {
-  0% { transform: scale(0.9); opacity: 0.8; }
-  50% { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.8; }
+@keyframes arenaPulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 16px #f59e0b; }
+}
+
+.ticker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ticker-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
 }
 
 .arena-title {
-  font-size: clamp(2rem, 3.8vw, 3rem);
+  font-size: clamp(2.1rem, 4vw, 3.2rem);
   font-weight: 900;
-  margin: 0 0 10px;
+  margin: 0 0 14px;
   line-height: 1.1;
-  background: linear-gradient(120deg, #fff 40%, #fde68a 100%);
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.gradient-text {
+  background: linear-gradient(120deg, #fbbf24 0%, #f59e0b 50%, #38bdf8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -1038,25 +2103,31 @@ onMounted(async () => {
   color: var(--muted);
   font-size: 15px;
   line-height: 1.6;
-  margin: 0 0 18px;
-  max-width: 600px;
+  margin: 0 0 24px;
+  max-width: 640px;
 }
 
-.role-mode-bar {
+.header-action-toolbar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.mode-label {
+.role-mode-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbar-label {
   font-size: 12px;
   color: var(--muted);
 }
 
 .role-pill-group {
   display: inline-flex;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
   padding: 4px;
@@ -1076,875 +2147,1701 @@ onMounted(async () => {
 }
 
 .role-pill-btn.active {
-  background: #fff;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
   color: #0f172a;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4);
 }
 
-.mode-desc-text {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-/* Stats Card */
-.arena-stats-card {
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: 18px;
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.asc-title-row {
+.header-quick-buttons {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-}
-
-.trophy-ico {
-  font-size: 20px;
-}
-
-.asc-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  text-align: center;
 }
 
-.asc-stat {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 10px;
-  padding: 10px 4px;
-  display: flex;
-  flex-direction: column;
-}
-
-.asc-stat .num {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #fff;
-}
-
-.asc-stat .num.highlight {
-  color: #fbbf24;
-}
-
-.asc-stat .lbl {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.asc-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 10px;
-  text-align: center;
-}
-
-.prize-tag {
-  font-size: 12px;
-  font-weight: 700;
-  color: #34d399;
-}
-
-/* Navigation Tabs */
-.arena-nav-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-
-.tabs-group {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.nav-tab-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  padding: 8px 16px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
+.btn-create-tournament,
+.btn-hero-apply {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  padding: 10px 20px;
+  font-weight: 700;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.4);
   transition: all 0.2s ease;
 }
 
-.nav-tab-btn.active, .nav-tab-btn:hover {
-  background: #f59e0b;
-  color: #0f172a;
-  border-color: #f59e0b;
-  font-weight: 800;
+.btn-create-tournament:hover,
+.btn-hero-apply:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.6);
 }
 
-.tab-badge {
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.25);
+.btn-refresh-arena {
+  padding: 8px 14px;
+  font-size: 16px;
 }
 
-.tab-badge.badge-live { background: #ef4444; color: #fff; }
-.tab-badge.badge-warn { background: #6366f1; color: #fff; }
-
-.btn-create {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #0f172a;
-  font-weight: 800;
-}
-
-/* Tab Sections */
-.tab-section {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-/* Spotlight Card */
-.spotlight-card {
-  padding: 32px;
-  background: 
-    radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent 50%),
-    linear-gradient(135deg, rgba(24, 28, 48, 0.8), rgba(15, 23, 42, 0.95));
+/* Jackpot Card */
+.jackpot-spotlight-card {
+  background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 20px;
-}
-
-.spotlight-badge-row {
+  padding: 24px;
   display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
 }
 
-.badge-featured {
-  background: rgba(245, 158, 11, 0.2);
+.jsc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.jsc-badge {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  font-size: 11px;
-  font-weight: 800;
-  padding: 3px 10px;
-  border-radius: 999px;
 }
 
-.badge-status {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 6px;
+.jsc-amount {
+  font-size: clamp(2rem, 3.2vw, 2.7rem);
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.02em;
+  background: linear-gradient(120deg, #fff 30%, #fde68a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-.status-application_open { background: rgba(16, 185, 129, 0.2); color: #34d399; }
-.status-submission_open { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-.status-battles { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-.status-closed { background: rgba(148, 163, 184, 0.2); color: #94a3b8; }
-
-.badge-accent {
-  background: rgba(168, 85, 247, 0.2);
-  color: #c084fc;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 6px;
+.jsc-sub {
+  font-size: 12px;
+  color: #34d399;
+  font-weight: 600;
+  margin: -6px 0 0;
 }
 
-.spotlight-title {
-  margin: 0 0 10px;
-  font-size: 1.8rem;
+.asc-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 6px;
 }
 
-.spotlight-desc {
-  color: var(--muted);
-  font-size: 14.5px;
-  line-height: 1.6;
-  max-width: 750px;
-  margin: 0 0 20px;
-}
-
-.spotlight-meta-row {
-  display: flex;
-  gap: 24px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.sm-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.asc-stat-box {
   background: rgba(255, 255, 255, 0.04);
-  padding: 8px 14px;
   border-radius: 12px;
+  padding: 10px 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
 }
 
-.sm-icon {
-  font-size: 22px;
-}
-
-.sm-val {
+.asc-stat-box .stat-number {
+  font-size: 1.35rem;
   font-weight: 800;
-  font-size: 14px;
-  display: block;
+  color: #fff;
 }
 
-.sm-lbl {
+.asc-stat-box.highlight .stat-number {
+  color: #fbbf24;
+}
+
+.asc-stat-box.user-rank .stat-number {
+  color: #38bdf8;
+}
+
+.asc-stat-box .stat-caption {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+/* User RP Strip */
+.user-rp-progress-strip {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.user-rp-progress-strip:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.urps-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.urps-tier {
+  color: #fbbf24;
+}
+
+.urps-progress-bar {
+  width: 100%;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.urps-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #38bdf8);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.urps-hint {
+  display: block;
   font-size: 10.5px;
   color: var(--muted);
-  text-transform: uppercase;
+  margin-top: 6px;
+  text-align: right;
 }
 
-.spotlight-actions {
+/* =========================================================================
+   NAVIGATION TABS
+   ========================================================================= */
+.arena-navigation-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 8px 12px;
+  position: sticky;
+  top: 12px;
+  backdrop-filter: blur(16px);
+  z-index: 50;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.tabs-scroll-container {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  width: 100%;
+  scrollbar-width: none;
+}
+
+.tabs-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-tab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.nav-tab-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tab-button.active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 4px 14px rgba(255, 255, 255, 0.2);
+}
+
+.tab-counter-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.tab-counter-badge.badge-live {
+  background: #ef4444;
+  color: #fff;
+}
+
+.tab-counter-badge.badge-warn {
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+/* =========================================================================
+   TAB 1: SPOTLIGHT & TOURNAMENTS
+   ========================================================================= */
+.spotlight-arena-banner {
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 36px 34px;
+  margin-bottom: 24px;
+  background: 
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.22), transparent 50%),
+    linear-gradient(135deg, rgba(28, 22, 45, 0.95), rgba(15, 23, 42, 0.98));
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.spotlight-content-wrap {
+  position: relative;
+  z-index: 2;
+  max-width: 820px;
+}
+
+.spotlight-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.tag-gold-featured {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+}
+
+.tag-status {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tag-bracket-type {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tag-genre {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.spotlight-heading {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 900;
+  margin: 0 0 10px;
+  color: #fff;
+}
+
+.spotlight-description {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+
+.spotlight-features-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.sf-feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.sf-icon {
+  font-size: 24px;
+}
+
+.sf-val {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.sf-lbl {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.spotlight-cta-row {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.btn-hero {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #0f172a;
+.btn-hero-primary {
+  padding: 12px 24px;
   font-weight: 800;
-  padding: 10px 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
 }
 
-/* Filter controls */
-.filter-controls-row {
+.btn-hero-secondary {
+  padding: 12px 22px;
+  font-weight: 700;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Discovery Filter Toolbar */
+.discovery-filter-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   flex-wrap: wrap;
-  gap: 14px;
 }
 
-.search-box {
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
   min-width: 280px;
 }
 
-.status-filters {
+.search-icon-symbol {
+  position: absolute;
+  left: 14px;
+  font-size: 14px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.discovery-search-input {
+  width: 100%;
+  padding-left: 38px;
+  padding-right: 32px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 13.5px;
+}
+
+.search-clear-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.filter-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pill-group {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
-.filter-pill-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  padding: 6px 12px;
+.filter-pill {
+  padding: 8px 14px;
   border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
   font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.filter-pill-btn.active, .filter-pill-btn:hover {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.4);
+.filter-pill.active {
+  background: #fff;
+  color: #0f172a;
+  border-color: #fff;
+}
+
+.pill-group-right {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.view-toggle-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.view-toggle-btn.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
 }
 
 /* Tournaments Grid */
-.tournaments-grid {
+.tournaments-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 20px;
 }
 
-.tournament-card {
-  padding: 22px;
-  display: flex;
-  flex-direction: column;
-  cursor: pointer;
-  border-radius: 18px;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-}
-
-.tournament-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(245, 158, 11, 0.4);
-}
-
-.card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.tournament-name {
-  margin: 0 0 8px;
-  font-size: 1.15rem;
-  line-height: 1.3;
-}
-
-.tournament-summary {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.5;
-  margin: 0 0 16px;
-  flex: 1;
-}
-
-.tournament-stats-pills {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.pill-stat {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--muted);
-}
-
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
-}
-
-/* BATTLES SHOWDOWN */
-.battles-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 24px;
-}
-
-.battle-showdown-card {
+.tournament-interactive-card {
   padding: 24px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   gap: 16px;
-  border-radius: 20px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
-.battle-top-bar {
+.tournament-interactive-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+}
+
+.tic-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11.5px;
+  gap: 8px;
 }
 
-.battle-round-badge {
+.tic-status-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.badge-status-pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge-status-pill.status-battles {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-status-pill.status-application_open {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-status-pill.status-submission_open {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-no-loss {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.badge-genre-tag {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.tic-prize-chip {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #34d399;
+}
+
+.tic-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+
+.tic-desc {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.roster-slots-bar {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.rsb-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.rsb-labels strong {
+  color: #fff;
+}
+
+.rsb-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.rsb-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #38bdf8);
+  border-radius: 999px;
+}
+
+.tic-meta-row {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tic-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.btn-open-card {
+  flex: 1;
+  font-weight: 700;
+}
+
+/* =========================================================================
+   TAB 2: BATTLE SHOWDOWN ARENA
+   ========================================================================= */
+.battles-showdown-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.battle-duel-card {
+  padding: 28px;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+}
+
+.bd-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bd-round-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.bd-tourney-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.bd-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.bd-status-badge.open {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Duel Ring */
+.duel-arena-ring {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 24px;
+}
+
+.fighter-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.fighter-card.winner {
+  border-color: rgba(52, 211, 153, 0.6);
+  background: rgba(52, 211, 153, 0.06);
+}
+
+.fighter-card.voted {
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+}
+
+.fighter-avatar-wrap {
+  position: relative;
+}
+
+.fighter-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+}
+
+.fighter-avatar.right-avatar {
+  background: linear-gradient(135deg, #a855f7, #6d28d9);
+}
+
+.fighter-tier-icon {
+  position: absolute;
+  bottom: -6px;
+  right: -8px;
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
+
+.fighter-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.fighter-tier-label {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Audio Deck */
+.fighter-audio-deck {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.audio-play-trigger-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.audio-play-trigger-btn.playing {
   background: #f59e0b;
   color: #0f172a;
+  border-color: #f59e0b;
+}
+
+/* Waveform Bars */
+.audio-wave-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 24px;
+}
+
+.wave-bar {
+  width: 3px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  transition: height 0.2s ease;
+}
+
+.audio-wave-bars.active .wave-bar {
+  background: #38bdf8;
+  animation: bounceBar 0.8s infinite ease-in-out alternate;
+}
+
+@keyframes bounceBar {
+  0% { height: 4px; }
+  100% { height: 22px; }
+}
+
+.fighter-votes-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.votes-count {
+  font-size: 1.3rem;
   font-weight: 900;
-  padding: 2px 8px;
-  border-radius: 4px;
+  color: #fff;
 }
 
-.battle-title-tag {
+.votes-lbl {
+  font-size: 11px;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
 }
 
-.battle-status-badge {
-  color: #ef4444;
-  font-weight: 800;
-}
-
-.matchup-container {
-  display: grid;
-  grid-template-columns: 1fr 40px 1fr;
+/* Duel Center */
+.duel-center-divider {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
 }
 
-.competitor-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 16px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.competitor-box.winning {
-  border-color: rgba(245, 158, 11, 0.45);
-  background: rgba(245, 158, 11, 0.05);
-}
-
-.competitor-avatar {
+.vs-emblem {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f59e0b, #ec4899);
-  color: #fff;
-  font-weight: 900;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  margin-bottom: 8px;
-}
-
-.competitor-avatar.right-avatar {
-  background: linear-gradient(135deg, #6366f1, #06b6d4);
-}
-
-.competitor-name {
-  font-size: 14px;
-  margin-bottom: 2px;
-}
-
-.competitor-tier {
-  font-size: 10.5px;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-
-.btn-play-round {
-  width: 100%;
-  font-size: 11.5px;
-  min-height: 30px;
-  padding: 3px 8px;
-  margin-bottom: 8px;
-}
-
-.vote-count-badge {
-  font-size: 12.5px;
-  font-weight: 800;
-  color: #fbbf24;
-}
-
-.vs-divider {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.vs-text {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
-  color: #ef4444;
-  letter-spacing: 0.1em;
+  color: #fbbf24;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
 }
 
-.vs-bar {
-  width: 1px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.15);
+.btn-ab-switch {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.vote-meter {
+.btn-ab-switch:hover {
+  color: #fff;
+  border-color: #38bdf8;
+}
+
+/* Live Vote Meter */
+.live-vote-meter-container {
   display: flex;
-  height: 20px;
+  height: 18px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.meter-bar {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10.5px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 11px;
   font-weight: 800;
-  transition: width 0.3s ease;
-}
-
-.left-bar {
-  background: linear-gradient(90deg, #f59e0b, #d97706);
-  color: #0f172a;
-}
-
-.right-bar {
-  background: linear-gradient(90deg, #4f46e5, #6366f1);
   color: #fff;
 }
 
-.battle-vote-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.btn-vote-left {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  color: #fbbf24;
-  min-height: 36px;
-  font-size: 12px;
-}
-
-.btn-vote-right {
-  background: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.4);
-  color: #818cf8;
-  min-height: 36px;
-  font-size: 12px;
-}
-
-.admin-battle-bar {
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.admin-label {
-  font-size: 11px;
-  color: #f87171;
-  font-weight: 700;
-}
-
-.admin-btn-row {
-  display: flex;
-  gap: 6px;
-}
-
-/* LEADERBOARD */
-.tiers-showcase {
-  display: flex;
-  gap: 16px;
-  padding: 18px 24px;
-  overflow-x: auto;
-  border-radius: 16px;
-}
-
-.tier-chip {
+.lvm-bar-left {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  min-width: 140px;
+  justify-content: flex-start;
+  padding-left: 12px;
+  transition: width 0.4s ease;
 }
 
-.tier-img {
-  width: 28px;
-  height: 28px;
-}
-
-.tier-info {
+.lvm-bar-right {
+  background: linear-gradient(90deg, #c084fc, #a855f7);
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+  transition: width 0.4s ease;
 }
 
-.tier-info strong {
-  font-size: 13px;
-}
-
-.tier-info small {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.podium-row {
+/* Vote Action Buttons */
+.battle-vote-action-bar {
   display: grid;
-  grid-template-columns: 1fr 1.2fr 1fr;
-  align-items: flex-end;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin: 16px 0;
 }
 
-.podium-card {
-  padding: 24px;
+.btn-vote-fighter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.left-vote-btn {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.left-vote-btn:hover:not(:disabled) {
+  background: #3b82f6;
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.4);
+}
+
+.right-vote-btn {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.right-vote-btn:hover:not(:disabled) {
+  background: #a855f7;
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.4);
+}
+
+.btn-vote-fighter:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-vote-fighter.has-voted {
+  background: #34d399 !important;
+  color: #0f172a !important;
+  border-color: #34d399 !important;
+}
+
+/* Crowd Hype Toolbar */
+.crowd-hype-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 14px;
+}
+
+.hype-title {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.hype-buttons-group {
+  display: flex;
+  gap: 8px;
+}
+
+.hype-react-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.hype-react-btn:hover {
+  transform: scale(1.25);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Admin Bar */
+.admin-decision-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+}
+
+.admin-verdict-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.admin-verdict-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* =========================================================================
+   TAB 3: LEADERBOARD & PODIUM
+   ========================================================================= */
+.champions-podium-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr 1fr;
+  align-items: flex-end;
+  gap: 20px;
+  margin: 32px 0 40px;
+  padding: 0 20px;
+}
+
+.podium-pillar {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  border-radius: 18px;
+  cursor: pointer;
+  transition: transform 0.25s ease;
 }
 
-.podium-card.rank-1 {
-  background: linear-gradient(180deg, rgba(245, 158, 11, 0.2) 0%, rgba(15, 23, 42, 0.9) 100%);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  padding-bottom: 32px;
+.podium-pillar:hover {
+  transform: translateY(-6px);
 }
 
-.crown-icon {
-  font-size: 28px;
-  margin-bottom: 4px;
+.podium-avatar-box {
+  position: relative;
+  margin-bottom: 12px;
 }
 
-.medal-circle {
-  width: 36px;
-  height: 36px;
+.podium-avatar {
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 28px;
   font-weight: 900;
-  font-size: 16px;
-  color: #0f172a;
-  margin-bottom: 8px;
+  color: #fff;
+  border: 3px solid rgba(255, 255, 255, 0.2);
 }
 
-.medal-circle.gold { background: #fbbf24; }
-.medal-circle.silver { background: #cbd5e1; }
-.medal-circle.bronze { background: #e59866; }
+.gold-avatar {
+  width: 90px;
+  height: 90px;
+  font-size: 34px;
+  background: linear-gradient(135deg, #fbbf24, #b45309);
+  border-color: #fef08a;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.5);
+}
 
-.podium-name {
-  font-size: 1.1rem;
+.silver-avatar {
+  background: linear-gradient(135deg, #cbd5e1, #475569);
+  border-color: #f8fafc;
+}
+
+.bronze-avatar {
+  background: linear-gradient(135deg, #d97706, #78350f);
+  border-color: #fed7aa;
+}
+
+.podium-badge-gold,
+.podium-badge-silver,
+.podium-badge-bronze {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.podium-badge-gold { background: #fef08a; }
+.podium-badge-silver { background: #f8fafc; }
+.podium-badge-bronze { background: #fed7aa; }
+
+.podium-tier-crest {
+  position: absolute;
+  bottom: -8px;
+  right: -8px;
+  width: 32px;
+  height: 32px;
+}
+
+.podium-tier-crest.legendary-crest {
+  width: 42px;
+  height: 42px;
+  bottom: -10px;
+  right: -10px;
+}
+
+.crown-animated-halo {
+  font-size: 32px;
+  margin-bottom: -10px;
+  animation: floatCrown 2s infinite ease-in-out;
+}
+
+@keyframes floatCrown {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.podium-artist-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
   margin-bottom: 4px;
 }
 
-.podium-rp {
-  font-size: 1.3rem;
+.podium-artist-name.champion {
+  font-size: 1.45rem;
+  color: #fef08a;
+}
+
+.podium-rp-pill {
+  font-size: 12.5px;
   font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.podium-rp-pill.champion-rp {
+  background: rgba(245, 158, 11, 0.25);
   color: #fbbf24;
 }
 
-.podium-tier {
+.podium-tier-name {
   font-size: 11px;
   color: var(--muted);
-  text-transform: uppercase;
 }
 
-.leaderboard-table {
-  padding: 12px;
+.podium-streak-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fbbf24;
+  margin: 4px 0 10px;
+}
+
+.podium-stand {
+  width: 100%;
+  border-radius: 18px 18px 0 0;
   display: flex;
-  flex-direction: column;
-}
-
-.table-head {
-  display: grid;
-  grid-template-columns: 60px 1.5fr 120px 140px 100px;
-  padding: 10px 16px;
-  font-size: 11.5px;
-  font-weight: 800;
-  color: var(--muted);
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 60px 1.5fr 120px 140px 100px;
   align-items: center;
-  padding: 12px 16px;
-  border-radius: 10px;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.6rem;
+  font-weight: 900;
+}
+
+.gold-stand {
+  height: 140px;
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.35), rgba(15, 23, 42, 0.8));
+  border-top: 2px solid #fbbf24;
+}
+
+.silver-stand {
+  height: 100px;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.25), rgba(15, 23, 42, 0.8));
+  border-top: 2px solid #cbd5e1;
+}
+
+.bronze-stand {
+  height: 75px;
+  background: linear-gradient(180deg, rgba(217, 119, 6, 0.2), rgba(15, 23, 42, 0.8));
+  border-top: 2px solid #d97706;
+}
+
+/* Leaderboard Table */
+.leaderboard-table-card {
+  border-radius: 20px;
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lt-header-row,
+.lt-data-row {
+  display: grid;
+  grid-template-columns: 80px 2.2fr 1.3fr 1.5fr 1.2fr 1.5fr 90px;
+  align-items: center;
+  padding: 14px 12px;
+}
+
+.lt-header-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.lt-data-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   transition: background 0.15s ease;
 }
 
-.table-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+.lt-data-row:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.table-row.is-me {
-  background: rgba(245, 158, 11, 0.12);
-  border-left: 3px solid #f59e0b;
+.lt-data-row.is-user {
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
 }
 
-.artist-cell {
+.rank-pos-number {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.artist-info-cell {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.artist-avatar {
-  width: 28px;
-  height: 28px;
+.artist-thumb {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 12px;
-}
-
-.me-pill {
-  font-size: 10px;
-  background: #f59e0b;
-  color: #0f172a;
-  padding: 1px 6px;
-  border-radius: 4px;
   font-weight: 800;
-}
-
-.tier-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.rp-val {
-  font-weight: 800;
-  color: #fbbf24;
-}
-
-/* MY TOURNAMENTS */
-.artist-quick-card {
-  padding: 20px 28px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9));
-  border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-.aq-col {
-  display: flex;
-  flex-direction: column;
-}
-
-.aq-lbl {
-  font-size: 11.5px;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.aq-val {
-  font-size: 1.3rem;
   color: #fff;
 }
 
-.my-items-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
-}
-
-.my-tournament-item {
-  padding: 20px;
+.artist-names {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.mti-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.mti-head h3 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.mti-actions {
-  display: flex;
-  gap: 8px;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-  flex-wrap: wrap;
-}
-
-/* ADMIN MODERATION */
-.admin-mod-card {
-  padding: 24px;
-}
-
-.mod-head {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  gap: 6px;
 }
 
-.count-badge {
-  background: #f59e0b;
-  color: #0f172a;
-  font-size: 11px;
+.artist-names .name {
+  color: #fff;
+  font-size: 14px;
+}
+
+.badge-me-pill {
+  background: #3b82f6;
+  color: #fff;
+  font-size: 10px;
   font-weight: 800;
-  padding: 2px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
 }
 
-.mod-list {
+.badge-veteran {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.tier-pill-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.table-tier-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.rp-bold {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.rp-trend {
+  display: block;
+  font-size: 10.5px;
+  color: #34d399;
+}
+
+.winrate-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.winrate-bar-track {
+  width: 70px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.winrate-bar-fill {
+  height: 100%;
+  background: #34d399;
+  border-radius: 999px;
+}
+
+/* =========================================================================
+   TAB 4: RÄNGE & TIERS SYSTEM
+   ========================================================================= */
+.ranks-deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.rank-tier-card {
+  padding: 22px 18px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s ease;
+}
+
+.rank-tier-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.rank-tier-card.active {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.06);
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.2);
+}
+
+.rank-tier-card.is-my-tier {
+  border-color: #f59e0b;
+}
+
+.rtc-badge-top {
+  position: absolute;
+  top: -10px;
+  background: #f59e0b;
+  color: #0f172a;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.rtc-image-wrap {
+  width: 90px;
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rtc-tier-img {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+  transition: transform 0.25s ease;
+}
+
+.rank-tier-card:hover .rtc-tier-img {
+  transform: scale(1.1);
+}
+
+.rtc-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.rtc-rp-req {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+.rtc-perks-summary {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.rtc-inspect-btn {
+  margin-top: auto;
+  font-size: 11.5px;
+}
+
+/* Deep Dive */
+.tier-deep-dive-panel {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 32px;
+  padding: 36px;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tdd-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.tdd-img-box {
+  width: 130px;
+  height: 130px;
+}
+
+.tdd-big-img {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.6));
+}
+
+.tdd-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.06em;
+}
+
+.tdd-perks-list h4 {
+  font-size: 14px;
+  color: #fff;
+  margin: 0 0 12px;
+}
+
+.tdd-perks-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tdd-perks-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  color: #e2e8f0;
+}
+
+.perk-check {
+  color: #34d399;
+  font-weight: 900;
+}
+
+/* =========================================================================
+   TAB 5: ARTIST HUB & PASSPORT
+   ========================================================================= */
+.artist-passport-card {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  padding: 24px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.apc-stat .lbl {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.apc-stat .val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.apc-stat .val.highlight {
+  color: #34d399;
+}
+
+.my-battles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.my-entry-card {
+  padding: 22px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.mod-row {
+.mec-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  border: 1px solid var(--border);
 }
 
-.mod-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.mod-meta {
-  font-size: 11.5px;
+.mec-date {
+  font-size: 11px;
   color: var(--muted);
 }
 
-.mod-msg {
-  font-size: 13px;
-  color: var(--text);
-  margin: 4px 0 0;
-  font-style: italic;
+.mec-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
 }
 
-.mod-actions {
+.mec-msg {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.mec-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  margin-top: auto;
 }
 
-.btn-accept {
-  background: #10b981;
+/* =========================================================================
+   TAB 6: SETTINGS
+   ========================================================================= */
+.settings-sections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 22px;
+}
+
+.settings-panel {
+  padding: 26px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 12px;
+}
+
+.sp-icon {
+  font-size: 20px;
+}
+
+.sp-head h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.sp-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.setting-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setting-field span {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.toggle-setting-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.toggle-setting-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.toggle-setting-row strong {
+  display: block;
+  font-size: 13px;
   color: #fff;
 }
 
-.btn-reject {
-  color: #ef4444;
-}
-
-/* Modal */
+/* =========================================================================
+   MODALS & DOSSIER
+   ========================================================================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(2, 6, 23, 0.82);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 1000;
   padding: 20px;
 }
 
 .modal {
-  max-width: 540px;
   width: 100%;
+  max-width: 540px;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 24px;
   padding: 28px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
+}
+
+.modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
 }
 
 .modal-form {
@@ -1959,43 +3856,102 @@ onMounted(async () => {
   gap: 12px;
 }
 
-.checkbox-row {
-  display: flex;
-  align-items: center;
-}
-
-.check-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
   margin-top: 10px;
 }
 
-.font-mono {
-  font-family: monospace;
+/* Dossier Modal */
+.artist-profile-modal {
+  max-width: 480px;
 }
 
-@media (max-width: 900px) {
+.apm-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.apm-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.apm-badge-img {
+  width: 50px;
+  height: 50px;
+  margin-left: auto;
+}
+
+.apm-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.apm-stat-box {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 6px;
+  border-radius: 12px;
+}
+
+.apm-stat-box .num {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.apm-stat-box .lbl {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.achieve-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.achieve-pill {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: #fbbf24;
+}
+
+/* Responsive */
+@media (max-width: 960px) {
   .arena-header {
     grid-template-columns: 1fr;
-    padding: 24px;
   }
-  .podium-row {
+  .duel-arena-ring {
     grid-template-columns: 1fr;
   }
-  .table-head, .table-row {
-    grid-template-columns: 40px 1fr 80px;
+  .champions-podium-wrap {
+    grid-template-columns: 1fr;
+    gap: 28px;
   }
-  .col-tier, .col-record {
-    display: none;
+  .tier-deep-dive-panel {
+    grid-template-columns: 1fr;
+  }
+  .artist-passport-card {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>

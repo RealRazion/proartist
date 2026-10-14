@@ -1,13 +1,76 @@
-<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="goldGrad" cx="50%" cy="40%">
-      <stop offset="0%" style="stop-color:#ffed4e;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#cc9900;stop-opacity:1" />
+    <radialGradient id="gld-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.6" />
+      <stop offset="50%" stop-color="#d97706" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#78350f" stop-opacity="0" />
     </radialGradient>
+    <linearGradient id="gld-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffbeb" />
+      <stop offset="20%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="80%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+    <linearGradient id="gld-rim" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#92400e" />
+      <stop offset="50%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="gld-plate" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#1e1305" />
+      <stop offset="100%" stop-color="#0b0702" />
+    </linearGradient>
+    <linearGradient id="gld-gem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+    <filter id="gld-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#f59e0b" flood-opacity="0.6" />
+    </filter>
   </defs>
-  <circle cx="100" cy="100" r="95" fill="url(#goldGrad)" stroke="#9b7200" stroke-width="3"/>
-  <path d="M 100 25 L 150 65 L 205 65 L 160 110 L 195 165 L 100 110 L 5 165 L 40 110 L -5 65 L 50 65 Z" fill="#ffd700" stroke="#ffe000" stroke-width="2"/>
-  <path d="M 100 35 L 140 65 L 150 55 L 110 35 Z" fill="#fffacd"/>
-  <circle cx="100" cy="100" r="45" fill="none" stroke="#fffacd" stroke-width="2" opacity="0.8"/>
-  <text x="100" y="180" font-size="20" font-weight="bold" text-anchor="middle" fill="#fff">GOLD</text>
+
+  <circle cx="120" cy="120" r="110" fill="url(#gld-glow)" />
+
+  <g filter="url(#gld-shadow)">
+    <!-- Laurel Leaves Left -->
+    <path d="M 46 64 C 34 82, 32 108, 44 134 C 40 114, 46 92, 60 74 Z" fill="url(#gld-metal)" stroke="url(#gld-rim)" stroke-width="1.5" />
+    <path d="M 32 94 C 20 112, 22 136, 36 156 C 30 138, 38 120, 50 106 Z" fill="url(#gld-metal)" opacity="0.85" />
+    <path d="M 28 124 C 22 144, 30 166, 48 180 C 38 164, 42 146, 50 134 Z" fill="url(#gld-metal)" opacity="0.65" />
+
+    <!-- Laurel Leaves Right -->
+    <path d="M 194 64 C 206 82, 208 108, 196 134 C 200 114, 194 92, 180 74 Z" fill="url(#gld-metal)" stroke="url(#gld-rim)" stroke-width="1.5" />
+    <path d="M 208 94 C 220 112, 218 136, 204 156 C 210 138, 202 120, 190 106 Z" fill="url(#gld-metal)" opacity="0.85" />
+    <path d="M 212 124 C 218 144, 210 166, 192 180 C 202 164, 198 146, 190 134 Z" fill="url(#gld-metal)" opacity="0.65" />
+
+    <!-- Crown Topper -->
+    <path d="M 88 44 L 98 22 L 120 34 L 142 22 L 152 44 Z" fill="url(#gld-metal)" stroke="url(#gld-rim)" stroke-width="2" />
+    <circle cx="98" cy="22" r="3.5" fill="#fef08a" />
+    <circle cx="120" cy="34" r="4.5" fill="#fff" />
+    <circle cx="142" cy="22" r="3.5" fill="#fef08a" />
+
+    <!-- Main Outer Shield -->
+    <path d="M 120 38 L 188 64 L 176 152 L 120 214 L 64 152 L 52 64 Z" 
+          fill="url(#gld-metal)" stroke="url(#gld-rim)" stroke-width="3" stroke-linejoin="round" />
+
+    <!-- Inner Dark Obsidian Plate -->
+    <path d="M 120 50 L 174 72 L 164 144 L 120 196 L 76 144 L 66 72 Z" 
+          fill="url(#gld-plate)" stroke="#b45309" stroke-width="2" />
+
+    <!-- Central Topaz Gem Facets -->
+    <polygon points="120,70 155,98 120,168 85,98" fill="url(#gld-gem)" stroke="#fef08a" stroke-width="2" />
+    <polygon points="120,70 120,168 85,98" fill="#92400e" opacity="0.5" />
+    <polygon points="120,84 140,102 120,150 100,102" fill="#fef08a" opacity="0.75" />
+
+    <!-- Roman Numeral III -->
+    <text x="120" y="125" font-family="'Poppins', system-ui, sans-serif" font-size="20" font-weight="900" 
+          text-anchor="middle" fill="#451a03" filter="drop-shadow(0 1px 2px #fef08a)">III</text>
+
+    <!-- Bottom Ribbon Banner -->
+    <path d="M 64 184 L 120 176 L 176 184 L 188 206 L 120 218 L 52 206 Z" 
+          fill="url(#gld-metal)" stroke="url(#gld-rim)" stroke-width="2" />
+    <text x="120" y="202" font-family="'Poppins', system-ui, sans-serif" font-size="12" font-weight="900" 
+          letter-spacing="3" text-anchor="middle" fill="#000" filter="drop-shadow(0 1px 2px #fff)">GOLD</text>
+  </g>
 </svg>

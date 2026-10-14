@@ -58,6 +58,15 @@
           <span class="label">Artists</span>
         </router-link>
         <router-link
+          to="/app/tournaments"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Turniere' : null"
+        >
+          <span class="icon">🏆</span>
+          <span class="label">Turniere</span>
+        </router-link>
+        <router-link
           to="/notifications"
           class="nav-link"
           @click="handleNavClick"

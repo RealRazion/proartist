@@ -23,6 +23,9 @@
         >
           {{ compactCards ? "Größere Karten" : "Kompakte Karten" }}
         </button>
+        <router-link to="/app/tournaments" class="btn ghost tiny arena-shortcut-btn">
+          🏆 Turniere &amp; Battles
+        </router-link>
       </div>
     </header>
 

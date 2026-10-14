@@ -3489,6 +3489,84 @@ class TournamentViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="accept-all-applications",
+        permission_classes=[permissions.IsAuthenticated, IsTeam],
+    )
+    def accept_all_applications(self, request, pk=None):
+        tournament = self.get_object()
+        pending = TournamentApplication.objects.filter(tournament=tournament, status="PENDING")
+        count = pending.count()
+        if count:
+            pending.update(status="APPROVED", decided_by=request.user.profile, decided_at=timezone.now())
+        return Response({"tournament": tournament.id, "approved_count": count})
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="generate-round-battles",
+        permission_classes=[permissions.IsAuthenticated, IsTeam],
+    )
+    def generate_round_battles(self, request, pk=None):
+        tournament = self.get_object()
+        raw_round = request.data.get("round_number", 1)
+        try:
+            round_number = max(1, int(raw_round))
+        except (ValueError, TypeError):
+            round_number = 1
+
+        auto_approve = request.data.get("auto_approve", True)
+        if auto_approve:
+            TournamentSubmission.objects.filter(
+                tournament=tournament,
+                round_number=round_number,
+                status="PENDING",
+            ).update(status="APPROVED")
+
+        existing_battles = TournamentBattle.objects.filter(tournament=tournament, round_number=round_number)
+        used_sub_ids = set()
+        for b in existing_battles:
+            used_sub_ids.add(b.left_submission_id)
+            used_sub_ids.add(b.right_submission_id)
+
+        available_subs = list(
+            TournamentSubmission.objects.filter(
+                tournament=tournament,
+                round_number=round_number,
+                status="APPROVED",
+            ).exclude(id__in=used_sub_ids).order_by("created_at", "id")
+        )
+
+        created_battles = []
+        while len(available_subs) >= 2:
+            left = available_subs.pop(0)
+            right = available_subs.pop(0)
+            battle = TournamentBattle.objects.create(
+                tournament=tournament,
+                round_number=round_number,
+                left_submission=left,
+                right_submission=right,
+                status="LIVE",
+            )
+            created_battles.append(battle.id)
+
+        if created_battles and tournament.status in {"DRAFT", "APPLICATION_OPEN", "SUBMISSION_OPEN"}:
+            tournament.status = "BATTLES"
+            tournament.save(update_fields=["status", "updated_at"])
+
+        return Response(
+            {
+                "tournament": tournament.id,
+                "round_number": round_number,
+                "created_battles_count": len(created_battles),
+                "created_battle_ids": created_battles,
+                "remaining_unpaired": len(available_subs),
+                "tournament_status": tournament.status,
+            }
+        )
+
 
 class TournamentApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentApplicationSerializer
@@ -3501,11 +3579,13 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
             "decided_by__user",
         ).order_by("-created_at")
         me = self.request.user.profile
+        tournament_id = self.request.query_params.get("tournament")
+        if tournament_id:
+            qs = qs.filter(tournament_id=tournament_id)
         if is_team_profile(me):
-            tournament_id = self.request.query_params.get("tournament")
-            if tournament_id:
-                qs = qs.filter(tournament_id=tournament_id)
             return qs
+        if tournament_id:
+            return qs.filter(Q(profile=me) | Q(status="APPROVED"))
         return qs.filter(profile=me)
 
     def perform_create(self, serializer):
@@ -3520,6 +3600,21 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Bewerbungen sind für dieses Turnier aktuell nicht möglich.")
         serializer.save(profile=me)
 
+    @action(detail=True, methods=["POST"], url_path="decision", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def decision(self, request, pk=None):
+        application = self.get_object()
+        decision = (request.data.get("decision") or "").strip().upper()
+        if decision not in {"APPROVED", "REJECTED"}:
+            return Response(
+                {"detail": "decision muss APPROVED oder REJECTED sein."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        application.status = decision
+        application.decided_by = request.user.profile
+        application.decided_at = timezone.now()
+        application.save(update_fields=["status", "decided_by", "decided_at"])
+        return Response(self.get_serializer(application).data)
+
 
 class TournamentSubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentSubmissionSerializer
@@ -3533,7 +3628,7 @@ class TournamentSubmissionViewSet(viewsets.ModelViewSet):
         me = self.request.user.profile
         if is_team_profile(me):
             return qs
-        return qs.filter(profile=me)
+        return qs.filter(Q(profile=me) | Q(status="APPROVED"))
 
     def perform_create(self, serializer):
         me = self.request.user.profile
@@ -3582,6 +3677,12 @@ class TournamentBattleViewSet(viewsets.ModelViewSet):
         tournament_id = self.request.query_params.get("tournament")
         if tournament_id:
             qs = qs.filter(tournament_id=tournament_id)
+        status_param = (self.request.query_params.get("status") or "").strip().upper()
+        if status_param:
+            if status_param in {"LIVE", "OPEN"}:
+                qs = qs.filter(status="LIVE")
+            elif status_param in {"CLOSED", "SCHEDULED"}:
+                qs = qs.filter(status=status_param)
         return qs
 
     def perform_create(self, serializer):

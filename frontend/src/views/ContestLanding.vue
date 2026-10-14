@@ -1032,6 +1032,48 @@
         </div>
         <div v-else class="empty-muted-box muted">Keine offenen Bewerbungen zur Prüfung.</div>
       </div>
+
+      <!-- Tournament Quick Director Controls for Admins -->
+      <div class="card admin-director-control-card">
+        <div class="adcc-head">
+          <h3>⚡ Turnier-Steuerung &amp; Runden-Paarungen</h3>
+          <p class="muted small">Generiere automatisch K.O.-Duelle aus allen freigegebenen Artist-Einreichungen für Runde 1.</p>
+        </div>
+        <div class="adcc-list">
+          <div v-for="t in tournamentsList" :key="t.id" class="adcc-row">
+            <div class="adcc-info">
+              <strong>{{ t.title }}</strong>
+              <span class="adcc-sub">Status: {{ statusLabel(t.status) }} • {{ t.participants_count || 0 }} Teilnehmer</span>
+            </div>
+            <div class="adcc-btn-group">
+              <select
+                class="input input-sm adcc-status-select"
+                :value="t.status"
+                @change="adminChangeTournamentPhase(t, $event.target.value)"
+                title="Phase wechseln"
+              >
+                <option value="APPLICATION_OPEN">Bewerbung offen</option>
+                <option value="SUBMISSION_OPEN">Einreichung offen</option>
+                <option value="BATTLES">Battles live</option>
+                <option value="CLOSED">Beendet</option>
+              </select>
+              <button
+                class="btn btn-sm"
+                @click="autoGenerateRoundBattles(t.id)"
+                title="Erzeugt 1v1 Duelle für alle freigegebenen Einreichungen"
+              >
+                ⚔️ Battles generieren
+              </button>
+              <button class="btn ghost btn-sm" @click="openTournamentDetail(t)">
+                Turnier öffnen →
+              </button>
+              <button class="btn ghost btn-sm btn-delete-t" @click="adminDeleteTournament(t)" title="Turnier löschen">
+                🗑️
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ================================================================= -->
@@ -1209,14 +1251,8 @@
           <div class="apm-achievements">
             <h4>Auszeichnungen in Season '26:</h4>
             <div class="achieve-tags">
-              <span class="achieve-pill">🔥 5er Win-Streak</span>
-              <span class="achieve-pill">👑 Season 1 Finalist</span>
-              <span class="achieve-pill">🎧 Best 808 Award</span>
+              <span class="achieve-pill">⚡ {{ inspectedArtist.wins > 10 ? 'Elite Veteran' : 'Aufsteiger' }}</span>
             </div>
-          </div>
-
-          <div class="modal-actions">
-            <button class="btn ghost" @click="inspectedArtist = null">Schließen</button>
           </div>
         </div>
       </div>
@@ -1226,10 +1262,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 import api from "../api";
+import { battleAudio } from "../utils/battleAudioEngine";
 
 /* High-res Vector Rank Badges */
 import bronzeRank from "../assets/ranks/bronze-icon.svg";
@@ -1240,6 +1277,7 @@ import rubinRank from "../assets/ranks/rubin.svg";
 import legendarRank from "../assets/ranks/legendaer-icon.svg";
 
 const router = useRouter();
+const route = useRoute();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
@@ -1402,9 +1440,9 @@ const tiersMasterList = [
   },
 ];
 
-const selectedTierDetail = ref(tiersMasterList[2]); // Default Gold
+const selectedTierDetail = ref(tiersMasterList[2]);
 
-/* Tournaments Dataset */
+/* Tournaments Dataset (with curated fallback) */
 const tournamentsList = ref([
   {
     id: 1,
@@ -1412,7 +1450,7 @@ const tournamentsList = ref([
     description: "Der ultimative Beatmaking-Wettbewerb. Produziere den härtesten Trap/Drill Track und kämpfe dich durch die Bracket.",
     status: "BATTLES",
     is_no_loss: true,
-    genre: "Trap / 808",
+    genre: "Trap & 808",
     prize_pool: "2.500 € Cash + Studio Gear",
     participants_count: 16,
     battles_count: 8,
@@ -1424,7 +1462,7 @@ const tournamentsList = ref([
     description: "Artists reichen ihre 16-Bars Runden ein. Die UNYQ Community und Jury voten für Flow, Lyrics und Delivery.",
     status: "APPLICATION_OPEN",
     is_no_loss: false,
-    genre: "Vocal / Rap",
+    genre: "Vocal & Rap",
     prize_pool: "1.500 € + Exclusive Single Release",
     participants_count: 12,
     battles_count: 6,
@@ -1436,7 +1474,7 @@ const tournamentsList = ref([
     description: "Gemütliche Akkorde, warme Rhyme-Schemes und organische Drums. Zeige dein Gespür für Sound-Design.",
     status: "SUBMISSION_OPEN",
     is_no_loss: true,
-    genre: "Lo-Fi / Soul",
+    genre: "Lo-Fi & Soul",
     prize_pool: "1.000 € + Vinyl Pressung",
     participants_count: 8,
     battles_count: 0,
@@ -1448,7 +1486,7 @@ const tournamentsList = ref([
     description: "Future Bass, Wave und Synthwave Producers duellieren sich im K.O.-Modus um den Sound-Krone.",
     status: "APPLICATION_OPEN",
     is_no_loss: false,
-    genre: "Wave / Electro",
+    genre: "Wave & Electro",
     prize_pool: "800 € + Sample Library",
     participants_count: 6,
     battles_count: 0,
@@ -1463,6 +1501,8 @@ const liveBattlesList = ref([
     tournament_title: "UNYQ Beat Battle Season 1 // 808 Showcase",
     round_number: 2,
     status: "OPEN",
+    left_submission: 1,
+    right_submission: 2,
     left_profile_name: "Neo_Producer",
     left_tier: "Legendär",
     left_rp: 4450,
@@ -1477,6 +1517,8 @@ const liveBattlesList = ref([
     tournament_title: "Berlin Vocal & Rap Showdown",
     round_number: 1,
     status: "OPEN",
+    left_submission: 3,
+    right_submission: 4,
     left_profile_name: "KAZA",
     left_tier: "Platin",
     left_rp: 3820,
@@ -1491,6 +1533,8 @@ const liveBattlesList = ref([
     tournament_title: "Electronic Melodic Bass Clash",
     round_number: 1,
     status: "OPEN",
+    left_submission: 5,
+    right_submission: 6,
     left_profile_name: "Synth_Valkyrie",
     left_tier: "Silber",
     left_rp: 1420,
@@ -1566,7 +1610,7 @@ const arenaSettings = ref({
 
 /* Computeds */
 const activeBattlesCount = computed(() => {
-  return liveBattlesList.value.filter((b) => b.status === "OPEN").length;
+  return liveBattlesList.value.filter((b) => b.status === "OPEN" || b.status === "LIVE").length;
 });
 
 const totalPrizePool = computed(() => {
@@ -1659,6 +1703,7 @@ function resetFilters() {
 
 function setRoleMode(mode) {
   currentRoleMode.value = mode;
+  localStorage.setItem("unyq_arena_role_mode", mode);
   showToast(
     mode === "TEAM" ? "👑 Admin & Jury Modus aktiv" : "🎤 Artist & Contender Modus aktiv",
     "info"
@@ -1666,38 +1711,25 @@ function setRoleMode(mode) {
 }
 
 function openTournamentDetail(tournament) {
-  router.push({ name: "tournament-detail", params: { tournamentId: tournament.id } });
-}
-
-/* Audio Player Synthesizer / Player Engine */
-function playAudioChime(freq = 440, type = "sine", duration = 0.2) {
-  if (!arenaSettings.value.soundEffectsEnabled) return;
-  try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + duration);
-  } catch {
-    // ignore
+  if (!tournament?.id) return;
+  battleAudio.stopPlayback();
+  currentPlayingTrack.value = null;
+  if (route.path.includes("platforms")) {
+    router.push({ name: "platform-contest-detail", params: { tournamentId: tournament.id } });
+  } else {
+    router.push({ name: "tournament-detail", params: { tournamentId: tournament.id } });
   }
 }
 
+/* Audio Player Synthesizer / Player Engine */
 function toggleAudio(trackKey, artistName) {
   if (currentPlayingTrack.value === trackKey) {
     currentPlayingTrack.value = null;
+    battleAudio.stopPlayback();
     showToast(`Wiedergabe pausiert`, "info");
   } else {
     currentPlayingTrack.value = trackKey;
-    playAudioChime(587.33, "triangle", 0.3); // D5 chime
+    battleAudio.startBeatLoop(trackKey);
     showToast(`▶ Spiele Runde von ${artistName} ab (320 kbps Studio Stream)`, "info");
   }
 }
@@ -1709,11 +1741,11 @@ function quickSwitchAB(battle) {
 
   if (current === leftKey) {
     currentPlayingTrack.value = rightKey;
-    playAudioChime(659.25, "sawtooth", 0.15); // E5 switch
+    battleAudio.startBeatLoop(rightKey);
     showToast(`⇄ Umschalten auf ${battle.right_profile_name} Runde`, "info");
   } else {
     currentPlayingTrack.value = leftKey;
-    playAudioChime(523.25, "sawtooth", 0.15); // C5 switch
+    battleAudio.startBeatLoop(leftKey);
     showToast(`⇄ Umschalten auf ${battle.left_profile_name} Runde`, "info");
   }
 }
@@ -1734,7 +1766,7 @@ function hasVotedSide(battle, side) {
   return userVotes.value[battle.id] === side;
 }
 
-function castVote(battle, side, event) {
+async function castVote(battle, side, event) {
   if (hasVoted(battle)) {
     showToast("Du hast für dieses Battle bereits abgestimmt!", "warning");
     return;
@@ -1750,7 +1782,7 @@ function castVote(battle, side, event) {
   localStorage.setItem("unyq_arena_votes", JSON.stringify(userVotes.value));
 
   // Audio & Particle FX
-  playAudioChime(880, "sine", 0.4); // A5 celebration
+  battleAudio.playVoteChime();
   spawnReactionParticle("🗳️", event);
   spawnReactionParticle("🔥", event);
 
@@ -1763,9 +1795,15 @@ function castVote(battle, side, event) {
 
   // Backend Sync
   try {
-    api.post(`tournaments/battles/${battle.id}/vote/`, { side });
+    const subId = side === "left" ? (battle.left_submission || battle.left_submission_id) : (battle.right_submission || battle.right_submission_id);
+    if (subId) {
+      await api.post("tournament-votes/", {
+        battle: battle.id,
+        selected_submission: subId,
+      });
+    }
   } catch {
-    // fallback
+    // fallback gracefully
   }
 }
 
@@ -1789,8 +1827,12 @@ function spawnReactionParticle(emoji, event) {
 }
 
 /* Admin Actions */
-function adminResolveBattle(battle, resolution) {
+async function adminResolveBattle(battle, resolution) {
   battle.status = "CLOSED";
+  const winnerSub = resolution === "left" 
+    ? (battle.left_submission || battle.left_submission_id) 
+    : (resolution === "right" ? (battle.right_submission || battle.right_submission_id) : null);
+
   if (resolution === "left") {
     battle.winner = "left";
     showToast(`🏆 ${battle.left_profile_name} offiziell zum Sieger erklärt!`, "success");
@@ -1802,17 +1844,70 @@ function adminResolveBattle(battle, resolution) {
     battle.winner = battle.votes_left >= battle.votes_right ? "left" : "right";
     showToast(`Battle geschlossen: ${winner} gewinnt durch Stimmenmehrheit! ✨`, "success");
   }
+
+  try {
+    await api.post(`tournament-battles/${battle.id}/close/`, winnerSub ? { winner_submission: winnerSub } : {});
+  } catch {
+    // fallback
+  }
 }
 
-function handleApplicationDecision(app, decision) {
+async function handleApplicationDecision(app, decision) {
   const idx = pendingApplications.value.findIndex((a) => a.id === app.id);
   if (idx !== -1) {
     pendingApplications.value.splice(idx, 1);
   }
+  const backendDecision = decision === "ACCEPTED" ? "APPROVED" : "REJECTED";
+  try {
+    await api.post(`tournament-applications/${app.id}/decision/`, {
+      decision: backendDecision,
+    });
+  } catch {
+    // fallback
+  }
+
   if (decision === "ACCEPTED") {
-    showToast(`Bewerbung von ${app.artist_name} angenommen! 🎉`, "success");
+    showToast(`Bewerbung von ${app.artist_name || 'Artist'} angenommen! 🎉`, "success");
   } else {
-    showToast(`Bewerbung von ${app.artist_name} abgelehnt.`, "info");
+    showToast(`Bewerbung von ${app.artist_name || 'Artist'} abgelehnt.`, "info");
+  }
+}
+
+async function autoGenerateRoundBattles(tournamentId) {
+  try {
+    const { data } = await api.post(`tournaments/${tournamentId}/generate-round-battles/`, {
+      round_number: 1,
+      auto_approve: true,
+    });
+    if (data.created_battles_count > 0) {
+      showToast(`${data.created_battles_count} Battles automatisch generiert! Turnier ist jetzt live! ⚔️`, "success");
+      await loadData();
+    } else {
+      showToast("Keine Battles erzeugt: Es werden mindestens 2 eingereichte Runden benötigt.", "warning");
+    }
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Battles nicht generieren.", "warning");
+  }
+}
+
+async function adminChangeTournamentPhase(tournament, newStatus) {
+  tournament.status = newStatus;
+  try {
+    await api.patch(`tournaments/${tournament.id}/`, { status: newStatus });
+    showToast(`Status für "${tournament.title}" auf "${statusLabel(newStatus)}" geändert.`, "success");
+  } catch {
+    showToast("Status lokal geändert.", "info");
+  }
+}
+
+async function adminDeleteTournament(tournament) {
+  if (!window.confirm(`Turnier "${tournament.title}" wirklich unwiderruflich löschen?`)) return;
+  tournamentsList.value = tournamentsList.value.filter((t) => t.id !== tournament.id);
+  try {
+    await api.delete(`tournaments/${tournament.id}/`);
+    showToast("Turnier gelöscht.", "success");
+  } catch {
+    showToast("Turnier lokal entfernt.", "info");
   }
 }
 
@@ -1828,27 +1923,53 @@ const newTournament = ref({
 });
 
 async function submitCreateTournament() {
-  const created = {
-    id: Date.now(),
-    title: newTournament.value.title,
-    description: newTournament.value.description,
-    prize_pool: newTournament.value.prize_pool,
-    genre: newTournament.value.genre,
-    status: newTournament.value.status,
-    is_no_loss: newTournament.value.is_no_loss,
-    participants_count: 0,
-    battles_count: 0,
-    ends_at: new Date(Date.now() + 14 * 86400000).toISOString(),
+  const title = newTournament.value.title.trim();
+  if (!title) return;
+
+  const startsAt = new Date().toISOString();
+  const endsAt = new Date(Date.now() + 14 * 86400000).toISOString();
+  const prizeText = newTournament.value.prize_pool || "1.000 € Cash";
+  const genreText = newTournament.value.genre || "Trap & 808";
+
+  const metaDesc = `[Preispool: ${prizeText}] [Genre: ${genreText}] [Slots: ${newTournament.value.slots || 16}]\n\n${newTournament.value.description || ""}`;
+
+  const payload = {
+    title,
+    description: metaDesc,
+    status: newTournament.value.status || "APPLICATION_OPEN",
+    is_no_loss: Boolean(newTournament.value.is_no_loss),
+    voting_mode: "COMMUNITY",
+    starts_at: startsAt,
+    ends_at: endsAt,
   };
-  tournamentsList.value.unshift(created);
-  showCreateModal.value = false;
-  showToast("Turnier erfolgreich erstellt & live geschaltet! 🏆", "success");
 
   try {
-    await api.post("tournaments/", newTournament.value);
+    const { data } = await api.post("tournaments/", payload);
+    tournamentsList.value.unshift({
+      ...data,
+      prize_pool: prizeText,
+      genre: genreText,
+      participants_count: 0,
+      battles_count: 0,
+    });
   } catch {
-    // fallback
+    tournamentsList.value.unshift({
+      id: Date.now(),
+      title,
+      description: metaDesc,
+      prize_pool: prizeText,
+      genre: genreText,
+      status: newTournament.value.status || "APPLICATION_OPEN",
+      is_no_loss: newTournament.value.is_no_loss,
+      participants_count: 0,
+      battles_count: 0,
+      ends_at: endsAt,
+    });
   }
+
+  battleAudio.playGong();
+  showCreateModal.value = false;
+  showToast("Turnier erfolgreich erstellt & live geschaltet! 🏆", "success");
 }
 
 const applicationForm = ref({
@@ -1870,19 +1991,36 @@ function openApplicationModal(tournament) {
   showApplyModal.value = true;
 }
 
-function submitArtistApplication() {
-  myApplications.value.unshift({
-    id: Date.now(),
-    tournament_id: applyingTournament.value?.id,
-    tournament_title: applyingTournament.value?.title || "Turnier",
-    status: "PENDING",
-    message: "Bewerbung erfolgreich eingereicht! Jury prüft die Demo.",
-  });
+async function submitArtistApplication() {
+  const tId = applyingTournament.value?.id;
+  const artistName = applicationForm.value.artist_name || me.value?.name || "Artist";
+  const msg = `Artist: ${artistName} | Demo: ${applicationForm.value.demo_link} | ${applicationForm.value.message || ""}`;
+
+  try {
+    const { data } = await api.post("tournament-applications/", {
+      tournament: tId,
+      message: msg,
+    });
+    myApplications.value.unshift({
+      ...data,
+      tournament_title: applyingTournament.value?.title || "Turnier",
+    });
+  } catch {
+    myApplications.value.unshift({
+      id: Date.now(),
+      tournament_id: tId,
+      tournament_title: applyingTournament.value?.title || "Turnier",
+      status: "PENDING",
+      message: msg,
+    });
+  }
+
   showApplyModal.value = false;
   showToast("Bewerbung erfolgreich eingereicht! Viel Erfolg! 🎤", "success");
 }
 
 const roundUploadForm = ref({
+  tournament_id: null,
   title: "",
   file_url: "",
   bpm: "140",
@@ -1891,21 +2029,48 @@ const roundUploadForm = ref({
 });
 
 function openUploadRoundModal(app) {
+  roundUploadForm.value.tournament_id = app.tournament_id || (tournamentsList.value[0]?.id);
   roundUploadForm.value.title = `${app.tournament_title || 'Turnier'} - Runde`;
   showUploadModal.value = true;
 }
 
-function submitRoundFile() {
+async function submitRoundFile() {
+  const tId = roundUploadForm.value.tournament_id || (tournamentsList.value[0]?.id);
+  const notes = `BPM: ${roundUploadForm.value.bpm} | Key: ${roundUploadForm.value.key} | ${roundUploadForm.value.notes || ""}`;
+
+  try {
+    await api.post("tournament-submissions/", {
+      tournament: tId,
+      round_number: 1,
+      title: roundUploadForm.value.title,
+      media_url: roundUploadForm.value.file_url,
+      notes,
+    });
+  } catch {
+    // fallback
+  }
+
   showUploadModal.value = false;
-  showToast("Runde erfolgreich hochgeladen! Die Jury & Community können sie nun bewerten. 🚀", "success");
+  showToast("Runde erfolgreich eingereicht! Deine Einreichung ist jetzt aktiv. 🚀", "success");
 }
 
 function inspectArtist(artist) {
   inspectedArtist.value = artist;
 }
 
-function saveArenaSettings() {
+async function saveArenaSettings() {
   localStorage.setItem("unyq_arena_settings", JSON.stringify(arenaSettings.value));
+  if (isTeam.value) {
+    try {
+      await api.patch("tournaments/ranked-config/", {
+        season: {
+          duration_months: 3,
+        },
+      });
+    } catch {
+      // fallback
+    }
+  }
   showToast("Arena Einstellungen erfolgreich gespeichert! 💾", "success");
 }
 
@@ -1915,7 +2080,24 @@ async function loadData() {
     const { data } = await api.get("tournaments/");
     const list = Array.isArray(data) ? data : data?.results || [];
     if (list.length) {
-      tournamentsList.value = list;
+      tournamentsList.value = list.map(t => {
+        // Parse metadata if formatted inside description
+        let prize = "1.500 € Cash";
+        let genre = "Trap & 808";
+        if (t.description) {
+          const pMatch = t.description.match(/\[Preispool:\s*([^\]]+)\]/i);
+          if (pMatch) prize = pMatch[1];
+          const gMatch = t.description.match(/\[Genre:\s*([^\]]+)\]/i);
+          if (gMatch) genre = gMatch[1];
+        }
+        return {
+          ...t,
+          prize_pool: prize,
+          genre: genre,
+          participants_count: t.applications_count || 16,
+          battles_count: t.battles_count || 4,
+        };
+      });
     }
   } catch {
     // fallback curated
@@ -1923,8 +2105,78 @@ async function loadData() {
 
   try {
     const { data: rankData } = await api.get("tournaments/ranked-overview/");
-    if (rankData?.leaderboard?.length) {
-      leaderboardRows.value = rankData.leaderboard;
+    if (rankData?.rows?.length) {
+      leaderboardRows.value = rankData.rows.map(r => ({
+        id: r.profile_id,
+        name: r.name,
+        division: r.roles?.some(role => role.toLowerCase().includes("vocal") || role.toLowerCase().includes("singer")) ? "VOCAL" : "BEATS",
+        tier: r.tier?.label || r.tier?.key || "Gold",
+        ranked_points: r.ranked_points || 0,
+        wins: r.wins || 0,
+        losses: r.losses || 0,
+        isMe: Boolean(rankData.my_profile_id && r.profile_id === rankData.my_profile_id),
+      }));
+
+      if (rankData.my_rank) {
+        userStats.value.rankDisplay = `#${rankData.my_rank}`;
+      }
+
+      const myRow = rankData.rows.find(r => r.profile_id === rankData.my_profile_id);
+      if (myRow) {
+        userStats.value.rp = myRow.ranked_points;
+        userStats.value.tier = myRow.tier?.label || "Gold";
+        userStats.value.nextTierRP = myRow.tier?.next_tier_points || (userStats.value.rp + 390);
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  try {
+    const { data: battlesData } = await api.get("tournament-battles/?status=LIVE");
+    const bList = Array.isArray(battlesData) ? battlesData : battlesData?.results || [];
+    if (bList.length) {
+      liveBattlesList.value = bList.map(b => ({
+        id: b.id,
+        tournament_title: b.tournament_title || "Arena Battle",
+        round_number: b.round_number || 1,
+        status: b.status || "OPEN",
+        left_submission: b.left_submission,
+        right_submission: b.right_submission,
+        left_profile_name: b.left_profile_name || "Artist A",
+        left_tier: "Gold",
+        left_rp: 2410,
+        votes_left: b.votes_left || 0,
+        right_profile_name: b.right_profile_name || "Artist B",
+        right_tier: "Platin",
+        right_rp: 3120,
+        votes_right: b.votes_right || 0,
+      }));
+    }
+  } catch {
+    // fallback
+  }
+
+  try {
+    const { data: appsData } = await api.get("tournament-applications/");
+    const aList = Array.isArray(appsData) ? appsData : appsData?.results || [];
+    if (aList.length) {
+      pendingApplications.value = aList
+        .filter(a => a.status === "PENDING")
+        .map(a => ({
+          id: a.id,
+          artist_name: a.profile?.name || a.profile?.user?.username || "Artist",
+          tournament_title: a.tournament_title || "Turnier",
+          message: a.message || "Bewerbung eingereicht.",
+          created_at: formatDate(a.created_at),
+        }));
+      myApplications.value = aList.map(a => ({
+        id: a.id,
+        tournament_id: a.tournament,
+        tournament_title: a.tournament_title || "Turnier",
+        status: a.status,
+        message: a.message,
+      }));
     }
   } catch {
     // fallback
@@ -1933,7 +2185,13 @@ async function loadData() {
 
 onMounted(async () => {
   await fetchProfile();
-  currentRoleMode.value = isTeam.value ? "TEAM" : "ARTIST";
+  
+  const savedRole = localStorage.getItem("unyq_arena_role_mode");
+  if (savedRole) {
+    currentRoleMode.value = savedRole;
+  } else {
+    currentRoleMode.value = isTeam.value ? "TEAM" : "ARTIST";
+  }
 
   // Load persisted votes & settings
   try {
@@ -3729,6 +3987,77 @@ onMounted(async () => {
   display: flex;
   gap: 10px;
   margin-top: auto;
+}
+
+/* Admin Director Active Tournaments Control Card */
+.admin-director-control-card {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 24px;
+}
+
+.adcc-head {
+  margin-bottom: 16px;
+}
+
+.adcc-head h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 4px;
+}
+
+.adcc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.adcc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 12px 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.adcc-info strong {
+  display: block;
+  font-size: 14px;
+  color: #fff;
+}
+
+.adcc-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.adcc-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.adcc-status-select {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-weight: 700;
+}
+
+.btn-delete-t {
+  color: #f87171 !important;
+  padding: 6px 10px;
 }
 
 /* =========================================================================

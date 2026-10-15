@@ -3226,6 +3226,10 @@ class TournamentViewSet(viewsets.ModelViewSet):
         )
 
         for profile in profiles:
+            arena_meta = (profile.notification_settings or {}).get("arena_ranked") or {}
+            is_reset = arena_meta.get("is_reset", False)
+            manual_points = arena_meta.get("manual_points", None)
+
             wins = int(profile.wins or 0)
             approved_votes = int(profile.approved_votes_received or 0)
             approved_submissions = int(profile.approved_submissions or 0)
@@ -3235,19 +3239,30 @@ class TournamentViewSet(viewsets.ModelViewSet):
             ranked_losses = max(0, ranked_battles - ranked_wins)
             active_tournaments = int(profile.active_tournaments or 0)
 
-            if wins == 0 and approved_votes == 0 and approved_submissions == 0 and battles == 0:
+            if is_reset and manual_points is None:
+                wins = 0
+                battles = 0
+                ranked_losses = 0
+                approved_submissions = 0
+                approved_votes = 0
+
+            if manual_points is not None:
+                ranked_points = max(0, int(manual_points))
+            else:
+                ranked_points = self._rank_points(
+                    wins=wins,
+                    approved_votes=approved_votes,
+                    battles=battles,
+                    approved_submissions=approved_submissions,
+                    losses=ranked_losses,
+                    tier_rows=tier_rows,
+                )
+
+            if wins == 0 and approved_votes == 0 and approved_submissions == 0 and battles == 0 and ranked_points == 0:
                 continue
 
             role_keys = list(profile.roles.values_list("key", flat=True))
             role_labels = [role.get_key_display() for role in profile.roles.all()]
-            ranked_points = self._rank_points(
-                wins=wins,
-                approved_votes=approved_votes,
-                battles=battles,
-                approved_submissions=approved_submissions,
-                losses=ranked_losses,
-                tier_rows=tier_rows,
-            )
             tier = self._rank_tier_for_points(ranked_points, tier_rows=tier_rows)
 
             participant_rows.append(
@@ -3567,6 +3582,83 @@ class TournamentViewSet(viewsets.ModelViewSet):
             }
         )
 
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="reset-ranks",
+        permission_classes=[permissions.IsAuthenticated, IsTeam],
+    )
+    def reset_ranks(self, request):
+        mode = (request.data.get("mode") or "ALL").strip().upper()
+        profile_id = request.data.get("profile_id")
+        manual_points = request.data.get("points")
+
+        if profile_id:
+            target_profile = get_object_or_404(Profile, id=profile_id)
+            settings_dict = target_profile.notification_settings or {}
+            arena_dict = settings_dict.get("arena_ranked", {})
+            if manual_points is not None:
+                arena_dict["manual_points"] = max(0, int(manual_points))
+                arena_dict["is_reset"] = False
+            else:
+                arena_dict["is_reset"] = True
+                arena_dict["manual_points"] = 0
+            settings_dict["arena_ranked"] = arena_dict
+            target_profile.notification_settings = settings_dict
+            target_profile.save(update_fields=["notification_settings"])
+            return Response({"success": True, "profile_id": target_profile.id, "arena_ranked": arena_dict})
+
+        profiles = Profile.objects.all()
+        for p in profiles:
+            s = p.notification_settings or {}
+            s["arena_ranked"] = {"is_reset": True, "manual_points": 0, "reset_at": timezone.now().isoformat()}
+            p.notification_settings = s
+            p.save(update_fields=["notification_settings"])
+
+        return Response({
+            "success": True,
+            "mode": mode,
+            "message": "Alle Ränge und Punkte wurden erfolgreich auf 0 zurückgesetzt.",
+            "reset_profiles_count": profiles.count(),
+        })
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="reset-tournament",
+        permission_classes=[permissions.IsAuthenticated, IsTeam],
+    )
+    def reset_tournament(self, request, pk=None):
+        tournament = self.get_object()
+        delete_battles = request.data.get("delete_battles", True)
+        delete_submissions = request.data.get("delete_submissions", False)
+        reset_applications = request.data.get("reset_applications", False)
+        new_status = request.data.get("new_status", "APPLICATION_OPEN")
+
+        battles_deleted = 0
+        if delete_battles:
+            battles_deleted, _ = TournamentBattle.objects.filter(tournament=tournament).delete()
+
+        submissions_deleted = 0
+        if delete_submissions:
+            submissions_deleted, _ = TournamentSubmission.objects.filter(tournament=tournament).delete()
+        else:
+            TournamentSubmission.objects.filter(tournament=tournament).update(status="PENDING")
+
+        if reset_applications:
+            TournamentApplication.objects.filter(tournament=tournament).update(status="PENDING")
+
+        tournament.status = new_status
+        tournament.save(update_fields=["status", "updated_at"])
+
+        return Response({
+            "success": True,
+            "tournament": tournament.id,
+            "battles_deleted": battles_deleted,
+            "submissions_deleted": submissions_deleted,
+            "new_status": tournament.status,
+        })
+
 
 class TournamentApplicationViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentApplicationSerializer
@@ -3591,6 +3683,17 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         me = self.request.user.profile
         tournament = serializer.validated_data["tournament"]
+        target_profile_id = self.request.data.get("profile_id")
+        if is_team_profile(me) and target_profile_id:
+            target_profile = get_object_or_404(Profile, id=target_profile_id)
+            serializer.save(
+                profile=target_profile,
+                status="APPROVED",
+                decided_by=me,
+                decided_at=timezone.now(),
+            )
+            return
+
         if not tournament.has_application_phase:
             raise PermissionDenied("Dieses Turnier hat keine Bewerbungsphase.")
         now = timezone.now()
@@ -3763,6 +3866,24 @@ class TournamentBattleViewSet(viewsets.ModelViewSet):
                 right_submission=right,
                 status="SCHEDULED",
             )
+
+    @action(detail=True, methods=["POST"], url_path="reopen", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def reopen(self, request, pk=None):
+        battle = self.get_object()
+        battle.status = "LIVE"
+        battle.winner_submission = None
+        battle.closed_at = None
+        battle.save(update_fields=["status", "winner_submission", "closed_at"])
+        return Response(TournamentBattleSerializer(battle, context={"request": request}).data)
+
+    @action(detail=True, methods=["POST"], url_path="adjust-votes", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def adjust_votes(self, request, pk=None):
+        battle = self.get_object()
+        action_type = request.data.get("action")  # "RESET_VOTES"
+        if action_type == "RESET_VOTES":
+            battle.votes.all().delete()
+        return Response(TournamentBattleSerializer(battle, context={"request": request}).data)
+
 
 
 class TournamentVoteViewSet(viewsets.ModelViewSet):

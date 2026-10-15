@@ -374,7 +374,7 @@
         </div>
       </div>
 
-      <div class="battles-showdown-grid">
+      <div v-if="liveBattlesList.length" class="battles-showdown-grid">
         <div
           v-for="b in liveBattlesList"
           :key="b.id"
@@ -564,6 +564,14 @@
           </div>
         </div>
       </div>
+      <div v-else class="card empty-tournaments-state">
+        <div class="ets-icon">⚔️</div>
+        <h3>Keine aktiven Live-Battles</h3>
+        <p class="muted">Sobald Turniere in die Battle-Phase wechseln und Duelle generiert wurden, kannst du hier Runden im A/B-Vergleich hören und abstimmen.</p>
+        <button v-if="currentRoleMode === 'TEAM'" class="btn btn-sm" @click="activeTab = 'admin'; adminSubTab = 'tournaments'">
+          👑 Zum Admin Director
+        </button>
+      </div>
     </section>
 
     <!-- ================================================================= -->
@@ -659,6 +667,11 @@
           <span class="col-record">Bilanz</span>
           <span class="col-winrate">Win-Rate</span>
           <span class="col-actions">Aktion</span>
+        </div>
+
+        <div v-if="!filteredLeaderboard.length" class="empty-muted-box muted" style="padding: 36px; text-align: center;">
+          <p style="font-size: 1.05rem; margin-bottom: 6px; font-weight: 700;">Keine Artists im Leaderboard</p>
+          <p class="small">Sobald Runden ausgetragen oder Punkte vergeben wurden, erscheinen die Ränge hier.</p>
         </div>
 
         <div
@@ -820,11 +833,11 @@
       </div>
 
       <!-- Applications & Matchups List -->
-      <div class="my-battles-grid">
+      <div v-if="myApplications.length" class="my-battles-grid">
         <div v-for="app in myApplications" :key="app.id" class="card my-entry-card">
           <div class="mec-head">
             <span class="badge-status-pill" :class="app.status.toLowerCase()">{{ app.status }}</span>
-            <span class="mec-date">Eingereicht vor kurzem</span>
+            <span class="mec-date">Eingereicht</span>
           </div>
 
           <h3 class="mec-title">{{ app.tournament_title }}</h3>
@@ -846,6 +859,12 @@
             </button>
           </div>
         </div>
+      </div>
+      <div v-else class="card empty-tournaments-state">
+        <div class="ets-icon">🎤</div>
+        <h3>Du hast noch keine aktiven Bewerbungen</h3>
+        <p class="muted">Stöbere in den offenen Turnieren und reiche deine Bewerbung als Contender ein.</p>
+        <button class="btn btn-sm" @click="activeTab = 'tournaments'">Turniere ansehen →</button>
       </div>
     </section>
 
@@ -989,88 +1008,553 @@
     <!-- ================================================================= -->
     <!-- TAB 7: ADMIN ARENA MANAGER (TEAM ONLY) -->
     <!-- ================================================================= -->
-    <section v-if="activeTab === 'admin' && currentRoleMode === 'TEAM'" class="tab-view-container">
+    <section v-if="activeTab === 'admin' && currentRoleMode === 'TEAM'" class="tab-view-container admin-director-section">
       <div class="section-hero-header">
         <div>
           <h2>👑 Admin Arena Director</h2>
           <p class="muted">
-            Bewerbungen prüfen, neue Turniere erstellen und Runden manuell verwalten.
+            Turniere steuern, Saison-Reset durchführen, Ränge und Punkte manuell feinjustieren, Bewerber-Roster verwalten und Battles kontrollieren.
           </p>
         </div>
-        <button class="btn" @click="showCreateModal = true">
-          + Neues Turnier anlegen
+        <div class="director-header-actions">
+          <button class="btn ghost btn-sm" @click="loadData" title="Daten aktualisieren">
+            ↻ Sync
+          </button>
+          <button class="btn btn-create-tournament" @click="showCreateModal = true">
+            + Neues Turnier anlegen
+          </button>
+        </div>
+      </div>
+
+      <!-- Director Sub-Navigation Pills -->
+      <div class="director-subtabs-row">
+        <button
+          type="button"
+          class="director-subtab-pill"
+          :class="{ active: adminSubTab === 'tournaments' }"
+          @click="adminSubTab = 'tournaments'"
+        >
+          <span>🏆 Turniere &amp; Phasen</span>
+          <span class="subtab-count">{{ tournamentsList.length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="director-subtab-pill"
+          :class="{ active: adminSubTab === 'ranks' }"
+          @click="adminSubTab = 'ranks'"
+        >
+          <span>🛡️ Ränge &amp; Saison-Reset</span>
+          <span class="subtab-count highlight">{{ leaderboardRows.length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="director-subtab-pill"
+          :class="{ active: adminSubTab === 'applications' }"
+          @click="adminSubTab = 'applications'"
+        >
+          <span>✍️ Bewerber &amp; Roster</span>
+          <span class="subtab-count" :class="{ 'count-alert': pendingApplications.length > 0 }">
+            {{ pendingApplications.length }}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          class="director-subtab-pill"
+          :class="{ active: adminSubTab === 'battles' }"
+          @click="adminSubTab = 'battles'"
+        >
+          <span>⚔️ Battles &amp; Overrules</span>
+          <span class="subtab-count">{{ allBattlesList.length || liveBattlesList.length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="director-subtab-pill"
+          :class="{ active: adminSubTab === 'cleanup' }"
+          @click="adminSubTab = 'cleanup'"
+        >
+          <span>🧹 Wartung &amp; Reset</span>
         </button>
       </div>
 
-      <!-- Application Moderation Queue -->
-      <div class="card admin-queue-card">
-        <div class="aqc-head">
-          <h3>Eingegangene Artist-Bewerbungen ({{ pendingApplications.length }})</h3>
-          <span class="aqc-badge" v-if="pendingApplications.length">{{ pendingApplications.length }} Ausstehend</span>
+      <!-- SUB-TAB 1: TOURNAMENTS & PHASES -->
+      <div v-if="adminSubTab === 'tournaments'" class="director-subtab-content">
+        <div class="card admin-director-control-card">
+          <div class="adcc-head">
+            <div>
+              <h3>Turnier-Roster &amp; Phasen-Manager</h3>
+              <p class="muted small">
+                Wechsle Phasen, generiere K.O.-Duelle aus Einreichungen, editiere Turnier-Details oder setze Turniere komplett zurück.
+              </p>
+            </div>
+            <button class="btn btn-sm" @click="showCreateModal = true">
+              + Neues Turnier
+            </button>
+          </div>
+
+          <div class="adcc-list" v-if="tournamentsList.length">
+            <div v-for="t in tournamentsList" :key="t.id" class="adcc-row">
+              <div class="adcc-info">
+                <div class="adcc-title-line">
+                  <strong>{{ t.title }}</strong>
+                  <span class="badge-genre-tag">{{ t.genre || 'Beat Battle' }}</span>
+                  <span class="adcc-prize">💰 {{ t.prize_pool || '1.000 €' }}</span>
+                </div>
+                <div class="adcc-sub">
+                  <span>Status: <strong>{{ statusLabel(t.status) }}</strong></span>
+                  <span>•</span>
+                  <span>Teilnehmer: {{ t.participants_count || 0 }}</span>
+                  <span>•</span>
+                  <span>Battles: {{ t.battles_count || 0 }}</span>
+                  <span v-if="t.is_no_loss">• 🛡️ No-Loss</span>
+                </div>
+              </div>
+
+              <div class="adcc-btn-group">
+                <select
+                  class="input input-sm adcc-status-select"
+                  :value="t.status"
+                  @change="adminChangeTournamentPhase(t, $event.target.value)"
+                  title="Phase wechseln"
+                >
+                  <option value="APPLICATION_OPEN">Bewerbung offen</option>
+                  <option value="SUBMISSION_OPEN">Einreichung offen</option>
+                  <option value="BATTLES">Battles live</option>
+                  <option value="CLOSED">Beendet</option>
+                  <option value="DRAFT">Entwurf</option>
+                </select>
+
+                <button
+                  class="btn btn-sm btn-generate-b"
+                  @click="autoGenerateRoundBattles(t.id)"
+                  title="Erzeugt 1v1 Duelle für alle freigegebenen Einreichungen"
+                >
+                  ⚔️ Battles generieren
+                </button>
+
+                <button
+                  class="btn ghost btn-sm"
+                  @click="openEditTournament(t)"
+                  title="Turnierdaten, Preisgeld und Beschreibung anpassen"
+                >
+                  ✏️ Bearbeiten
+                </button>
+
+                <button
+                  class="btn ghost btn-sm btn-reset-t"
+                  @click="resetTournamentData(t)"
+                  title="Battles und Einreichungen dieses Turniers zurücksetzen"
+                >
+                  ⚡ Reset
+                </button>
+
+                <button
+                  class="btn ghost btn-sm"
+                  @click="openTournamentDetail(t)"
+                  title="Turnierbaum &amp; Detailseite öffnen"
+                >
+                  Öffnen →
+                </button>
+
+                <button
+                  class="btn ghost btn-sm btn-delete-t"
+                  @click="adminDeleteTournament(t)"
+                  title="Turnier komplett löschen"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty-muted-box muted" style="padding: 32px; text-align: center;">
+            <p>Noch keine Turniere vorhanden.</p>
+            <button class="btn btn-sm" style="margin-top: 10px;" @click="showCreateModal = true">
+              + Jetzt erstes Turnier anlegen
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 2: RANKS & SEASON RESET -->
+      <div v-if="adminSubTab === 'ranks'" class="director-subtab-content">
+        <!-- Danger Box: Season Reset -->
+        <div class="card rank-danger-card">
+          <div class="rdc-header">
+            <div class="rdc-icon-badge">⚡</div>
+            <div>
+              <h3>Globaler Saison-Reset // Season Circuit '26</h3>
+              <p class="muted small">
+                Setzt die Ranked Points (RP) und Leaderboard-Ränge aller Artists auf 0 zurück. 
+                Alle Contender starten wieder im Bronze-Tier mit einer sauberen Bilanz in die neue Saison.
+              </p>
+            </div>
+          </div>
+          <div class="rdc-action-bar">
+            <div class="rdc-info-chip">
+              <span>Betroffene Profile im Leaderboard:</span>
+              <strong>{{ leaderboardRows.length }} Artists</strong>
+            </div>
+            <button class="btn btn-danger-glow" @click="showSeasonResetConfirm = true">
+              ⚡ Alle Ränge auf 0 RP zurücksetzen (Season-Reset)
+            </button>
+          </div>
         </div>
 
-        <div class="aqc-list" v-if="pendingApplications.length">
-          <div v-for="app in pendingApplications" :key="app.id" class="aqc-row">
-            <div class="aqc-info">
-              <div class="aqc-artist-title">
-                <strong>{{ app.artist_name }}</strong>
-                <span class="aqc-tag">{{ app.tournament_title }}</span>
-                <span class="aqc-time">{{ app.created_at }}</span>
-              </div>
-              <p class="aqc-msg">"{{ app.message }}"</p>
+        <!-- Artist RP Tuner (Feinjustierung einzelner Artists) -->
+        <div class="card rank-tuning-card">
+          <div class="rtc-header">
+            <h3>🎯 Artist Ranked Points Feinjustierung</h3>
+            <p class="muted small">
+              Wähle einen beliebigen registrierten Artist aus, um seine Punkte (RP) manuell zu erhöhen, 
+              zu verringern oder auf einen exakten Wert zu setzen — ohne Backend-Code!
+            </p>
+          </div>
+
+          <div class="rtc-controls-row">
+            <div class="rtc-select-artist-col">
+              <label class="form-label-small">Artist auswählen:</label>
+              <select v-model="selectedArtistProfileId" class="input" @change="onArtistSelectForTuning">
+                <option :value="null" disabled>Artist wählen...</option>
+                <option
+                  v-for="artist in (registeredProfilesList.length ? registeredProfilesList : leaderboardRows)"
+                  :key="artist.id"
+                  :value="artist.id"
+                >
+                  {{ artist.name || artist.user?.username || ('Profil #' + artist.id) }} 
+                  ({{ getArtistCurrentRP(artist.id) }} RP • {{ getArtistCurrentTier(artist.id) }})
+                </option>
+              </select>
             </div>
 
-            <div class="aqc-actions">
-              <button class="btn btn-sm btn-accept" @click="handleApplicationDecision(app, 'ACCEPTED')">
-                ✓ Zulassen
-              </button>
-              <button class="btn ghost btn-sm btn-reject" @click="handleApplicationDecision(app, 'REJECTED')">
-                ✕ Ablehnen
+            <div class="rtc-points-input-col" v-if="selectedArtistProfileId">
+              <label class="form-label-small">Neuer RP-Punktestand:</label>
+              <div class="rtc-points-input-wrap">
+                <input
+                  v-model.number="tuneArtistPointsInput"
+                  type="number"
+                  min="0"
+                  class="input rtc-rp-number-input"
+                />
+                <span class="rp-unit">RP</span>
+              </div>
+            </div>
+
+            <div class="rtc-quick-buttons" v-if="selectedArtistProfileId">
+              <button type="button" class="btn ghost btn-sm" @click="tuneArtistPointsInput += 50">+50 RP</button>
+              <button type="button" class="btn ghost btn-sm" @click="tuneArtistPointsInput += 100">+100 RP</button>
+              <button type="button" class="btn ghost btn-sm" @click="tuneArtistPointsInput += 500">+500 RP</button>
+              <button type="button" class="btn ghost btn-sm" @click="tuneArtistPointsInput = Math.max(0, tuneArtistPointsInput - 50)">-50 RP</button>
+              <button type="button" class="btn ghost btn-sm btn-quick-zero" @click="tuneArtistPointsInput = 0">Auf 0</button>
+            </div>
+
+            <div class="rtc-save-col" v-if="selectedArtistProfileId">
+              <button class="btn btn-save-rp" @click="saveArtistPoints(selectedArtistProfileId, tuneArtistPointsInput)">
+                💾 Punkte speichern
               </button>
             </div>
           </div>
+
+          <!-- Current Selected Artist Snapshot -->
+          <div class="selected-artist-snapshot-card" v-if="selectedArtistProfileId && getSelectedArtistObj()">
+            <div class="sasc-avatar">{{ getSelectedArtistObj().name ? getSelectedArtistObj().name.charAt(0) : 'A' }}</div>
+            <div class="sasc-meta">
+              <h4>{{ getSelectedArtistObj().name }}</h4>
+              <span class="sasc-tier-tag">
+                <img :src="getTierBadge(getSelectedArtistObj().tier)" class="tiny-tier-icon" alt="" />
+                Aktuell: {{ getSelectedArtistObj().tier || 'Bronze' }} ({{ getSelectedArtistObj().ranked_points || 0 }} RP)
+              </span>
+            </div>
+            <div class="sasc-target-preview">
+              <span>Vorschau nach Speichern:</span>
+              <strong class="highlight-target-rp">{{ tuneArtistPointsInput }} RP</strong>
+            </div>
+          </div>
         </div>
-        <div v-else class="empty-muted-box muted">Keine offenen Bewerbungen zur Prüfung.</div>
+
+        <!-- Tier Formula & Thresholds Config -->
+        <div class="card rank-formulas-card">
+          <div class="rfc-header">
+            <h3>⚙️ Tier Schwellenwerte &amp; Punkteregeln</h3>
+            <p class="muted small">Passe die Mindest-RP-Grenzen der Tiers sowie Standard-Punkte für Siege und Votes an.</p>
+          </div>
+
+          <div class="tier-threshold-grid">
+            <div class="tt-item">
+              <span class="tt-name">🥉 Bronze</span>
+              <input v-model.number="tierConfigForm.bronzeMin" type="number" class="input input-sm" />
+              <span class="tt-lbl">Min. RP</span>
+            </div>
+            <div class="tt-item">
+              <span class="tt-name">🥈 Silber</span>
+              <input v-model.number="tierConfigForm.silberMin" type="number" class="input input-sm" />
+              <span class="tt-lbl">Min. RP</span>
+            </div>
+            <div class="tt-item">
+              <span class="tt-name">🥇 Gold</span>
+              <input v-model.number="tierConfigForm.goldMin" type="number" class="input input-sm" />
+              <span class="tt-lbl">Min. RP</span>
+            </div>
+            <div class="tt-item">
+              <span class="tt-name">💠 Platin</span>
+              <input v-model.number="tierConfigForm.platinMin" type="number" class="input input-sm" />
+              <span class="tt-lbl">Min. RP</span>
+            </div>
+            <div class="tt-item">
+              <span class="tt-name">💎 Rubin</span>
+              <input v-model.number="tierConfigForm.rubinMin" type="number" class="input input-sm" />
+              <span class="tt-lbl">Min. RP</span>
+            </div>
+            <div class="tt-item">
+              <span class="tt-name">👑 Legendär</span>
+              <input v-model.number="tierConfigForm.legendarMin" type="number" class="input input-sm" />
+              <span class="tt-lbl">Min. RP</span>
+            </div>
+          </div>
+
+          <div class="split-form-row" style="margin-top: 18px;">
+            <label class="setting-field">
+              <span>Battle-Sieg Bonus RP</span>
+              <input v-model.number="tierConfigForm.winRP" type="number" class="input" />
+            </label>
+            <label class="setting-field">
+              <span>Battle-Niederlage RP-Abzug</span>
+              <input v-model.number="tierConfigForm.lossRP" type="number" class="input" />
+            </label>
+            <label class="setting-field">
+              <span>Community Vote XP</span>
+              <input v-model.number="tierConfigForm.voteRP" type="number" class="input" />
+            </label>
+          </div>
+
+          <div class="rfc-footer">
+            <button class="btn btn-sm" @click="saveTierConfig">
+              💾 Tier-Regeln speichern
+            </button>
+          </div>
+        </div>
       </div>
 
-      <!-- Tournament Quick Director Controls for Admins -->
-      <div class="card admin-director-control-card">
-        <div class="adcc-head">
-          <h3>⚡ Turnier-Steuerung &amp; Runden-Paarungen</h3>
-          <p class="muted small">Generiere automatisch K.O.-Duelle aus allen freigegebenen Artist-Einreichungen für Runde 1.</p>
-        </div>
-        <div class="adcc-list">
-          <div v-for="t in tournamentsList" :key="t.id" class="adcc-row">
-            <div class="adcc-info">
-              <strong>{{ t.title }}</strong>
-              <span class="adcc-sub">Status: {{ statusLabel(t.status) }} • {{ t.participants_count || 0 }} Teilnehmer</span>
+      <!-- SUB-TAB 3: APPLICATIONS & ROSTER -->
+      <div v-if="adminSubTab === 'applications'" class="director-subtab-content">
+        <div class="card admin-applications-manager-card">
+          <div class="aamc-head">
+            <div>
+              <h3>Bewerber-Roster &amp; Zulassung</h3>
+              <p class="muted small">
+                Prüfe eingegangene Bewerbungen, lasse Artists für das Turnier zu, lehne unpassende Bewerbungen ab oder lösche Test-Einträge restlos.
+              </p>
             </div>
-            <div class="adcc-btn-group">
-              <select
-                class="input input-sm adcc-status-select"
-                :value="t.status"
-                @change="adminChangeTournamentPhase(t, $event.target.value)"
-                title="Phase wechseln"
-              >
-                <option value="APPLICATION_OPEN">Bewerbung offen</option>
-                <option value="SUBMISSION_OPEN">Einreichung offen</option>
-                <option value="BATTLES">Battles live</option>
-                <option value="CLOSED">Beendet</option>
+            <button class="btn btn-sm" @click="openManualEnroll">
+              ➕ Artist manuell einschreiben
+            </button>
+          </div>
+
+          <!-- Filters Row -->
+          <div class="aamc-filters-bar">
+            <div class="aamc-filter-col">
+              <span class="filter-lbl">Turnier:</span>
+              <select v-model="appTournamentFilter" class="input input-sm">
+                <option value="ALL">Alle Turniere</option>
+                <option v-for="t in tournamentsList" :key="t.id" :value="t.id">
+                  {{ t.title }}
+                </option>
               </select>
-              <button
-                class="btn btn-sm"
-                @click="autoGenerateRoundBattles(t.id)"
-                title="Erzeugt 1v1 Duelle für alle freigegebenen Einreichungen"
-              >
-                ⚔️ Battles generieren
-              </button>
-              <button class="btn ghost btn-sm" @click="openTournamentDetail(t)">
-                Turnier öffnen →
-              </button>
-              <button class="btn ghost btn-sm btn-delete-t" @click="adminDeleteTournament(t)" title="Turnier löschen">
-                🗑️
-              </button>
             </div>
+
+            <div class="aamc-filter-col">
+              <span class="filter-lbl">Status:</span>
+              <div class="pill-group">
+                <button
+                  type="button"
+                  class="filter-pill"
+                  :class="{ active: appStatusFilter === 'ALL' }"
+                  @click="appStatusFilter = 'ALL'"
+                >
+                  Alle ({{ allApplicationsList.length }})
+                </button>
+                <button
+                  type="button"
+                  class="filter-pill"
+                  :class="{ active: appStatusFilter === 'PENDING' }"
+                  @click="appStatusFilter = 'PENDING'"
+                >
+                  Ausstehend ({{ pendingApplications.length }})
+                </button>
+                <button
+                  type="button"
+                  class="filter-pill"
+                  :class="{ active: appStatusFilter === 'APPROVED' }"
+                  @click="appStatusFilter = 'APPROVED'"
+                >
+                  Zugelassen
+                </button>
+                <button
+                  type="button"
+                  class="filter-pill"
+                  :class="{ active: appStatusFilter === 'REJECTED' }"
+                  @click="appStatusFilter = 'REJECTED'"
+                >
+                  Abgelehnt
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Applications List -->
+          <div class="aamc-list" v-if="filteredAdminApplications.length">
+            <div v-for="app in filteredAdminApplications" :key="app.id" class="aamc-row">
+              <div class="aamc-avatar">{{ app.artist_name ? app.artist_name.charAt(0) : 'A' }}</div>
+              <div class="aamc-info">
+                <div class="aamc-title-line">
+                  <strong>{{ app.artist_name }}</strong>
+                  <span class="badge-status-pill" :class="app.status.toLowerCase()">{{ app.status }}</span>
+                  <span class="aamc-tourney-tag">{{ app.tournament_title }}</span>
+                  <span class="aamc-time">{{ app.created_at }}</span>
+                </div>
+                <p class="aamc-msg">"{{ app.message || 'Keine Nachricht hinterlassen' }}"</p>
+              </div>
+
+              <div class="aamc-actions">
+                <button
+                  v-if="app.status === 'PENDING'"
+                  class="btn btn-sm btn-accept"
+                  @click="handleApplicationDecision(app, 'ACCEPTED')"
+                >
+                  ✓ Zulassen
+                </button>
+                <button
+                  v-if="app.status === 'PENDING'"
+                  class="btn ghost btn-sm btn-reject"
+                  @click="handleApplicationDecision(app, 'REJECTED')"
+                >
+                  ✕ Ablehnen
+                </button>
+                <button
+                  class="btn ghost btn-sm btn-delete-app"
+                  @click="deleteApplication(app)"
+                  title="Bewerbung restlos löschen"
+                >
+                  🗑️ Löschen
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty-muted-box muted" style="padding: 32px; text-align: center;">
+            Keine Bewerbungen mit diesem Filter gefunden.
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 4: BATTLES & OVERRULES -->
+      <div v-if="adminSubTab === 'battles'" class="director-subtab-content">
+        <div class="card admin-battles-manager-card">
+          <div class="abmc-head">
+            <div>
+              <h3>Battles &amp; Jury Overrules</h3>
+              <p class="muted small">
+                Alle Matchups aller Runden einsehen, Stimmen überwachen, Gewinner manuell bestimmen oder Battles löschen.
+              </p>
+            </div>
+            <div class="abmc-filter">
+              <select v-model="battleTournamentFilter" class="input input-sm">
+                <option value="ALL">Alle Turniere</option>
+                <option v-for="t in tournamentsList" :key="t.id" :value="t.id">
+                  {{ t.title }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="abmc-list" v-if="filteredAdminBattles.length">
+            <div v-for="b in filteredAdminBattles" :key="b.id" class="abmc-row">
+              <div class="abmc-col-tourney">
+                <span class="round-badge">Runde {{ b.round_number || 1 }}</span>
+                <strong class="tourney-title">{{ b.tournament_title }}</strong>
+                <span class="badge-status-pill" :class="b.status.toLowerCase()">{{ b.status }}</span>
+              </div>
+
+              <div class="abmc-col-matchup">
+                <div class="fighter fighter-left" :class="{ is_winner: b.winner === 'left' }">
+                  <span class="f-name">{{ b.left_profile_name || 'Contender 1' }}</span>
+                  <span class="f-votes">{{ b.votes_left || 0 }} Votes</span>
+                </div>
+                <span class="vs-text">VS</span>
+                <div class="fighter fighter-right" :class="{ is_winner: b.winner === 'right' }">
+                  <span class="f-name">{{ b.right_profile_name || 'Contender 2' }}</span>
+                  <span class="f-votes">{{ b.votes_right || 0 }} Votes</span>
+                </div>
+              </div>
+
+              <div class="abmc-col-actions">
+                <div class="overrule-btn-group" v-if="b.status !== 'CLOSED'">
+                  <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'left')" title="Links zum Sieger erklären">
+                    🏆 Left Win
+                  </button>
+                  <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'right')" title="Rechts zum Sieger erklären">
+                    🏆 Right Win
+                  </button>
+                </div>
+                <button
+                  v-if="b.status === 'CLOSED'"
+                  class="btn ghost btn-micro btn-reopen"
+                  @click="reopenBattle(b)"
+                  title="Abgeschlossenes Battle wieder für Voting öffnen"
+                >
+                  ↺ Neu öffnen
+                </button>
+                <button
+                  class="btn ghost btn-micro btn-delete-b"
+                  @click="deleteBattle(b)"
+                  title="Battle löschen"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="empty-muted-box muted" style="padding: 32px; text-align: center;">
+            Keine Battles für die gewählte Auswahl vorhanden.
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-TAB 5: CLEANUP & TOOLS -->
+      <div v-if="adminSubTab === 'cleanup'" class="director-subtab-content">
+        <div class="cleanup-cards-grid">
+          <div class="card cleanup-tool-card">
+            <div class="ctc-icon">🧹</div>
+            <h4>Lokalen Browser-Cache &amp; Testdaten bereinigen</h4>
+            <p class="muted small">
+              Entfernt gespeicherte Votes, Test-Zustände und lokale Mock-Reste aus dem Browser-Speicher und lädt die echten Serverdaten neu.
+            </p>
+            <button class="btn btn-sm" @click="cleanTestData">
+              Cache jetzt leeren &amp; Reload
+            </button>
+          </div>
+
+          <div class="card cleanup-tool-card">
+            <div class="ctc-icon">🗑️</div>
+            <h4>Abgelehnte Bewerbungen löschen</h4>
+            <p class="muted small">
+              Entfernt alle archivierten und abgelehnten Bewerbungen auf einen Klick aus der Datenbank, um den Roster sauber zu halten.
+            </p>
+            <button class="btn ghost btn-sm" @click="cleanRejectedApplications">
+              Abgelehnte Bewerbungen säubern
+            </button>
+          </div>
+
+          <div class="card cleanup-tool-card">
+            <div class="ctc-icon">🔊</div>
+            <h4>Audio-Engine Cache zurücksetzen</h4>
+            <p class="muted small">
+              Stoppt alle aktiven WebAudio Oszillatoren und Audio-Loops, falls ein Sound im Hintergrund hängen geblieben ist.
+            </p>
+            <button class="btn ghost btn-sm" @click="resetAudioEngine">
+              Audio-Engine stoppen &amp; resetten
+            </button>
           </div>
         </div>
       </div>
@@ -1257,6 +1741,144 @@
         </div>
       </div>
     </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 5: EDIT TOURNAMENT MODAL (ADMIN) -->
+    <!-- ================================================================= -->
+    <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
+      <div class="modal card">
+        <div class="modal-header">
+          <h3>Turnier bearbeiten</h3>
+          <button class="btn ghost tiny" @click="showEditModal = false">✕</button>
+        </div>
+        <form class="modal-form" @submit.prevent="submitEditTournament">
+          <label>
+            <span>Turnier-Titel *</span>
+            <input v-model.trim="editTournamentForm.title" class="input" required />
+          </label>
+          <label>
+            <span>Beschreibung &amp; Vorgaben</span>
+            <textarea v-model.trim="editTournamentForm.description" class="input" rows="3"></textarea>
+          </label>
+          <div class="split-form-row">
+            <label>
+              <span>Preispool Text</span>
+              <input v-model.trim="editTournamentForm.prize_pool" class="input" placeholder="z. B. 2.000 € Cash" />
+            </label>
+            <label>
+              <span>Genre / Sparte</span>
+              <input v-model.trim="editTournamentForm.genre" class="input" placeholder="z. B. Trap &amp; 808" />
+            </label>
+          </div>
+          <div class="split-form-row">
+            <label>
+              <span>Status</span>
+              <select v-model="editTournamentForm.status" class="input">
+                <option value="APPLICATION_OPEN">Bewerbung offen</option>
+                <option value="SUBMISSION_OPEN">Einreichung offen</option>
+                <option value="BATTLES">Battles live</option>
+                <option value="CLOSED">Beendet</option>
+                <option value="DRAFT">Entwurf</option>
+              </select>
+            </label>
+            <label>
+              <span>End-Datum / Deadline</span>
+              <input v-model="editTournamentForm.ends_at" type="datetime-local" class="input" />
+            </label>
+          </div>
+          <div class="checkbox-row">
+            <label class="check-label">
+              <input type="checkbox" v-model="editTournamentForm.is_no_loss" />
+              <span>No-Loss Double Elimination Bracket</span>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showEditModal = false">Abbrechen</button>
+            <button class="btn" type="submit">Änderungen speichern 💾</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 6: MANUAL ARTIST ENROLLMENT (ADMIN) -->
+    <!-- ================================================================= -->
+    <div v-if="showManualEnrollModal" class="modal-overlay" @click.self="showManualEnrollModal = false">
+      <div class="modal card">
+        <div class="modal-header">
+          <h3>Artist direkt ins Turnier einschreiben</h3>
+          <button class="btn ghost tiny" @click="showManualEnrollModal = false">✕</button>
+        </div>
+        <form class="modal-form" @submit.prevent="submitManualEnroll">
+          <label>
+            <span>Turnier auswählen *</span>
+            <select v-model="manualEnrollForm.tournament_id" class="input" required>
+              <option :value="null" disabled>Turnier wählen...</option>
+              <option v-for="t in tournamentsList" :key="t.id" :value="t.id">
+                {{ t.title }} ({{ statusLabel(t.status) }})
+              </option>
+            </select>
+          </label>
+          <label>
+            <span>Artist-Profil auswählen *</span>
+            <select v-model="manualEnrollForm.profile_id" class="input" required>
+              <option :value="null" disabled>Artist wählen...</option>
+              <option
+                v-for="p in (registeredProfilesList.length ? registeredProfilesList : leaderboardRows)"
+                :key="p.id"
+                :value="p.id"
+              >
+                {{ p.name || p.user?.username || ('Profil #' + p.id) }} ({{ p.roles?.join(', ') || 'Artist' }})
+              </option>
+            </select>
+          </label>
+          <label>
+            <span>Notiz / Jury-Vermerk</span>
+            <input v-model.trim="manualEnrollForm.message" class="input" placeholder="Direktzulassung durch Admin" />
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showManualEnrollModal = false">Abbrechen</button>
+            <button class="btn" type="submit">Einschreiben &amp; Freischalten ✓</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 7: SEASON RESET CONFIRMATION (ADMIN DANGER) -->
+    <!-- ================================================================= -->
+    <div v-if="showSeasonResetConfirm" class="modal-overlay" @click.self="showSeasonResetConfirm = false">
+      <div class="modal card modal-danger">
+        <div class="modal-header">
+          <h3 class="danger-title">⚠️ Globaler Saison-Reset Bestätigung</h3>
+          <button class="btn ghost tiny" @click="showSeasonResetConfirm = false">✕</button>
+        </div>
+        <div class="modal-body-danger">
+          <p>
+            Möchtest du wirklich <strong>alle Ranked Points (RP) und Leaderboard-Ränge aller Artists auf 0 zurücksetzen</strong>?
+          </p>
+          <p class="small muted">
+            Dieser Schritt startet die neue Saison '26. Alle Contender beginnen wieder mit 0 RP in der Bronze-Division.
+          </p>
+          <div class="confirm-input-wrap">
+            <label>
+              <span>Tippe <code>RESET</code> ein, um zu bestätigen:</span>
+              <input v-model.trim="seasonResetConfirmText" class="input input-danger" placeholder="RESET" />
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showSeasonResetConfirm = false">Abbrechen</button>
+            <button
+              class="btn btn-danger"
+              :disabled="seasonResetConfirmText.toUpperCase() !== 'RESET' || isResettingRanks"
+              @click="confirmResetAllRanks"
+            >
+              {{ isResettingRanks ? 'Wird zurückgesetzt...' : '⚡ Ja, alle Ränge jetzt auf 0 setzen' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -1304,17 +1926,17 @@ const userVotes = ref({});
 
 /* User RP & stats */
 const userStats = ref({
-  rankDisplay: "#2",
-  tier: "Gold",
-  rp: 2410,
-  nextTierRP: 2800,
+  rankDisplay: "-",
+  tier: "Bronze",
+  rp: 0,
+  nextTierRP: 800,
 });
 
 const userProgressPercent = computed(() => {
-  const min = 1600;
-  const max = 2800;
+  const min = 0;
+  const max = userStats.value.nextTierRP || 800;
   const pct = Math.round(((userStats.value.rp - min) / (max - min)) * 100);
-  return Math.max(5, Math.min(100, pct));
+  return Math.max(0, Math.min(100, isNaN(pct) ? 0 : pct));
 });
 
 /* Arena Navigation Tabs */
@@ -1442,156 +2064,63 @@ const tiersMasterList = [
 
 const selectedTierDetail = ref(tiersMasterList[2]);
 
-/* Tournaments Dataset (with curated fallback) */
-const tournamentsList = ref([
-  {
-    id: 1,
-    title: "UNYQ Beat Battle Season 1 // 808 Showcase",
-    description: "Der ultimative Beatmaking-Wettbewerb. Produziere den härtesten Trap/Drill Track und kämpfe dich durch die Bracket.",
-    status: "BATTLES",
-    is_no_loss: true,
-    genre: "Trap & 808",
-    prize_pool: "2.500 € Cash + Studio Gear",
-    participants_count: 16,
-    battles_count: 8,
-    ends_at: "2026-11-05T20:00:00Z",
-  },
-  {
-    id: 2,
-    title: "Berlin Vocal & Rap Showdown",
-    description: "Artists reichen ihre 16-Bars Runden ein. Die UNYQ Community und Jury voten für Flow, Lyrics und Delivery.",
-    status: "APPLICATION_OPEN",
-    is_no_loss: false,
-    genre: "Vocal & Rap",
-    prize_pool: "1.500 € + Exclusive Single Release",
-    participants_count: 12,
-    battles_count: 6,
-    ends_at: "2026-11-15T18:00:00Z",
-  },
-  {
-    id: 3,
-    title: "Lo-Fi & Neo-Soul Producer Cup",
-    description: "Gemütliche Akkorde, warme Rhyme-Schemes und organische Drums. Zeige dein Gespür für Sound-Design.",
-    status: "SUBMISSION_OPEN",
-    is_no_loss: true,
-    genre: "Lo-Fi & Soul",
-    prize_pool: "1.000 € + Vinyl Pressung",
-    participants_count: 8,
-    battles_count: 0,
-    ends_at: "2026-11-20T22:00:00Z",
-  },
-  {
-    id: 4,
-    title: "Electronic Melodic Bass Clash",
-    description: "Future Bass, Wave und Synthwave Producers duellieren sich im K.O.-Modus um den Sound-Krone.",
-    status: "APPLICATION_OPEN",
-    is_no_loss: false,
-    genre: "Wave & Electro",
-    prize_pool: "800 € + Sample Library",
-    participants_count: 6,
-    battles_count: 0,
-    ends_at: "2026-11-30T19:00:00Z",
-  },
-]);
+/* Admin Director Navigation & Filters */
+const adminSubTab = ref("tournaments");
+const appStatusFilter = ref("ALL");
+const appTournamentFilter = ref("ALL");
+const battleTournamentFilter = ref("ALL");
 
-/* Live Battles */
-const liveBattlesList = ref([
-  {
-    id: 101,
-    tournament_title: "UNYQ Beat Battle Season 1 // 808 Showcase",
-    round_number: 2,
-    status: "OPEN",
-    left_submission: 1,
-    right_submission: 2,
-    left_profile_name: "Neo_Producer",
-    left_tier: "Legendär",
-    left_rp: 4450,
-    votes_left: 84,
-    right_profile_name: "808_Phantom",
-    right_tier: "Gold",
-    right_rp: 2410,
-    votes_right: 68,
-  },
-  {
-    id: 102,
-    tournament_title: "Berlin Vocal & Rap Showdown",
-    round_number: 1,
-    status: "OPEN",
-    left_submission: 3,
-    right_submission: 4,
-    left_profile_name: "KAZA",
-    left_tier: "Platin",
-    left_rp: 3820,
-    votes_left: 112,
-    right_profile_name: "Aura_Vox",
-    right_tier: "Gold",
-    right_rp: 2180,
-    votes_right: 98,
-  },
-  {
-    id: 103,
-    tournament_title: "Electronic Melodic Bass Clash",
-    round_number: 1,
-    status: "OPEN",
-    left_submission: 5,
-    right_submission: 6,
-    left_profile_name: "Synth_Valkyrie",
-    left_tier: "Silber",
-    left_rp: 1420,
-    votes_left: 45,
-    right_profile_name: "Cyber_Pulse",
-    right_tier: "Silber",
-    right_rp: 1390,
-    votes_right: 52,
-  },
-]);
+/* Rank Tuning State */
+const selectedArtistProfileId = ref(null);
+const tuneArtistPointsInput = ref(0);
+const isResettingRanks = ref(false);
+const showSeasonResetConfirm = ref(false);
+const seasonResetConfirmText = ref("");
 
-/* Leaderboard Rows */
-const leaderboardRows = ref([
-  { id: 1, name: "Neo_Producer", division: "BEATS", tier: "Legendär", ranked_points: 4450, wins: 32, losses: 4 },
-  { id: 2, name: "KAZA", division: "VOCAL", tier: "Platin", ranked_points: 3820, wins: 26, losses: 5, isMe: true },
-  { id: 3, name: "808_Phantom", division: "BEATS", tier: "Gold", ranked_points: 2410, wins: 20, losses: 8 },
-  { id: 4, name: "Aura_Vox", division: "VOCAL", tier: "Gold", ranked_points: 2180, wins: 18, losses: 7 },
-  { id: 5, name: "Mika_LoFi", division: "BEATS", tier: "Silber", ranked_points: 1540, wins: 14, losses: 9 },
-  { id: 6, name: "Synth_Valkyrie", division: "BEATS", tier: "Silber", ranked_points: 1420, wins: 12, losses: 8 },
-  { id: 7, name: "DrillKing_030", division: "VOCAL", tier: "Bronze", ranked_points: 780, wins: 8, losses: 6 },
-]);
+/* Tier Formulas & Rules Configuration */
+const tierConfigForm = ref({
+  bronzeMin: 0,
+  silberMin: 800,
+  goldMin: 1600,
+  platinMin: 2800,
+  rubinMin: 4200,
+  legendarMin: 6000,
+  winRP: 100,
+  lossRP: 30,
+  voteRP: 10,
+});
 
-/* My Applications */
-const myApplications = ref([
-  {
-    id: 1,
-    tournament_id: 1,
-    tournament_title: "UNYQ Beat Battle Season 1 // 808 Showcase",
-    status: "ACCEPTED",
-    message: "Zugelassen für Runde 2. Reiche deinen Track bis Freitag ein!",
-  },
-  {
-    id: 2,
-    tournament_id: 2,
-    tournament_title: "Berlin Vocal & Rap Showdown",
-    status: "PENDING",
-    message: "Bewerbung wird derzeit von der UNYQ Jury geprüft.",
-  },
-]);
+/* Edit Tournament Modal State */
+const showEditModal = ref(false);
+const editTournamentForm = ref({
+  id: null,
+  title: "",
+  description: "",
+  prize_pool: "",
+  genre: "",
+  status: "APPLICATION_OPEN",
+  is_no_loss: false,
+  slots: 16,
+  ends_at: "",
+});
 
-/* Admin Applications Queue */
-const pendingApplications = ref([
-  {
-    id: 201,
-    artist_name: "DrillKing_030",
-    tournament_title: "UNYQ Beat Battle Season 1",
-    message: "Hab einen extrem harten Drill Beat vorbereitet, bin bereit für die Arena!",
-    created_at: "vor 2 Stunden",
-  },
-  {
-    id: 202,
-    artist_name: "Sarah_Soul",
-    tournament_title: "Berlin Vocal & Rap Showdown",
-    message: "Mein Song ist bereits gemastert. Würde mich riesig über die Teilnahme freuen.",
-    created_at: "vor 4 Stunden",
-  },
-]);
+/* Manual Artist Enrollment Modal State */
+const showManualEnrollModal = ref(false);
+const manualEnrollForm = ref({
+  tournament_id: null,
+  profile_id: null,
+  message: "Manuell durch Admin zugelassen.",
+});
+
+/* Clean Arena Datasets (Zero Mock Fallbacks) */
+const tournamentsList = ref([]);
+const liveBattlesList = ref([]);
+const allBattlesList = ref([]);
+const leaderboardRows = ref([]);
+const myApplications = ref([]);
+const pendingApplications = ref([]);
+const allApplicationsList = ref([]);
+const registeredProfilesList = ref([]);
 
 /* Arena Settings State */
 const arenaSettings = ref({
@@ -1603,9 +2132,9 @@ const arenaSettings = ref({
   visualizerStyle: "neon_bars",
   autoPlayNextRound: true,
   soundEffectsEnabled: true,
-  stageName: "KAZA",
-  primaryDiscipline: "VOCAL",
-  tagline: "UNYQ Circuit Heavyweight",
+  stageName: "",
+  primaryDiscipline: "BEATS",
+  tagline: "",
 });
 
 /* Computeds */
@@ -1614,11 +2143,17 @@ const activeBattlesCount = computed(() => {
 });
 
 const totalPrizePool = computed(() => {
-  return 15000;
+  return tournamentsList.value.reduce((sum, t) => {
+    const raw = String(t.prize_pool || "");
+    const match = raw.match(/(\d[\d.,]*)/);
+    if (!match) return sum;
+    const cleanNum = parseInt(match[1].replace(/[.,]/g, ""), 10);
+    return sum + (isNaN(cleanNum) ? 0 : cleanNum);
+  }, 0);
 });
 
 const totalRegisteredArtists = computed(() => {
-  return 148;
+  return leaderboardRows.value.length || registeredProfilesList.value.length || 0;
 });
 
 const spotlightTournament = computed(() => {
@@ -1643,6 +2178,29 @@ const filteredLeaderboard = computed(() => {
   return leaderboardRows.value.filter((row) => {
     if (selectedDivision.value === "ALL") return true;
     return row.division === selectedDivision.value;
+  });
+});
+
+const filteredAdminApplications = computed(() => {
+  return allApplicationsList.value.filter((app) => {
+    const matchTournament =
+      appTournamentFilter.value === "ALL" || app.tournament_id === appTournamentFilter.value;
+    let matchStatus = true;
+    if (appStatusFilter.value !== "ALL") {
+      if (appStatusFilter.value === "APPROVED") {
+        matchStatus = app.status === "APPROVED" || app.status === "ACCEPTED";
+      } else {
+        matchStatus = app.status === appStatusFilter.value;
+      }
+    }
+    return matchTournament && matchStatus;
+  });
+});
+
+const filteredAdminBattles = computed(() => {
+  return allBattlesList.value.filter((b) => {
+    if (battleTournamentFilter.value === "ALL") return true;
+    return b.tournament_id === battleTournamentFilter.value;
   });
 });
 
@@ -2074,118 +2632,396 @@ async function saveArenaSettings() {
   showToast("Arena Einstellungen erfolgreich gespeichert! 💾", "success");
 }
 
-/* Lifecycle */
+/* Rank Tuning & Artist Selection Helpers */
+function getArtistCurrentRP(profileId) {
+  const row = leaderboardRows.value.find((r) => r.id === profileId);
+  return row ? row.ranked_points : 0;
+}
+
+function getArtistCurrentTier(profileId) {
+  const row = leaderboardRows.value.find((r) => r.id === profileId);
+  return row ? row.tier : "Bronze";
+}
+
+function getSelectedArtistObj() {
+  if (!selectedArtistProfileId.value) return null;
+  const fromLB = leaderboardRows.value.find((r) => r.id === selectedArtistProfileId.value);
+  if (fromLB) return fromLB;
+  const fromProf = registeredProfilesList.value.find((p) => p.id === selectedArtistProfileId.value);
+  if (fromProf) {
+    return {
+      id: fromProf.id,
+      name: fromProf.name || fromProf.user?.username || `Profil #${fromProf.id}`,
+      tier: "Bronze",
+      ranked_points: 0,
+    };
+  }
+  return null;
+}
+
+function onArtistSelectForTuning() {
+  const obj = getSelectedArtistObj();
+  if (obj) {
+    tuneArtistPointsInput.value = obj.ranked_points || 0;
+  }
+}
+
+/* Admin Rank Actions: Global Season Reset & Individual Tuning */
+async function confirmResetAllRanks() {
+  isResettingRanks.value = true;
+  try {
+    const { data } = await api.post("tournaments/reset-ranks/", { mode: "ALL" });
+    showToast(data?.message || "⚡ Alle Ränge erfolgreich auf 0 RP zurückgesetzt!", "success");
+    showSeasonResetConfirm.value = false;
+    seasonResetConfirmText.value = "";
+    userStats.value.rp = 0;
+    userStats.value.tier = "Bronze";
+    userStats.value.rankDisplay = "-";
+    await loadData();
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Ränge nicht zurücksetzen.", "warning");
+  } finally {
+    isResettingRanks.value = false;
+  }
+}
+
+async function saveArtistPoints(profileId, points) {
+  if (!profileId) return;
+  try {
+    await api.post("tournaments/reset-ranks/", {
+      profile_id: profileId,
+      points: Math.max(0, parseInt(points, 10) || 0),
+    });
+    showToast(`Punkte erfolgreich auf ${points} RP aktualisiert! 💾`, "success");
+    await loadData();
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Punkte nicht speichern.", "warning");
+  }
+}
+
+async function saveTierConfig() {
+  localStorage.setItem("unyq_arena_tier_config", JSON.stringify(tierConfigForm.value));
+  try {
+    await api.patch("tournaments/ranked-config/", {
+      tier_thresholds: {
+        silber: tierConfigForm.value.silberMin,
+        gold: tierConfigForm.value.goldMin,
+        platin: tierConfigForm.value.platinMin,
+        rubin: tierConfigForm.value.rubinMin,
+        legendar: tierConfigForm.value.legendarMin,
+      },
+    });
+  } catch {
+    // fallback
+  }
+  showToast("Rang- und Tier-Regeln erfolgreich gespeichert! 💾", "success");
+}
+
+/* Tournament Editing & Reset */
+function openEditTournament(t) {
+  editTournamentForm.value = {
+    id: t.id,
+    title: t.title,
+    description: t.description || "",
+    prize_pool: t.prize_pool || "1.000 €",
+    genre: t.genre || "Trap & 808",
+    status: t.status || "APPLICATION_OPEN",
+    is_no_loss: Boolean(t.is_no_loss),
+    slots: t.participants_count || 16,
+    ends_at: t.ends_at ? t.ends_at.slice(0, 16) : "",
+  };
+  showEditModal.value = true;
+}
+
+async function submitEditTournament() {
+  const tId = editTournamentForm.value.id;
+  if (!tId) return;
+  const metaDesc = `[Preispool: ${editTournamentForm.value.prize_pool || "1.000 €"}] [Genre: ${editTournamentForm.value.genre || "Beat Battle"}] [Slots: ${editTournamentForm.value.slots || 16}]\n\n${editTournamentForm.value.description || ""}`;
+  const payload = {
+    title: editTournamentForm.value.title,
+    description: metaDesc,
+    status: editTournamentForm.value.status,
+    is_no_loss: editTournamentForm.value.is_no_loss,
+  };
+  if (editTournamentForm.value.ends_at) {
+    payload.ends_at = new Date(editTournamentForm.value.ends_at).toISOString();
+  }
+  try {
+    await api.patch(`tournaments/${tId}/`, payload);
+    showToast("Turnierdaten erfolgreich gespeichert! 💾", "success");
+    showEditModal.value = false;
+    await loadData();
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Turnier nicht aktualisieren.", "warning");
+  }
+}
+
+async function resetTournamentData(t) {
+  if (
+    !window.confirm(
+      `Turnier "${t.title}" wirklich zurücksetzen?\n\nAlle bisherigen Battles werden gelöscht und Einreichungen auf 'Ausstehend' zurückgestellt.`
+    )
+  )
+    return;
+  try {
+    const { data } = await api.post(`tournaments/${t.id}/reset-tournament/`, {
+      delete_battles: true,
+      reset_applications: true,
+      new_status: "APPLICATION_OPEN",
+    });
+    showToast(data?.message || "Turnier zurückgesetzt!", "success");
+    await loadData();
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Turnier nicht zurücksetzen.", "warning");
+  }
+}
+
+/* Manual Artist Enrollment */
+function openManualEnroll() {
+  manualEnrollForm.value = {
+    tournament_id: tournamentsList.value[0]?.id || null,
+    profile_id: (registeredProfilesList.value[0] || leaderboardRows.value[0])?.id || null,
+    message: "Manuell durch Admin zugelassen.",
+  };
+  showManualEnrollModal.value = true;
+}
+
+async function submitManualEnroll() {
+  if (!manualEnrollForm.value.tournament_id || !manualEnrollForm.value.profile_id) {
+    showToast("Bitte Turnier und Artist auswählen.", "warning");
+    return;
+  }
+  try {
+    await api.post("tournament-applications/", {
+      tournament: manualEnrollForm.value.tournament_id,
+      profile_id: manualEnrollForm.value.profile_id,
+      message: manualEnrollForm.value.message || "Direktzulassung durch Admin",
+    });
+    showToast("Artist erfolgreich ins Turnier eingeschrieben und freigeschaltet! ✓", "success");
+    showManualEnrollModal.value = false;
+    await loadData();
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Artist nicht einschreiben.", "warning");
+  }
+}
+
+/* Applications and Battles Management */
+async function deleteApplication(app) {
+  if (!window.confirm(`Bewerbung von "${app.artist_name}" unwiderruflich löschen?`)) return;
+  try {
+    await api.delete(`tournament-applications/${app.id}/`);
+    allApplicationsList.value = allApplicationsList.value.filter((a) => a.id !== app.id);
+    pendingApplications.value = pendingApplications.value.filter((a) => a.id !== app.id);
+    myApplications.value = myApplications.value.filter((a) => a.id !== app.id);
+    showToast("Bewerbung gelöscht. 🗑️", "success");
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Bewerbung nicht löschen.", "warning");
+  }
+}
+
+async function deleteBattle(battle) {
+  if (
+    !window.confirm(
+      `Battle #${battle.id} (${battle.left_profile_name} vs ${battle.right_profile_name}) wirklich löschen?`
+    )
+  )
+    return;
+  try {
+    await api.delete(`tournament-battles/${battle.id}/`);
+    allBattlesList.value = allBattlesList.value.filter((b) => b.id !== battle.id);
+    liveBattlesList.value = liveBattlesList.value.filter((b) => b.id !== battle.id);
+    showToast("Battle gelöscht. 🗑️", "success");
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Battle nicht löschen.", "warning");
+  }
+}
+
+async function reopenBattle(battle) {
+  try {
+    await api.post(`tournament-battles/${battle.id}/reopen/`);
+    battle.status = "OPEN";
+    showToast("Battle wieder für Community-Voting geöffnet! ⚔️", "success");
+    await loadData();
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Battle nicht wiedereröffnen.", "warning");
+  }
+}
+
+/* Cleanup Tools */
+function cleanTestData() {
+  localStorage.removeItem("unyq_arena_votes");
+  localStorage.removeItem("unyq_arena_settings");
+  userVotes.value = {};
+  showToast("Lokaler Cache bereinigt! Lade Daten neu...", "info");
+  loadData();
+}
+
+async function cleanRejectedApplications() {
+  const rejected = allApplicationsList.value.filter((a) => a.status === "REJECTED");
+  if (!rejected.length) {
+    showToast("Keine abgelehnten Bewerbungen vorhanden.", "info");
+    return;
+  }
+  if (!window.confirm(`${rejected.length} abgelehnte Bewerbungen wirklich endgültig löschen?`))
+    return;
+  for (const app of rejected) {
+    try {
+      await api.delete(`tournament-applications/${app.id}/`);
+    } catch {
+      // ignore
+    }
+  }
+  showToast(`${rejected.length} abgelehnte Bewerbungen bereinigt! 🧹`, "success");
+  await loadData();
+}
+
+function resetAudioEngine() {
+  battleAudio.stopPlayback();
+  currentPlayingTrack.value = null;
+  showToast("Audio-Engine zurückgesetzt & gestoppt. 🔇", "info");
+}
+
+/* Lifecycle & Clean Data Fetching */
 async function loadData() {
+  // Tournaments
   try {
     const { data } = await api.get("tournaments/");
     const list = Array.isArray(data) ? data : data?.results || [];
-    if (list.length) {
-      tournamentsList.value = list.map(t => {
-        // Parse metadata if formatted inside description
-        let prize = "1.500 € Cash";
-        let genre = "Trap & 808";
-        if (t.description) {
-          const pMatch = t.description.match(/\[Preispool:\s*([^\]]+)\]/i);
-          if (pMatch) prize = pMatch[1];
-          const gMatch = t.description.match(/\[Genre:\s*([^\]]+)\]/i);
-          if (gMatch) genre = gMatch[1];
-        }
-        return {
-          ...t,
-          prize_pool: prize,
-          genre: genre,
-          participants_count: t.applications_count || 16,
-          battles_count: t.battles_count || 4,
-        };
-      });
-    }
+    tournamentsList.value = list.map((t) => {
+      let prize = "1.000 € Cash";
+      let genre = "Trap & 808";
+      if (t.description) {
+        const pMatch = t.description.match(/\[Preispool:\s*([^\]]+)\]/i);
+        if (pMatch) prize = pMatch[1];
+        const gMatch = t.description.match(/\[Genre:\s*([^\]]+)\]/i);
+        if (gMatch) genre = gMatch[1];
+      }
+      return {
+        ...t,
+        prize_pool: prize,
+        genre: genre,
+        participants_count: t.applications_count || 0,
+        battles_count: t.battles_count || 0,
+      };
+    });
   } catch {
-    // fallback curated
+    tournamentsList.value = [];
   }
 
+  // Ranked Leaderboard
   try {
     const { data: rankData } = await api.get("tournaments/ranked-overview/");
-    if (rankData?.rows?.length) {
-      leaderboardRows.value = rankData.rows.map(r => ({
-        id: r.profile_id,
-        name: r.name,
-        division: r.roles?.some(role => role.toLowerCase().includes("vocal") || role.toLowerCase().includes("singer")) ? "VOCAL" : "BEATS",
-        tier: r.tier?.label || r.tier?.key || "Gold",
-        ranked_points: r.ranked_points || 0,
-        wins: r.wins || 0,
-        losses: r.losses || 0,
-        isMe: Boolean(rankData.my_profile_id && r.profile_id === rankData.my_profile_id),
-      }));
+    const rows = rankData?.rows || [];
+    leaderboardRows.value = rows.map((r) => ({
+      id: r.profile_id,
+      name: r.name || "Artist",
+      division: r.roles?.some(
+        (role) =>
+          role.toLowerCase().includes("vocal") || role.toLowerCase().includes("singer")
+      )
+        ? "VOCAL"
+        : "BEATS",
+      tier: r.tier?.label || r.tier?.key || "Bronze",
+      ranked_points: r.ranked_points || 0,
+      wins: r.wins || 0,
+      losses: r.losses || 0,
+      isMe: Boolean(rankData.my_profile_id && r.profile_id === rankData.my_profile_id),
+    }));
 
-      if (rankData.my_rank) {
-        userStats.value.rankDisplay = `#${rankData.my_rank}`;
-      }
+    if (rankData?.my_rank) {
+      userStats.value.rankDisplay = `#${rankData.my_rank}`;
+    } else {
+      userStats.value.rankDisplay = "-";
+    }
 
-      const myRow = rankData.rows.find(r => r.profile_id === rankData.my_profile_id);
-      if (myRow) {
-        userStats.value.rp = myRow.ranked_points;
-        userStats.value.tier = myRow.tier?.label || "Gold";
-        userStats.value.nextTierRP = myRow.tier?.next_tier_points || (userStats.value.rp + 390);
-      }
+    const myRow = rows.find((r) => r.profile_id === rankData?.my_profile_id);
+    if (myRow) {
+      userStats.value.rp = myRow.ranked_points || 0;
+      userStats.value.tier = myRow.tier?.label || myRow.tier?.key || "Bronze";
+      userStats.value.nextTierRP = myRow.tier?.next_tier_points || 800;
+    } else {
+      userStats.value.rp = 0;
+      userStats.value.tier = "Bronze";
+      userStats.value.nextTierRP = 800;
     }
   } catch {
-    // fallback
+    leaderboardRows.value = [];
   }
 
+  // Battles
   try {
-    const { data: battlesData } = await api.get("tournament-battles/?status=LIVE");
+    const { data: battlesData } = await api.get("tournament-battles/");
     const bList = Array.isArray(battlesData) ? battlesData : battlesData?.results || [];
-    if (bList.length) {
-      liveBattlesList.value = bList.map(b => ({
-        id: b.id,
-        tournament_title: b.tournament_title || "Arena Battle",
-        round_number: b.round_number || 1,
-        status: b.status || "OPEN",
-        left_submission: b.left_submission,
-        right_submission: b.right_submission,
-        left_profile_name: b.left_profile_name || "Artist A",
-        left_tier: "Gold",
-        left_rp: 2410,
-        votes_left: b.votes_left || 0,
-        right_profile_name: b.right_profile_name || "Artist B",
-        right_tier: "Platin",
-        right_rp: 3120,
-        votes_right: b.votes_right || 0,
-      }));
-    }
+    allBattlesList.value = bList.map((b) => ({
+      id: b.id,
+      tournament_id: b.tournament,
+      tournament_title: b.tournament_title || "Arena Battle",
+      round_number: b.round_number || 1,
+      status: b.status || "OPEN",
+      left_submission: b.left_submission,
+      right_submission: b.right_submission,
+      left_profile_name: b.left_profile_name || "Artist A",
+      left_tier: "Gold",
+      left_rp: 1600,
+      votes_left: b.votes_left || 0,
+      right_profile_name: b.right_profile_name || "Artist B",
+      right_tier: "Silber",
+      right_rp: 800,
+      votes_right: b.votes_right || 0,
+      winner: b.winner ? (b.winner === b.left_submission ? "left" : "right") : null,
+    }));
+    liveBattlesList.value = allBattlesList.value.filter(
+      (b) => b.status === "LIVE" || b.status === "OPEN"
+    );
   } catch {
-    // fallback
+    allBattlesList.value = [];
+    liveBattlesList.value = [];
   }
 
+  // Applications
   try {
     const { data: appsData } = await api.get("tournament-applications/");
     const aList = Array.isArray(appsData) ? appsData : appsData?.results || [];
-    if (aList.length) {
-      pendingApplications.value = aList
-        .filter(a => a.status === "PENDING")
-        .map(a => ({
-          id: a.id,
-          artist_name: a.profile?.name || a.profile?.user?.username || "Artist",
-          tournament_title: a.tournament_title || "Turnier",
-          message: a.message || "Bewerbung eingereicht.",
-          created_at: formatDate(a.created_at),
-        }));
-      myApplications.value = aList.map(a => ({
-        id: a.id,
-        tournament_id: a.tournament,
-        tournament_title: a.tournament_title || "Turnier",
-        status: a.status,
-        message: a.message,
-      }));
-    }
+    allApplicationsList.value = aList.map((a) => ({
+      id: a.id,
+      tournament_id: a.tournament,
+      tournament_title: a.tournament_title || "Turnier",
+      artist_name:
+        a.profile?.name || a.profile?.user?.username || `Artist #${a.profile?.id || a.id}`,
+      profile_id: a.profile?.id || a.profile,
+      status: a.status || "PENDING",
+      message: a.message || "",
+      created_at: formatDate(a.created_at),
+    }));
+    pendingApplications.value = allApplicationsList.value.filter(
+      (a) => a.status === "PENDING" || a.status === "SUBMITTED"
+    );
+    myApplications.value = allApplicationsList.value.filter(
+      (a) =>
+        me.value?.id &&
+        (a.profile_id === me.value.id || a.profile?.id === me.value.id)
+    );
   } catch {
-    // fallback
+    allApplicationsList.value = [];
+    pendingApplications.value = [];
+    myApplications.value = [];
+  }
+
+  // Registered Profiles for Admin
+  if (isTeam.value) {
+    try {
+      const { data: pData } = await api.get("profiles/");
+      const pList = Array.isArray(pData) ? pData : pData?.results || [];
+      registeredProfilesList.value = pList;
+    } catch {
+      registeredProfilesList.value = [];
+    }
   }
 }
 
 onMounted(async () => {
   await fetchProfile();
-  
+
   const savedRole = localStorage.getItem("unyq_arena_role_mode");
   if (savedRole) {
     currentRoleMode.value = savedRole;
@@ -2193,12 +3029,27 @@ onMounted(async () => {
     currentRoleMode.value = isTeam.value ? "TEAM" : "ARTIST";
   }
 
-  // Load persisted votes & settings
+  // Route query overrides (e.g. from AdminPlatform hub: /platforms/contests?tab=admin)
+  if (route.query.tab === "admin") {
+    activeTab.value = "admin";
+    currentRoleMode.value = "TEAM";
+  }
+  if (route.query.subtab) {
+    adminSubTab.value = route.query.subtab;
+  }
+
+  // Load persisted votes, settings, and tier config
   try {
     const savedVotes = localStorage.getItem("unyq_arena_votes");
     if (savedVotes) userVotes.value = JSON.parse(savedVotes);
+
     const savedSettings = localStorage.getItem("unyq_arena_settings");
-    if (savedSettings) arenaSettings.value = { ...arenaSettings.value, ...JSON.parse(savedSettings) };
+    if (savedSettings)
+      arenaSettings.value = { ...arenaSettings.value, ...JSON.parse(savedSettings) };
+
+    const savedTierConfig = localStorage.getItem("unyq_arena_tier_config");
+    if (savedTierConfig)
+      tierConfigForm.value = { ...tierConfigForm.value, ...JSON.parse(savedTierConfig) };
   } catch {
     // ignore
   }
@@ -4262,6 +5113,640 @@ onMounted(async () => {
   border-radius: 999px;
   font-size: 11.5px;
   color: #fbbf24;
+}
+
+/* =========================================================================
+   ADMIN ARENA DIRECTOR STYLES & SUBTABS
+   ========================================================================= */
+.admin-director-section {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.director-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.director-subtabs-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.director-subtab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.director-subtab-pill:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.director-subtab-pill.active {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
+}
+
+.subtab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.subtab-count.highlight {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
+.subtab-count.count-alert {
+  background: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  animation: pulseDot 2s infinite;
+}
+
+.director-subtab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Rank Danger Card (Season Reset) */
+.rank-danger-card {
+  padding: 24px 28px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rdc-header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.rdc-icon-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.rdc-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fca5a5;
+}
+
+.rdc-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.rdc-info-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #cbd5e1;
+}
+
+.rdc-info-chip strong {
+  color: #fca5a5;
+}
+
+.btn-danger-glow {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff;
+  border: none;
+  font-weight: 800;
+  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.4);
+  transition: all 0.2s ease;
+}
+
+.btn-danger-glow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(239, 68, 68, 0.6);
+}
+
+/* Rank Tuning Card */
+.rank-tuning-card {
+  padding: 26px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rtc-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.rtc-controls-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.form-label-small {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.rtc-select-artist-col {
+  flex: 1;
+  min-width: 240px;
+}
+
+.rtc-points-input-col {
+  width: 150px;
+}
+
+.rtc-points-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rtc-rp-number-input {
+  padding-right: 38px;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.rp-unit {
+  position: absolute;
+  right: 12px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.rtc-quick-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.btn-quick-zero {
+  color: #f87171 !important;
+}
+
+.btn-save-rp {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  font-weight: 800;
+}
+
+.selected-artist-snapshot-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.sasc-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+  color: #fff;
+}
+
+.sasc-meta h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: #fff;
+}
+
+.sasc-tier-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sasc-target-preview {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.highlight-target-rp {
+  font-size: 1.1rem;
+  color: #34d399;
+}
+
+/* Tier Thresholds Grid */
+.rank-formulas-card {
+  padding: 26px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rfc-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tier-threshold-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.tt-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.tt-name {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tt-lbl {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.rfc-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+/* Applications Manager Card */
+.admin-applications-manager-card,
+.admin-battles-manager-card {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.aamc-head,
+.abmc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.aamc-head h3,
+.abmc-head h3 {
+  margin: 0 0 4px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.aamc-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.aamc-filter-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-lbl {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.aamc-list,
+.abmc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aamc-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.aamc-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 16px;
+  color: #fff;
+}
+
+.aamc-info {
+  flex: 1;
+  min-width: 260px;
+}
+
+.aamc-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.aamc-tourney-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.aamc-time {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.aamc-msg {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.aamc-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-delete-app {
+  color: #f87171 !important;
+}
+
+/* Battles Manager Table */
+.abmc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.abmc-col-tourney {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+}
+
+.tourney-title {
+  font-size: 13.5px;
+  color: #fff;
+}
+
+.abmc-col-matchup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  justify-content: center;
+}
+
+.fighter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 110px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fighter.is_winner {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.f-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.f-votes {
+  font-size: 11px;
+  color: #fbbf24;
+}
+
+.vs-text {
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.abmc-col-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overrule-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-reopen {
+  color: #38bdf8 !important;
+}
+
+.btn-delete-b {
+  color: #f87171 !important;
+}
+
+/* Cleanup Cards Grid */
+.cleanup-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.cleanup-tool-card {
+  padding: 24px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctc-icon {
+  font-size: 32px;
+}
+
+.cleanup-tool-card h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.cleanup-tool-card button {
+  margin-top: auto;
+}
+
+/* Modal Danger */
+.modal-danger {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+  box-shadow: 0 25px 60px rgba(239, 68, 68, 0.25) !important;
+}
+
+.danger-title {
+  color: #f87171 !important;
+}
+
+.modal-body-danger {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.confirm-input-wrap code {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 800;
+}
+
+.input-danger {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  font-weight: 800;
+  color: #f87171 !important;
+  margin-top: 6px;
+}
+
+.btn-danger {
+  background: #ef4444 !important;
+  color: #fff !important;
+  font-weight: 800;
+}
+
+.btn-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-reset-t {
+  color: #fb923c !important;
+}
+
+.btn-generate-b {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
+}
+
+.btn-generate-b:hover {
+  background: rgba(59, 130, 246, 0.35);
 }
 
 /* Responsive */

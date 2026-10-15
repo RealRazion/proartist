@@ -102,6 +102,15 @@ const systemStats = ref({
 
 const adminTools = [
   {
+    key: "tournament-director",
+    title: "Tournament & Arena Director",
+    category: "Wettbewerb",
+    description: "Turniere erstellen, Ränge und Saison zurücksetzen, Bewerber verwalten und Battles leiten.",
+    buttonLabel: "Verwalten",
+    icon: "🏆",
+    features: ["Ränge resetten", "Turnier-Editor", "Battles & Roster"],
+  },
+  {
     key: "arena-animations",
     title: "Tournament Animation Lab",
     category: "Design",
@@ -186,6 +195,7 @@ const adminTools = [
 
 function openTool(tool) {
   const mapping = {
+    "tournament-director": "/platforms/contests?tab=admin",
     "arena-animations": "/platforms/admin/tournament-animations",
     "user-role-management": "/platforms/admin/user-role-management",
     platforms: "/platforms/manage-platforms",

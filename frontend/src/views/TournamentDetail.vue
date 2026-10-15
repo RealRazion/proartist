@@ -152,6 +152,9 @@
               <button class="btn ghost btn-micro" @click="bulkApproveApplications" title="Nimmt alle offenen Bewerber sofort an">
                 ✓ Alle Bewerbungen annehmen
               </button>
+              <button class="btn ghost btn-micro btn-warn" @click="resetTournamentData" title="Battles leeren und Turnier zurücksetzen">
+                ⚡ Turnier zurücksetzen
+              </button>
             </div>
           </div>
         </div>
@@ -289,11 +292,15 @@
           </div>
 
           <!-- Admin Resolution Controls -->
-          <div class="dc-admin-row" v-if="isTeam && b.status !== 'CLOSED'">
-            <span class="admin-lbl">👑 Admin Urteil:</span>
-            <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'left')">Left Win</button>
-            <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'right')">Right Win</button>
-            <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'auto')">Auto Close</button>
+          <div class="dc-admin-row" v-if="isTeam">
+            <span class="admin-lbl">👑 Admin:</span>
+            <template v-if="b.status !== 'CLOSED'">
+              <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'left')">Left Win</button>
+              <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'right')">Right Win</button>
+              <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'auto')">Auto Close</button>
+            </template>
+            <button v-else class="btn ghost btn-micro" @click="reopenBattle(b)">🔄 Wieder öffnen</button>
+            <button class="btn ghost btn-micro btn-danger" @click="deleteBattle(b)" title="Battle löschen">🗑️</button>
           </div>
         </div>
       </div>
@@ -321,7 +328,7 @@
         </div>
       </div>
 
-      <div class="card bracket-visual-board">
+      <div v-if="bracketData.quarterFinals?.length || bracketData.semiFinals?.length || bracketData.grandFinal?.artistA" class="card bracket-visual-board">
         <div class="bracket-rounds-container">
           <!-- Column 1: Viertelfinale / Runde 1 -->
           <div class="bracket-column">
@@ -377,24 +384,32 @@
                 class="bracket-match-node grand-final-node"
                 @click="inspectMatch(bracketData.grandFinal)"
               >
-                <div class="b-slot" :class="{ winner: bracketData.grandFinal.winner === bracketData.grandFinal.artistA }">
-                  <span class="b-name">{{ bracketData.grandFinal.artistA }}</span>
-                  <span class="b-score">{{ bracketData.grandFinal.scoreA }}</span>
+                <div class="b-slot" :class="{ winner: bracketData.grandFinal?.winner === bracketData.grandFinal?.artistA }">
+                  <span class="b-name">{{ bracketData.grandFinal?.artistA || 'Finalist 1' }}</span>
+                  <span class="b-score">{{ bracketData.grandFinal?.scoreA || '0' }}</span>
                 </div>
-                <div class="b-slot" :class="{ winner: bracketData.grandFinal.winner === bracketData.grandFinal.artistB }">
-                  <span class="b-name">{{ bracketData.grandFinal.artistB }}</span>
-                  <span class="b-score">{{ bracketData.grandFinal.scoreB }}</span>
+                <div class="b-slot" :class="{ winner: bracketData.grandFinal?.winner === bracketData.grandFinal?.artistB }">
+                  <span class="b-name">{{ bracketData.grandFinal?.artistB || 'Finalist 2' }}</span>
+                  <span class="b-score">{{ bracketData.grandFinal?.scoreB || '0' }}</span>
                 </div>
               </div>
 
               <!-- Champion Trophy Box -->
               <div class="champion-crown-podium card">
                 <span class="trophy-symbol">🏆</span>
-                <strong>{{ bracketData.grandFinal.winner || 'Finale läuft' }}</strong>
+                <strong>{{ bracketData.grandFinal?.winner || 'Finale läuft' }}</strong>
                 <small class="champ-sub">UNYQ Circuit Champion</small>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+      <div v-else class="card empty-state-box">
+        <span class="empty-icon">🌳</span>
+        <h3>Noch kein Turnierbaum generiert</h3>
+        <p class="muted">Der Turnierbaum wird automatisch sichtbar, sobald Duelle generiert wurden.</p>
+        <div v-if="isTeam" class="empty-actions">
+          <button class="btn" @click="generateBattles">⚔️ Jetzt Battles für Runde 1 generieren</button>
         </div>
       </div>
     </section>
@@ -445,6 +460,7 @@
                   <button class="btn btn-micro btn-accept" @click="decideSubmission(sub, 'APPROVED')">✓</button>
                   <button class="btn ghost btn-micro btn-reject" @click="decideSubmission(sub, 'REJECTED')">✕</button>
                 </template>
+                <button v-if="isTeam" class="btn ghost btn-micro btn-danger" @click="deleteSubmission(sub)" title="Einreichung löschen">🗑️</button>
               </div>
             </div>
           </div>
@@ -478,6 +494,7 @@
                   <button class="btn btn-micro btn-accept" @click="decideApplication(app, 'APPROVED')">✓</button>
                   <button class="btn ghost btn-micro btn-reject" @click="decideApplication(app, 'REJECTED')">✕</button>
                 </template>
+                <button v-if="isTeam" class="btn ghost btn-micro btn-danger" @click="deleteApplication(app)" title="Bewerbung löschen">🗑️</button>
               </div>
             </div>
           </div>
@@ -712,24 +729,9 @@ const submissionRows = ref([]);
 const applicationRows = ref([]);
 
 const bracketData = ref({
-  quarterFinals: [
-    { id: 1, artistA: "Neo_Producer", scoreA: "84", artistB: "808_Phantom", scoreB: "68", winner: "Neo_Producer" },
-    { id: 2, artistA: "Mika_LoFi", scoreA: "42", artistB: "Cyber_Pulse", scoreB: "76", winner: "Cyber_Pulse" },
-    { id: 3, artistA: "KAZA", scoreA: "112", artistB: "Aura_Vox", scoreB: "98", winner: "KAZA" },
-    { id: 4, artistA: "DrillKing_030", scoreA: "56", artistB: "Sarah_Soul", scoreB: "89", winner: "Sarah_Soul" },
-  ],
-  semiFinals: [
-    { id: 5, artistA: "Neo_Producer", scoreA: "95", artistB: "Cyber_Pulse", scoreB: "78", winner: "Neo_Producer" },
-    { id: 6, artistA: "KAZA", scoreA: "108", artistB: "Sarah_Soul", scoreB: "92", winner: "KAZA" },
-  ],
-  grandFinal: {
-    id: 7,
-    artistA: "Neo_Producer",
-    scoreA: "128",
-    artistB: "KAZA",
-    scoreB: "135",
-    winner: "KAZA",
-  },
+  quarterFinals: [],
+  semiFinals: [],
+  grandFinal: null,
 });
 
 const tabs = computed(() => [
@@ -1139,13 +1141,78 @@ function inspectMatch(match) {
   selectedMatch.value = match;
 }
 
+/* Admin Delete & Management Actions */
+async function deleteApplication(app) {
+  if (!window.confirm(`Bewerbung von "${app.profile_name}" wirklich löschen?`)) return;
+  applicationRows.value = applicationRows.value.filter(a => a.id !== app.id);
+  try {
+    await api.delete(`tournament-applications/${app.id}/`);
+    showToast("Bewerbung gelöscht.", "success");
+  } catch {
+    showToast("Bewerbung lokal entfernt.", "info");
+  }
+}
+
+async function deleteSubmission(sub) {
+  if (!window.confirm(`Einreichung "${sub.title}" wirklich löschen?`)) return;
+  submissionRows.value = submissionRows.value.filter(s => s.id !== sub.id);
+  try {
+    await api.delete(`tournament-submissions/${sub.id}/`);
+    showToast("Einreichung gelöscht.", "success");
+  } catch {
+    showToast("Einreichung lokal entfernt.", "info");
+  }
+}
+
+async function deleteBattle(battle) {
+  if (!window.confirm("Battle wirklich löschen?")) return;
+  battleRows.value = battleRows.value.filter(b => b.id !== battle.id);
+  try {
+    await api.delete(`tournament-battles/${battle.id}/`);
+    showToast("Battle gelöscht.", "success");
+    await loadBracket();
+  } catch {
+    showToast("Battle lokal entfernt.", "info");
+  }
+}
+
+async function reopenBattle(battle) {
+  battle.status = "OPEN";
+  battle.winner = null;
+  try {
+    await api.post(`tournament-battles/${battle.id}/reopen/`);
+    showToast("Battle wieder geöffnet!", "success");
+    await loadBracket();
+  } catch {
+    showToast("Battle lokal wieder geöffnet.", "info");
+  }
+}
+
+async function resetTournamentData() {
+  if (!window.confirm(`Möchtest du das Turnier "${tournament.value?.title}" wirklich zurücksetzen? Alle Battles werden gelöscht und Einreichungen zurückgesetzt.`)) return;
+  try {
+    await api.post(`tournaments/${tournament.value.id}/reset-tournament/`, {
+      delete_battles: true,
+      delete_submissions: false,
+      new_status: "APPLICATION_OPEN",
+    });
+    showToast("Turnier erfolgreich zurückgesetzt! ⚡", "success");
+    await loadTournament();
+    await Promise.all([loadBattles(), loadSubmissions(), loadApplications(), loadBracket()]);
+  } catch {
+    battleRows.value = [];
+    bracketData.value = { quarterFinals: [], semiFinals: [], grandFinal: null };
+    showToast("Turnier lokal zurückgesetzt.", "info");
+  }
+}
+
 /* Data Loading */
 async function loadTournament() {
   const id = route.params.tournamentId;
   try {
     const { data } = await api.get(`tournaments/${id}/`);
-    let prize = "1.500 € Cash + Studio Gear";
-    let genre = "Trap & 808";
+    let prize = "Noch kein Preispool festgelegt";
+    let genre = "Allround";
     if (data.description) {
       const pMatch = data.description.match(/\[Preispool:\s*([^\]]+)\]/i);
       if (pMatch) prize = pMatch[1];
@@ -1160,12 +1227,12 @@ async function loadTournament() {
   } catch {
     tournament.value = {
       id,
-      title: "UNYQ Beat Battle Season 1 // 808 Showcase",
-      description: "Der ultimative Beatmaking-Wettbewerb im UNYQ Circuit. Produziere den härtesten Trap/Drill Track.",
-      status: "BATTLES",
-      genre: "Trap & 808",
-      prize_pool: "2.500 € Cash + Studio Gear",
-      is_no_loss: true,
+      title: "Turnier #" + id,
+      description: "Turnier-Informationen werden geladen.",
+      status: "DRAFT",
+      genre: "Allround",
+      prize_pool: "Kein Preispool festgelegt",
+      is_no_loss: false,
     };
   }
 }
@@ -1175,50 +1242,23 @@ async function loadBattles() {
   try {
     const { data } = await api.get(`tournament-battles/?tournament=${id}`);
     const list = Array.isArray(data) ? data : data?.results || [];
-    if (list.length) {
-      battleRows.value = list.map(b => ({
-        id: b.id,
-        round_number: b.round_number || 1,
-        status: b.status || "OPEN",
-        left_submission: b.left_submission,
-        right_submission: b.right_submission,
-        left_profile_name: b.left_profile_name || "Artist A",
-        right_profile_name: b.right_profile_name || "Artist B",
-        left_submission_title: b.left_submission_title || "Runde 1",
-        right_submission_title: b.right_submission_title || "Runde 1",
-        votes_left: b.votes_left || 0,
-        votes_right: b.votes_right || 0,
-        winner_submission: b.winner_submission,
-        winner: b.winner_submission === b.left_submission ? "left" : (b.winner_submission === b.right_submission ? "right" : null),
-      }));
-    } else {
-      battleRows.value = [
-        {
-          id: 1,
-          round_number: 1,
-          status: "OPEN",
-          left_submission: 1,
-          right_submission: 2,
-          left_profile_name: "Neo_Producer",
-          votes_left: 64,
-          right_profile_name: "808_Phantom",
-          votes_right: 48,
-        },
-        {
-          id: 2,
-          round_number: 1,
-          status: "OPEN",
-          left_submission: 3,
-          right_submission: 4,
-          left_profile_name: "KAZA",
-          votes_left: 92,
-          right_profile_name: "Aura_Vox",
-          votes_right: 88,
-        },
-      ];
-    }
+    battleRows.value = list.map(b => ({
+      id: b.id,
+      round_number: b.round_number || 1,
+      status: b.status || "OPEN",
+      left_submission: b.left_submission,
+      right_submission: b.right_submission,
+      left_profile_name: b.left_profile_name || "Artist A",
+      right_profile_name: b.right_profile_name || "Artist B",
+      left_submission_title: b.left_submission_title || "Runde 1",
+      right_submission_title: b.right_submission_title || "Runde 1",
+      votes_left: b.votes_left || 0,
+      votes_right: b.votes_right || 0,
+      winner_submission: b.winner_submission,
+      winner: b.winner_submission === b.left_submission ? "left" : (b.winner_submission === b.right_submission ? "right" : null),
+    }));
   } catch {
-    // fallback
+    battleRows.value = [];
   }
 }
 
@@ -1227,25 +1267,16 @@ async function loadSubmissions() {
   try {
     const { data } = await api.get(`tournament-submissions/?tournament=${id}`);
     const list = Array.isArray(data) ? data : data?.results || [];
-    if (list.length) {
-      submissionRows.value = list.map(s => ({
-        id: s.id,
-        title: s.title || `Runde ${s.round_number}`,
-        profile_name: s.profile?.name || s.profile?.user?.username || "Artist",
-        round_number: s.round_number || 1,
-        status: s.status,
-        media_url: s.media_url,
-      }));
-    } else {
-      submissionRows.value = [
-        { id: 1, title: "Dark Drill Pressure", profile_name: "Neo_Producer", round_number: 1, status: "APPROVED" },
-        { id: 2, title: "Subzero Late Night", profile_name: "808_Phantom", round_number: 1, status: "APPROVED" },
-        { id: 3, title: "Golden Glow", profile_name: "KAZA", round_number: 1, status: "APPROVED" },
-        { id: 4, title: "Soulful Rain", profile_name: "Aura_Vox", round_number: 1, status: "APPROVED" },
-      ];
-    }
+    submissionRows.value = list.map(s => ({
+      id: s.id,
+      title: s.title || `Runde ${s.round_number}`,
+      profile_name: s.profile?.name || s.profile?.user?.username || "Artist",
+      round_number: s.round_number || 1,
+      status: s.status,
+      media_url: s.media_url,
+    }));
   } catch {
-    // fallback
+    submissionRows.value = [];
   }
 }
 
@@ -1254,28 +1285,24 @@ async function loadApplications() {
   try {
     const { data } = await api.get(`tournament-applications/?tournament=${id}`);
     const list = Array.isArray(data) ? data : data?.results || [];
-    if (list.length) {
-      applicationRows.value = list.map(a => ({
-        id: a.id,
-        profile_name: a.profile?.name || a.profile?.user?.username || "Artist",
-        status: a.status,
-        message: a.message,
-      }));
-    } else {
-      applicationRows.value = [
-        { id: 1, profile_name: "Neo_Producer", status: "APPROVED", message: "Bereit für Runde 1." },
-        { id: 2, profile_name: "808_Phantom", status: "APPROVED", message: "808s sind gestimmt." },
-        { id: 3, profile_name: "KAZA", status: "APPROVED", message: "Flow sitzt." },
-        { id: 4, profile_name: "Aura_Vox", status: "APPROVED", message: "Vocals aufgenommen." },
-      ];
-    }
+    applicationRows.value = list.map(a => ({
+      id: a.id,
+      profile_name: a.profile?.name || a.profile?.user?.username || "Artist",
+      status: a.status,
+      message: a.message,
+    }));
   } catch {
-    // fallback
+    applicationRows.value = [];
   }
 }
 
 async function loadBracket() {
   const id = route.params.tournamentId;
+  bracketData.value = {
+    quarterFinals: [],
+    semiFinals: [],
+    grandFinal: null,
+  };
   try {
     const { data } = await api.get(`tournaments/${id}/bracket/`);
     if (data?.rounds?.length) {
@@ -1318,7 +1345,7 @@ async function loadBracket() {
       }
     }
   } catch {
-    // fallback
+    // fallback clean
   }
 }
 

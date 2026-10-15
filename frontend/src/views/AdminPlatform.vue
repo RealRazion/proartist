@@ -130,12 +130,12 @@ const adminTools = [
   },
   {
     key: "platforms",
-    title: "Plattform-Kontrolle",
-    category: "System",
-    description: "Automatisch erkannte Plattformen, Versionen und Zugriffe zentral verwalten.",
+    title: "Plattform & Artist-Manager",
+    category: "System & Rechte",
+    description: "Plattform-Status, Versionen und Artist-Sichtbarkeit (Turnier-Artist vs. UNYQ 360° Studio) zentral steuern.",
     buttonLabel: "Öffnen",
     icon: "🌐",
-    features: ["Erkennung", "Versionen", "Zugriffe"],
+    features: ["Turnier vs UNYQ", "Modul-Rechte", "Plattformen"],
   },
   {
     key: "artist-view",

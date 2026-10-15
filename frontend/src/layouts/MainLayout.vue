@@ -4,9 +4,10 @@
       <div class="sidebar-top">
         <div class="brand">
           <span class="brand-mark">UNYQ</span>
-          <span class="brand-sub" v-if="!collapsed || isMobile">PROARTIST</span>
+          <span class="brand-sub" v-if="!collapsed || isMobile">{{ isContestOnly ? 'ARENA' : 'PROARTIST' }}</span>
           <span v-if="isTeam" class="badge">Team</span>
-          <span v-else-if="me" class="badge artist">Artist</span>
+          <span v-else-if="isContestOnly" class="badge contest" title="Nur Turniere & Battles">Contest</span>
+          <span v-else-if="me" class="badge artist" title="Voller UNYQ Artist Zugang">UNYQ</span>
         </div>
         <button
           class="collapse-toggle"
@@ -19,11 +20,34 @@
         </button>
       </div>
 
+      <!-- Quick Workspace Mode Toggle (Turnier-Artist vs UNYQ Artist) -->
+      <div class="workspace-mode-strip" v-if="!collapsed || isMobile">
+        <button
+          type="button"
+          class="mode-switch-btn"
+          :class="{ active: isContestOnly }"
+          @click="toggleWorkspace('CONTEST_ONLY')"
+          title="Fokus: Nur Turniere & Battles sehen (Clean Mode)"
+        >
+          🏆 Turniere
+        </button>
+        <button
+          type="button"
+          class="mode-switch-btn"
+          :class="{ active: !isContestOnly }"
+          @click="toggleWorkspace('UNYQ_ARTIST')"
+          title="Voller UNYQ Artist (Releases, Studio, Tasks)"
+        >
+          ⭐ UNYQ Studio
+        </button>
+      </div>
+
       <nav>
-        <!-- SECTION 1: CREATOR STUDIO -->
-        <div class="nav-section-title" v-if="!collapsed || isMobile">
-          <span>CREATOR STUDIO</span>
-        </div>
+        <!-- SECTION 1: CREATOR STUDIO (Hidden for Contest-only Artists) -->
+        <template v-if="!isContestOnly">
+          <div class="nav-section-title" v-if="!collapsed || isMobile">
+            <span>CREATOR STUDIO</span>
+          </div>
         <router-link
           to="/dashboard"
           class="nav-link"
@@ -69,10 +93,11 @@
           <span class="icon">🗓️</span>
           <span class="label">Timeline</span>
         </router-link>
+        </template>
 
         <!-- SECTION 2: COMMUNITY & ARENA -->
         <div class="nav-section-title" v-if="!collapsed || isMobile">
-          <span>COMMUNITY &amp; ARENA</span>
+          <span>{{ isContestOnly ? 'ARENA & BATTLES' : 'COMMUNITY & ARENA' }}</span>
         </div>
         <router-link
           to="/app/tournaments"
@@ -85,6 +110,16 @@
           <span class="nav-live-dot" title="Live Turniere & Battles"></span>
         </router-link>
         <router-link
+          v-if="isContestOnly"
+          to="/app/tournaments?tab=my-tournaments"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Mein Battle Hub' : null"
+        >
+          <span class="icon">👤</span>
+          <span class="label">Mein Battle Hub</span>
+        </router-link>
+        <router-link
           to="/profiles"
           class="nav-link"
           @click="handleNavClick"
@@ -94,6 +129,7 @@
           <span class="label">Artists &amp; Collabs</span>
         </router-link>
         <router-link
+          v-if="!isContestOnly || isTeam"
           to="/reviews"
           class="nav-link"
           @click="handleNavClick"
@@ -113,77 +149,81 @@
           <small v-if="unreadCount" class="pill">{{ unreadCount }}</small>
         </router-link>
 
-        <!-- SECTION 3: KARRIERE & GROWTH -->
-        <div class="nav-section-title" v-if="!collapsed || isMobile">
-          <span>KARRIERE &amp; GROWTH</span>
-        </div>
-        <router-link
-          to="/growpro"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'GrowPro Ziele' : null"
-        >
-          <span class="icon">🌱</span>
-          <span class="label">GrowPro Ziele</span>
-        </router-link>
-        <router-link
-          to="/points"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Points & XP' : null"
-        >
-          <span class="icon">🧮</span>
-          <span class="label">Points &amp; XP</span>
-        </router-link>
-        <router-link
-          v-if="isTeam"
-          to="/analytics"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Analytics' : null"
-        >
-          <span class="icon">📊</span>
-          <span class="label">Analytics</span>
-        </router-link>
+        <!-- SECTION 3: KARRIERE & GROWTH (Hidden for Contest-only Artists) -->
+        <template v-if="!isContestOnly">
+          <div class="nav-section-title" v-if="!collapsed || isMobile">
+            <span>KARRIERE &amp; GROWTH</span>
+          </div>
+          <router-link
+            to="/growpro"
+            class="nav-link"
+            @click="handleNavClick"
+            :title="collapsed && !isMobile ? 'GrowPro Ziele' : null"
+          >
+            <span class="icon">🌱</span>
+            <span class="label">GrowPro Ziele</span>
+          </router-link>
+          <router-link
+            to="/points"
+            class="nav-link"
+            @click="handleNavClick"
+            :title="collapsed && !isMobile ? 'Points & XP' : null"
+          >
+            <span class="icon">🧮</span>
+            <span class="label">Points &amp; XP</span>
+          </router-link>
+          <router-link
+            v-if="isTeam"
+            to="/analytics"
+            class="nav-link"
+            @click="handleNavClick"
+            :title="collapsed && !isMobile ? 'Analytics' : null"
+          >
+            <span class="icon">📊</span>
+            <span class="label">Analytics</span>
+          </router-link>
+        </template>
 
-        <!-- SECTION 4: UNYQ ECOSYSTEM (Kompakt gebündelt) -->
-        <div class="nav-section-title" v-if="!collapsed || isMobile">
-          <span>UNYQ ECOSYSTEM</span>
-        </div>
-        <div class="apps-quick-dock" v-if="!collapsed || isMobile">
-          <router-link to="/platforms" class="app-dock-btn" title="UNYQ Hub">
-            <span class="dock-ico">🧭</span>
-            <span class="dock-name">Hub</span>
+        <!-- SECTION 4: UNYQ ECOSYSTEM (Hidden for Contest-only Artists) -->
+        <template v-if="!isContestOnly">
+          <div class="nav-section-title" v-if="!collapsed || isMobile">
+            <span>UNYQ ECOSYSTEM</span>
+          </div>
+          <div class="apps-quick-dock" v-if="!collapsed || isMobile">
+            <router-link to="/platforms" class="app-dock-btn" title="UNYQ Hub">
+              <span class="dock-ico">🧭</span>
+              <span class="dock-name">Hub</span>
+            </router-link>
+            <router-link to="/platforms/music" class="app-dock-btn" title="UNYQ Music Player">
+              <span class="dock-ico">🎧</span>
+              <span class="dock-name">Music</span>
+            </router-link>
+            <router-link to="/platforms/library" class="app-dock-btn" title="Free Sound Library">
+              <span class="dock-ico">📦</span>
+              <span class="dock-name">Library</span>
+            </router-link>
+            <router-link to="/platforms/forum" class="app-dock-btn" title="Community Forum">
+              <span class="dock-ico">💭</span>
+              <span class="dock-name">Forum</span>
+            </router-link>
+            <router-link to="/platforms/finance" class="app-dock-btn" title="Finance & Royalties">
+              <span class="dock-ico">💰</span>
+              <span class="dock-name">Finance</span>
+            </router-link>
+            <router-link to="/platforms/extra" class="app-dock-btn" title="Tools & Socials">
+              <span class="dock-ico">🌐</span>
+              <span class="dock-name">Extra</span>
+            </router-link>
+          </div>
+          <router-link
+            v-else
+            to="/platforms"
+            class="nav-link"
+            :title="'UNYQ Hub & Apps'"
+          >
+            <span class="icon">🧭</span>
           </router-link>
-          <router-link to="/platforms/music" class="app-dock-btn" title="UNYQ Music Player">
-            <span class="dock-ico">🎧</span>
-            <span class="dock-name">Music</span>
-          </router-link>
-          <router-link to="/platforms/library" class="app-dock-btn" title="Free Sound Library">
-            <span class="dock-ico">📦</span>
-            <span class="dock-name">Library</span>
-          </router-link>
-          <router-link to="/platforms/forum" class="app-dock-btn" title="Community Forum">
-            <span class="dock-ico">💭</span>
-            <span class="dock-name">Forum</span>
-          </router-link>
-          <router-link to="/platforms/finance" class="app-dock-btn" title="Finance & Royalties">
-            <span class="dock-ico">💰</span>
-            <span class="dock-name">Finance</span>
-          </router-link>
-          <router-link to="/platforms/extra" class="app-dock-btn" title="Tools & Socials">
-            <span class="dock-ico">🌐</span>
-            <span class="dock-name">Extra</span>
-          </router-link>
-        </div>
-        <router-link
-          v-else
-          to="/platforms"
-          class="nav-link"
-          :title="'UNYQ Hub & Apps'"
-        >
-          <span class="icon">🧭</span>
-        </router-link>
+        </template>
       </nav>
 
       <!-- Sidebar User Footer -->
@@ -322,9 +362,30 @@ const router = useRouter();
 const route = useRoute();
 const routeRef = computed(() => route);
 
-const { platformSlug, platformVersion } = usePlatformVersion(routeRef);
+const {
+  profile: me,
+  isTeam,
+  isAdmin,
+  workspaceMode,
+  isContestOnly,
+  isUnyqArtist,
+  setWorkspaceMode,
+  fetchProfile,
+  clearProfile,
+} = useCurrentProfile();
 
-const { profile: me, isTeam, fetchProfile, clearProfile } = useCurrentProfile();
+function toggleWorkspace(mode) {
+  setWorkspaceMode(mode);
+  showToast(
+    mode === "CONTEST_ONLY"
+      ? "🏆 Nur Turniere & Battles aktiv (Fokus-Modus)"
+      : "⭐ UNYQ Artist Modus aktiv (Volles Studio)",
+    "info"
+  );
+  if (mode === "CONTEST_ONLY" && ["dashboard", "projects", "tasks", "timeline", "songs", "growpro"].includes(route.name)) {
+    router.push({ name: "tournaments" });
+  }
+}
 
 const open = ref(false);
 const search = ref("");
@@ -809,5 +870,46 @@ onBeforeUnmount(() => {
   color: var(--muted);
   opacity: 0.6;
   font-family: monospace;
+}
+
+/* Workspace Mode Strip */
+.workspace-mode-strip {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 4px;
+  border-radius: 10px;
+  margin: 6px 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.mode-switch-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.mode-switch-btn:hover {
+  color: #fff;
+}
+
+.mode-switch-btn.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.35), rgba(139, 92, 246, 0.35));
+  color: #fff;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+}
+
+.badge.contest {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
 }
 </style>

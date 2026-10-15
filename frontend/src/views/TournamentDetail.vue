@@ -27,10 +27,43 @@
           <span class="badge-status-pill" :class="`status-${(tournament?.status || 'draft').toLowerCase()}`">
             {{ statusLabel(tournament?.status) }}
           </span>
+          <span class="badge-format-tag">
+            {{ formatLabel(tournament?.format) }}
+          </span>
           <span v-if="tournament?.is_no_loss" class="badge-no-loss">
             🛡️ No Loss Bracket
           </span>
           <span class="badge-genre-tag">{{ tournament?.genre || 'Trap & 808' }}</span>
+        </div>
+      </div>
+
+      <!-- Compact Admin Director Header Bar -->
+      <div v-if="isTeam" class="admin-compact-header-bar card">
+        <div class="ach-left">
+          <span class="ach-badge">👑 Admin Phase:</span>
+          <select
+            :value="tournament?.status"
+            @change="updateTournamentStatus($event.target.value)"
+            class="input input-sm ach-select"
+          >
+            <option v-for="st in statusSteps" :key="st.value" :value="st.value">
+              {{ st.label }}
+            </option>
+          </select>
+        </div>
+        <div class="ach-actions">
+          <button class="btn btn-micro btn-accent" @click="generateBattles" title="Erstellt 1v1 Paarungen aus allen freigegebenen Einreichungen">
+            ⚔️ Battles generieren
+          </button>
+          <button class="btn ghost btn-micro" @click="bulkApproveApplications" title="Nimmt alle offenen Bewerber sofort an">
+            ✓ Alle Bewerber annehmen
+          </button>
+          <button class="btn ghost btn-micro btn-warn" @click="resetTournamentData" title="Battles leeren und Turnier zurücksetzen">
+            ⚡ Reset
+          </button>
+          <button class="btn ghost btn-micro btn-danger-link" @click="confirmDeleteTournament" title="Turnier unwiderruflich löschen">
+            🗑️ Löschen
+          </button>
         </div>
       </div>
 
@@ -61,15 +94,15 @@
             <div class="sr-item">
               <span class="sr-icon">👥</span>
               <div>
-                <strong class="sr-val">{{ applicationRows.length }} Artists</strong>
-                <span class="sr-lbl">Bewerber / Teilnehmer</span>
+                <strong class="sr-val">{{ applicationRows.length }} / {{ tournament?.slots || 16 }} Artists</strong>
+                <span class="sr-lbl">Plätze &amp; Bewerber</span>
               </div>
             </div>
             <div class="sr-item">
               <span class="sr-icon">📤</span>
               <div>
                 <strong class="sr-val">{{ submissionRows.length }} Runden</strong>
-                <span class="sr-lbl">Eingereicht</span>
+                <span class="sr-lbl">Eingereicht ({{ tournament?.total_rounds || 4 }} Runden)</span>
               </div>
             </div>
             <div class="sr-item">
@@ -82,30 +115,89 @@
           </div>
         </div>
 
-        <!-- Quick Status & Action Box -->
+        <!-- Quick Status & Context-Aware Action Box -->
         <div class="card hero-phase-action-box">
+          <!-- Phase: APPLICATION_OPEN -->
           <div v-if="tournament?.status === 'APPLICATION_OPEN'">
-            <div class="phase-indicator">
-              <span class="pulse-dot green"></span>
-              <strong>Bewerbungsphase Aktiv</strong>
+            <div v-if="myApplication" class="user-contest-status-card" :class="`status-${myApplication.status?.toLowerCase()}`">
+              <div class="ucs-head">
+                <span class="ucs-title">Deine Bewerbung</span>
+                <span class="badge-status-pill" :class="myApplication.status?.toLowerCase()">
+                  {{ myApplication.status === 'APPROVED' ? 'Zugelassen' : (myApplication.status === 'REJECTED' ? 'Abgelehnt' : 'In Prüfung') }}
+                </span>
+              </div>
+
+              <div v-if="myApplication.status === 'REJECTED'" class="rejection-reason-box">
+                <strong>❌ Von der Jury abgelehnt:</strong>
+                <p>"{{ myApplication.rejection_reason || 'Keine nähere Begründung angegeben' }}"</p>
+                <small class="muted">Du kannst deine Angaben überarbeiten und erneut einreichen.</small>
+              </div>
+              <div v-else-if="myApplication.status === 'APPROVED'" class="approved-box">
+                🎉 <strong>Glückwunsch!</strong> Du bist für den Turnierbaum qualifiziert.
+              </div>
+              <div v-else class="pending-box">
+                ⏳ <strong>Eingereicht!</strong> Deine Hörprobe wird von der Jury gesichtet.
+              </div>
+
+              <button class="btn ghost btn-sm full-w btn-edit-app" @click="openApplyModal">
+                ✏️ Bewerbung bearbeiten / überarbeiten
+              </button>
             </div>
-            <p class="muted small">Reiche deine Hörprobe ein, um dich für den Turnierbaum zu qualifizieren.</p>
-            <button class="btn full-w btn-action-hero" @click="showApplyModal = true">
-              ✍️ Jetzt als Artist bewerben
-            </button>
+            <div v-else>
+              <div class="phase-indicator">
+                <span class="pulse-dot green"></span>
+                <strong>Bewerbungsphase Aktiv</strong>
+              </div>
+              <p class="muted small">Reiche deine Hörprobe ein, um dich für den Turnierbaum zu qualifizieren.</p>
+              <button class="btn full-w btn-action-hero" @click="openApplyModal">
+                ✍️ Jetzt als Artist bewerben
+              </button>
+            </div>
           </div>
 
+          <!-- Phase: SUBMISSION_OPEN -->
           <div v-else-if="tournament?.status === 'SUBMISSION_OPEN'">
-            <div class="phase-indicator">
-              <span class="pulse-dot blue"></span>
-              <strong>Einreichungsphase Läuft</strong>
+            <div v-if="myCurrentSubmission" class="user-contest-status-card" :class="`status-${myCurrentSubmission.status?.toLowerCase()}`">
+              <div class="ucs-head">
+                <span class="ucs-title">Deine Runde {{ myCurrentSubmission.round_number || 1 }}</span>
+                <span class="badge-status-pill" :class="myCurrentSubmission.status?.toLowerCase()">
+                  {{ myCurrentSubmission.status === 'APPROVED' ? 'Freigegeben' : (myCurrentSubmission.status === 'REJECTED' ? 'Abgelehnt' : 'In Prüfung') }}
+                </span>
+              </div>
+
+              <div class="ucs-song-preview">
+                <strong>🎵 {{ myCurrentSubmission.title }}</strong>
+                <button
+                  class="btn ghost btn-micro"
+                  @click="toggleAudio(`sub-${myCurrentSubmission.id}`, myCurrentSubmission.profile_name)"
+                >
+                  {{ currentPlayingTrack === `sub-${myCurrentSubmission.id}` ? '⏸ Pause' : '▶ Anhören' }}
+                </button>
+              </div>
+
+              <div v-if="myCurrentSubmission.status === 'REJECTED'" class="rejection-reason-box">
+                <strong>❌ Runde von der Jury abgelehnt:</strong>
+                <p>"{{ myCurrentSubmission.rejection_reason || 'Kriterien nicht erfüllt' }}"</p>
+                <small class="muted">Du kannst deinen Track anpassen und die Runde erneut einreichen.</small>
+              </div>
+
+              <button class="btn full-w btn-edit-app" @click="openUploadRoundModal(myCurrentSubmission.round_number || 1)">
+                ✏️ Runde bearbeiten / neu einreichen
+              </button>
             </div>
-            <p class="muted small">Lade deinen Track oder dein Video für die anstehende Runde hoch.</p>
-            <button class="btn full-w btn-action-hero" @click="showUploadModal = true">
-              📤 Runde einreichen (Audio/Video)
-            </button>
+            <div v-else>
+              <div class="phase-indicator">
+                <span class="pulse-dot blue"></span>
+                <strong>Einreichungsphase Läuft</strong>
+              </div>
+              <p class="muted small">Lade deinen Track für Runde 1 hoch. Pro Runde kann maximal 1 Song eingereicht werden.</p>
+              <button class="btn full-w btn-action-hero" @click="openUploadRoundModal(1)">
+                📤 Runde 1 einreichen (Audio/Video)
+              </button>
+            </div>
           </div>
 
+          <!-- Phase: BATTLES -->
           <div v-else-if="tournament?.status === 'BATTLES'">
             <div class="phase-indicator">
               <span class="pulse-dot red"></span>
@@ -113,55 +205,32 @@
             </div>
             <p class="muted small">Die Duelle laufen. Höre beide Runden und vote für deinen Favoriten.</p>
             <button class="btn full-w btn-action-hero" @click="activeTab = 'battles'">
-              ⚔️ Zu den Live Battles
+              ⚔️ Zu den Live Battles ({{ battleRows.length }})
+            </button>
+            <button
+              v-if="myCurrentSubmission"
+              class="btn ghost btn-sm full-w mt-2"
+              @click="openUploadRoundModal(myCurrentSubmission.round_number || 1)"
+            >
+              ✏️ Meine eingereichte Runde ansehen / bearbeiten
             </button>
           </div>
 
+          <!-- Phase: CLOSED -->
           <div v-else>
             <div class="phase-indicator">
               <strong>Turnier Abgeschlossen</strong>
             </div>
-            <p class="muted small">Ergebnisse und Gewinner stehen fest.</p>
-          </div>
-
-          <!-- Admin Director Quick Bar -->
-          <div v-if="isTeam" class="admin-phase-stepper">
-            <div class="admin-bar-head">
-              <span class="admin-phase-lbl">👑 Admin Director Tools:</span>
-              <button class="btn ghost btn-micro btn-danger-link" @click="confirmDeleteTournament">
-                🗑️ Turnier löschen
-              </button>
-            </div>
-            
-            <div class="stepper-buttons">
-              <button
-                v-for="st in statusSteps"
-                :key="st.value"
-                class="btn ghost btn-micro"
-                :class="{ active: tournament?.status === st.value }"
-                @click="updateTournamentStatus(st.value)"
-              >
-                {{ st.label }}
-              </button>
-            </div>
-
-            <div class="admin-quick-actions-row">
-              <button class="btn btn-micro btn-accent" @click="generateBattles" title="Erstellt 1v1 Paarungen aus allen freigegebenen Einreichungen">
-                ⚔️ Battles generieren
-              </button>
-              <button class="btn ghost btn-micro" @click="bulkApproveApplications" title="Nimmt alle offenen Bewerber sofort an">
-                ✓ Alle Bewerbungen annehmen
-              </button>
-              <button class="btn ghost btn-micro btn-warn" @click="resetTournamentData" title="Battles leeren und Turnier zurücksetzen">
-                ⚡ Turnier zurücksetzen
-              </button>
-            </div>
+            <p class="muted small">Die Ergebnisse und der Champion stehen fest.</p>
+            <button class="btn full-w btn-action-hero" @click="activeTab = 'bracket'">
+              🏆 Zum Champion &amp; Turnierbaum
+            </button>
           </div>
         </div>
       </div>
     </header>
 
-    <!-- DETAIL NAVIGATION TABS -->
+    <!-- DETAIL NAVIGATION TABS (PROGRESSIVE DISCLOSURE) -->
     <nav class="detail-navigation-bar card">
       <div class="tabs-scroll">
         <button
@@ -178,7 +247,269 @@
     </nav>
 
     <!-- ================================================================= -->
-    <!-- TAB 1: BATTLES & VOTING SHOWDOWN -->
+    <!-- TAB: OVERVIEW & APPLICATION (PROGRESSIVE DISCLOSURE) -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'overview'" class="detail-tab-section">
+      <div class="overview-grid-layout">
+        <!-- Main Column -->
+        <div class="overview-main-col">
+          <!-- Format & Rules Banner -->
+          <div class="card format-highlight-card">
+            <div class="fhc-header">
+              <span class="fhc-icon">🏆</span>
+              <div>
+                <h3>Turnierformat: {{ formatLabel(tournament?.format) }}</h3>
+                <p class="muted small">{{ formatDescription(tournament?.format) }}</p>
+              </div>
+            </div>
+
+            <!-- Group Stage Specifics if format is GROUP_STAGE -->
+            <div v-if="tournament?.format === 'GROUP_STAGE'" class="group-stage-spec-box">
+              <div class="gs-spec-item">
+                <span class="gs-label">Gruppen-Aufteilung:</span>
+                <strong class="gs-value">{{ tournament?.groups_count || 4 }} Gruppen à {{ tournament?.group_size || 4 }} Artists</strong>
+              </div>
+              <div class="gs-spec-item">
+                <span class="gs-label">K.O.-Qualifikation:</span>
+                <strong class="gs-value">Top 2 jeder Gruppe rücken in die K.O.-Finals vor</strong>
+              </div>
+              <div class="gs-spec-item">
+                <span class="gs-label">Geplante Runden:</span>
+                <strong class="gs-value">{{ tournament?.total_rounds || 4 }} Runden bis zum Champion</strong>
+              </div>
+            </div>
+
+            <div v-else class="general-format-pills">
+              <span class="pill-meta">🎯 {{ tournament?.slots || 16 }} Teilnehmer-Slots</span>
+              <span class="pill-meta">⚔️ {{ tournament?.total_rounds || 4 }} Runden-Stadien</span>
+              <span class="pill-meta">🛡️ {{ tournament?.is_no_loss ? 'Double Elimination (No-Loss)' : 'Single Elimination K.O.' }}</span>
+            </div>
+          </div>
+
+          <!-- Artist Personal Application Card -->
+          <div class="card my-application-status-card" v-if="myApplication">
+            <div class="masc-header">
+              <span class="masc-icon">👤</span>
+              <div>
+                <h4>Dein Bewerbungsstatus für dieses Turnier</h4>
+                <span class="muted small">Eingereicht unter: <strong>{{ myApplication.profile_name }}</strong></span>
+              </div>
+              <span class="badge-status-pill" :class="myApplication.status?.toLowerCase()">
+                {{ myApplication.status === 'APPROVED' ? '✓ Zugelassen' : (myApplication.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
+              </span>
+            </div>
+
+            <!-- Rejection reason if rejected -->
+            <div v-if="myApplication.status === 'REJECTED'" class="rejection-reason-box">
+              <div class="rrb-title">❌ Ablehnungsgrund der Jury:</div>
+              <p class="rrb-text">"{{ myApplication.rejection_reason || 'Die Bewerbung hat die Kriterien der aktuellen Runde leider nicht erfüllt.' }}"</p>
+              <small class="muted">Du kannst deine Bewerbung jederzeit bearbeiten, einen neuen Demo-Link hinterlegen und erneut einreichen.</small>
+            </div>
+
+            <div v-else-if="myApplication.status === 'APPROVED'" class="approved-box">
+              🎉 <strong>Du bist dabei!</strong> Deine Bewerbung wurde angenommen. Halte dich für die Einreichungsphase bereit.
+            </div>
+
+            <div v-else class="pending-box">
+              ⏳ <strong>In Begutachtung.</strong> Die UNYQ Jury prüft aktuell deine Hörprobe. Du kannst deine Angaben weiterhin anpassen.
+            </div>
+
+            <div class="masc-body">
+              <p class="masc-message"><strong>Nachricht / Link:</strong> "{{ myApplication.message }}"</p>
+            </div>
+
+            <div class="masc-actions">
+              <button class="btn ghost btn-sm" @click="openApplyModal">
+                ✏️ Bewerbung bearbeiten / überarbeiten
+              </button>
+            </div>
+          </div>
+
+          <!-- If Not Applied Yet -->
+          <div class="card apply-cta-card" v-else>
+            <div class="acc-body">
+              <span class="acc-icon">✍️</span>
+              <div>
+                <h3>Jetzt als Contender bewerben</h3>
+                <p class="muted">
+                  Bewerbungsschluss beachten. Reiche deine stärkste Demo oder ein Soundcloud-Profil ein.
+                </p>
+              </div>
+            </div>
+            <button class="btn btn-action-hero" @click="openApplyModal">
+              ✍️ Jetzt bewerben
+            </button>
+          </div>
+        </div>
+
+        <!-- Sidebar Column: Roster Preview -->
+        <div class="overview-side-col">
+          <div class="card panel-box">
+            <div class="pb-header">
+              <div>
+                <h3>Bewerber-Roster ({{ applicationRows.length }})</h3>
+                <p class="muted small">Teilnehmer im Auswahlprozess</p>
+              </div>
+              <button class="btn ghost btn-micro" @click="activeTab = 'participants'">Alle ansehen →</button>
+            </div>
+
+            <div class="roster-preview-list" v-if="applicationRows.length">
+              <div v-for="app in applicationRows.slice(0, 6)" :key="app.id" class="roster-preview-item">
+                <div class="rp-avatar">{{ app.profile_name?.charAt(0) || 'A' }}</div>
+                <div class="rp-info">
+                  <strong>{{ app.profile_name }}</strong>
+                  <span class="badge-status-pill tiny" :class="app.status?.toLowerCase()">{{ app.status }}</span>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-muted-box muted">Noch keine Bewerbungen eingegangen.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB: SUBMISSIONS & RUNDEN (1 SONG PER ROUND ENFORCED) -->
+    <!-- ================================================================= -->
+    <section v-if="activeTab === 'submissions'" class="detail-tab-section">
+      <!-- Round Filter Bar -->
+      <div class="round-picker-nav card">
+        <div class="rpn-left">
+          <span class="rpn-lbl">Runde auswählen:</span>
+          <div class="round-pills-row">
+            <button
+              v-for="r in (tournament?.total_rounds || 4)"
+              :key="r"
+              class="round-pill-btn"
+              :class="{ active: selectedRoundFilter === r }"
+              @click="selectedRoundFilter = r"
+            >
+              Runde {{ r }}
+              <span class="count-chip">{{ getSubmissionsCountForRound(r) }}</span>
+            </button>
+          </div>
+        </div>
+        <div class="rpn-actions">
+          <button class="btn btn-sm" @click="openUploadRoundModal(selectedRoundFilter)">
+            + Runde {{ selectedRoundFilter }} einreichen / bearbeiten
+          </button>
+        </div>
+      </div>
+
+      <!-- User's Own Round Submission (One Song per Round & Editable) -->
+      <div class="card my-round-submission-card" v-if="mySubmissionForSelectedRound">
+        <div class="mrsc-header">
+          <div class="mrsc-title-block">
+            <span class="mrsc-icon">🎵</span>
+            <div>
+              <h3>Deine Einreichung für Runde {{ selectedRoundFilter }}</h3>
+              <span class="muted small">1 Song pro Runde erlaubt • Jederzeit während der Phase bearbeitbar</span>
+            </div>
+          </div>
+          <span class="badge-status-pill" :class="mySubmissionForSelectedRound.status?.toLowerCase()">
+            {{ mySubmissionForSelectedRound.status === 'APPROVED' ? '✓ Freigegeben' : (mySubmissionForSelectedRound.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
+          </span>
+        </div>
+
+        <!-- Rejection Reason Banner if rejected -->
+        <div v-if="mySubmissionForSelectedRound.status === 'REJECTED'" class="rejection-reason-box">
+          <div class="rrb-title">❌ Von der Jury abgelehnt:</div>
+          <p class="rrb-text">"{{ mySubmissionForSelectedRound.rejection_reason || 'Track entspricht nicht den Vorgaben dieser Runde.' }}"</p>
+          <small class="muted">Du kannst deinen Track austauschen oder anpassen und die Runde erneut zur Prüfung freigeben.</small>
+        </div>
+
+        <div class="mrsc-track-details">
+          <div class="track-main-line">
+            <strong class="track-title-text">{{ mySubmissionForSelectedRound.title }}</strong>
+            <a v-if="mySubmissionForSelectedRound.media_url" :href="mySubmissionForSelectedRound.media_url" target="_blank" rel="noopener noreferrer" class="link-external">
+              🔗 {{ mySubmissionForSelectedRound.media_url }}
+            </a>
+          </div>
+          <p class="track-notes muted small" v-if="mySubmissionForSelectedRound.notes">
+            {{ mySubmissionForSelectedRound.notes }}
+          </p>
+        </div>
+
+        <div class="mrsc-actions-row">
+          <button
+            class="btn btn-sm btn-play-audio"
+            :class="{ active: currentPlayingTrack === `sub-${mySubmissionForSelectedRound.id}` }"
+            @click="toggleAudio(`sub-${mySubmissionForSelectedRound.id}`, mySubmissionForSelectedRound.profile_name)"
+          >
+            {{ currentPlayingTrack === `sub-${mySubmissionForSelectedRound.id}` ? '⏸ Pause' : '▶ Track anhören' }}
+          </button>
+          <button class="btn ghost btn-sm" @click="openUploadRoundModal(selectedRoundFilter)">
+            ✏️ Runde {{ selectedRoundFilter }} bearbeiten / neu einreichen
+          </button>
+        </div>
+      </div>
+
+      <div class="card empty-round-user-cta" v-else>
+        <div class="eruc-content">
+          <span class="eruc-icon">📤</span>
+          <div>
+            <h4>Du hast für Runde {{ selectedRoundFilter }} noch keinen Song eingereicht</h4>
+            <p class="muted small">Lade deinen Beat oder Track für Runde {{ selectedRoundFilter }} hoch, um dich für das Duell zu qualifizieren.</p>
+          </div>
+        </div>
+        <button class="btn btn-sm" @click="openUploadRoundModal(selectedRoundFilter)">
+          📤 Track für Runde {{ selectedRoundFilter }} einreichen
+        </button>
+      </div>
+
+      <!-- All Submissions for Selected Round -->
+      <div class="card panel-box mt-4">
+        <div class="pb-header">
+          <div>
+            <h3>Alle Einreichungen für Runde {{ selectedRoundFilter }} ({{ filteredSubmissionsForRound.length }})</h3>
+            <p class="muted small">Höre die Tracks aller qualifizierten Artists an.</p>
+          </div>
+          <div class="pb-actions" v-if="isTeam">
+            <button class="btn ghost btn-micro" @click="bulkApproveSubmissions">
+              ✓ Alle Runden freigeben
+            </button>
+          </div>
+        </div>
+
+        <div class="submissions-list" v-if="filteredSubmissionsForRound.length">
+          <div v-for="sub in filteredSubmissionsForRound" :key="sub.id" class="sub-item-card">
+            <div class="sub-info">
+              <span class="sub-icon">🎵</span>
+              <div>
+                <strong>{{ sub.title }}</strong>
+                <span class="sub-artist">von {{ sub.profile_name }} • Runde {{ sub.round_number || 1 }}</span>
+                <a v-if="sub.media_url" :href="sub.media_url" target="_blank" rel="noopener noreferrer" class="sub-media-link">
+                  🔗 Externer Link
+                </a>
+                <div v-if="sub.rejection_reason" class="item-rejection-tag">
+                  ❌ Begründung: "{{ sub.rejection_reason }}"
+                </div>
+              </div>
+            </div>
+
+            <div class="sub-actions">
+              <span class="badge-status-pill" :class="sub.status?.toLowerCase()">{{ sub.status }}</span>
+              <button
+                class="btn ghost btn-sm btn-sub-play"
+                :class="{ active: currentPlayingTrack === `sub-${sub.id}` }"
+                @click="toggleAudio(`sub-${sub.id}`, sub.profile_name)"
+              >
+                {{ currentPlayingTrack === `sub-${sub.id}` ? '⏸' : '▶ Anhören' }}
+              </button>
+              <template v-if="isTeam">
+                <button v-if="sub.status !== 'APPROVED'" class="btn btn-micro btn-accept" @click="decideSubmission(sub, 'APPROVED')" title="Freigeben">✓</button>
+                <button class="btn ghost btn-micro btn-reject" @click="promptRejectSubmission(sub)" title="Mit Begründung ablehnen">✕</button>
+                <button class="btn ghost btn-micro btn-danger" @click="deleteSubmission(sub)" title="Einreichung löschen">🗑️</button>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-muted-box muted">Noch keine Einreichungen für Runde {{ selectedRoundFilter }} vorhanden.</div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- TAB: BATTLES & VOTING SHOWDOWN -->
     <!-- ================================================================= -->
     <section v-if="activeTab === 'battles'" class="detail-tab-section">
       <div class="section-heading-bar">
@@ -315,7 +646,7 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- TAB 2: INTERAKTIVER TURNIERBAUM (BRACKET TREE) -->
+    <!-- TAB: INTERAKTIVER TURNIERBAUM (BRACKET TREE) -->
     <!-- ================================================================= -->
     <section v-if="activeTab === 'bracket'" class="detail-tab-section">
       <div class="section-heading-bar">
@@ -415,96 +746,62 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- TAB 3: TEILNEHMER & SUBMISSIONS -->
+    <!-- TAB: BEWERBER & ROSTER (TRANSPARENT STATUS & REJECTION REASONS) -->
     <!-- ================================================================= -->
     <section v-if="activeTab === 'participants'" class="detail-tab-section">
-      <div class="two-column-layout">
-        <!-- Submissions Column -->
-        <div class="card panel-box">
-          <div class="pb-header">
-            <div>
-              <h3>Eingereichte Runden ({{ submissionRows.length }})</h3>
-              <p class="muted small">Tracks &amp; Beats der teilnehmenden Artists</p>
-            </div>
-            <div class="pb-actions">
-              <button v-if="isTeam && submissionRows.some(s => s.status === 'PENDING')" class="btn ghost btn-micro" @click="bulkApproveSubmissions">
-                ✓ Alle freigeben
-              </button>
-              <button class="btn btn-sm" @click="showUploadModal = true">+ Runde einreichen</button>
-            </div>
+      <div class="card panel-box">
+        <div class="pb-header">
+          <div>
+            <h3>Bewerbungen &amp; Roster ({{ applicationRows.length }})</h3>
+            <p class="muted small">Alle registrierten Artists für dieses Turnier inklusive Jury-Status und Begründungen</p>
           </div>
-
-          <div class="submissions-list" v-if="submissionRows.length">
-            <div v-for="sub in submissionRows" :key="sub.id" class="sub-item-card">
-              <div class="sub-info">
-                <span class="sub-icon">🎵</span>
-                <div>
-                  <strong>{{ sub.title }}</strong>
-                  <span class="sub-artist">von {{ sub.profile_name }} • Runde {{ sub.round_number || 1 }}</span>
-                  <a v-if="sub.media_url" :href="sub.media_url" target="_blank" rel="noopener noreferrer" class="sub-media-link">
-                    🔗 Externer Link
-                  </a>
-                </div>
-              </div>
-
-              <div class="sub-actions">
-                <span class="badge-status-pill" :class="sub.status?.toLowerCase()">{{ sub.status }}</span>
-                <button
-                  class="btn ghost btn-sm btn-sub-play"
-                  :class="{ active: currentPlayingTrack === `sub-${sub.id}` }"
-                  @click="toggleAudio(`sub-${sub.id}`, sub.profile_name)"
-                >
-                  {{ currentPlayingTrack === `sub-${sub.id}` ? '⏸' : '▶ Anhören' }}
-                </button>
-                <template v-if="isTeam && sub.status === 'PENDING'">
-                  <button class="btn btn-micro btn-accept" @click="decideSubmission(sub, 'APPROVED')">✓</button>
-                  <button class="btn ghost btn-micro btn-reject" @click="decideSubmission(sub, 'REJECTED')">✕</button>
-                </template>
-                <button v-if="isTeam" class="btn ghost btn-micro btn-danger" @click="deleteSubmission(sub)" title="Einreichung löschen">🗑️</button>
-              </div>
-            </div>
+          <div class="pb-actions">
+            <button v-if="isTeam && applicationRows.some(a => a.status === 'PENDING')" class="btn ghost btn-micro" @click="bulkApproveApplications">
+              ✓ Alle annehmen
+            </button>
+            <button class="btn btn-sm" @click="openApplyModal">+ Bewerben</button>
           </div>
-          <div v-else class="empty-muted-box muted">Noch keine Runden eingereicht.</div>
         </div>
 
-        <!-- Applications Column -->
-        <div class="card panel-box">
-          <div class="pb-header">
-            <div>
-              <h3>Bewerbungen &amp; Roster ({{ applicationRows.length }})</h3>
-              <p class="muted small">Registrierte Bewerber für dieses Turnier</p>
-            </div>
-            <div class="pb-actions">
-              <button v-if="isTeam && applicationRows.some(a => a.status === 'PENDING')" class="btn ghost btn-micro" @click="bulkApproveApplications">
-                ✓ Alle annehmen
-              </button>
-              <button class="btn ghost btn-sm" @click="showApplyModal = true">+ Bewerben</button>
-            </div>
-          </div>
-
-          <div class="applications-list" v-if="applicationRows.length">
-            <div v-for="app in applicationRows" :key="app.id" class="app-item-card">
-              <div class="app-info">
+        <div class="applications-list" v-if="applicationRows.length">
+          <div v-for="app in applicationRows" :key="app.id" class="app-item-card">
+            <div class="app-info">
+              <div class="app-head-line">
                 <strong>{{ app.profile_name }}</strong>
-                <p class="muted small">{{ app.message || 'Bewerbung eingereicht.' }}</p>
+                <span class="badge-status-pill" :class="app.status?.toLowerCase()">
+                  {{ app.status === 'APPROVED' ? 'Zugelassen' : (app.status === 'REJECTED' ? 'Abgelehnt' : 'In Prüfung') }}
+                </span>
               </div>
-              <div class="app-actions">
-                <span class="badge-status-pill" :class="app.status?.toLowerCase()">{{ app.status }}</span>
-                <template v-if="isTeam && app.status === 'PENDING'">
-                  <button class="btn btn-micro btn-accept" @click="decideApplication(app, 'APPROVED')">✓</button>
-                  <button class="btn ghost btn-micro btn-reject" @click="decideApplication(app, 'REJECTED')">✕</button>
-                </template>
-                <button v-if="isTeam" class="btn ghost btn-micro btn-danger" @click="deleteApplication(app)" title="Bewerbung löschen">🗑️</button>
+              <p class="muted small">{{ app.message || 'Bewerbung eingereicht.' }}</p>
+
+              <!-- Rejection Reason if rejected -->
+              <div v-if="app.rejection_reason" class="item-rejection-tag">
+                ❌ Begründung der Jury: "{{ app.rejection_reason }}"
               </div>
             </div>
+
+            <div class="app-actions">
+              <template v-if="isTeam">
+                <button v-if="app.status !== 'APPROVED'" class="btn btn-micro btn-accept" @click="decideApplication(app, 'APPROVED')" title="Zulassen">✓</button>
+                <button class="btn ghost btn-micro btn-reject" @click="promptRejectApplication(app)" title="Mit Begründung ablehnen">✕</button>
+                <button class="btn ghost btn-micro btn-danger" @click="deleteApplication(app)" title="Bewerbung löschen">🗑️</button>
+              </template>
+              <button
+                v-if="myApplication?.id === app.id"
+                class="btn ghost btn-micro"
+                @click="openApplyModal"
+              >
+                ✏️ Bearbeiten
+              </button>
+            </div>
           </div>
-          <div v-else class="empty-muted-box muted">Noch keine Bewerbungen vorhanden.</div>
         </div>
+        <div v-else class="empty-muted-box muted">Noch keine Bewerbungen vorhanden.</div>
       </div>
     </section>
 
     <!-- ================================================================= -->
-    <!-- TAB 4: REGELN & PREISPOOL -->
+    <!-- TAB: REGELN & PREISPOOL -->
     <!-- ================================================================= -->
     <section v-if="activeTab === 'rules'" class="detail-tab-section">
       <div class="rules-grid-layout">
@@ -516,8 +813,12 @@
               Alle eingereichten Runden müssen selbst komponiert, produziert oder eingesungen sein. Samples müssen gecleared sein.
             </li>
             <li>
-              <strong>Fristen &amp; Rundenabgabe:</strong>
-              Runden müssen bis zur jeweiligen Runden-Deadline vollständig als Link (SoundCloud, Drive, YouTube) hochgeladen werden.
+              <strong>1 Song pro Runde:</strong>
+              Jeder Künstler darf pro Runde maximal einen Track einreichen. Während der offenen Phase kann dieser jederzeit aktualisiert oder überarbeitet werden.
+            </li>
+            <li>
+              <strong>Format &amp; Struktur:</strong>
+              Modus: {{ formatLabel(tournament?.format) }}. Geplante Runden: {{ tournament?.total_rounds || 4 }}. Teilnehmer-Slots: {{ tournament?.slots || 16 }}.
             </li>
             <li>
               <strong>48-Stunden Community Voting:</strong>
@@ -551,15 +852,20 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- MODAL 1: APPLY MODAL -->
+    <!-- MODAL 1: APPLY MODAL (WITH EDITING & STATUS AWARENESS) -->
     <!-- ================================================================= -->
     <div v-if="showApplyModal" class="modal-overlay" @click.self="showApplyModal = false">
       <div class="modal card">
         <div class="modal-header">
-          <h3>Bewerbung für "{{ tournament?.title }}"</h3>
+          <h3>{{ myApplication ? 'Bewerbung bearbeiten' : `Bewerbung für "${tournament?.title}"` }}</h3>
           <button class="btn ghost tiny" @click="showApplyModal = false">✕</button>
         </div>
         <form class="modal-form" @submit.prevent="submitApply">
+          <div v-if="myApplication?.rejection_reason" class="rejection-reason-box mb-2">
+            <strong>Vorherige Jury-Rückmeldung:</strong>
+            <p>"{{ myApplication.rejection_reason }}"</p>
+          </div>
+
           <label>
             <span>Artist-Name *</span>
             <input v-model.trim="applyArtistName" class="input" required />
@@ -570,29 +876,29 @@
           </label>
           <label>
             <span>Nachricht an die Jury</span>
-            <textarea v-model.trim="applyMessage" class="input" rows="3" placeholder="Deine Motivation..."></textarea>
+            <textarea v-model.trim="applyMessage" class="input" rows="3" placeholder="Deine Motivation, Genre, Vorstellung..."></textarea>
           </label>
           <div class="modal-actions">
             <button class="btn ghost" type="button" @click="showApplyModal = false">Abbrechen</button>
-            <button class="btn" type="submit">Bewerbung abschicken 🎤</button>
+            <button class="btn" type="submit">{{ myApplication ? 'Bewerbung aktualisieren 💾' : 'Bewerbung abschicken 🎤' }}</button>
           </div>
         </form>
       </div>
     </div>
 
     <!-- ================================================================= -->
-    <!-- MODAL 2: UPLOAD ROUND MODAL -->
+    <!-- MODAL 2: UPLOAD / EDIT ROUND MODAL (ONE SONG PER ROUND) -->
     <!-- ================================================================= -->
     <div v-if="showUploadModal" class="modal-overlay" @click.self="showUploadModal = false">
       <div class="modal card">
         <div class="modal-header">
-          <h3>Runde einreichen</h3>
+          <h3>{{ editingSubmissionId ? `Runde ${uploadRoundNumber} bearbeiten` : `Runde ${uploadRoundNumber} einreichen` }}</h3>
           <button class="btn ghost tiny" @click="showUploadModal = false">✕</button>
         </div>
         <form class="modal-form" @submit.prevent="submitRound">
           <label>
             <span>Runden-Nummer</span>
-            <input v-model.number="uploadRoundNumber" type="number" min="1" max="8" class="input" />
+            <input v-model.number="uploadRoundNumber" type="number" min="1" :max="tournament?.total_rounds || 8" class="input" />
           </label>
           <label>
             <span>Track-Titel für diese Runde *</span>
@@ -614,7 +920,7 @@
           </div>
           <div class="modal-actions">
             <button class="btn ghost" type="button" @click="showUploadModal = false">Abbrechen</button>
-            <button class="btn" type="submit">Runde einreichen 🚀</button>
+            <button class="btn" type="submit">{{ editingSubmissionId ? 'Änderungen speichern & neu einreichen 🚀' : 'Runde jetzt einreichen 🚀' }}</button>
           </div>
         </form>
       </div>
@@ -665,12 +971,12 @@
     </div>
 
     <!-- ================================================================= -->
-    <!-- MODAL 4: EDIT TOURNAMENT MODAL (ADMIN) -->
+    <!-- MODAL 4: EDIT TOURNAMENT MODAL (WITH FORMAT, SLOTS, GROUPS) -->
     <!-- ================================================================= -->
     <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
       <div class="modal card">
         <div class="modal-header">
-          <h3>Turnier bearbeiten</h3>
+          <h3>Turnierdaten &amp; Format anpassen</h3>
           <button class="btn ghost tiny" @click="showEditModal = false">✕</button>
         </div>
         <form class="modal-form" @submit.prevent="submitEditTournament">
@@ -678,27 +984,132 @@
             <span>Titel *</span>
             <input v-model.trim="editForm.title" class="input" required />
           </label>
+
+          <div class="split-form-row">
+            <label>
+              <span>Turnier-Format *</span>
+              <select v-model="editForm.format" class="input">
+                <option value="SINGLE_ELIMINATION">K.O.-System (Single Elimination)</option>
+                <option value="GROUP_STAGE">Gruppenphase + K.O.-Finals ⭐</option>
+                <option value="DOUBLE_ELIMINATION">No-Loss Bracket (Double Elimination)</option>
+                <option value="ROUND_ROBIN">Liga (Jeder gegen Jeden)</option>
+              </select>
+            </label>
+            <label>
+              <span>Teilnehmer-Slots</span>
+              <select v-model.number="editForm.slots" class="input">
+                <option :value="4">4 Artists</option>
+                <option :value="8">8 Artists</option>
+                <option :value="16">16 Artists</option>
+                <option :value="24">24 Artists</option>
+                <option :value="32">32 Artists</option>
+                <option :value="64">64 Artists</option>
+              </select>
+            </label>
+          </div>
+
+          <!-- Group Stage Configuration if GROUP_STAGE is selected -->
+          <div v-if="editForm.format === 'GROUP_STAGE'" class="group-stage-config-box">
+            <span class="gsc-title">⚙️ Gruppenphase Konfiguration:</span>
+            <div class="split-form-row">
+              <label>
+                <span>Anzahl Gruppen</span>
+                <select v-model.number="editForm.groups_count" class="input">
+                  <option :value="2">2 Gruppen</option>
+                  <option :value="4">4 Gruppen (Standard)</option>
+                  <option :value="8">8 Gruppen</option>
+                </select>
+              </label>
+              <label>
+                <span>Artists pro Gruppe</span>
+                <select v-model.number="editForm.group_size" class="input">
+                  <option :value="3">3 Artists</option>
+                  <option :value="4">4 Artists (Standard)</option>
+                  <option :value="6">6 Artists</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="split-form-row">
+            <label>
+              <span>Preispool</span>
+              <input v-model.trim="editForm.prize_pool" class="input" />
+            </label>
+            <label>
+              <span>Genre / Sparte</span>
+              <input v-model.trim="editForm.genre" class="input" />
+            </label>
+          </div>
+
           <label>
-            <span>Preispool</span>
-            <input v-model.trim="editForm.prize_pool" class="input" />
+            <span>Geplante Runden-Anzahl</span>
+            <select v-model.number="editForm.total_rounds" class="input">
+              <option :value="1">1 Runde (Direktes Finale)</option>
+              <option :value="2">2 Runden (Halbfinale &amp; Finale)</option>
+              <option :value="3">3 Runden (Viertelfinale bis Finale)</option>
+              <option :value="4">4 Runden (Achtelfinale bis Finale)</option>
+              <option :value="5">5 Runden (Grand Tournament)</option>
+            </select>
           </label>
+
           <label>
-            <span>Genre / Sparte</span>
-            <input v-model.trim="editForm.genre" class="input" />
-          </label>
-          <label>
-            <span>Beschreibung</span>
+            <span>Beschreibung &amp; Vorgaben</span>
             <textarea v-model.trim="editForm.description" class="input" rows="3"></textarea>
           </label>
-          <label class="checkbox-row">
-            <input v-model="editForm.is_no_loss" type="checkbox" />
-            <span>🛡️ No-Loss Bracket Modus aktivieren</span>
-          </label>
+
           <div class="modal-actions">
             <button class="btn ghost" type="button" @click="showEditModal = false">Abbrechen</button>
             <button class="btn" type="submit">Änderungen speichern 💾</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 5: REJECT MODAL WITH REASON PROMPT (ADMIN) -->
+    <!-- ================================================================= -->
+    <div v-if="showRejectModal" class="modal-overlay" @click.self="showRejectModal = false">
+      <div class="modal card">
+        <div class="modal-header">
+          <h3>Ablehnung mit Begründung</h3>
+          <button class="btn ghost tiny" @click="showRejectModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="muted small">
+            Gib dem Künstler <strong>{{ rejectingTarget?.profile_name || 'Artist' }}</strong> eine Begründung für die Ablehnung. Diese ist für den Künstler transparent einsehbar.
+          </p>
+
+          <div class="reject-presets-wrap">
+            <span class="preset-label">Schnellauswahl:</span>
+            <div class="reject-presets-pills">
+              <button
+                v-for="p in rejectPresets"
+                :key="p"
+                type="button"
+                class="btn ghost btn-micro"
+                @click="rejectReasonInput = p"
+              >
+                {{ p }}
+              </button>
+            </div>
+          </div>
+
+          <label class="mt-3">
+            <span>Begründung / Feedback *</span>
+            <textarea
+              v-model.trim="rejectReasonInput"
+              class="input"
+              rows="3"
+              placeholder="z. B. Mixdown übersteuert, Track entspricht nicht dem geforderten Genre..."
+              required
+            ></textarea>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" @click="showRejectModal = false">Abbrechen</button>
+          <button class="btn btn-danger" type="button" @click="confirmReject">Ablehnen &amp; Begründung senden ✕</button>
+        </div>
       </div>
     </div>
   </div>
@@ -734,12 +1145,59 @@ const bracketData = ref({
   grandFinal: null,
 });
 
-const tabs = computed(() => [
-  { key: "battles", label: "⚔️ Battles & Voting", count: battleRows.value.length },
-  { key: "bracket", label: "🌳 Turnierbaum" },
-  { key: "participants", label: "👥 Teilnehmer & Runden", count: submissionRows.value.length },
-  { key: "rules", label: "📜 Regeln & Preispool" },
-]);
+const selectedRoundFilter = ref(1);
+const editingSubmissionId = ref(null);
+
+const showRejectModal = ref(false);
+const rejectTargetType = ref("application");
+const rejectingTarget = ref(null);
+const rejectReasonInput = ref("");
+
+const rejectPresets = [
+  "Audio-Qualität unzureichend (Mix/Mastering)",
+  "Vorgaben & Genre-Kriterien nicht eingehalten",
+  "Beat nicht gecleart / Urheberrechtskonflikt",
+  "Fehlerhafter Audio- oder Video-Link",
+  "Vocal-Performance / Timing nicht ausreichend",
+  "Deadline für diese Phase überschritten",
+];
+
+/* Dynamic Progressive Disclosure Tabs */
+const tabs = computed(() => {
+  const status = tournament.value?.status || "APPLICATION_OPEN";
+  const list = [];
+
+  if (status === "APPLICATION_OPEN") {
+    list.push(
+      { key: "overview", label: "📋 Übersicht & Bewerbung" },
+      { key: "participants", label: "👥 Bewerber & Roster", count: applicationRows.value.length },
+      { key: "rules", label: "📜 Regeln & Preispool" },
+    );
+  } else if (status === "SUBMISSION_OPEN") {
+    list.push(
+      { key: "submissions", label: "🎵 Runden & Einreichungen", count: submissionRows.value.length },
+      { key: "participants", label: "👥 Teilnehmer-Roster", count: applicationRows.value.length },
+      { key: "bracket", label: "🌳 Vorläufiger Turnierbaum" },
+      { key: "rules", label: "📜 Regeln & Preispool" },
+    );
+  } else if (status === "BATTLES") {
+    list.push(
+      { key: "battles", label: "⚔️ Battles & Voting", count: battleRows.value.length },
+      { key: "bracket", label: "🌳 Turnierbaum & Bracket" },
+      { key: "submissions", label: "🎵 Alle Runden", count: submissionRows.value.length },
+      { key: "rules", label: "📜 Regeln & Preispool" },
+    );
+  } else {
+    // CLOSED / DRAFT
+    list.push(
+      { key: "bracket", label: "🏆 Turnierbaum & Sieger" },
+      { key: "battles", label: "⚔️ Alle Duelle", count: battleRows.value.length },
+      { key: "submissions", label: "🎵 Runden-Archiv", count: submissionRows.value.length },
+      { key: "rules", label: "📜 Regeln & Preispool" },
+    );
+  }
+  return list;
+});
 
 const statusSteps = [
   { value: "APPLICATION_OPEN", label: "Bewerbung offen" },
@@ -766,9 +1224,51 @@ const editForm = ref({
   title: "",
   prize_pool: "",
   genre: "",
+  format: "SINGLE_ELIMINATION",
+  slots: 16,
+  total_rounds: 4,
+  groups_count: 4,
+  group_size: 4,
   description: "",
   is_no_loss: false,
 });
+
+/* Artist Identity & Submissions Helpers (Single Song per Round) */
+const myApplication = computed(() => {
+  if (!me.value?.id && !me.value?.name && !me.value?.username) return null;
+  return applicationRows.value.find(
+    (a) =>
+      a.profile === me.value?.id ||
+      (me.value?.name && a.profile_name === me.value?.name) ||
+      (me.value?.username && a.profile_name === me.value?.username)
+  ) || null;
+});
+
+const mySubmissions = computed(() => {
+  if (!me.value?.id && !me.value?.name && !me.value?.username) return [];
+  return submissionRows.value.filter(
+    (s) =>
+      s.profile === me.value?.id ||
+      (me.value?.name && s.profile_name === me.value?.name) ||
+      (me.value?.username && s.profile_name === me.value?.username)
+  );
+});
+
+const myCurrentSubmission = computed(() => {
+  return mySubmissions.value[0] || null;
+});
+
+const mySubmissionForSelectedRound = computed(() => {
+  return mySubmissions.value.find((s) => s.round_number === selectedRoundFilter.value) || null;
+});
+
+const filteredSubmissionsForRound = computed(() => {
+  return submissionRows.value.filter((s) => (s.round_number || 1) === selectedRoundFilter.value);
+});
+
+function getSubmissionsCountForRound(round) {
+  return submissionRows.value.filter((s) => (s.round_number || 1) === round).length;
+}
 
 function statusLabel(status) {
   const map = {
@@ -781,9 +1281,38 @@ function statusLabel(status) {
   return map[status] || status || "Live";
 }
 
+function formatLabel(fmt) {
+  const map = {
+    SINGLE_ELIMINATION: "K.O.-System",
+    GROUP_STAGE: "Gruppenphase + K.O. ⭐",
+    DOUBLE_ELIMINATION: "No-Loss Bracket",
+    ROUND_ROBIN: "Liga-Modus",
+  };
+  return map[fmt] || fmt || "K.O.-System";
+}
+
+function formatDescription(fmt) {
+  const map = {
+    SINGLE_ELIMINATION: "Klassisches K.O.-Turnier: Wer verliert scheidet direkt aus.",
+    GROUP_STAGE: "Vorrunde in Gruppen mit Hinspielen. Die Gruppenbesten ziehen in die K.O.-Finals ein.",
+    DOUBLE_ELIMINATION: "Kein direktes Ausscheiden nach einer Niederlage dank Loser-Bracket.",
+    ROUND_ROBIN: "Jeder Teilnehmer battlet gegen jeden anderen Teilnehmer dieser Liga.",
+  };
+  return map[fmt] || "Spannender Battle-Wettbewerb im UNYQ Circuit.";
+}
+
 function cleanDescription(desc) {
   if (!desc) return "";
-  return desc.replace(/\[Preispool:[^\]]+\]/gi, "").replace(/\[Genre:[^\]]+\]/gi, "").replace(/\[Slots:[^\]]+\]/gi, "").trim();
+  return desc
+    .replace(/\[Preispool:[^\]]+\]/gi, "")
+    .replace(/\[Genre:[^\]]+\]/gi, "")
+    .replace(/\[Slots:[^\]]+\]/gi, "")
+    .replace(/\[Format:[^\]]+\]/gi, "")
+    .replace(/\[GroupsCount:[^\]]+\]/gi, "")
+    .replace(/\[GroupSize:[^\]]+\]/gi, "")
+    .replace(/\[TotalRounds:[^\]]+\]/gi, "")
+    .replace(/\[EntryRules:[^\]]+\]/gi, "")
+    .trim();
 }
 
 function goBack() {
@@ -998,24 +1527,53 @@ async function bulkApproveSubmissions() {
   }
 }
 
-async function decideApplication(app, decision) {
+async function decideApplication(app, decision, reason = "") {
   app.status = decision;
+  if (reason) app.rejection_reason = reason;
   try {
-    await api.post(`tournament-applications/${app.id}/decision/`, { decision });
+    await api.post(`tournament-applications/${app.id}/decision/`, { decision, reason });
     showToast(`Bewerbung ${decision === 'APPROVED' ? 'angenommen' : 'abgelehnt'}.`, "info");
   } catch {
     // fallback
   }
 }
 
-async function decideSubmission(sub, decision) {
+async function decideSubmission(sub, decision, reason = "") {
   sub.status = decision;
+  if (reason) sub.rejection_reason = reason;
   try {
-    await api.post(`tournament-submissions/${sub.id}/decision/`, { decision });
+    await api.post(`tournament-submissions/${sub.id}/decision/`, { decision, reason });
     showToast(`Einreichung ${decision === 'APPROVED' ? 'freigegeben' : 'abgelehnt'}.`, "info");
   } catch {
     // fallback
   }
+}
+
+function promptRejectApplication(app) {
+  rejectTargetType.value = "application";
+  rejectingTarget.value = app;
+  rejectReasonInput.value = "";
+  showRejectModal.value = true;
+}
+
+function promptRejectSubmission(sub) {
+  rejectTargetType.value = "submission";
+  rejectingTarget.value = sub;
+  rejectReasonInput.value = "";
+  showRejectModal.value = true;
+}
+
+async function confirmReject() {
+  const target = rejectingTarget.value;
+  const reason = rejectReasonInput.value.trim();
+  if (!target) return;
+
+  if (rejectTargetType.value === "application") {
+    await decideApplication(target, "REJECTED", reason);
+  } else {
+    await decideSubmission(target, "REJECTED", reason);
+  }
+  showRejectModal.value = false;
 }
 
 async function confirmDeleteTournament() {
@@ -1035,8 +1593,13 @@ function openEditModal() {
     title: tournament.value.title || "",
     prize_pool: tournament.value.prize_pool || "1.500 € Cash",
     genre: tournament.value.genre || "Trap & 808",
+    format: tournament.value.format || "SINGLE_ELIMINATION",
+    slots: tournament.value.slots || 16,
+    total_rounds: tournament.value.total_rounds || 4,
+    groups_count: tournament.value.groups_count || 4,
+    group_size: tournament.value.group_size || 4,
     description: cleanDescription(tournament.value.description) || "",
-    is_no_loss: Boolean(tournament.value.is_no_loss),
+    is_no_loss: tournament.value.format === "DOUBLE_ELIMINATION" || Boolean(tournament.value.is_no_loss),
   };
   showEditModal.value = true;
 }
@@ -1047,94 +1610,183 @@ async function submitEditTournament() {
 
   const prizeText = editForm.value.prize_pool || "1.500 € Cash";
   const genreText = editForm.value.genre || "Trap & 808";
-  const metaDesc = `[Preispool: ${prizeText}] [Genre: ${genreText}]\n\n${editForm.value.description}`;
+  const formatText = editForm.value.format || "SINGLE_ELIMINATION";
+  const slotsNum = editForm.value.slots || 16;
+  const totalRoundsNum = editForm.value.total_rounds || 4;
+  const groupsCountNum = editForm.value.groups_count || 4;
+  const groupSizeNum = editForm.value.group_size || 4;
+
+  const metaDesc = `[Preispool: ${prizeText}] [Genre: ${genreText}] [Format: ${formatText}] [Slots: ${slotsNum}] [TotalRounds: ${totalRoundsNum}] [GroupsCount: ${groupsCountNum}] [GroupSize: ${groupSizeNum}]\n\n${editForm.value.description}`;
 
   try {
     const { data } = await api.patch(`tournaments/${id}/`, {
       title: editForm.value.title,
       description: metaDesc,
-      is_no_loss: editForm.value.is_no_loss,
+      is_no_loss: formatText === "DOUBLE_ELIMINATION",
     });
     tournament.value = {
       ...tournament.value,
       ...data,
       prize_pool: prizeText,
       genre: genreText,
+      format: formatText,
+      slots: slotsNum,
+      total_rounds: totalRoundsNum,
+      groups_count: groupsCountNum,
+      group_size: groupSizeNum,
+      is_no_loss: formatText === "DOUBLE_ELIMINATION",
     };
     showToast("Turnierdaten erfolgreich aktualisiert! 💾", "success");
   } catch {
     tournament.value.title = editForm.value.title;
     tournament.value.prize_pool = prizeText;
     tournament.value.genre = genreText;
+    tournament.value.format = formatText;
+    tournament.value.slots = slotsNum;
+    tournament.value.total_rounds = totalRoundsNum;
+    tournament.value.groups_count = groupsCountNum;
+    tournament.value.group_size = groupSizeNum;
     tournament.value.description = metaDesc;
-    tournament.value.is_no_loss = editForm.value.is_no_loss;
+    tournament.value.is_no_loss = formatText === "DOUBLE_ELIMINATION";
     showToast("Turnierdaten lokal aktualisiert.", "success");
   }
   showEditModal.value = false;
 }
 
 /* Submitting Application & Round */
+function openApplyModal() {
+  if (myApplication.value) {
+    applyArtistName.value = myApplication.value.profile_name || me.value?.name || "";
+    const demoMatch = myApplication.value.message?.match(/Demo:\s*([^|]+)/i);
+    applyDemoLink.value = demoMatch ? demoMatch[1].trim() : "";
+    const rawParts = (myApplication.value.message || "").split("|");
+    const rawMsg = rawParts.length > 2 ? rawParts.slice(2).join("|") : (rawParts[1] || "");
+    applyMessage.value = rawMsg.split("[Jury-Begründung:")[0].trim();
+  } else {
+    applyArtistName.value = me.value?.name || me.value?.username || "";
+    applyDemoLink.value = "";
+    applyMessage.value = "";
+  }
+  showApplyModal.value = true;
+}
+
 async function submitApply() {
   const tId = tournament.value?.id;
   const msg = `Artist: ${applyArtistName.value} | Demo: ${applyDemoLink.value} | ${applyMessage.value}`;
 
   try {
-    const { data } = await api.post("tournament-applications/", {
-      tournament: tId,
-      message: msg,
-    });
-    applicationRows.value.unshift({
-      id: data.id,
-      profile_name: applyArtistName.value,
-      status: "PENDING",
-      message: msg,
-    });
-  } catch {
-    applicationRows.value.unshift({
-      id: Date.now(),
-      profile_name: applyArtistName.value,
-      status: "PENDING",
-      message: msg,
-    });
+    if (myApplication.value?.id) {
+      const { data } = await api.patch(`tournament-applications/${myApplication.value.id}/`, {
+        message: msg,
+      });
+      const idx = applicationRows.value.findIndex(a => a.id === myApplication.value.id);
+      if (idx !== -1) {
+        applicationRows.value[idx] = {
+          ...applicationRows.value[idx],
+          profile_name: applyArtistName.value,
+          message: msg,
+          status: "PENDING",
+          rejection_reason: "",
+        };
+      }
+      showToast("Bewerbung erfolgreich aktualisiert & neu eingereicht! 🎤", "success");
+    } else {
+      const { data } = await api.post("tournament-applications/", {
+        tournament: tId,
+        message: msg,
+      });
+      applicationRows.value.unshift({
+        id: data.id,
+        profile: me.value?.id,
+        profile_name: applyArtistName.value,
+        status: "PENDING",
+        message: msg,
+        rejection_reason: "",
+      });
+      showToast("Bewerbung erfolgreich eingereicht! 🎤", "success");
+    }
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Bewerbung gespeichert.", "info");
   }
 
   showApplyModal.value = false;
-  showToast("Bewerbung erfolgreich eingereicht! 🎤", "success");
+  await loadApplications();
+}
+
+function openUploadRoundModal(round = 1) {
+  selectedRoundFilter.value = round;
+  uploadRoundNumber.value = round;
+  const existing = mySubmissions.value.find((s) => (s.round_number || 1) === round);
+  if (existing) {
+    editingSubmissionId.value = existing.id;
+    uploadRoundTitle.value = existing.title || "";
+    uploadMediaUrl.value = existing.media_url || "";
+    const bpmMatch = existing.notes?.match(/BPM:\s*([^|]+)/i);
+    const keyMatch = existing.notes?.match(/Key:\s*([^|]+)/i);
+    uploadBpm.value = bpmMatch ? bpmMatch[1].trim() : "140";
+    uploadKey.value = keyMatch ? keyMatch[1].trim() : "C# Minor";
+  } else {
+    editingSubmissionId.value = null;
+    uploadRoundTitle.value = `${tournament.value?.title || 'Contest'} - Runde ${round}`;
+    uploadMediaUrl.value = "";
+    uploadBpm.value = "140";
+    uploadKey.value = "C# Minor";
+  }
+  showUploadModal.value = true;
 }
 
 async function submitRound() {
   const tId = tournament.value?.id;
+  const roundNum = uploadRoundNumber.value || 1;
   const notes = `BPM: ${uploadBpm.value} | Key: ${uploadKey.value}`;
 
+  const payload = {
+    tournament: tId,
+    round_number: roundNum,
+    title: uploadRoundTitle.value,
+    media_url: uploadMediaUrl.value,
+    notes,
+  };
+
   try {
-    const { data } = await api.post("tournament-submissions/", {
-      tournament: tId,
-      round_number: uploadRoundNumber.value || 1,
-      title: uploadRoundTitle.value,
-      media_url: uploadMediaUrl.value,
-      notes,
-    });
-    submissionRows.value.unshift({
-      id: data.id,
-      title: uploadRoundTitle.value,
-      profile_name: me.value?.name || "Du",
-      round_number: uploadRoundNumber.value || 1,
-      status: "PENDING",
-      media_url: uploadMediaUrl.value,
-    });
-  } catch {
-    submissionRows.value.unshift({
-      id: Date.now(),
-      title: uploadRoundTitle.value,
-      profile_name: me.value?.name || "Du",
-      round_number: uploadRoundNumber.value || 1,
-      status: "PENDING",
-      media_url: uploadMediaUrl.value,
-    });
+    if (editingSubmissionId.value) {
+      const { data } = await api.patch(`tournament-submissions/${editingSubmissionId.value}/`, payload);
+      const idx = submissionRows.value.findIndex(s => s.id === editingSubmissionId.value);
+      if (idx !== -1) {
+        submissionRows.value[idx] = {
+          ...submissionRows.value[idx],
+          title: uploadRoundTitle.value,
+          media_url: uploadMediaUrl.value,
+          notes,
+          status: "PENDING",
+          rejection_reason: "",
+        };
+      }
+      showToast("Runde erfolgreich aktualisiert & neu eingereicht! 🚀", "success");
+    } else {
+      const { data } = await api.post("tournament-submissions/", payload);
+      submissionRows.value = submissionRows.value.filter(
+        s => !(s.round_number === roundNum && (s.profile === me.value?.id || s.profile_name === me.value?.name))
+      );
+      submissionRows.value.unshift({
+        id: data.id,
+        title: uploadRoundTitle.value,
+        profile: me.value?.id,
+        profile_name: me.value?.name || me.value?.username || "Du",
+        round_number: roundNum,
+        status: "PENDING",
+        media_url: uploadMediaUrl.value,
+        notes,
+        rejection_reason: "",
+      });
+      showToast("Runde erfolgreich eingereicht! 🚀", "success");
+    }
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Runde übermittelt.", "info");
   }
 
   showUploadModal.value = false;
-  showToast("Runde erfolgreich eingereicht! 🚀", "success");
+  await loadSubmissions();
 }
 
 function inspectMatch(match) {
@@ -1213,17 +1865,52 @@ async function loadTournament() {
     const { data } = await api.get(`tournaments/${id}/`);
     let prize = "Noch kein Preispool festgelegt";
     let genre = "Allround";
-    if (data.description) {
+    let format = "SINGLE_ELIMINATION";
+    let slots = 16;
+    let totalRounds = 4;
+    let groupsCount = 4;
+    let groupSize = 4;
+
+    if (data.meta_settings) {
+      prize = data.meta_settings.prize_pool || prize;
+      genre = data.meta_settings.genre || genre;
+      format = data.meta_settings.format || format;
+      slots = data.meta_settings.slots || slots;
+      totalRounds = data.meta_settings.total_rounds || totalRounds;
+      groupsCount = data.meta_settings.groups_count || groupsCount;
+      groupSize = data.meta_settings.group_size || groupSize;
+    } else if (data.description) {
       const pMatch = data.description.match(/\[Preispool:\s*([^\]]+)\]/i);
       if (pMatch) prize = pMatch[1];
       const gMatch = data.description.match(/\[Genre:\s*([^\]]+)\]/i);
       if (gMatch) genre = gMatch[1];
+      const fMatch = data.description.match(/\[Format:\s*([^\]]+)\]/i);
+      if (fMatch) format = fMatch[1];
+      const sMatch = data.description.match(/\[Slots:\s*(\d+)\]/i);
+      if (sMatch) slots = parseInt(sMatch[1], 10);
+      const rMatch = data.description.match(/\[TotalRounds:\s*(\d+)\]/i);
+      if (rMatch) totalRounds = parseInt(rMatch[1], 10);
+      const gcMatch = data.description.match(/\[GroupsCount:\s*(\d+)\]/i);
+      if (gcMatch) groupsCount = parseInt(gcMatch[1], 10);
+      const gsMatch = data.description.match(/\[GroupSize:\s*(\d+)\]/i);
+      if (gsMatch) groupSize = parseInt(gsMatch[1], 10);
     }
+
     tournament.value = {
       ...data,
       prize_pool: prize,
-      genre: genre,
+      genre,
+      format,
+      slots,
+      total_rounds: totalRounds,
+      groups_count: groupsCount,
+      group_size: groupSize,
     };
+
+    // Ensure activeTab matches progressive disclosure
+    if (!tabs.value.some(t => t.key === activeTab.value)) {
+      activeTab.value = tabs.value[0]?.key || "overview";
+    }
   } catch {
     tournament.value = {
       id,
@@ -1232,6 +1919,11 @@ async function loadTournament() {
       status: "DRAFT",
       genre: "Allround",
       prize_pool: "Kein Preispool festgelegt",
+      format: "SINGLE_ELIMINATION",
+      slots: 16,
+      total_rounds: 4,
+      groups_count: 4,
+      group_size: 4,
       is_no_loss: false,
     };
   }
@@ -1269,11 +1961,14 @@ async function loadSubmissions() {
     const list = Array.isArray(data) ? data : data?.results || [];
     submissionRows.value = list.map(s => ({
       id: s.id,
+      profile: s.profile?.id || s.profile,
       title: s.title || `Runde ${s.round_number}`,
-      profile_name: s.profile?.name || s.profile?.user?.username || "Artist",
+      profile_name: s.profile?.name || s.profile?.user?.username || s.artist_name || "Artist",
       round_number: s.round_number || 1,
       status: s.status,
       media_url: s.media_url,
+      notes: s.notes,
+      rejection_reason: s.rejection_reason || "",
     }));
   } catch {
     submissionRows.value = [];
@@ -1287,9 +1982,11 @@ async function loadApplications() {
     const list = Array.isArray(data) ? data : data?.results || [];
     applicationRows.value = list.map(a => ({
       id: a.id,
-      profile_name: a.profile?.name || a.profile?.user?.username || "Artist",
+      profile: a.profile?.id || a.profile,
+      profile_name: a.profile?.name || a.profile?.user?.username || a.artist_name || "Artist",
       status: a.status,
       message: a.message,
+      rejection_reason: a.rejection_reason || "",
     }));
   } catch {
     applicationRows.value = [];
@@ -2341,8 +3038,507 @@ onBeforeUnmount(() => {
   color: #f59e0b;
 }
 
-.text-center {
-  text-align: center;
+/* Compact Admin Bar */
+.admin-compact-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ach-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ach-badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.ach-select {
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.ach-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Badge Format */
+.badge-format-tag {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+/* User Contest Status Cards in Hero */
+.user-contest-status-card {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-contest-status-card.status-approved {
+  border-color: rgba(52, 211, 153, 0.35);
+  background: rgba(52, 211, 153, 0.05);
+}
+
+.user-contest-status-card.status-rejected {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.ucs-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ucs-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.ucs-song-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #f1f5f9;
+}
+
+/* Rejection Reason Alert Box */
+.rejection-reason-box {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #fca5a5;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rrb-title {
+  font-weight: 800;
+  color: #f87171;
+  margin-bottom: 4px;
+}
+
+.rrb-text {
+  margin: 0 0 6px;
+  color: #fff;
+  font-style: italic;
+}
+
+.item-rejection-tag {
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.approved-box {
+  color: #34d399;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.pending-box {
+  color: #fbbf24;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* TAB: Overview */
+.overview-grid-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 24px;
+}
+
+.overview-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.format-highlight-card {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.fhc-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.fhc-icon {
+  font-size: 32px;
+}
+
+.fhc-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  color: #fff;
+}
+
+.group-stage-spec-box {
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 14px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gs-spec-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+}
+
+.gs-label {
+  color: var(--muted);
+}
+
+.gs-value {
+  color: #e9d5ff;
+}
+
+.general-format-pills {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pill-meta {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.my-application-status-card {
+  padding: 22px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.masc-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.masc-icon {
+  font-size: 26px;
+}
+
+.masc-header h4 {
+  margin: 0 0 2px;
+  color: #fff;
+}
+
+.masc-body {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.masc-message {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 13.5px;
+}
+
+.apply-cta-card {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.acc-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.acc-icon {
+  font-size: 34px;
+}
+
+.acc-body h3 {
+  margin: 0 0 4px;
+  color: #fff;
+}
+
+.roster-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roster-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rp-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.rp-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: space-between;
+}
+
+/* TAB: Submissions */
+.round-picker-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.rpn-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rpn-lbl {
+  font-weight: 800;
+  color: #fff;
+  font-size: 13.5px;
+}
+
+.round-pills-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.round-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.round-pill-btn.active {
+  background: #f59e0b;
+  color: #0f172a;
+  border-color: #f59e0b;
+}
+
+.count-chip {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+}
+
+.my-round-submission-card {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mrsc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.mrsc-title-block {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.mrsc-icon {
+  font-size: 30px;
+}
+
+.mrsc-title-block h3 {
+  margin: 0 0 2px;
+  color: #fff;
+}
+
+.mrsc-track-details {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.track-main-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.track-title-text {
+  font-size: 1.1rem;
+  color: #fff;
+}
+
+.link-external {
+  color: #60a5fa;
+  font-size: 12px;
+}
+
+.mrsc-actions-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.empty-round-user-cta {
+  padding: 24px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px dashed rgba(245, 158, 11, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.eruc-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.eruc-icon {
+  font-size: 32px;
+}
+
+.eruc-content h4 {
+  margin: 0 0 4px;
+  color: #fff;
+}
+
+.group-stage-config-box {
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.gsc-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #d8b4fe;
+}
+
+.reject-presets-wrap {
+  margin-top: 10px;
+}
+
+.preset-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6px;
+}
+
+.reject-presets-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 900px) {

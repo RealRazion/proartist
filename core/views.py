@@ -3701,12 +3701,37 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Die Bewerbungsphase ist bereits beendet.")
         if tournament.status not in {"APPLICATION_OPEN", "SUBMISSION_OPEN", "BATTLES"}:
             raise PermissionDenied("Bewerbungen sind für dieses Turnier aktuell nicht möglich.")
+
+        # Single application per artist per tournament: update existing if already applied
+        existing = TournamentApplication.objects.filter(tournament=tournament, profile=me).first()
+        if existing:
+            new_msg = serializer.validated_data.get("message", existing.message)
+            existing.message = new_msg
+            if existing.status == "REJECTED":
+                existing.status = "PENDING"
+            existing.save()
+            serializer.instance = existing
+            return
+
         serializer.save(profile=me)
+
+    def perform_update(self, serializer):
+        me = self.request.user.profile
+        instance = self.get_object()
+        if not is_team_profile(me) and instance.profile != me:
+            raise PermissionDenied("Du kannst nur deine eigene Bewerbung bearbeiten.")
+        if not is_team_profile(me) and instance.status == "REJECTED":
+            serializer.save(status="PENDING")
+        else:
+            serializer.save()
 
     @action(detail=True, methods=["POST"], url_path="decision", permission_classes=[permissions.IsAuthenticated, IsTeam])
     def decision(self, request, pk=None):
         application = self.get_object()
         decision = (request.data.get("decision") or "").strip().upper()
+        if decision == "ACCEPTED":
+            decision = "APPROVED"
+        reason = (request.data.get("reason") or "").strip()
         if decision not in {"APPROVED", "REJECTED"}:
             return Response(
                 {"detail": "decision muss APPROVED oder REJECTED sein."},
@@ -3715,7 +3740,14 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
         application.status = decision
         application.decided_by = request.user.profile
         application.decided_at = timezone.now()
-        application.save(update_fields=["status", "decided_by", "decided_at"])
+
+        if decision == "REJECTED" and reason:
+            clean_msg = application.message or ""
+            if "[Jury-Begründung:" in clean_msg:
+                clean_msg = clean_msg.split("[Jury-Begründung:")[0].strip()
+            application.message = f"{clean_msg}\n\n[Jury-Begründung: {reason}]"
+
+        application.save(update_fields=["status", "decided_by", "decided_at", "message"])
         return Response(self.get_serializer(application).data)
 
 
@@ -3736,6 +3768,8 @@ class TournamentSubmissionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         me = self.request.user.profile
         tournament = serializer.validated_data["tournament"]
+        round_number = serializer.validated_data.get("round_number", 1)
+
         if tournament.status not in {"SUBMISSION_OPEN", "BATTLES"}:
             raise PermissionDenied("Einreichungen sind für dieses Turnier aktuell nicht möglich.")
         now = timezone.now()
@@ -3745,12 +3779,41 @@ class TournamentSubmissionViewSet(viewsets.ModelViewSet):
             application = TournamentApplication.objects.filter(tournament=tournament, profile=me).first()
             if not application or application.status != "APPROVED":
                 raise PermissionDenied("Du brauchst eine bestätigte Bewerbung für dieses Turnier.")
+
+        # Single submission per round: update existing if artist already submitted for this round
+        existing = TournamentSubmission.objects.filter(
+            tournament=tournament,
+            profile=me,
+            round_number=round_number,
+        ).first()
+        if existing:
+            existing.title = serializer.validated_data.get("title", existing.title)
+            existing.media_url = serializer.validated_data.get("media_url", existing.media_url)
+            existing.notes = serializer.validated_data.get("notes", existing.notes)
+            existing.status = "PENDING"
+            existing.save()
+            serializer.instance = existing
+            return
+
         serializer.save(profile=me)
+
+    def perform_update(self, serializer):
+        me = self.request.user.profile
+        instance = self.get_object()
+        if not is_team_profile(me) and instance.profile != me:
+            raise PermissionDenied("Du kannst nur deine eigene Einreichung bearbeiten.")
+        if not is_team_profile(me) and instance.status == "REJECTED":
+            serializer.save(status="PENDING")
+        else:
+            serializer.save()
 
     @action(detail=True, methods=["POST"], url_path="decision", permission_classes=[permissions.IsAuthenticated, IsTeam])
     def decision(self, request, pk=None):
         submission = self.get_object()
         decision = (request.data.get("decision") or "").strip().upper()
+        if decision == "ACCEPTED":
+            decision = "APPROVED"
+        reason = (request.data.get("reason") or "").strip()
         if decision not in {"APPROVED", "REJECTED"}:
             return Response(
                 {"detail": "decision muss APPROVED oder REJECTED sein."},
@@ -3758,7 +3821,13 @@ class TournamentSubmissionViewSet(viewsets.ModelViewSet):
             )
 
         submission.status = decision
-        submission.save(update_fields=["status"])
+        if decision == "REJECTED" and reason:
+            clean_notes = submission.notes or ""
+            if "[Jury-Begründung:" in clean_notes:
+                clean_notes = clean_notes.split("[Jury-Begründung:")[0].strip()
+            submission.notes = f"{clean_notes}\n\n[Jury-Begründung: {reason}]"
+
+        submission.save(update_fields=["status", "notes"])
         return Response(self.get_serializer(submission).data)
 
 

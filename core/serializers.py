@@ -1647,6 +1647,7 @@ class TournamentSerializer(serializers.ModelSerializer):
     applications_count = serializers.IntegerField(read_only=True)
     submissions_count = serializers.IntegerField(read_only=True)
     battles_count = serializers.IntegerField(read_only=True)
+    meta_settings = serializers.SerializerMethodField()
 
     class Meta:
         model = Tournament
@@ -1674,10 +1675,52 @@ class TournamentSerializer(serializers.ModelSerializer):
             "applications_count",
             "submissions_count",
             "battles_count",
+            "meta_settings",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+    def get_meta_settings(self, obj):
+        import re
+        meta = {
+            "prize_pool": "1.000 € Cash",
+            "genre": "Trap & 808",
+            "format": "SINGLE_ELIMINATION",
+            "slots": 16,
+            "groups_count": 4,
+            "group_size": 4,
+            "total_rounds": 4,
+            "entry_rules": "",
+        }
+        if not obj.description:
+            return meta
+        desc = obj.description
+        p = re.search(r"\[Preispool:\s*([^\]]+)\]", desc, re.I)
+        if p:
+            meta["prize_pool"] = p.group(1).strip()
+        g = re.search(r"\[Genre:\s*([^\]]+)\]", desc, re.I)
+        if g:
+            meta["genre"] = g.group(1).strip()
+        f = re.search(r"\[Format:\s*([^\]]+)\]", desc, re.I)
+        if f:
+            meta["format"] = f.group(1).strip()
+        s = re.search(r"\[Slots:\s*(\d+)\]", desc, re.I)
+        if s:
+            meta["slots"] = int(s.group(1))
+        gc = re.search(r"\[GroupsCount:\s*(\d+)\]", desc, re.I)
+        if gc:
+            meta["groups_count"] = int(gc.group(1))
+        gs = re.search(r"\[GroupSize:\s*(\d+)\]", desc, re.I)
+        if gs:
+            meta["group_size"] = int(gs.group(1))
+        tr = re.search(r"\[TotalRounds:\s*(\d+)\]", desc, re.I)
+        if tr:
+            meta["total_rounds"] = int(tr.group(1))
+        er = re.search(r"\[EntryRules:\s*([^\]]+)\]", desc, re.I)
+        if er:
+            meta["entry_rules"] = er.group(1).strip()
+        return meta
 
     def validate_min_account_age_hours(self, value):
         if value < 0:
@@ -1761,6 +1804,8 @@ class TournamentApplicationSerializer(serializers.ModelSerializer):
     profile = ProfileMiniSerializer(read_only=True)
     decided_by = ProfileMiniSerializer(read_only=True)
     tournament_title = serializers.CharField(source="tournament.title", read_only=True)
+    rejection_reason = serializers.SerializerMethodField()
+    artist_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TournamentApplication
@@ -1769,18 +1814,33 @@ class TournamentApplicationSerializer(serializers.ModelSerializer):
             "tournament",
             "tournament_title",
             "profile",
+            "artist_name",
             "message",
             "status",
+            "rejection_reason",
             "decided_by",
             "decided_at",
             "created_at",
         ]
         read_only_fields = ["id", "profile", "status", "decided_by", "decided_at", "created_at", "tournament_title"]
 
+    def get_rejection_reason(self, obj):
+        if obj.message and "[Jury-Begründung:" in obj.message:
+            parts = obj.message.split("[Jury-Begründung:")
+            return parts[-1].rstrip("]").strip()
+        return ""
+
+    def get_artist_name(self, obj):
+        if obj.profile:
+            return obj.profile.name or (obj.profile.user.username if obj.profile.user else f"Artist #{obj.profile.id}")
+        return "Artist"
+
 
 class TournamentSubmissionSerializer(serializers.ModelSerializer):
     profile = ProfileMiniSerializer(read_only=True)
     tournament_title = serializers.CharField(source="tournament.title", read_only=True)
+    rejection_reason = serializers.SerializerMethodField()
+    artist_name = serializers.SerializerMethodField()
 
     class Meta:
         model = TournamentSubmission
@@ -1789,14 +1849,27 @@ class TournamentSubmissionSerializer(serializers.ModelSerializer):
             "tournament",
             "tournament_title",
             "profile",
+            "artist_name",
             "round_number",
             "title",
             "media_url",
             "notes",
             "status",
+            "rejection_reason",
             "created_at",
         ]
         read_only_fields = ["id", "profile", "status", "created_at", "tournament_title"]
+
+    def get_rejection_reason(self, obj):
+        if obj.notes and "[Jury-Begründung:" in obj.notes:
+            parts = obj.notes.split("[Jury-Begründung:")
+            return parts[-1].rstrip("]").strip()
+        return ""
+
+    def get_artist_name(self, obj):
+        if obj.profile:
+            return obj.profile.name or (obj.profile.user.username if obj.profile.user else f"Artist #{obj.profile.id}")
+        return "Artist"
 
 
 class TournamentBattleSerializer(serializers.ModelSerializer):

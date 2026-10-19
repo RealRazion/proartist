@@ -1,6 +1,6 @@
 <template>
-  <div class="project-detail">
-    <header class="card hero">
+  <div class="project-detail project-detail-window">
+    <header class="pd-hero">
       <button class="btn ghost tiny" type="button" @click="goBack">Zurück zu Projekten</button>
       <div class="hero-main">
         <p class="eyebrow">Projekt</p>
@@ -1215,24 +1215,41 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.project-detail {
+.project-detail-window {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-.card {
-  border-radius: 22px;
-  border: 1px solid var(--border);
+  max-width: 1260px;
+  margin: 0 auto;
   background: var(--card);
-  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.08);
-  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
 }
-.hero {
+
+:global(.dark) .project-detail-window {
+  background: linear-gradient(180deg, rgba(16, 23, 42, 0.94) 0%, rgba(11, 16, 29, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+}
+
+.pd-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+:global(.dark) .pd-hero {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.content-grid {
+  padding: 24px 28px;
 }
 .hero-main {
   display: flex;

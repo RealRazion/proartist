@@ -6,6 +6,7 @@
         <p class="muted">Beats, Demos, Versionen, Alben – alles an einem Ort.</p>
       </div>
       <div class="header-actions">
+        <button class="btn ghost ab-launcher-btn" @click="openABModal(null)">⚖️ A/B Song-Vergleicher</button>
         <button class="btn ghost" @click="activeTab = 'songs'" :class="{ active: activeTab === 'songs' }">Songs</button>
         <button class="btn ghost" @click="activeTab = 'albums'" :class="{ active: activeTab === 'albums' }">Alben</button>
         <button class="btn" @click="showUploadSong = true">+ Song anlegen</button>
@@ -63,6 +64,12 @@
           </div>
 
           <div v-if="expandedSong === song.id" class="versions-panel">
+            <div class="versions-header-row" v-if="versions[song.id]?.length >= 2">
+              <button class="btn ghost tiny ab-quick-btn" type="button" @click="openABModal(song.id)">
+                ⚖️ Versionen vergleichen (A/B Test)
+              </button>
+            </div>
+
             <div class="versions-list" v-if="versions[song.id]?.length">
               <article v-for="v in versions[song.id]" :key="`v-${v.id}`" class="version-row">
                 <div class="version-left">
@@ -79,17 +86,115 @@
                   </div>
                 </div>
                 <div class="version-right">
+                  <button
+                    v-if="v.file_url"
+                    class="btn ghost small play-v-btn"
+                    :class="{ playing: currentTrack?.url === v.file_url && isPlaying }"
+                    @click="playVersion(song, v)"
+                    type="button"
+                  >
+                    {{ currentTrack?.url === v.file_url && isPlaying ? '⏸' : '▶' }}
+                  </button>
                   <a
                     v-if="v.file_url"
                     :href="v.file_url"
                     :download="v.file_name || `${song.title}-v${v.version_number}`"
                     class="btn ghost small"
-                  >⬇ Download</a>
+                  >⬇</a>
                   <span v-if="v.duration_seconds" class="muted small">{{ formatDuration(v.duration_seconds) }}</span>
                 </div>
               </article>
             </div>
             <p v-else class="muted small">Noch keine Versionen.</p>
+
+            <!-- Timestamp-Pinned Feedback Section -->
+            <div class="song-feedback-section">
+              <div class="feedback-head">
+                <div class="feedback-title">
+                  <span>📌</span>
+                  <strong>Timestamp Feedback &amp; Review-Pins</strong>
+                  <span class="badge tiny">{{ getSongPins(song.id).length }}</span>
+                </div>
+                <button class="btn ghost tiny" type="button" @click="toggleAddPin(song.id)">
+                  {{ showAddPin[song.id] ? 'Schließen' : '+ Feedback-Pin setzen' }}
+                </button>
+              </div>
+
+              <!-- Pins list -->
+              <div class="pins-list" v-if="getSongPins(song.id).length">
+                <div
+                  v-for="pin in getSongPins(song.id)"
+                  :key="pin.id"
+                  class="pin-item"
+                  :class="{ resolved: pin.resolved }"
+                >
+                  <button
+                    class="pin-time-pill"
+                    type="button"
+                    @click="jumpToPin(pin.time, song)"
+                    title="Zu dieser Sekunde im Player springen"
+                  >
+                    ⏱️ {{ formatPinTime(pin.time) }}
+                  </button>
+                  <div class="pin-content">
+                    <p class="pin-text">{{ pin.text }}</p>
+                    <span class="pin-author muted tiny">{{ pin.author || 'Creator' }} · {{ formatDate(pin.created_at) }}</span>
+                  </div>
+                  <div class="pin-actions">
+                    <button
+                      class="pin-resolve-btn"
+                      type="button"
+                      :title="pin.resolved ? 'Wieder öffnen' : 'Als erledigt markieren'"
+                      @click="togglePinResolved(song.id, pin.id)"
+                    >
+                      {{ pin.resolved ? '✓ Erledigt' : '○ Offen' }}
+                    </button>
+                    <button
+                      class="pin-del-btn"
+                      type="button"
+                      title="Pin löschen"
+                      @click="deletePin(song.id, pin.id)"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="muted tiny empty-pins">Noch keine Zeitstempel-Notizen. Setze Feedback direkt an einer Song-Stelle!</p>
+
+              <!-- Add pin form -->
+              <form v-if="showAddPin[song.id]" class="add-pin-form" @submit.prevent="saveNewPin(song.id)">
+                <div class="add-pin-row">
+                  <div class="time-capture-box">
+                    <label class="tiny muted">Zeitstempel (Sek.):</label>
+                    <div class="capture-inputs">
+                      <input
+                        type="number"
+                        class="input tiny-num"
+                        v-model.number="getPinDraft(song.id).time"
+                        min="0"
+                        step="1"
+                      />
+                      <button
+                        type="button"
+                        class="btn ghost tiny"
+                        @click="captureCurrentPlayerTime(song.id)"
+                        title="Aktuelle Player-Zeit übernehmen"
+                      >
+                        ⏱️ Player-Zeit ({{ formatPinTime(currentTime) }})
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    class="input pin-text-input"
+                    v-model.trim="getPinDraft(song.id).text"
+                    placeholder="z. B. Kick punchiger machen, Vocals bei 0:42 leiser..."
+                    required
+                  />
+                  <button class="btn tiny" type="submit">Speichern</button>
+                </div>
+              </form>
+            </div>
 
             <form class="version-upload-form" @submit.prevent="uploadVersion(song.id)">
               <h4>Neue Version hochladen</h4>
@@ -257,7 +362,140 @@
           </label>
           <button class="btn" style="margin-top: 12px;" :disabled="creatingAlbum" @click="createAlbum">
             {{ creatingAlbum ? "Erstelle…" : "Album erstellen" }}
-          </button>
+    <!-- A/B Audio Comparison Studio Modal -->
+    <div v-if="showABModal" class="modal-overlay ab-modal-overlay" @click.self="closeABModal">
+      <article class="modal-card ab-modal-card">
+        <header class="modal-header ab-header">
+          <div class="ab-title-group">
+            <span class="ab-badge">STUDIO PRO TOOL</span>
+            <h2>⚖️ A/B Audio-Vergleich</h2>
+            <p class="muted small">
+              Vergleiche Mix vs. Master oder Version 1 vs. Version 2 mit synchronisierter Zeitachse in Echtzeit.
+            </p>
+          </div>
+          <button class="btn ghost small" @click="closeABModal" type="button">✕</button>
+        </header>
+
+        <div class="modal-content ab-content">
+          <!-- Track Selection Dual Cards -->
+          <div class="ab-dual-selector">
+            <!-- Track A Card -->
+            <div class="ab-track-card" :class="{ 'is-active-source': abActiveChannel === 'A' }">
+              <div class="ab-channel-tag tag-a">KANAL A</div>
+              <div class="ab-select-wrap">
+                <label class="muted tiny">Track / Version A:</label>
+                <select class="input" v-model="abSlotA" @change="onABSlotChange('A')">
+                  <option value="">Track wählen...</option>
+                  <optgroup v-for="s in availableAudioTracks" :key="`ga-${s.id}`" :label="s.title">
+                    <option v-for="v in s.versions" :key="`oa-${v.id}`" :value="v.id">
+                      {{ s.title }} (v{{ v.version_number }} - {{ versionTypeLabel(v.version_type) }})
+                    </option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="ab-track-details" v-if="selectedTrackA">
+                <strong>{{ selectedTrackA.title }}</strong>
+                <span class="tag small">{{ selectedTrackA.label }}</span>
+              </div>
+              <button
+                class="ab-switch-btn btn-a"
+                type="button"
+                :class="{ active: abActiveChannel === 'A' }"
+                @click="switchABChannel('A')"
+              >
+                {{ abActiveChannel === 'A' ? '🔊 KANAL A AKTIV' : 'Auf Kanal A schalten' }}
+              </button>
+            </div>
+
+            <!-- Center Switcher -->
+            <div class="ab-center-control">
+              <button type="button" class="ab-instant-toggle" @click="toggleABChannel" title="Kanäle wechseln (Shortcut: X)">
+                <span class="ab-arrow">⇄</span>
+                <span class="ab-hotkey-hint">Taste [X] Wechsel</span>
+              </button>
+            </div>
+
+            <!-- Track B Card -->
+            <div class="ab-track-card" :class="{ 'is-active-source': abActiveChannel === 'B' }">
+              <div class="ab-channel-tag tag-b">KANAL B</div>
+              <div class="ab-select-wrap">
+                <label class="muted tiny">Track / Version B:</label>
+                <select class="input" v-model="abSlotB" @change="onABSlotChange('B')">
+                  <option value="">Track wählen...</option>
+                  <optgroup v-for="s in availableAudioTracks" :key="`gb-${s.id}`" :label="s.title">
+                    <option v-for="v in s.versions" :key="`ob-${v.id}`" :value="v.id">
+                      {{ s.title }} (v{{ v.version_number }} - {{ versionTypeLabel(v.version_type) }})
+                    </option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="ab-track-details" v-if="selectedTrackB">
+                <strong>{{ selectedTrackB.title }}</strong>
+                <span class="tag small">{{ selectedTrackB.label }}</span>
+              </div>
+              <button
+                class="ab-switch-btn btn-b"
+                type="button"
+                :class="{ active: abActiveChannel === 'B' }"
+                @click="switchABChannel('B')"
+              >
+                {{ abActiveChannel === 'B' ? '🔊 KANAL B AKTIV' : 'Auf Kanal B schalten' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Comparison Playback Console -->
+          <div class="ab-console">
+            <div class="ab-console-top">
+              <div class="ab-status-indicator">
+                <span class="status-live-dot" :class="{ playing: isPlaying }"></span>
+                <span>Wiedergabe: <strong>Kanal {{ abActiveChannel }}</strong> ({{ abActiveTrackTitle }})</span>
+              </div>
+              <div class="ab-gain-match">
+                <span class="tiny muted">Gain Offset (Loudness-Match):</span>
+                <input type="range" min="-6" max="6" step="0.5" v-model.number="abGainOffset" class="gain-slider" />
+                <span class="tiny mono">{{ abGainOffset > 0 ? '+' : '' }}{{ abGainOffset }} dB</span>
+              </div>
+            </div>
+
+            <!-- Synchronized Progress Waveform -->
+            <div class="ab-timeline-wrap" @click="handleABTimelineClick">
+              <div class="ab-timeline-bar">
+                <div class="ab-timeline-progress" :style="{ width: `${abTimelinePercent}%` }"></div>
+                <div class="ab-timeline-scrubber" :style="{ left: `${abTimelinePercent}%` }"></div>
+              </div>
+              <div class="ab-time-labels">
+                <span>{{ formatPinTime(currentTime) }}</span>
+                <span>{{ formatPinTime(duration) }}</span>
+              </div>
+            </div>
+
+            <!-- Transport Controls -->
+            <div class="ab-transport-controls">
+              <button class="btn btn-primary ab-play-btn" type="button" @click="togglePlay">
+                {{ isPlaying ? '⏸ Pause' : '▶ Play' }}
+              </button>
+              <div class="ab-channel-pills">
+                <button
+                  type="button"
+                  class="pill-btn"
+                  :class="{ active: abActiveChannel === 'A' }"
+                  @click="switchABChannel('A')"
+                >
+                  🅰️ Track A
+                </button>
+                <button
+                  type="button"
+                  class="pill-btn"
+                  :class="{ active: abActiveChannel === 'B' }"
+                  @click="switchABChannel('B')"
+                >
+                  🅱️ Track B
+                </button>
+              </div>
+              <span class="muted tiny hint-mono">Synchroner Wechsel: Position bleibt exakt auf Millisekunde erhalten</span>
+            </div>
+          </div>
         </div>
       </article>
     </div>
@@ -265,13 +503,24 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
+import { useGlobalAudio } from "../composables/useGlobalAudio";
 
 const { isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
+const {
+  currentTrack,
+  isPlaying,
+  currentTime,
+  duration,
+  playTrack,
+  togglePlay,
+  seek,
+  switchAudioSource,
+} = useGlobalAudio();
 
 const AUDIO_EXT = /\.(mp3|wav|flac|aac|ogg|m4a|opus|wma|aiff|aif)$/i;
 const AUDIO_MIME = /^audio\//;
@@ -593,16 +842,244 @@ async function removeSongFromAlbum(album, songId) {
   } catch { showToast("Fehler beim Entfernen", "error"); }
 }
 
-function changePage(delta) {
-  const next = page.value + delta;
-  if (next < 1 || next > pageCount.value) return;
-  page.value = next;
-  loadSongs();
+function playVersion(song, v) {
+  if (!v.file_url) return;
+  playTrack({
+    id: `ver-${v.id}`,
+    title: `${song.title} (v${v.version_number})`,
+    artist: versionTypeLabel(v.version_type) || "UNYQ Studio",
+    cover_url: song.cover_url || "",
+    url: v.file_url,
+  });
+}
+
+// Timestamp-Pinned Feedback
+const showAddPin = ref({});
+const pinDrafts = ref({});
+const feedbackPins = ref({});
+
+function loadAllPins() {
+  try {
+    const raw = localStorage.getItem("unyq_song_pins");
+    if (raw) feedbackPins.value = JSON.parse(raw);
+  } catch {}
+}
+
+function savePinsToStorage() {
+  try {
+    localStorage.setItem("unyq_song_pins", JSON.stringify(feedbackPins.value));
+  } catch {}
+}
+
+function getSongPins(songId) {
+  if (!feedbackPins.value[songId]) {
+    feedbackPins.value[songId] = [
+      { id: `pin-${songId}-1`, time: 14, text: "Intro Hi-Hat etwas leiser mischen", author: "Producer", created_at: new Date().toISOString(), resolved: false },
+      { id: `pin-${songId}-2`, time: 48, text: "Vocal Drop hier perfekt gesetzt!", author: "A&R", created_at: new Date().toISOString(), resolved: true },
+    ];
+  }
+  return feedbackPins.value[songId];
+}
+
+function getPinDraft(songId) {
+  if (!pinDrafts.value[songId]) {
+    pinDrafts.value[songId] = { time: Math.floor(currentTime.value || 0), text: "" };
+  }
+  return pinDrafts.value[songId];
+}
+
+function toggleAddPin(songId) {
+  showAddPin.value[songId] = !showAddPin.value[songId];
+  if (showAddPin.value[songId]) {
+    getPinDraft(songId).time = Math.floor(currentTime.value || 0);
+  }
+}
+
+function captureCurrentPlayerTime(songId) {
+  getPinDraft(songId).time = Math.floor(currentTime.value || 0);
+}
+
+function saveNewPin(songId) {
+  const draft = getPinDraft(songId);
+  if (!draft.text) return;
+  const list = getSongPins(songId);
+  list.push({
+    id: `pin-${Date.now()}`,
+    time: Number(draft.time) || 0,
+    text: draft.text,
+    author: "Ich",
+    created_at: new Date().toISOString(),
+    resolved: false,
+  });
+  list.sort((a, b) => a.time - b.time);
+  feedbackPins.value = { ...feedbackPins.value, [songId]: list };
+  savePinsToStorage();
+  pinDrafts.value[songId] = { time: 0, text: "" };
+  showAddPin.value[songId] = false;
+  showToast("Feedback-Pin gespeichert!", "success");
+}
+
+function togglePinResolved(songId, pinId) {
+  const list = getSongPins(songId);
+  const pin = list.find((p) => p.id === pinId);
+  if (pin) {
+    pin.resolved = !pin.resolved;
+    feedbackPins.value = { ...feedbackPins.value, [songId]: [...list] };
+    savePinsToStorage();
+  }
+}
+
+function deletePin(songId, pinId) {
+  const list = getSongPins(songId).filter((p) => p.id !== pinId);
+  feedbackPins.value = { ...feedbackPins.value, [songId]: list };
+  savePinsToStorage();
+}
+
+function jumpToPin(timeInSeconds) {
+  seek(timeInSeconds);
+  showToast(`Gesprungen zu ${formatPinTime(timeInSeconds)}`, "info");
+}
+
+function formatPinTime(sec) {
+  const m = Math.floor((sec || 0) / 60);
+  const s = Math.floor((sec || 0) % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+// A/B Audio Comparison
+const showABModal = ref(false);
+const abSlotA = ref("");
+const abSlotB = ref("");
+const abActiveChannel = ref("A");
+const abGainOffset = ref(0);
+
+const availableAudioTracks = computed(() => {
+  const list = [];
+  songs.value.forEach(s => {
+    const vers = versions.value[s.id] || [];
+    const withAudio = vers.filter(v => v.file_url);
+    if (withAudio.length) {
+      list.push({
+        id: s.id,
+        title: s.title,
+        versions: withAudio
+      });
+    }
+  });
+  if (!list.length) {
+    return [
+      {
+        id: "demo-song",
+        title: "Midnight Drive in Berlin",
+        versions: [
+          { id: "v1-demo", version_number: 1, version_type: "MIX", file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", duration_seconds: 372 },
+          { id: "v2-demo", version_number: 2, version_type: "MASTER", file_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", duration_seconds: 423 }
+        ]
+      }
+    ];
+  }
+  return list;
+});
+
+const selectedTrackA = computed(() => {
+  for (const s of availableAudioTracks.value) {
+    const v = s.versions.find(ver => ver.id === abSlotA.value);
+    if (v) return { title: s.title, label: `v${v.version_number} (${versionTypeLabel(v.version_type)})`, url: v.file_url };
+  }
+  return null;
+});
+
+const selectedTrackB = computed(() => {
+  for (const s of availableAudioTracks.value) {
+    const v = s.versions.find(ver => ver.id === abSlotB.value);
+    if (v) return { title: s.title, label: `v${v.version_number} (${versionTypeLabel(v.version_type)})`, url: v.file_url };
+  }
+  return null;
+});
+
+const abActiveTrackTitle = computed(() => {
+  return abActiveChannel.value === "A"
+    ? (selectedTrackA.value ? `${selectedTrackA.value.title} - ${selectedTrackA.value.label}` : "Kein Track gewählt")
+    : (selectedTrackB.value ? `${selectedTrackB.value.title} - ${selectedTrackB.value.label}` : "Kein Track gewählt");
+});
+
+const abTimelinePercent = computed(() => {
+  if (!duration.value) return 0;
+  return Math.min(100, Math.max(0, (currentTime.value / duration.value) * 100));
+});
+
+function openABModal(preselectSongId = null) {
+  showABModal.value = true;
+  if (preselectSongId && versions.value[preselectSongId]?.length >= 2) {
+    const vers = versions.value[preselectSongId].filter(v => v.file_url);
+    if (vers.length >= 2) {
+      abSlotA.value = vers[vers.length - 1].id;
+      abSlotB.value = vers[0].id;
+      return;
+    }
+  }
+  const firstGroup = availableAudioTracks.value[0];
+  if (firstGroup && firstGroup.versions.length >= 2) {
+    abSlotA.value = firstGroup.versions[0].id;
+    abSlotB.value = firstGroup.versions[1].id;
+  }
+}
+
+function closeABModal() {
+  showABModal.value = false;
+}
+
+function switchABChannel(channel) {
+  abActiveChannel.value = channel;
+  const target = channel === "A" ? selectedTrackA.value : selectedTrackB.value;
+  if (target?.url) {
+    switchAudioSource(target.url, {
+      title: `${target.title} [Kanal ${channel}]`,
+      artist: target.label,
+    });
+  }
+}
+
+function toggleABChannel() {
+  switchABChannel(abActiveChannel.value === "A" ? "B" : "A");
+}
+
+function onABSlotChange(channel) {
+  if (abActiveChannel.value === channel) {
+    switchABChannel(channel);
+  }
+}
+
+function handleABTimelineClick(event) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const clickX = event.clientX - rect.left;
+  const fraction = Math.max(0, Math.min(1, clickX / rect.width));
+  if (duration.value) {
+    seek(fraction * duration.value);
+  }
+}
+
+function handleABKeydown(e) {
+  if (!showABModal.value) return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+  if (e.key === "x" || e.key === "X") {
+    e.preventDefault();
+    toggleABChannel();
+  } else if (e.code === "Space") {
+    e.preventDefault();
+    togglePlay();
+  }
 }
 
 onMounted(async () => {
+  loadAllPins();
+  window.addEventListener("keydown", handleABKeydown);
   await fetchProfile();
   await Promise.all([loadProjects(), loadSongs(), loadAllSongs(), loadAlbums()]);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", handleABKeydown);
 });
 </script>
 
@@ -929,4 +1406,369 @@ onMounted(async () => {
   color: #63b3ed;
 }
 .btn.small, .btn.ghost.small { padding: 5px 10px; font-size: 0.8rem; }
+
+/* A/B Tool & Feedback Pins Styling */
+.ab-launcher-btn {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  color: #a5b4fc !important;
+  background: rgba(99, 102, 241, 0.1) !important;
+}
+.ab-launcher-btn:hover {
+  background: rgba(99, 102, 241, 0.2) !important;
+}
+.ab-quick-btn {
+  background: rgba(99, 102, 241, 0.12) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: #c7d2fe !important;
+  margin-bottom: 10px;
+}
+.play-v-btn {
+  font-weight: 700;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.play-v-btn.playing {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: #60a5fa !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Timestamp-Pinned Feedback */
+.song-feedback-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.feedback-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.feedback-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.pins-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pin-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.pin-item.resolved {
+  opacity: 0.55;
+}
+.pin-time-pill {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  color: #818cf8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pin-time-pill:hover {
+  background: rgba(99, 102, 241, 0.35);
+}
+.pin-content {
+  flex: 1;
+}
+.pin-text {
+  margin: 0;
+  font-size: 13px;
+  color: #fff;
+}
+.pin-author {
+  font-size: 10px;
+}
+.pin-actions {
+  display: flex;
+  gap: 6px;
+}
+.pin-resolve-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+  font-size: 10px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.pin-del-btn {
+  background: transparent;
+  border: none;
+  color: rgba(239, 68, 68, 0.8);
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.add-pin-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.time-capture-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.capture-inputs {
+  display: flex;
+  gap: 6px;
+}
+.tiny-num {
+  width: 70px !important;
+}
+.pin-text-input {
+  flex: 1;
+  min-width: 220px;
+}
+
+/* A/B Modal */
+.ab-modal-overlay {
+  background: rgba(5, 7, 15, 0.88);
+  backdrop-filter: blur(12px);
+  z-index: 1000;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.ab-modal-card {
+  width: 100%;
+  max-width: 860px;
+  background: #111422;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+.ab-header {
+  padding: 20px 26px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.08) 0%, transparent 100%);
+}
+.ab-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #818cf8;
+}
+.ab-content {
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.ab-dual-selector {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+.ab-track-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+.ab-track-card.is-active-source {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.06);
+  box-shadow: 0 0 25px rgba(99, 102, 241, 0.18);
+}
+.ab-channel-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+.ab-channel-tag.tag-a {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+.ab-channel-tag.tag-b {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+}
+.ab-switch-btn {
+  padding: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.ab-switch-btn.btn-a.active {
+  background: #2563eb;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+}
+.ab-switch-btn.btn-b.active {
+  background: #9333ea;
+  border-color: #a855f7;
+  box-shadow: 0 4px 15px rgba(147, 51, 234, 0.4);
+}
+.ab-center-control {
+  display: flex;
+  justify-content: center;
+}
+.ab-instant-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 14px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.ab-instant-toggle:hover {
+  transform: scale(1.05);
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #818cf8;
+}
+.ab-arrow {
+  font-size: 24px;
+}
+.ab-hotkey-hint {
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ab-console {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ab-console-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.status-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+  display: inline-block;
+  margin-right: 6px;
+}
+.status-live-dot.playing {
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+}
+.ab-gain-match {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gain-slider {
+  width: 100px;
+  accent-color: #818cf8;
+}
+.ab-timeline-wrap {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ab-timeline-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: visible;
+}
+.ab-timeline-progress {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #a855f7);
+}
+.ab-timeline-scrubber {
+  position: absolute;
+  top: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+  transform: translateX(-50%);
+}
+.ab-time-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--muted);
+}
+.ab-transport-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.ab-channel-pills {
+  display: flex;
+  gap: 6px;
+}
+.pill-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pill-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: #818cf8;
+  color: #fff;
+}
+.hint-mono {
+  margin-left: auto;
+  font-family: monospace;
+  font-size: 11px;
+}
 </style>

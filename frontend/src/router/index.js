@@ -45,7 +45,6 @@ const ContentScheduleLanding = () => import("../views/ContentScheduleLanding.vue
 const ContentScheduleTool = () => import("../views/ContentScheduleTool.vue");
 const ManagePlatforms = () => import("../views/ManagePlatforms.vue");
 const SearchView = () => import("../views/SearchView.vue");
-const Testing = () => import("../views/Testing.vue");
 const EarnContainer = () => import("../views/EarnContainer.vue");
 const DesignsContainer = () => import("../views/DesignsContainer.vue");
 const FinanceContainer = () => import("../views/FinanceContainer.vue");
@@ -79,7 +78,6 @@ const routes = [
         meta: { requiresAuth: true },
       },
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
-      { path: "tasks/finished", redirect: { name: "tasks" } },
       { path: "reviews", name: "reviews", component: ReviewQueue, alias: "/reviews", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
       { path: "activity", name: "activity", component: ActivityFeed, alias: "/activity", meta: { requiresAuth: true } },
@@ -99,7 +97,6 @@ const routes = [
       { path: "chats", name: "chats", component: Chats, alias: "/chats", meta: { requiresAuth: true } },
       { path: "search", name: "search", component: SearchView, alias: "/search", meta: { requiresAuth: true } },
       { path: "me", name: "me", component: MyProfile, alias: "/me", meta: { requiresAuth: true } },
-      { path: "testing", name: "testing", component: Testing, alias: "/testing", meta: { requiresAuth: true } },
     ],
   },
   {

@@ -4,7 +4,7 @@
     <div class="studio-ambient-glow"></div>
 
     <!-- Hero Header -->
-    <header class="card studio-hero">
+    <header class="studio-hero">
       <div class="hero-main-row">
         <div class="hero-copy">
           <!-- Mode Switcher -->
@@ -30,14 +30,9 @@
                 <span>Team Operations</span>
               </button>
             </div>
-            <span class="mode-hint" v-if="isTeam">
-              {{ viewMode === 'creator' ? 'Kreativ-Fokus & Release-Pipeline aktiv' : 'Management- & Freigabe-Center aktiv' }}
-            </span>
           </div>
 
           <div class="hero-title-block">
-            <span class="studio-tag" v-if="viewMode === 'creator'">🎙️ ARTIST WORKSPACE // STUDIO '26</span>
-            <span class="studio-tag admin-tag" v-else>⚡ TEAM OPERATIONS // COMMAND CENTER</span>
             <h1 class="hero-headline">{{ greeting }}{{ displayName ? `, ${displayName}` : '' }}</h1>
             <p class="hero-subline" :class="{ 'has-issues': viewMode === 'admin' && heroHasIssues }">
               {{ currentHeroSubline }}
@@ -76,7 +71,7 @@
     <!-- ========================================== -->
     <template v-if="viewMode === 'creator'">
       <!-- Section 1: Studio Pipeline & Release Radar -->
-      <section class="card studio-section">
+      <section class="studio-section">
         <div class="section-header">
           <div class="header-left">
             <span class="section-icon">🎛️</span>
@@ -120,7 +115,7 @@
               </div>
             </div>
 
-            <!-- 5-Stage Release Progress Pipeline -->
+            <!-- 5-Stage Protected Release Progress Pipeline -->
             <div class="stage-pipeline-bar">
               <div
                 v-for="(stage, idx) in releaseStages"
@@ -128,14 +123,18 @@
                 class="stage-step"
                 :class="{
                   active: getSongStageIndex(song) === idx,
-                  completed: getSongStageIndex(song) > idx
+                  completed: getSongStageIndex(song) > idx,
+                  clickable: true
                 }"
+                @click.stop="confirmChangeStage(song, idx)"
+                :title="`Phase ${idx + 1}: ${stage.label} (Klicken zum Ändern)`"
               >
                 <div class="step-dot">
                   <span v-if="getSongStageIndex(song) > idx">✓</span>
                   <span v-else>{{ idx + 1 }}</span>
                 </div>
                 <span class="step-label">{{ stage.label }}</span>
+                <span class="step-lock-tag" v-if="getSongStageIndex(song) === idx" title="Geschützte Phase">🔒</span>
               </div>
             </div>
 
@@ -167,7 +166,7 @@
       <!-- Two-Column Layout: Daily Studio Focus + Live Arena Radar -->
       <div class="dashboard-duo-grid">
         <!-- Module 2: Daily Studio Focus & Tasks -->
-        <section class="card studio-section">
+        <section class="duo-panel">
           <div class="section-header">
             <div class="header-left">
               <span class="section-icon">✅</span>
@@ -236,7 +235,7 @@
         </section>
 
         <!-- Module 3: Live Arena & Battle Radar -->
-        <section class="card studio-section arena-spotlight-card">
+        <section class="duo-panel arena-spotlight-card">
           <div class="section-header">
             <div class="header-left">
               <span class="section-icon">🏆</span>
@@ -281,7 +280,7 @@
       <!-- Two-Column Layout: GrowPro Milestones + Feedback & Collab Hub -->
       <div class="dashboard-duo-grid">
         <!-- Module 4: GrowPro Milestones & XP Streak -->
-        <section class="card studio-section">
+        <section class="duo-panel">
           <div class="section-header">
             <div class="header-left">
               <span class="section-icon">🌱</span>
@@ -333,7 +332,7 @@
         </section>
 
         <!-- Module 5: Creator Resources & Collab Hub -->
-        <section class="card studio-section">
+        <section class="duo-panel">
           <div class="section-header">
             <div class="header-left">
               <span class="section-icon">🧰</span>
@@ -410,7 +409,7 @@
       </section>
 
       <!-- Alles OK Banner -->
-      <section class="card ok-banner" v-if="!loading && totalAttentionCount === 0">
+      <section class="team-banner ok-banner" v-if="!loading && totalAttentionCount === 0">
         <span class="ok-check">✓</span>
         <div>
           <strong>Alles im grünen Bereich</strong>
@@ -420,7 +419,7 @@
       </section>
 
       <!-- Handlungsbedarf -->
-      <section class="card section" v-if="totalAttentionCount">
+      <section class="team-section" v-if="totalAttentionCount">
         <div class="section-head">
           <h2>Braucht deine Aufmerksamkeit <span class="count-badge">{{ totalAttentionCount }}</span></h2>
           <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Task Board →</button>
@@ -449,7 +448,7 @@
       </section>
 
       <!-- Diese Woche fällig -->
-      <section class="card section" v-if="thisWeekItems.length">
+      <section class="team-section" v-if="thisWeekItems.length">
         <div class="section-head">
           <h2>Diese Woche fällig</h2>
           <button class="btn ghost tiny" type="button" @click="goTo('tasks')">Alle Tasks →</button>
@@ -469,7 +468,7 @@
       </section>
 
       <!-- Team Invite Box -->
-      <section class="card section team-invite-card">
+      <section class="team-section team-invite-card">
         <div class="section-head">
           <h2>Artist &amp; Team Onboarding</h2>
           <button class="btn" @click="openUserModal">+ Benutzer einladen</button>
@@ -591,6 +590,36 @@
           <input class="input" readonly :value="inviteLink" />
           <button class="btn ghost tiny" type="button" @click="copyInviteLink">Kopieren</button>
         </div>
+    <!-- Modal 4: Protected Stage Change Confirmation Modal -->
+    <div v-if="stageConfirmData" class="modal-backdrop" @click.self="stageConfirmData = null">
+      <div class="modal card" style="max-width: 440px;">
+        <div class="modal-header">
+          <h3>🔒 Release-Phase ändern</h3>
+          <button class="btn ghost tiny" @click="stageConfirmData = null">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 16px 0;">
+          <p style="margin-bottom: 12px;">
+            Möchtest du den Track <strong>„{{ stageConfirmData.song.title }}“</strong> wirklich in eine neue Phase verschieben?
+          </p>
+          <div class="stage-transition-preview" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <small class="muted" style="display:block;">Aktuelle Phase:</small>
+              <strong>{{ releaseStages[getSongStageIndex(stageConfirmData.song)]?.label }}</strong>
+            </div>
+            <span style="font-size: 1.2rem; color: #818cf8;">➔</span>
+            <div>
+              <small class="muted" style="display:block;">Neue Ziel-Phase:</small>
+              <strong style="color: #4ade80;">{{ releaseStages[stageConfirmData.targetIdx]?.label }}</strong>
+            </div>
+          </div>
+          <p class="muted tiny" style="margin: 0; line-height: 1.4;">
+            ℹ️ Phasenwechsel sind geschützt, damit kein Release-Schritt (Mixdown, Master, Cover, Promoplan) versehentlich übersprungen wird.
+          </p>
+        </div>
+        <div class="modal-actions" style="margin-top: 14px;">
+          <button class="btn ghost" type="button" @click="stageConfirmData = null">Abbrechen</button>
+          <button class="btn" type="button" @click="applyConfirmedStage">Bestätigen &amp; Phase setzen</button>
+        </div>
       </div>
     </div>
 
@@ -603,10 +632,12 @@ import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
+import { useGlobalAudio } from "../composables/useGlobalAudio";
 
 const router = useRouter();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
+const { playTrack, currentTrack, isPlaying } = useGlobalAudio();
 
 const loading = ref(false);
 const viewMode = ref(localStorage.getItem("proartist:view_mode") || (isTeam.value ? "admin" : "creator"));
@@ -646,22 +677,57 @@ const userSaving = ref(false);
 const userForm = ref({ email: "", name: "" });
 const inviteLink = ref("");
 
-// Audio Preview
-const currentPlayingSongId = ref(null);
-let audioPreview = null;
+// Audio Preview via Global Player
+const currentPlayingSongId = computed(() => isPlaying.value ? currentTrack.value?.id : null);
 
 const taskPriorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const priorityMap = { LOW: "Niedrig", MEDIUM: "Mittel", HIGH: "Hoch", CRITICAL: "Kritisch" };
 const requestTypes = { COLLAB: "Collab-Anfrage", BOOK: "Booking-Anfrage", OTHER: "Anfrage" };
 
-// 5 Release Stages
+// 5 Protected Release Stages (Real-world workflow: Mixdown -> Master -> Cover -> Promoplan -> Release)
 const releaseStages = [
-  { key: "idea", label: "Idee & Beat" },
-  { key: "recording", label: "Recording" },
-  { key: "mixdown", label: "Mixdown" },
-  { key: "mastering", label: "Mastering" },
+  { key: "mixdown", label: "Mixdown & Stems" },
+  { key: "mastering", label: "Mastering Final" },
+  { key: "cover", label: "Cover & Artwork" },
+  { key: "promoplan", label: "Promoplan & Teaser" },
   { key: "released", label: "Release Ready" },
 ];
+
+const stageConfirmData = ref(null);
+const localSongStages = ref({});
+
+function getSongStageIndex(song) {
+  if (localSongStages.value[song.id] !== undefined) {
+    return localSongStages.value[song.id];
+  }
+  const saved = localStorage.getItem(`unyq_song_stage_${song.id}`);
+  if (saved !== null) {
+    const parsed = parseInt(saved, 10);
+    if (!isNaN(parsed) && parsed >= 0 && parsed < releaseStages.length) {
+      localSongStages.value[song.id] = parsed;
+      return parsed;
+    }
+  }
+  if (song.status === "RELEASED") return 4;
+  if (song.version_count >= 3) return 1; // Mastering
+  if (song.version_count >= 2) return 0; // Mixdown
+  return 0;
+}
+
+function confirmChangeStage(song, targetIdx) {
+  const currentIdx = getSongStageIndex(song);
+  if (currentIdx === targetIdx) return;
+  stageConfirmData.value = { song, targetIdx };
+}
+
+function applyConfirmedStage() {
+  if (!stageConfirmData.value) return;
+  const { song, targetIdx } = stageConfirmData.value;
+  localSongStages.value[song.id] = targetIdx;
+  localStorage.setItem(`unyq_song_stage_${song.id}`, String(targetIdx));
+  showToast(`Release-Phase für "${song.title}" auf "${releaseStages[targetIdx].label}" aktualisiert`, "success");
+  stageConfirmData.value = null;
+}
 
 // Greetings
 const greeting = computed(() => {
@@ -947,28 +1013,16 @@ function openTask(task) {
   goToRoute(getTaskRoute(task));
 }
 
-// Audio Preview Handler
+// Audio Preview Handler (Uses Global Audio Player)
 function togglePlayAudio(song) {
-  if (currentPlayingSongId.value === song.id) {
-    if (audioPreview) {
-      audioPreview.pause();
-      audioPreview = null;
-    }
-    currentPlayingSongId.value = null;
-    return;
-  }
-  if (audioPreview) {
-    audioPreview.pause();
-    audioPreview = null;
-  }
-  currentPlayingSongId.value = song.id;
-  // Fallback demo sound preview or song audio URL
   const audioSrc = song.audio_url || "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3";
-  audioPreview = new Audio(audioSrc);
-  audioPreview.play().catch(() => {});
-  audioPreview.onended = () => {
-    currentPlayingSongId.value = null;
-  };
+  playTrack({
+    id: song.id,
+    title: song.title,
+    artist: displayName.value || "UNYQ Artist",
+    cover_url: song.cover_url || "",
+    audio_url: audioSrc,
+  });
 }
 
 // Data Fetching
@@ -1165,10 +1219,20 @@ function copyInviteLink() {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 8px 4px 64px;
-  max-width: 1240px;
-  margin: 0 auto;
+  max-width: 1260px;
+  margin: 0 auto 40px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+:global(.dark) .proartist-dashboard {
+  background: linear-gradient(180deg, rgba(16, 23, 42, 0.94) 0%, rgba(11, 16, 29, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
 }
 
 .studio-ambient-glow {
@@ -1187,12 +1251,14 @@ function copyInviteLink() {
 .studio-hero {
   position: relative;
   z-index: 1;
-  padding: 24px 28px;
-  background: linear-gradient(135deg, rgba(20, 24, 38, 0.88), rgba(15, 18, 28, 0.94));
-  border: 1px solid rgba(59, 130, 246, 0.22);
-  border-radius: 20px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(12px);
+  padding: 24px 28px 20px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+:global(.dark) .studio-hero {
+  background: rgba(255, 255, 255, 0.015);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .hero-main-row {
@@ -1244,25 +1310,6 @@ function copyInviteLink() {
   background: linear-gradient(135deg, #3b82f6, #6366f1);
   color: #fff;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
-}
-
-.mode-hint {
-  font-size: 11px;
-  color: var(--muted);
-  opacity: 0.8;
-}
-
-.studio-tag {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: #60a5fa;
-  margin-bottom: 6px;
-}
-
-.admin-tag {
-  color: #f59e0b;
 }
 
 .hero-headline {
@@ -1336,12 +1383,13 @@ function copyInviteLink() {
 .studio-section {
   position: relative;
   z-index: 1;
-  padding: 24px;
-  background: rgba(18, 22, 34, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(10px);
+  padding: 26px 28px;
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+}
+
+:global(.dark) .studio-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .section-header {
@@ -1582,6 +1630,23 @@ function copyInviteLink() {
   font-weight: 700;
 }
 
+.stage-step.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.stage-step.clickable:hover .step-dot {
+  transform: scale(1.15);
+  border-color: #818cf8;
+}
+
+.step-lock-tag {
+  font-size: 8px;
+  position: absolute;
+  top: -6px;
+  right: -4px;
+}
+
 .track-footer {
   display: flex;
   justify-content: space-between;
@@ -1643,6 +1708,34 @@ function copyInviteLink() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: 20px;
+  padding: 26px 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+:global(.dark) .dashboard-duo-grid {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dashboard-duo-grid:last-of-type {
+  border-bottom: none;
+}
+
+.duo-panel {
+  position: relative;
+  z-index: 1;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+:global(.dark) .duo-panel {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
 }
 
 /* Studio Focus Tasks */
@@ -1946,6 +2039,35 @@ function copyInviteLink() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+:global(.dark) .team-kpi-grid {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.team-section {
+  padding: 26px 28px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+:global(.dark) .team-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.team-section:last-of-type {
+  border-bottom: none;
+}
+
+.team-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .kpi-card {

@@ -620,12 +620,22 @@ select:disabled {
   background: var(--bg);
 }
 
+.content.compact-content > * {
+  max-width: 1260px;
+  margin: 0 auto;
+}
+
 .content.compact-content > * > header.card.header,
 .content.compact-content > * > header.card.hero,
 .content.compact-content > * > header.hero.card {
-  padding: 12px 14px;
-  border-radius: 14px;
-  gap: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 4px 2px 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+  gap: 12px;
 }
 
 .content.compact-content > * > header.card.header h1,

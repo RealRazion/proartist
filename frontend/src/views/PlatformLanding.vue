@@ -27,14 +27,10 @@
                 <span>Normal User Ansicht</span>
               </button>
             </div>
-            <span class="mode-hint" v-if="isTeam">
-              {{ viewMode === 'admin' ? 'Admin/Team Kontrollansicht aktiv' : 'Entspannter Creator-Modus aktiv' }}
-            </span>
           </div>
 
           <!-- Title depending on mode -->
           <div v-if="viewMode === 'user'" class="user-hero-copy">
-            <span class="zen-badge">🍃 Entspannt &amp; Fokussiert</span>
             <h1 class="hero-headline">Willkommen{{ displayName ? `, ${displayName}` : '' }}</h1>
             <p class="hero-subtext">
               Dein kreativer Freiraum für Musik, Beats, Finanzen und Community. 
@@ -43,7 +39,6 @@
           </div>
 
           <div v-else class="admin-hero-copy">
-            <span class="admin-badge">⚡ COMMAND CENTER // TEAM ACCESS</span>
             <h1 class="hero-headline">UNYQ Platform Control</h1>
             <p class="hero-subtext">
               Zentrale Steuerung aller Plattformen, ProArtist-Workflows, Reviews und Nutzer-Berechtigungen.
@@ -158,15 +153,48 @@
           <span class="dock-icon">👑</span>
           <span>Admin Hub</span>
         </button>
+        <button class="dock-btn team-tool-btn" @click="showQuickShareModal = true">
+          <span class="dock-icon">🔗</span>
+          <span>Quick-Share</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- TEAM EXCLUSIVE TOOLS SECTION -->
+    <section v-if="isTeam && viewMode === 'admin'" class="team-exclusive-tools card">
+      <div class="tet-header">
+        <div class="tet-title-group">
+          <span class="tet-badge">🔒 EXKLUSIVES TEAM-WERKZEUG</span>
+          <h3>Studio Quick-Share Link Generator</h3>
+          <p class="muted small">
+            Erstelle passwortgeschützte oder zeitlich begrenzte Direkt-Freigabelinks für externe A&amp;Rs, Labels oder Gastmusiker – ohne Login-Zwang.
+          </p>
+        </div>
+        <button class="btn btn-sm" @click="showQuickShareModal = true">
+          🔗 Neuer Quick-Share Link
+        </button>
+      </div>
+
+      <!-- Quick stats of active links -->
+      <div class="tet-active-links" v-if="quickShareLinks.length">
+        <div v-for="link in quickShareLinks.slice(0, 3)" :key="link.id" class="tet-link-chip">
+          <span class="tl-icon">⚡</span>
+          <div class="tl-info">
+            <strong>{{ link.title }}</strong>
+            <small class="muted tiny">Gültig bis: {{ link.expiresLabel }} · {{ link.views }} Views</small>
+          </div>
+          <button class="btn ghost tiny" type="button" @click="copyQuickShareLink(link)">Kopieren</button>
+          <button class="btn ghost tiny danger-text" type="button" @click="deleteQuickShareLink(link.id)">✕</button>
+        </div>
       </div>
     </section>
 
     <!-- The 8 Core UNYQ Pillars Grid -->
     <main class="hub-main-section">
       <div class="section-top-bar">
-        <div>
+        <div class="section-title-wrap">
           <h2>{{ viewMode === 'user' ? 'Entdecke das UNYQ Universum' : 'UNYQ Haupt-Plattformen & Bereiche' }}</h2>
-          <p class="muted">
+          <p class="muted section-subtext">
             {{ viewMode === 'user' ? 'Klicke auf einen Bereich, um direkt loszulegen.' : 'Alle 8 Kern-Plattformen. Ziehe Karten, um die Reihenfolge zu ändern.' }}
           </p>
         </div>
@@ -253,9 +281,63 @@
         <span class="hl-badge hl-merch">🎨 LIMITED MERCH</span>
         <h4>UNYQ Designs Drop</h4>
         <p class="muted small">Trage dich für den exklusiven Vorab-Zugang des Studio-Drop '26 ein.</p>
-        <button class="btn ghost btn-sm" @click="openPlatformByKey('designs')">Merch ansehen →</button>
-      </div>
-    </section>
+    <!-- Quick-Share Modal -->
+    <div v-if="showQuickShareModal" class="modal-overlay" @click.self="showQuickShareModal = false">
+      <article class="modal-card qs-modal">
+        <header class="modal-header">
+          <div>
+            <span class="tet-badge">TEAM TOOL</span>
+            <h2>🔗 Studio Quick-Share Link erstellen</h2>
+            <p class="muted small">Generiere einen sicheren Vorschau-Link für externe Partner.</p>
+          </div>
+          <button class="btn ghost small" @click="showQuickShareModal = false" type="button">✕</button>
+        </header>
+
+        <form class="modal-content qs-content" @submit.prevent="createQuickShareLink">
+          <div class="form-grid">
+            <label class="full">
+              Titel / Track-Name *
+              <input class="input" v-model.trim="newShareForm.title" placeholder="z. B. Midnight Drive v2 Master Preview" required />
+            </label>
+            <label>
+              Gültigkeitsdauer
+              <select class="input" v-model="newShareForm.duration">
+                <option value="24h">24 Stunden</option>
+                <option value="7d">7 Tage</option>
+                <option value="30d">30 Tage</option>
+                <option value="never">Unbegrenzt</option>
+              </select>
+            </label>
+            <label>
+              Passwort-Schutz (optional)
+              <input class="input" v-model.trim="newShareForm.password" placeholder="PIN z. B. 4829" />
+            </label>
+          </div>
+
+          <div class="permissions-box">
+            <span class="muted tiny">Freigabe-Berechtigungen:</span>
+            <div class="perm-checkboxes">
+              <label><input type="checkbox" v-model="newShareForm.allowStream" disabled checked /> Audio-Stream / Anhören</label>
+              <label><input type="checkbox" v-model="newShareForm.allowDownload" /> Download erlauben</label>
+              <label><input type="checkbox" v-model="newShareForm.allowFeedback" /> Gast-Feedback erlauben</label>
+            </div>
+          </div>
+
+          <div v-if="lastCreatedLink" class="created-link-box">
+            <span class="tiny muted">Generierter Freigabe-Link:</span>
+            <div class="cl-row">
+              <input class="input" readonly :value="lastCreatedLink" />
+              <button class="btn" type="button" @click="copyText(lastCreatedLink)">Kopieren</button>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+            <button class="btn ghost" type="button" @click="showQuickShareModal = false">Schließen</button>
+            <button class="btn" type="submit">Link generieren</button>
+          </div>
+        </form>
+      </article>
+    </div>
   </div>
 </template>
 
@@ -298,6 +380,85 @@ function setViewMode(mode) {
   } catch {
     // ignore
   }
+}
+
+// Quick-Share Studio Link (Exclusive Team Tool)
+const showQuickShareModal = ref(false);
+const quickShareLinks = ref([]);
+const lastCreatedLink = ref("");
+const newShareForm = ref({
+  title: "",
+  duration: "7d",
+  password: "",
+  allowStream: true,
+  allowDownload: false,
+  allowFeedback: true,
+});
+
+function loadQuickShareLinks() {
+  try {
+    const raw = localStorage.getItem("unyq_quick_share_links");
+    if (raw) {
+      quickShareLinks.value = JSON.parse(raw);
+    } else {
+      quickShareLinks.value = [
+        {
+          id: "qs-1",
+          title: "Midnight Drive v2 Mix Preview",
+          token: "md2_mix_78a1",
+          expiresLabel: "In 6 Tagen",
+          views: 4,
+          url: (typeof window !== "undefined" ? window.location.origin : "https://unyq.app") + "/share/md2_mix_78a1",
+        },
+      ];
+    }
+  } catch {}
+}
+
+function saveQuickShareLinks() {
+  try {
+    localStorage.setItem("unyq_quick_share_links", JSON.stringify(quickShareLinks.value));
+  } catch {}
+}
+
+function createQuickShareLink() {
+  if (!newShareForm.value.title) return;
+  const token = "st_" + Math.random().toString(36).substring(2, 10);
+  const durMap = { "24h": "In 24 Stunden", "7d": "In 7 Tagen", "30d": "In 30 Tagen", "never": "Unbegrenzt" };
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://unyq.app";
+  const fullUrl = origin + "/share/" + token;
+  const item = {
+    id: `qs-${Date.now()}`,
+    title: newShareForm.value.title,
+    token,
+    expiresLabel: durMap[newShareForm.value.duration] || "In 7 Tagen",
+    views: 0,
+    url: fullUrl,
+    hasPassword: Boolean(newShareForm.value.password),
+    allowDownload: newShareForm.value.allowDownload,
+    allowFeedback: newShareForm.value.allowFeedback,
+  };
+  quickShareLinks.value.unshift(item);
+  saveQuickShareLinks();
+  lastCreatedLink.value = fullUrl;
+  showToast("Quick-Share Link erfolgreich generiert!", "success");
+}
+
+function copyQuickShareLink(link) {
+  copyText(link.url);
+}
+
+function copyText(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+  }
+  showToast("Link in Zwischenablage kopiert!", "info");
+}
+
+function deleteQuickShareLink(id) {
+  quickShareLinks.value = quickShareLinks.value.filter((l) => l.id !== id);
+  saveQuickShareLinks();
+  showToast("Link gelöscht", "info");
 }
 
 // The 8 Core UNYQ Pillars
@@ -566,6 +727,7 @@ onMounted(async () => {
   } catch {
     viewMode.value = isTeam.value ? "admin" : "user";
   }
+  loadQuickShareLinks();
   await Promise.all([loadAccessState(), loadNotificationCount(), loadHubBadges()]);
 });
 </script>
@@ -653,30 +815,6 @@ onMounted(async () => {
 }
 
 /* Hero Headings */
-.zen-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: rgba(52, 211, 153, 0.15);
-  border: 1px solid rgba(52, 211, 153, 0.3);
-  color: #34d399;
-  font-size: 12px;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.admin-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 6px;
-  background: rgba(239, 68, 68, 0.18);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  color: #f87171;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  margin-bottom: 10px;
-}
 
 .hero-headline {
   font-size: clamp(2.2rem, 4vw, 3.2rem);
@@ -889,15 +1027,27 @@ onMounted(async () => {
 .section-top-bar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
   gap: 16px;
 }
 
-.section-top-bar h2 {
-  margin: 0 0 4px;
-  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+.section-title-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.section-title-wrap h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
   font-weight: 800;
+}
+
+.section-title-wrap .section-subtext {
+  margin: 0;
+  font-size: 14px;
 }
 
 /* Pillars Grid */
@@ -1105,5 +1255,108 @@ onMounted(async () => {
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
   }
+}
+
+/* Team Exclusive Quick-Share Tool Styling */
+.team-exclusive-tools {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.04) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 18px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+.tet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.tet-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #818cf8;
+  display: block;
+  margin-bottom: 4px;
+}
+.tet-title-group h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.15rem;
+}
+.tet-active-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.tet-link-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tl-info {
+  display: flex;
+  flex-direction: column;
+}
+.tl-info strong {
+  font-size: 12px;
+}
+.danger-text {
+  color: #f87171 !important;
+}
+
+/* Quick Share Modal */
+.qs-modal {
+  max-width: 520px;
+  width: 100%;
+}
+.qs-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 10px;
+}
+.permissions-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.perm-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.perm-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.created-link-box {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cl-row {
+  display: flex;
+  gap: 8px;
 }
 </style>

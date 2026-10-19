@@ -1,6 +1,6 @@
 <template>
-  <div class="timeline">
-    <header class="card hero">
+  <div class="timeline timeline-window">
+    <header class="timeline-hero">
       <div>
         <p class="eyebrow">Timeline</p>
         <h1>Deadlines & Releases</h1>
@@ -30,7 +30,7 @@
       </div>
     </header>
 
-    <section v-if="isTeam" class="card board">
+    <section v-if="isTeam" class="timeline-body">
       <div class="board-head">
         <div>
           <h2>{{ currentTitle }}</h2>
@@ -459,16 +459,44 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.timeline {
+.timeline-window {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  max-width: 1260px;
+  margin: 0 auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
 }
-.hero {
+
+:global(.dark) .timeline-window {
+  background: linear-gradient(180deg, rgba(16, 23, 42, 0.94) 0%, rgba(11, 16, 29, 0.98) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+}
+
+.timeline-hero {
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+
+:global(.dark) .timeline-hero {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.timeline-body {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: transparent;
 }
 .hero-actions {
   display: flex;

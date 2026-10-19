@@ -20,8 +20,8 @@
         </button>
       </div>
 
-      <!-- Quick Workspace Mode Toggle (Turnier-Artist vs UNYQ Artist) -->
-      <div class="workspace-mode-strip" v-if="!collapsed || isMobile">
+      <!-- Quick Workspace Mode Toggle (Visible only for Team members) -->
+      <div class="workspace-mode-strip" v-if="isTeam && (!collapsed || isMobile)">
         <button
           type="button"
           class="mode-switch-btn"
@@ -43,10 +43,10 @@
       </div>
 
       <nav>
-        <!-- SECTION 1: CREATOR STUDIO (Hidden for Contest-only Artists) -->
+        <!-- SECTION 1: STUDIO (Hidden for Contest-only Artists) -->
         <template v-if="!isContestOnly">
           <div class="nav-section-title" v-if="!collapsed || isMobile">
-            <span>CREATOR STUDIO</span>
+            <span>STUDIO</span>
           </div>
         <router-link
           to="/dashboard"
@@ -95,9 +95,9 @@
         </router-link>
         </template>
 
-        <!-- SECTION 2: COMMUNITY & ARENA -->
+        <!-- SECTION 2: ARENA & COMMUNITY -->
         <div class="nav-section-title" v-if="!collapsed || isMobile">
-          <span>{{ isContestOnly ? 'ARENA & BATTLES' : 'COMMUNITY & ARENA' }}</span>
+          <span>{{ isContestOnly ? 'ARENA' : 'ARENA & COMMUNITY' }}</span>
         </div>
         <router-link
           to="/app/tournaments"
@@ -149,10 +149,10 @@
           <small v-if="unreadCount" class="pill">{{ unreadCount }}</small>
         </router-link>
 
-        <!-- SECTION 3: KARRIERE & GROWTH (Hidden for Contest-only Artists) -->
+        <!-- SECTION 3: WACHSTUM & APPS (Hidden for Contest-only Artists) -->
         <template v-if="!isContestOnly">
           <div class="nav-section-title" v-if="!collapsed || isMobile">
-            <span>KARRIERE &amp; GROWTH</span>
+            <span>WACHSTUM &amp; APPS</span>
           </div>
           <router-link
             to="/growpro"
@@ -182,13 +182,7 @@
             <span class="icon">📊</span>
             <span class="label">Analytics</span>
           </router-link>
-        </template>
 
-        <!-- SECTION 4: UNYQ ECOSYSTEM (Hidden for Contest-only Artists) -->
-        <template v-if="!isContestOnly">
-          <div class="nav-section-title" v-if="!collapsed || isMobile">
-            <span>UNYQ ECOSYSTEM</span>
-          </div>
           <div class="apps-quick-dock" v-if="!collapsed || isMobile">
             <router-link to="/platforms" class="app-dock-btn" title="UNYQ Hub">
               <span class="dock-ico">🧭</span>
@@ -286,18 +280,6 @@
             </svg>
             <span v-if="notificationCount" class="pill toolbar-pill">{{ notificationBadge }}</span>
           </button>
-          <button
-            class="iconbtn top-icon-btn"
-            type="button"
-            @click="notify('Request-Ansicht folgt bald')"
-            title="Offene Requests"
-          >
-            <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="5" width="18" height="14" rx="2.4" />
-              <path d="m4.5 7.5 7.5 6 7.5-6" />
-            </svg>
-            <span v-if="openRequests" class="pill toolbar-pill">{{ openRequests }}</span>
-          </button>
           <div class="chat-dropdown">
             <button class="iconbtn top-icon-btn" type="button" @click.stop="toggleChatMenu" title="Chats öffnen">
               <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
@@ -333,17 +315,19 @@
             <div v-if="open" class="menu card">
               <p class="menu-name">{{ me?.name || me?.username }}</p>
               <p class="menu-item" @click="goToProfile">Profil</p>
-              <p class="menu-item" @click="notify('Einstellungen folgen bald')">Einstellungen</p>
               <p class="menu-item danger" @click="logout">Logout</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main class="content compact-content">
+      <main class="content compact-content" :class="{ 'with-player': isPlayerActive }">
         <router-view :key="routerViewKey" />
       </main>
     </div>
+
+    <!-- Global Studio Audio Player -->
+    <GlobalAudioPlayer />
 
     <div class="sidebar-overlay" v-if="mobileOpen && isMobile" @click="toggleSidebar"></div>
   </div>
@@ -352,6 +336,8 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import GlobalAudioPlayer from "../components/GlobalAudioPlayer.vue";
+import { useGlobalAudio } from "../composables/useGlobalAudio";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
@@ -361,6 +347,8 @@ import { APP_VERSION } from "../config/version";
 const router = useRouter();
 const route = useRoute();
 const routeRef = computed(() => route);
+const { currentTrack, isPlayerEnabled } = useGlobalAudio();
+const isPlayerActive = computed(() => isPlayerEnabled.value && !!currentTrack.value);
 
 const {
   profile: me,
@@ -911,5 +899,9 @@ onBeforeUnmount(() => {
   background: rgba(245, 158, 11, 0.2);
   color: #fbbf24;
   border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.content.compact-content.with-player {
+  padding-bottom: 84px;
 }
 </style>

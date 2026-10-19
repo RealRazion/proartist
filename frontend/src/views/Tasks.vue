@@ -249,10 +249,22 @@
       </div>
     </div>
 
-    <div v-if="taskModalVisible" class="modal-backdrop" @click.self="closeTaskModal">
-      <div class="modal card wide task-modal">
+    <div
+      v-if="taskModalVisible"
+      :class="['modal-backdrop', { 'task-slide-over-backdrop': taskModalMode === 'edit' }]"
+      @click.self="closeTaskModal"
+    >
+      <div
+        :class="[
+          'modal card',
+          taskModalMode === 'edit' ? 'task-slide-over' : 'wide task-modal'
+        ]"
+      >
         <div class="modal-head">
-          <h3>{{ taskModalMode === "create" ? "Neue Aufgabe" : "Task bearbeiten" }}</h3>
+          <div class="slide-over-title">
+            <span v-if="taskModalMode === 'edit'" class="drawer-pill">Quick Edit</span>
+            <h3>{{ taskModalMode === "create" ? "Neue Aufgabe" : "Task bearbeiten" }}</h3>
+          </div>
           <button class="btn ghost tiny" type="button" @click="closeTaskModal" :disabled="taskSaving">Schließen</button>
         </div>
         <form class="form form-grid" @submit.prevent="submitTaskForm">
@@ -2072,6 +2084,46 @@ select[multiple] {
   padding: 24px;
   background: var(--modal-bg);
   box-shadow: var(--modal-shadow);
+}
+.modal-backdrop.task-slide-over-backdrop {
+  background: rgba(2, 6, 23, 0.48);
+  backdrop-filter: blur(4px);
+  justify-content: flex-end;
+  align-items: stretch;
+  padding: 0;
+}
+.modal.task-slide-over {
+  max-width: 540px;
+  width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 20px 0 0 20px;
+  border-right: none;
+  border-top: none;
+  border-bottom: none;
+  box-shadow: -14px 0 44px rgba(0, 0, 0, 0.45);
+  padding: 28px 24px;
+  animation: slideInRight 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.slide-over-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.drawer-pill {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 .modal.wide {
   max-width: 920px;

@@ -79,6 +79,32 @@
         </div>
       </div>
     </section>
+
+    <!-- System Feature Controls -->
+    <section class="admin-settings-section">
+      <div class="settings-card">
+        <div class="sc-left">
+          <span class="sc-icon">🎧</span>
+          <div>
+            <h3>Globaler Studio Audio-Player</h3>
+            <p class="muted small">
+              Steuert den unterbrechungsfreien Audio-Player am unteren Bildschirmrand im ProArtist-Workspace.
+            </p>
+          </div>
+        </div>
+        <div class="sc-right">
+          <button
+            type="button"
+            class="toggle-switch-btn"
+            :class="{ active: isPlayerEnabled }"
+            @click="toggleGlobalPlayer"
+          >
+            <span class="ts-dot"></span>
+            <span>{{ isPlayerEnabled ? 'Player Aktiv' : 'Player Deaktiviert' }}</span>
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -87,11 +113,23 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useToast } from "../composables/useToast";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useGlobalAudio } from "../composables/useGlobalAudio";
 import api from "../api";
 
 const router = useRouter();
 const { showToast } = useToast();
 const { profile: me, isAdmin, fetchProfile } = useCurrentProfile();
+const { isPlayerEnabled, setPlayerEnabled } = useGlobalAudio();
+
+function toggleGlobalPlayer() {
+  setPlayerEnabled(!isPlayerEnabled.value);
+  showToast(
+    isPlayerEnabled.value
+      ? "Globaler Audio-Player aktiviert"
+      : "Globaler Audio-Player deaktiviert",
+    "success"
+  );
+}
 
 const systemStats = ref({
   totalUsers: 0,
@@ -482,5 +520,81 @@ onMounted(async () => {
 .stat-label {
   color: var(--muted);
   font-weight: 500;
+}
+
+/* Feature Settings Card */
+.admin-settings-section {
+  max-width: 1200px;
+  margin: 0 auto 30px;
+  padding: 0 20px;
+}
+
+.settings-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+  flex-wrap: wrap;
+}
+
+.sc-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sc-icon {
+  font-size: 28px;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-left h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sc-left p {
+  margin: 0;
+  max-width: 540px;
+}
+
+.toggle-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-switch-btn.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+
+.ts-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
 }
 </style>

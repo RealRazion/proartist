@@ -1,5 +1,5 @@
 <template>
-  <div class="projects">
+  <div class="projects projects-window">
     <section v-if="!isTeam && !projects.length" class="card info artist-project-hero">
       <h2>Willkommen in deiner Projekt- &amp; Release-Übersicht</h2>
       <p class="muted">
@@ -12,42 +12,137 @@
       </div>
     </section>
 
-    <section v-else class="stack">
-      <div v-if="summaryTotals.total" class="card stats">
-        <h2>Pipeline</h2>
-        <div class="kpis">
-          <div class="kpi" v-for="item in statusSummary" :key="item.key">
+    <div v-else class="pw-inner-canvas">
+      <!-- Integrated Header & Action Bar -->
+      <header class="pw-header">
+        <div class="pw-title-row">
+          <div>
+            <h1 class="pw-headline">Projekt- &amp; Release-Pipeline</h1>
+            <p class="muted small" v-if="projectPagination.count">
+              {{ projects.length }} von {{ projectPagination.count }} Projekten aktiv · Geschützte Release-Phasen
+            </p>
+          </div>
+          <div class="pw-actions">
+            <!-- View Mode Switcher -->
+            <div class="pw-view-switcher">
+              <button
+                type="button"
+                class="pw-switch-btn"
+                :class="{ active: viewModeTab === 'pipeline' }"
+                @click="viewModeTab = 'pipeline'"
+              >
+                ⚡ Release-Pipeline
+              </button>
+              <button
+                type="button"
+                class="pw-switch-btn"
+                :class="{ active: viewModeTab === 'grid' }"
+                @click="viewModeTab = 'grid'"
+              >
+                📁 Projekt-Karten
+              </button>
+            </div>
+            <button class="btn ghost btn-sm" type="button" @click="refreshProjects" :disabled="loading">
+              {{ loading ? "Lade..." : "Aktualisieren" }}
+            </button>
+            <button class="btn ghost btn-sm" type="button" @click="exportProjects" :disabled="exportingCsv || loading">
+              {{ exportingCsv ? "Exportiere..." : "CSV Export" }}
+            </button>
+            <button class="btn ghost btn-sm" type="button" @click="openFilterModal">Filter</button>
+            <button class="btn btn-sm" type="button" @click="openCreateModal">+ Projekt anlegen</button>
+          </div>
+        </div>
+
+        <!-- KPI Strip integrated seamlessly into header -->
+        <div class="pw-kpis" v-if="summaryTotals.total">
+          <div class="pw-kpi" v-for="item in statusSummary" :key="item.key">
             <span class="label">{{ item.label }}</span>
             <strong>{{ item.count }}</strong>
           </div>
-          <div class="kpi total">
+          <div class="pw-kpi total">
             <span class="label">Gesamt</span>
             <strong>{{ summaryTotals.total }}</strong>
-            <small class="muted">Aktiv: {{ summaryTotals.active }}</small>
-            <small class="muted">Archiviert: {{ summaryTotals.archived }}</small>
+            <small class="muted">Aktiv: {{ summaryTotals.active }} · Archiviert: {{ summaryTotals.archived }}</small>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div class="card list">
-        <div class="list-head">
-          <div>
-            <h2>Projekte</h2>
-            <p class="muted" v-if="projectPagination.count">
-              {{ projects.length }} von {{ projectPagination.count }} geladen
-            </p>
-          </div>
-          <div class="list-actions">
-            <button class="btn ghost" type="button" @click="refreshProjects" :disabled="loading">
-              {{ loading ? "Lade..." : "Aktualisieren" }}
-            </button>
-            <button class="btn ghost" type="button" @click="exportProjects" :disabled="exportingCsv || loading">
-              {{ exportingCsv ? "Exportiere..." : "CSV Export" }}
-            </button>
-            <button class="btn ghost" type="button" @click="openFilterModal">Filter</button>
-            <button class="btn" type="button" @click="openCreateModal">Projekt anlegen</button>
+      <!-- VIEW 1: Realistic Release Pipeline Kanban -->
+      <section v-if="viewModeTab === 'pipeline'" class="pw-pipeline-section">
+        <div class="pipeline-kanban-board">
+          <div
+            v-for="stage in releaseStages"
+            :key="stage.key"
+            class="kanban-col"
+            :class="`col-${stage.key}`"
+          >
+            <div class="kanban-col-head">
+              <div class="col-title-wrap">
+                <span class="col-icon">{{ stage.icon }}</span>
+                <div>
+                  <h4>{{ stage.label }}</h4>
+                  <small class="muted tiny">{{ stage.desc }}</small>
+                </div>
+              </div>
+              <span class="col-counter">{{ projectsByStage(stage.key).length }}</span>
+            </div>
+
+            <div class="kanban-col-body">
+              <div
+                v-if="!projectsByStage(stage.key).length"
+                class="kanban-empty-drop"
+              >
+                <span class="muted tiny">Keine Projekte in dieser Phase</span>
+              </div>
+
+              <article
+                v-for="project in projectsByStage(stage.key)"
+                :key="`kp-${project.id}`"
+                class="kanban-card"
+                :style="{ borderLeftColor: project.color || '#6366f1' }"
+                @click="openProject(project.id)"
+              >
+                <div class="kc-top">
+                  <strong class="kc-title">{{ project.title }}</strong>
+                  <span class="status-chip-tiny" :data-status="project.status">
+                    {{ statusLabels[project.status] || project.status }}
+                  </span>
+                </div>
+                <p class="muted tiny kc-desc">{{ project.description || "Keine Beschreibung hinterlegt" }}</p>
+
+                <div class="kc-meta">
+                  <span class="muted tiny" v-if="project.participants?.length">
+                    👥 {{ project.participants.map((p) => p.name || p.username).join(", ") }}
+                  </span>
+                  <span class="muted tiny" v-else>👥 Keine Teilnehmer</span>
+                </div>
+
+                <!-- Protected Stage Change Selector -->
+                <div class="kc-footer" @click.stop>
+                  <label class="protected-stage-select">
+                    <span class="lock-label">🔒 Phase:</span>
+                    <select
+                      class="stage-select-input"
+                      :value="stage.key"
+                      @change="promptProjectStageChange(project, $event.target.value)"
+                    >
+                      <option v-for="s in releaseStages" :key="s.key" :value="s.key">
+                        {{ s.icon }} {{ s.label }}
+                      </option>
+                    </select>
+                  </label>
+                  <button class="btn ghost tiny" type="button" @click="startEditProject(project)">
+                    ✏️
+                  </button>
+                </div>
+              </article>
+            </div>
           </div>
         </div>
+      </section>
+
+      <!-- VIEW 2: Traditional Project Grid -->
+      <section v-else class="pw-grid-section">
         <div v-if="loading" class="skeleton-list">
           <div class="skeleton-card" v-for="n in 3" :key="`sk-${n}`"></div>
         </div>
@@ -107,8 +202,8 @@
         </ul>
         <div ref="projectSentinel" class="sentinel" v-if="hasMoreProjects"></div>
         <p v-if="loadingMore" class="muted loading-more">Lade weitere Projekte...</p>
-      </div>
-    </section>
+      </section>
+    </div>
 
     <div v-if="showFilterModal" class="modal-backdrop" @click.self="closeFilterModal">
       <div class="modal card wide">
@@ -249,6 +344,39 @@
         </form>
       </div>
     </div>
+
+    <!-- Protected Project Stage Change Confirmation Modal -->
+    <div v-if="stageConfirmProject" class="modal-backdrop" @click.self="stageConfirmProject = null">
+      <div class="modal card" style="max-width: 460px;">
+        <div class="modal-head">
+          <h3>🔒 Release-Phase ändern</h3>
+          <button class="btn ghost tiny" type="button" @click="stageConfirmProject = null">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 16px 0;">
+          <p style="margin-bottom: 12px;">
+            Möchtest du das Release-Projekt <strong>„{{ stageConfirmProject.project.title }}“</strong> wirklich in eine andere Phase verschieben?
+          </p>
+          <div class="stage-transition-preview" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <small class="muted" style="display:block;">Aktuelle Phase:</small>
+              <strong>{{ stageConfirmProject.currentStage?.icon }} {{ stageConfirmProject.currentStage?.label }}</strong>
+            </div>
+            <span style="font-size: 1.2rem; color: #818cf8;">➔</span>
+            <div>
+              <small class="muted" style="display:block;">Neue Ziel-Phase:</small>
+              <strong style="color: #4ade80;">{{ stageConfirmProject.targetStage?.icon }} {{ stageConfirmProject.targetStage?.label }}</strong>
+            </div>
+          </div>
+          <p class="muted tiny" style="margin: 0; line-height: 1.4;">
+            ⚠️ Release-Phasen (Mixdown, Master, Cover, Promoplan) sind geschützt, damit Meilensteine und Assets nicht versehentlich übersprungen werden.
+          </p>
+        </div>
+        <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button class="btn ghost" type="button" @click="stageConfirmProject = null">Abbrechen</button>
+          <button class="btn" type="button" @click="applyConfirmedProjectStage">Bestätigen &amp; Phase setzen</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -299,8 +427,61 @@ const participantTaskAccessOptions = ["NONE", "COMMENT", "EDIT"];
 const participantTaskAccessLabels = {
   NONE: "Nur Team bearbeitet Tasks",
   COMMENT: "Teilnehmer dÜrfen kommentieren",
-  EDIT: "Teilnehmer dÜrfen Tasks bearbeiten",
-};
+// 5 Realistic Release Stages (Mixdown -> Master -> Cover -> Promoplan -> Release)
+const releaseStages = [
+  { key: "mixdown", label: "Mixdown & Stems", icon: "🎚️", desc: "Spuren-Mix & Pre-Master" },
+  { key: "mastering", label: "Mastering Final", icon: "✨", desc: "Lautheit, EQ & Final Limiting" },
+  { key: "cover", label: "Cover & Artwork", icon: "🖼️", desc: "Cover, Canvas & Teaser-Bilder" },
+  { key: "promoplan", label: "Promoplan & Teaser", icon: "📢", desc: "Snippets, Presave & Playlist Pitch" },
+  { key: "released", label: "Release Ready", icon: "🚀", desc: "Distribution & Live" },
+];
+
+const viewModeTab = ref("pipeline");
+const stageConfirmProject = ref(null);
+const localProjectStages = ref({});
+
+function getProjectStage(project) {
+  if (localProjectStages.value[project.id]) {
+    return localProjectStages.value[project.id];
+  }
+  const saved = localStorage.getItem(`unyq_proj_stage_${project.id}`);
+  if (saved) return saved;
+  if (project.status === "DONE") return "released";
+  if (project.status === "IN_PROGRESS") return "mastering";
+  return "mixdown";
+}
+
+function projectsByStage(stageKey) {
+  return filteredProjects.value.filter((p) => getProjectStage(p) === stageKey);
+}
+
+function promptProjectStageChange(project, targetStageKey) {
+  const currentStageKey = getProjectStage(project);
+  if (currentStageKey === targetStageKey) return;
+  const currentStage = releaseStages.find(s => s.key === currentStageKey);
+  const targetStage = releaseStages.find(s => s.key === targetStageKey);
+  stageConfirmProject.value = {
+    project,
+    currentStage,
+    targetStage,
+    targetStageKey
+  };
+}
+
+function applyConfirmedProjectStage() {
+  if (!stageConfirmProject.value) return;
+  const { project, targetStageKey, targetStage } = stageConfirmProject.value;
+  localProjectStages.value[project.id] = targetStageKey;
+  localStorage.setItem(`unyq_proj_stage_${project.id}`, targetStageKey);
+  
+  if (targetStageKey === "released" && project.status !== "DONE") {
+    project.status = "DONE";
+    updateProjectStatus(project);
+  }
+  
+  showToast(`Projekt „${project.title}“ erfolgreich in Phase „${targetStage.label}“ verschoben`, "success");
+  stageConfirmProject.value = null;
+}
 
 const statusChipOptions = ["ALL", ...statusOptions];
 const hasActiveFilters = computed(
@@ -1104,5 +1285,234 @@ onBeforeUnmount(() => {
   .form-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Unified Projects Window & Release Pipeline Kanban */
+.projects-window {
+  width: 100%;
+}
+.pw-inner-canvas {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+.pw-header {
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+}
+.pw-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.pw-headline {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.pw-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pw-view-switcher {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2px;
+}
+.pw-switch-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.pw-switch-btn.active {
+  background: var(--brand, #6366f1);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+.pw-kpis {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pw-kpi {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  min-width: 90px;
+}
+.pw-kpi .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.pw-kpi strong {
+  font-size: 18px;
+  color: var(--text);
+  font-weight: 700;
+}
+.pw-kpi.total {
+  margin-left: auto;
+  min-width: 140px;
+}
+
+/* Kanban Board Layout */
+.pw-pipeline-section {
+  padding: 24px 28px;
+  overflow-x: auto;
+}
+.pipeline-kanban-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(240px, 1fr));
+  gap: 16px;
+  align-items: flex-start;
+}
+.kanban-col {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 480px;
+  overflow: hidden;
+}
+.kanban-col-head {
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.col-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.col-icon {
+  font-size: 16px;
+}
+.col-title-wrap h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+.col-counter {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+.kanban-col-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+.kanban-empty-drop {
+  padding: 30px 10px;
+  text-align: center;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.kanban-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.kanban-card:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.07);
+}
+.kc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.kc-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.status-chip-tiny {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  text-transform: uppercase;
+}
+.kc-desc {
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.kc-meta {
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.kc-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  padding-top: 4px;
+}
+.protected-stage-select {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+.lock-label {
+  color: var(--muted);
+  font-size: 10px;
+}
+.stage-select-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 2px 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.pw-grid-section {
+  padding: 24px 28px;
 }
 </style>

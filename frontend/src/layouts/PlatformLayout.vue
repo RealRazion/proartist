@@ -2,14 +2,28 @@
   <div class="platform-layout">
     <header v-if="showTopbar" class="platform-topbar card">
       <div class="topbar-left">
-        <router-link class="brand-link" :to="{ name: 'platforms' }">
-          <span class="brand-mark">UNYQ</span>
-          <span class="brand-pill">Hub</span>
-        </router-link>
-        <div class="page-copy">
-          <p class="page-kicker">{{ pageKicker }}</p>
-          <h1>{{ pageTitle }}</h1>
-          <p v-if="platformSlug" class="page-version">{{ platformSlug }} v{{ platformVersion }}</p>
+        <!-- Clean Brand Title (redundant Hub button removed) -->
+        <span class="brand-title-clean">UNYQ</span>
+
+        <!-- Version Number: first two parts bold, rest in thin font -->
+        <div class="header-version-badge" :title="`UNYQ Version ${APP_VERSION}`">
+          <strong class="ver-bold">{{ parsedVersion.majorMinor }}</strong><span class="ver-thin">{{ parsedVersion.patchRest }}</span>
+        </div>
+
+        <!-- Clickable Text 'Patchnotes' -->
+        <button
+          type="button"
+          class="patchnotes-link-btn"
+          @click="openPatchnotes(0)"
+          title="Patchnotes anzeigen"
+        >
+          Patchnotes
+        </button>
+
+        <!-- Subpage Context if not on main Hub -->
+        <div v-if="route.name !== 'platforms'" class="subpage-context">
+          <span class="subpage-slash">/</span>
+          <span class="subpage-label">{{ pageTitle }}</span>
         </div>
       </div>
 
@@ -55,12 +69,14 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { usePlatformVersion } from "../composables/usePlatformVersion";
+import { usePatchnotes } from "../composables/usePatchnotes";
 
 const router = useRouter();
 const route = useRoute();
 const { profile: me, fetchProfile, clearProfile } = useCurrentProfile();
 const routeRef = computed(() => route);
 const { platformSlug, platformVersion } = usePlatformVersion(routeRef);
+const { openPatchnotes, parsedVersion, currentVersion: APP_VERSION } = usePatchnotes();
 
 const open = ref(false);
 const theme = ref("light");
@@ -185,60 +201,80 @@ onMounted(async () => {
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
-.brand-link {
+.brand-title-clean {
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  background: linear-gradient(135deg, #ffffff 40%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  user-select: none;
+}
+
+.header-version-badge {
   display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-soft) 62%, transparent 38%);
-  border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border) 78%);
-  text-decoration: none;
-  color: inherit;
-  font-weight: 700;
+  align-items: baseline;
+  padding: 3px 8px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 6px;
+  font-size: 12.5px;
+  line-height: 1;
+}
+
+.ver-bold {
+  font-weight: 800;
+  color: #c7d2fe;
+}
+
+.ver-thin {
+  font-weight: 300;
+  font-size: 11px;
+  color: #94a3b8;
+  opacity: 0.85;
+  margin-left: 1px;
+}
+
+.patchnotes-link-btn {
+  background: none;
+  border: none;
+  padding: 3px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(148, 163, 184, 0.45);
+  transition: all 0.18s ease;
   white-space: nowrap;
 }
 
-.brand-pill {
+.patchnotes-link-btn:hover {
+  color: #ffffff;
+  text-decoration-color: #818cf8;
+}
+
+.subpage-context {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(47, 99, 255, 0.12);
-  color: var(--brand);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  gap: 8px;
+  font-size: 13px;
 }
 
-.page-copy {
-  min-width: 0;
+.subpage-slash {
+  color: #475569;
+  font-weight: 300;
 }
 
-.page-kicker {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--brand);
-}
-
-.page-copy h1 {
-  margin: 2px 0 0;
-  font-size: clamp(19px, 2.2vw, 24px);
-  line-height: 1.1;
-}
-
-.page-version {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+.subpage-label {
+  font-weight: 600;
+  color: #cbd5e1;
 }
 
 .topbar-actions {

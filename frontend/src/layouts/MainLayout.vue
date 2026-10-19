@@ -227,7 +227,12 @@
           <span class="user-name-text">{{ me?.name || me?.username || 'Mein Account' }}</span>
           <span class="user-role-text">{{ isTeam ? 'Team Member' : 'Artist / Producer' }}</span>
         </div>
-        <span class="version-tag" v-if="!collapsed || isMobile">v{{ APP_VERSION }}</span>
+        <div class="version-action-wrap" v-if="!collapsed || isMobile" @click.stop="openPatchnotes(0)" title="Patchnotes ansehen">
+          <span class="version-tag">
+            <strong class="ver-bold">{{ parsedVersion.majorMinor }}</strong><span class="ver-thin">{{ parsedVersion.patchRest }}</span>
+          </span>
+          <span class="pn-click-hint">Patchnotes</span>
+        </div>
       </div>
     </aside>
 
@@ -248,6 +253,17 @@
           </button>
         </div>
         <div class="right">
+          <button
+            class="topbar-patchnotes-btn"
+            type="button"
+            @click="openPatchnotes(0)"
+            title="Patchnotes anzeigen"
+          >
+            <span class="v-pill">
+              <strong class="ver-bold">{{ parsedVersion.majorMinor }}</strong><span class="ver-thin">{{ parsedVersion.patchRest }}</span>
+            </span>
+            <span class="pn-text">Patchnotes</span>
+          </button>
           <span v-if="platformSlug" class="platform-version">{{ platformSlug }} v{{ platformVersion }}</span>
           <button class="iconbtn top-icon-btn" type="button" @click="toggleTheme" :title="`Theme: ${themeLabel}`">
             <svg
@@ -343,9 +359,11 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 import { usePlatformVersion } from "../composables/usePlatformVersion";
 import { APP_VERSION } from "../config/version";
+import { usePatchnotes } from "../composables/usePatchnotes";
 
 const router = useRouter();
 const route = useRoute();
+const { openPatchnotes, parsedVersion } = usePatchnotes();
 const routeRef = computed(() => route);
 const { currentTrack, isPlayerEnabled } = useGlobalAudio();
 const isPlayerActive = computed(() => isPlayerEnabled.value && !!currentTrack.value);
@@ -903,5 +921,70 @@ onBeforeUnmount(() => {
 
 .content.compact-content.with-player {
   padding-bottom: 84px;
+}
+
+.version-action-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.version-action-wrap:hover {
+  transform: translateY(-1px);
+}
+
+.ver-bold {
+  font-weight: 800;
+  color: #c7d2fe;
+}
+
+.ver-thin {
+  font-weight: 300;
+  font-size: 11px;
+  color: #94a3b8;
+  opacity: 0.85;
+}
+
+.pn-click-hint {
+  font-size: 10px;
+  color: #818cf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.topbar-patchnotes-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #f1f5f9;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.topbar-patchnotes-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-1px);
+}
+
+.topbar-patchnotes-btn .v-pill {
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+}
+
+.topbar-patchnotes-btn .pn-text {
+  font-weight: 600;
+  color: #818cf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 </style>

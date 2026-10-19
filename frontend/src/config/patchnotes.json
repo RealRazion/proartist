@@ -1,5 +1,17 @@
 ﻿[
     {
+        "version":  "2.11.0.6-beta",
+        "date":  "2026-10-19",
+        "title":  "Patch 2.11.0.6-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Implement automated patchnotes on git push, first-login popup modal, and redesign header version display"
+                       ],
+        "changes":  [
+                        "feat: implement automated patchnotes on git push, first-login popup modal, and redesign header version display"
+                    ]
+    },
+    {
         "version":  "2.11.0.5-beta",
         "date":  "2026-10-19",
         "title":  "Patch 2.11.0.5-beta",

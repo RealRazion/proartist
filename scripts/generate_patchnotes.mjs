@@ -12,7 +12,7 @@ const versionJsPath = path.join(repoRoot, "frontend", "src", "config", "version.
 const packageJsonPath = path.join(repoRoot, "frontend", "package.json");
 
 // Read current version
-let currentVersion = "2.11.0.2-beta";
+let currentVersion = "2.11.0.6-beta";
 if (fs.existsSync(versionJsPath)) {
   const versionJsContent = fs.readFileSync(versionJsPath, "utf-8");
   const match = versionJsContent.match(/export\s+const\s+APP_VERSION\s*=\s*["']([^"']+)["']/);
@@ -23,18 +23,19 @@ if (fs.existsSync(versionJsPath)) {
 let patchnotes = [];
 if (fs.existsSync(patchnotesJsonPath)) {
   try {
-    patchnotes = JSON.parse(fs.readFileSync(patchnotesJsonPath, "utf-8"));
+    const raw = JSON.parse(fs.readFileSync(patchnotesJsonPath, "utf-8"));
+    patchnotes = Array.isArray(raw) ? raw : (raw.value || []);
   } catch {}
 }
 
-// Fetch commits
+// Fetch unpushed commits
 let commits = [];
 try {
   let rawLog = "";
   try {
     rawLog = execSync("git log origin/master..HEAD --oneline", { encoding: "utf-8" });
   } catch {
-    rawLog = execSync("git log -n 3 --oneline", { encoding: "utf-8" });
+    rawLog = "";
   }
   commits = rawLog
     .split(/\r?\n/)
@@ -46,13 +47,12 @@ try {
 const shouldCommit = process.argv.includes("--commit");
 const isForce = process.argv.includes("--force");
 
-const latestRecorded = patchnotes[0]?.version;
-if (!isForce && latestRecorded === currentVersion && commits.length === 0) {
-  console.log("[UNYQ Patchnotes] Keine neuen Commits gefunden.");
+if (!isForce && commits.length === 0) {
+  console.log("[UNYQ Patchnotes] Keine neuen unpushten Commits gefunden.");
   process.exit(0);
 }
 
-// Calculate next version: 2.11.0.2-beta -> 2.11.0.3-beta
+// Calculate next version: e.g. 2.11.0.6-beta -> 2.11.0.7-beta
 let newVersion = currentVersion;
 const verMatch = currentVersion.match(/^(.*?)(\d+)(-.*)?$/);
 if (verMatch) {
@@ -71,7 +71,7 @@ const changes = [];
 for (const c of commits) {
   changes.push(c);
   const convMatch = c.match(/^(feat|fix|style|refactor|perf)(\([^)]+\))?:\s*(.+)$/i);
-  if (convMatch && highlights.length < 3) {
+  if (convMatch && highlights.length < 4) {
     const title = convMatch[3].charAt(0).toUpperCase() + convMatch[3].slice(1);
     highlights.push(title);
   }
@@ -94,9 +94,9 @@ const newPatch = {
   changes,
 };
 
-patchnotes.unshift(newPatch);
+const updatedList = [newPatch, ...patchnotes.filter(p => p.version !== newVersion)];
 
-fs.writeFileSync(patchnotesJsonPath, JSON.stringify(patchnotes, null, 2) + "\n", "utf-8");
+fs.writeFileSync(patchnotesJsonPath, JSON.stringify(updatedList, null, 2) + "\n", "utf-8");
 fs.writeFileSync(versionJsPath, `// UI version label. package.json keeps the SemVer-compatible variant.\nexport const APP_VERSION = "${newVersion}";\n`, "utf-8");
 
 if (fs.existsSync(packageJsonPath)) {

@@ -18,7 +18,7 @@ $versionJsPath = Join-Path $repoRoot "frontend\src\config\version.js"
 $packageJsonPath = Join-Path $repoRoot "frontend\package.json"
 
 # 1. Aktuelle Version aus version.js einlesen
-$currentVersion = "2.11.0.3-beta"
+$currentVersion = "2.11.0.6-beta"
 if (Test-Path $versionJsPath) {
     $versionJsContent = Get-Content $versionJsPath -Raw
     if ($versionJsContent -match 'APP_VERSION\s*=\s*"([^"]+)"') {
@@ -39,21 +39,18 @@ if (Test-Path $patchnotesJsonPath) {
     }
 }
 
-# 3. Pruefen, welche Commits neu sind
+# 3. Pruefen, welche unpushten Commits vorhanden sind
 $commits = @()
 $rawLog = ""
-try {
-    $rawLog = git log origin/master..HEAD --oneline 2>&1
-} catch {
-    $rawLog = ""
-}
 
-if (-not $rawLog -or $rawLog -match "fatal:" -or $rawLog.Length -eq 0) {
-    try {
-        $rawLog = git log -n 3 --oneline
-    } catch {
+try {
+    # Pruefe gegen remote tracking branch oder origin/master
+    $rawLog = git log origin/master..HEAD --oneline 2>&1
+    if ($rawLog -match "fatal:") {
         $rawLog = ""
     }
+} catch {
+    $rawLog = ""
 }
 
 if ($rawLog) {
@@ -69,14 +66,9 @@ if ($rawLog) {
     }
 }
 
-$latestRecordedVersion = ""
-if ($patchnotes.Count -gt 0) {
-    $latestRecordedVersion = $patchnotes[0].version
-}
-
-# Wenn keine unpushten Commits und die Version bereits verzeichnet ist und nicht Force:
-if ((-not $Force) -and ($latestRecordedVersion -eq $currentVersion) -and ($commits.Count -eq 0)) {
-    Write-Host "[UNYQ Patchnotes] Keine neuen Aenderungen zum Patchen gefunden."
+# Wenn keine unpushten Commits vorhanden sind und nicht Force: nichts tun
+if ((-not $Force) -and ($commits.Count -eq 0)) {
+    Write-Host "[UNYQ Patchnotes] Keine neuen Commits fuer Patchnotes gefunden."
     exit 0
 }
 
@@ -109,7 +101,7 @@ if ($commits.Count -gt 0) {
         if ($c -match '^(feat|fix|style|refactor|perf)(\([^)]+\))?:\s*(.+)$') {
             $rawCap = $matches[3]
             $cleanTitle = $rawCap.Substring(0, 1).ToUpper() + $rawCap.Substring(1)
-            if ($highlights.Count -lt 3) {
+            if ($highlights.Count -lt 4) {
                 $highlights += $cleanTitle
             }
         }

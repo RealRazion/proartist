@@ -1,65 +1,77 @@
-[
-  {
-    "version": "2.11.0.4-beta",
-    "date": "2026-10-19",
-    "title": "Patch 2.11.0.4-beta",
-    "tagline": "Automatisches Patchnotes-System & Header-Redesign",
-    "highlights": [
-      "Automatischer Patch-Notes Generator bei jedem Git-Push",
-      "Interaktives Patch-Notes Popup beim ersten Login nach jedem Patch",
-      "Optimierte Versionsanzeige oben links mit Schnellzugriff auf Patchnotes",
-      "Redundanten Hub-Button im Header entfernt"
-    ],
-    "changes": [
-      "feat: Git Hook (.git/hooks/pre-push) und Skript für automatische Versionierung und Patchnote-Generierung bei git push",
-      "feat: PatchnotesModal Komponente mit 'X' oben rechts und 'Verstanden' Button unten",
-      "feat: Automatische Einblendung beim ersten Login nach Versions-Upgrade via localStorage",
-      "style: Versionsnummer oben links mit hervorgehobener Hauptversion (z. B. 2.11) und feinerem Patch-Suffix",
-      "ui: Redundanten 'UNYQ Hub'-Button im Header entfernt für ein aufgeräumtes Erscheinungsbild"
-    ]
-  },
-  {
-    "version": "2.11.0.3-beta",
-    "date": "2026-10-19",
-    "title": "Patch 2.11.0.3-beta",
-    "tagline": "Vorbereitung Patchnotes System",
-    "highlights": [
-      "Architektur für Patchnotes-Verwaltung aufgesetzt",
-      "UI-Komponenten für Versionsanzeige integriert"
-    ],
-    "changes": [
-      "feat: Konfiguration und Composable usePatchnotes eingeführt",
-      "style: Header-Anpassungen im PlatformLayout"
-    ]
-  },
-  {
-    "version": "2.11.0.2-beta",
-    "date": "2026-10-19",
-    "title": "Patch 2.11.0.2-beta",
-    "tagline": "Arena & Contest Erweiterung",
-    "highlights": [
-      "Turniere und Battles in ProArtist integriert",
-      "Frontend Layouts und Audio-Komponenten initialisiert",
-      "Duale Ansichten für Admin und Normal User"
-    ],
-    "changes": [
-      "feat: initialize frontend layout, router, views, and audio components for ProArtist",
-      "feat: add administrative views, platform management, and profile composable",
-      "feat: add TournamentDetail and ContestLanding views with core serializers"
-    ]
-  },
-  {
-    "version": "2.11.0.1-beta",
-    "date": "2026-10-18",
-    "title": "Patch 2.11.0.1-beta",
-    "tagline": "Plattform-Initialisierung",
-    "highlights": [
-      "8 Kern-Plattformen im UNYQ Hub",
-      "Überarbeitetes Arena-Design und Funktionen"
-    ],
-    "changes": [
-      "feat: Integriere UNYQ Turniere in ProArtist und ueberarbeite Arena-Design",
-      "feat: Strukturiere UNYQ um: Fuehre 8 Kern-Plattformen ein"
-    ]
-  }
+﻿[
+    {
+        "version":  "2.11.0.5-beta",
+        "date":  "2026-10-19",
+        "title":  "Patch 2.11.0.5-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Implement automated patchnotes on git push, first-login popup modal, and redesign header version display"
+                       ],
+        "changes":  [
+                        "feat: implement automated patchnotes on git push, first-login popup modal, and redesign header version display"
+                    ]
+    },
+    {
+        "version":  "2.11.0.4-beta",
+        "date":  "2026-10-19",
+        "title":  "Patch 2.11.0.4-beta",
+        "tagline":  "Automatisches Patchnotes-System \u0026 Header-Redesign",
+        "highlights":  [
+                           "Automatischer Patch-Notes Generator bei jedem Git-Push",
+                           "Interaktives Patch-Notes Popup beim ersten Login nach jedem Patch",
+                           "Optimierte Versionsanzeige oben links mit Schnellzugriff auf Patchnotes",
+                           "Redundanten Hub-Button im Header entfernt"
+                       ],
+        "changes":  [
+                        "feat: Git Hook (.git/hooks/pre-push) und Skript fÃ¼r automatische Versionierung und Patchnote-Generierung bei git push",
+                        "feat: PatchnotesModal Komponente mit \u0027X\u0027 oben rechts und \u0027Verstanden\u0027 Button unten",
+                        "feat: Automatische Einblendung beim ersten Login nach Versions-Upgrade via localStorage",
+                        "style: Versionsnummer oben links mit hervorgehobener Hauptversion (z. B. 2.11) und feinerem Patch-Suffix",
+                        "ui: Redundanten \u0027UNYQ Hub\u0027-Button im Header entfernt fÃ¼r ein aufgerÃ¤umtes Erscheinungsbild"
+                    ]
+    },
+    {
+        "version":  "2.11.0.3-beta",
+        "date":  "2026-10-19",
+        "title":  "Patch 2.11.0.3-beta",
+        "tagline":  "Vorbereitung Patchnotes System",
+        "highlights":  [
+                           "Architektur fÃ¼r Patchnotes-Verwaltung aufgesetzt",
+                           "UI-Komponenten fÃ¼r Versionsanzeige integriert"
+                       ],
+        "changes":  [
+                        "feat: Konfiguration und Composable usePatchnotes eingefÃ¼hrt",
+                        "style: Header-Anpassungen im PlatformLayout"
+                    ]
+    },
+    {
+        "version":  "2.11.0.2-beta",
+        "date":  "2026-10-19",
+        "title":  "Patch 2.11.0.2-beta",
+        "tagline":  "Arena \u0026 Contest Erweiterung",
+        "highlights":  [
+                           "Turniere und Battles in ProArtist integriert",
+                           "Frontend Layouts und Audio-Komponenten initialisiert",
+                           "Duale Ansichten fÃ¼r Admin und Normal User"
+                       ],
+        "changes":  [
+                        "feat: initialize frontend layout, router, views, and audio components for ProArtist",
+                        "feat: add administrative views, platform management, and profile composable",
+                        "feat: add TournamentDetail and ContestLanding views with core serializers"
+                    ]
+    },
+    {
+        "version":  "2.11.0.1-beta",
+        "date":  "2026-10-18",
+        "title":  "Patch 2.11.0.1-beta",
+        "tagline":  "Plattform-Initialisierung",
+        "highlights":  [
+                           "8 Kern-Plattformen im UNYQ Hub",
+                           "Ãœberarbeitetes Arena-Design und Funktionen"
+                       ],
+        "changes":  [
+                        "feat: Integriere UNYQ Turniere in ProArtist und ueberarbeite Arena-Design",
+                        "feat: Strukturiere UNYQ um: Fuehre 8 Kern-Plattformen ein"
+                    ]
+    }
 ]

@@ -6,7 +6,7 @@
         <span class="brand-title-clean">UNYQ</span>
 
         <!-- Version Number: first two parts bold, rest in thin font -->
-        <div class="header-version-badge" :title="`UNYQ Version ${APP_VERSION}`">
+        <div class="header-version-badge" :title="'UNYQ Version ' + (APP_VERSION || '2.11.0.7-beta')">
           <strong class="ver-bold">{{ parsedVersion.majorMinor }}</strong><span class="ver-thin">{{ parsedVersion.patchRest }}</span>
         </div>
 
@@ -28,12 +28,14 @@
       </div>
 
       <div class="topbar-actions">
+        <!-- Return to Hub button: only displayed when outside main Hub -->
         <button
+          v-if="route.name !== 'platforms'"
           class="btn ghost tiny nav-btn"
           type="button"
-          @click="router.push({ name: route.name === 'platforms' ? 'dashboard' : 'platforms' })"
+          @click="router.push({ name: 'platforms' })"
         >
-          {{ route.name === "platforms" ? "Zum Dashboard" : "Zum Hub" }}
+          Zum Hub
         </button>
         <button class="iconbtn top-icon-btn" type="button" @click="toggleTheme" :title="`Theme: ${themeLabel}`">
           <svg v-if="theme === 'dark'" class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">

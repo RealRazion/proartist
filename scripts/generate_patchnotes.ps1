@@ -16,6 +16,7 @@ if (-not $repoRoot) {
 $patchnotesJsonPath = Join-Path $repoRoot "frontend\src\config\patchnotes.json"
 $versionJsPath = Join-Path $repoRoot "frontend\src\config\version.js"
 $packageJsonPath = Join-Path $repoRoot "frontend\package.json"
+$packageLockJsonPath = Join-Path $repoRoot "frontend\package-lock.json"
 
 # 1. Aktuelle Version aus version.js einlesen
 $currentVersion = "2.11.0.6-beta"
@@ -134,23 +135,32 @@ foreach ($p in $patchnotes) {
     }
 }
 
-# 7. Dateien aktualisieren
+# 7. Dateien aktualisieren (UTF-8 ohne BOM)
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 $jsonOutput = $updatedList | ConvertTo-Json -Depth 5
-[System.IO.File]::WriteAllText($patchnotesJsonPath, $jsonOutput, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($patchnotesJsonPath, $jsonOutput, $utf8NoBom)
 
 $versionContent = "// UI version label. package.json keeps the SemVer-compatible variant.`nexport const APP_VERSION = `"$newVersion`";`n"
-[System.IO.File]::WriteAllText($versionJsPath, $versionContent, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($versionJsPath, $versionContent, $utf8NoBom)
 
 if (Test-Path $packageJsonPath) {
     $pkgContent = [System.IO.File]::ReadAllText($packageJsonPath, [System.Text.Encoding]::UTF8)
     $updatedPkg = $pkgContent -replace '"version":\s*"[^"]+"', "`"version`": `"$newVersion`""
-    [System.IO.File]::WriteAllText($packageJsonPath, $updatedPkg, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($packageJsonPath, $updatedPkg, $utf8NoBom)
+}
+
+if (Test-Path $packageLockJsonPath) {
+    $lockContent = [System.IO.File]::ReadAllText($packageLockJsonPath, [System.Text.Encoding]::UTF8)
+    # Update root version and package version
+    $updatedLock = $lockContent -replace '("name":\s*"frontend",\s*"version":\s*)"[^"]+"', "`$1`"$newVersion`""
+    $updatedLock = $updatedLock -replace '("packages":\s*\{\s*"":\s*\{\s*"name":\s*"frontend",\s*"version":\s*)"[^"]+"', "`$1`"$newVersion`""
+    [System.IO.File]::WriteAllText($packageLockJsonPath, $updatedLock, $utf8NoBom)
 }
 
 Write-Host "[OK] [UNYQ Patchnotes] Neuer Patch $newVersion erfolgreich generiert!"
 
 if ($Commit) {
-    git add $patchnotesJsonPath $versionJsPath $packageJsonPath
+    git add $patchnotesJsonPath $versionJsPath $packageJsonPath $packageLockJsonPath
     git commit -m "chore(patch): bump version to $newVersion & generate patch notes [auto]"
     exit 2
 }

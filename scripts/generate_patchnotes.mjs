@@ -105,10 +105,20 @@ if (fs.existsSync(packageJsonPath)) {
   fs.writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8");
 }
 
+const packageLockJsonPath = path.join(repoRoot, "frontend", "package-lock.json");
+if (fs.existsSync(packageLockJsonPath)) {
+  const lock = JSON.parse(fs.readFileSync(packageLockJsonPath, "utf-8"));
+  lock.version = newVersion;
+  if (lock.packages && lock.packages[""]) {
+    lock.packages[""].version = newVersion;
+  }
+  fs.writeFileSync(packageLockJsonPath, JSON.stringify(lock, null, 2) + "\n", "utf-8");
+}
+
 console.log(`✅ [UNYQ Patchnotes] Neuer Patch ${newVersion} erfolgreich generiert!`);
 
 if (shouldCommit) {
-  execSync(`git add "${patchnotesJsonPath}" "${versionJsPath}" "${packageJsonPath}"`);
+  execSync(`git add "${patchnotesJsonPath}" "${versionJsPath}" "${packageJsonPath}" "${packageLockJsonPath}"`);
   execSync(`git commit -m "chore(patch): bump version to ${newVersion} & generate patch notes [auto]"`);
   process.exit(2);
 }

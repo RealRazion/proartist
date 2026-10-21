@@ -426,7 +426,10 @@ const statusLabels = {
 const participantTaskAccessOptions = ["NONE", "COMMENT", "EDIT"];
 const participantTaskAccessLabels = {
   NONE: "Nur Team bearbeitet Tasks",
-  COMMENT: "Teilnehmer dÜrfen kommentieren",
+  COMMENT: "Teilnehmer dürfen kommentieren",
+  EDIT: "Teilnehmer dürfen Tasks bearbeiten",
+};
+
 // 5 Realistic Release Stages (Mixdown -> Master -> Cover -> Promoplan -> Release)
 const releaseStages = [
   { key: "mixdown", label: "Mixdown & Stems", icon: "🎚️", desc: "Spuren-Mix & Pre-Master" },

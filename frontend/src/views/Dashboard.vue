@@ -1228,10 +1228,9 @@ function copyInviteLink() {
   left: 20%;
   width: 60%;
   height: 280px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.14) 0%, rgba(139, 92, 246, 0.08) 50%, transparent 80%);
+  background: radial-gradient(ellipse at 50% 30%, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 75%);
   pointer-events: none;
   z-index: 0;
-  filter: blur(40px);
 }
 
 /* Studio Hero Header */
@@ -1243,12 +1242,6 @@ function copyInviteLink() {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-}
-
-:global(.dark) .studio-hero {
-  background: linear-gradient(135deg, rgba(18, 24, 42, 0.95) 0%, rgba(13, 18, 32, 0.98) 100%);
-  border: 1px solid rgba(124, 161, 255, 0.18);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
 }
 
 .hero-main-row {
@@ -1386,12 +1379,6 @@ function copyInviteLink() {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-}
-
-:global(.dark) .studio-section {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
 .section-header {
@@ -1731,12 +1718,6 @@ function copyInviteLink() {
   box-shadow: var(--shadow-soft);
 }
 
-:global(.dark) .duo-panel {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-}
-
 /* Studio Focus Tasks */
 .quick-add-task-form {
   display: flex;
@@ -2050,12 +2031,6 @@ function copyInviteLink() {
   box-shadow: var(--shadow-soft);
 }
 
-:global(.dark) .team-section {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-}
-
 .team-banner {
   display: flex;
   align-items: center;
@@ -2100,8 +2075,7 @@ function copyInviteLink() {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2114,9 +2088,9 @@ function copyInviteLink() {
   max-width: 520px;
   padding: 24px;
   border-radius: 18px;
-  background: #151926;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--modal-shadow);
 }
 
 .modal-header {

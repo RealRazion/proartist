@@ -1240,12 +1240,6 @@ onBeforeUnmount(() => {
   box-shadow: var(--shadow-soft);
 }
 
-:global(.dark) .pd-hero {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-}
-
 .content-grid {
   padding: 0;
 }

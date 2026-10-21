@@ -163,9 +163,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: rgba(6, 12, 28, 0.78);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--modal-overlay);
 }
 
 /* Dialog Container */

@@ -1310,12 +1310,6 @@ onBeforeUnmount(() => {
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
 }
-
-:global(.dark) .pw-header {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-}
 .pw-title-row {
   display: flex;
   justify-content: space-between;
@@ -1398,12 +1392,6 @@ onBeforeUnmount(() => {
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
   overflow-x: auto;
-}
-
-:global(.dark) .pw-pipeline-section {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 .pipeline-kanban-board {
   display: grid;
@@ -1543,11 +1531,5 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-}
-
-:global(.dark) .pw-grid-section {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 </style>

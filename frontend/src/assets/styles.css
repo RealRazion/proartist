@@ -109,6 +109,11 @@ html.light body {
   background-color: #f1f5f9;
 }
 
+/* Ensure headings and texts never inherit or get rendered with unwanted background boxes */
+h1, h2, h3, h4, h5, h6, p, label, .muted, .subtext {
+  background-color: transparent;
+}
+
 
 a {
   color: inherit;
@@ -399,8 +404,6 @@ select:disabled {
 .modal-overlay,
 .modal-backdrop {
   background: var(--modal-overlay);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
 }
 
 .modal-content,
@@ -434,14 +437,11 @@ select:disabled {
   align-items: stretch;
   min-height: 100vh;
   position: relative;
-  background: var(--bg);
 }
 
 .sidebar {
   flex: 0 0 252px;
-  background:
-    linear-gradient(180deg, rgba(10, 20, 45, 0.96) 0%, rgba(12, 28, 58, 0.98) 100%),
-    radial-gradient(circle at top right, rgba(124, 161, 255, 0.2), transparent 40%);
+  background: #0a142d;
   color: #e2e8f0;
   padding: 18px 14px 20px;
   display: flex;
@@ -646,7 +646,6 @@ select:disabled {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: var(--bg);
 }
 
 .topbar {
@@ -668,7 +667,7 @@ select:disabled {
 }
 
 :root.dark .topbar-flat {
-  background: rgba(8, 19, 47, 0.88);
+  background: var(--card);
 }
 
 .search {
@@ -787,7 +786,6 @@ select:disabled {
   display: block;
   min-height: 0;
   width: 100%;
-  background: var(--bg);
 }
 
 .content.compact-content > * {

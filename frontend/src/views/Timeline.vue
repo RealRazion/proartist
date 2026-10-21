@@ -483,12 +483,6 @@ onMounted(() => {
   box-shadow: var(--shadow-soft);
 }
 
-:global(.dark) .timeline-hero {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-}
-
 .timeline-body {
   padding: 24px 28px;
   display: flex;
@@ -498,12 +492,6 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-}
-
-:global(.dark) .timeline-body {
-  background: rgba(15, 23, 42, 0.88);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 .hero-actions {
   display: flex;

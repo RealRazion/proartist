@@ -123,6 +123,7 @@ function applyTheme() {
   const isDark = theme.value !== "light";
   root.classList.toggle("dark", isDark);
   root.classList.toggle("light", !isDark);
+  root.style.colorScheme = isDark ? "dark" : "light";
   localStorage.setItem("theme", isDark ? "dark" : "light");
 }
 

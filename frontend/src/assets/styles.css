@@ -2,7 +2,7 @@
 :root.dark,
 html.dark,
 body.dark {
-  color-scheme: only light;
+  color-scheme: dark;
   --bg: #08132f;
   --bg-soft: #0f1c3f;
   --card: #0d1935;
@@ -44,7 +44,7 @@ body.dark {
 :root.light,
 html.light,
 body.light {
-  color-scheme: only light;
+  color-scheme: light;
   --bg: #f1f5f9;
   --bg-soft: #f8fafc;
   --card: #ffffff;

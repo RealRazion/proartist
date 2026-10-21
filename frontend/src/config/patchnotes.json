@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.20-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.20-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Unify button system, harmonize semantic tokens across views, and enhance light/dark contrast"
+                       ],
+        "changes":  [
+                        "style(ui): unify button system, harmonize semantic tokens across views, and enhance light/dark contrast"
+                    ]
+    },
+    {
         "version":  "2.11.0.19-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.19-beta",

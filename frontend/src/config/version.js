@@ -1,2 +1,2 @@
 // UI version label. package.json keeps the SemVer-compatible variant.
-export const APP_VERSION = "2.11.0.19-beta";
+export const APP_VERSION = "2.11.0.20-beta";

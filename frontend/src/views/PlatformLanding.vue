@@ -281,6 +281,9 @@
         <span class="hl-badge hl-merch">🎨 LIMITED MERCH</span>
         <h4>UNYQ Designs Drop</h4>
         <p class="muted small">Trage dich für den exklusiven Vorab-Zugang des Studio-Drop '26 ein.</p>
+      </div>
+    </section>
+
     <!-- Quick-Share Modal -->
     <div v-if="showQuickShareModal" class="modal-overlay" @click.self="showQuickShareModal = false">
       <article class="modal-card qs-modal">

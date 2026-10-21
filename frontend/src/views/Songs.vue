@@ -362,6 +362,11 @@
           </label>
           <button class="btn" style="margin-top: 12px;" :disabled="creatingAlbum" @click="createAlbum">
             {{ creatingAlbum ? "Erstelle…" : "Album erstellen" }}
+          </button>
+        </div>
+      </article>
+    </div>
+
     <!-- A/B Audio Comparison Studio Modal -->
     <div v-if="showABModal" class="modal-overlay ab-modal-overlay" @click.self="closeABModal">
       <article class="modal-card ab-modal-card">

@@ -1,5 +1,18 @@
 [
     {
+        "version":  "2.11.0.13-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.13-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Allgemeine Performance- und Stabilitaetsverbesserungen",
+                           "UI- und Workflow-Optimierungen"
+                       ],
+        "changes":  [
+                        "ci: separate frontend build into independent job and fix patchnotes utf8 encoding"
+                    ]
+    },
+    {
         "version":  "2.11.0.12-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.12-beta",

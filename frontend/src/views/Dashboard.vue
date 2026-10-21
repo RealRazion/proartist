@@ -1216,20 +1216,10 @@ function copyInviteLink() {
   position: relative;
   display: flex;
   flex-direction: column;
-  max-width: 1260px;
-  margin: 0 auto 40px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  overflow: hidden;
-}
-
-:global(.dark) .proartist-dashboard {
-  background: linear-gradient(180deg, rgba(16, 23, 42, 0.94) 0%, rgba(11, 16, 29, 0.98) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+  gap: 24px;
+  padding: 8px 4px 64px;
+  max-width: 1240px;
+  margin: 0 auto;
 }
 
 .studio-ambient-glow {
@@ -1248,14 +1238,13 @@ function copyInviteLink() {
 .studio-hero {
   position: relative;
   z-index: 1;
-  padding: 24px 28px 20px;
-  background: transparent;
-  border-bottom: 1px solid var(--border);
-}
-
-:global(.dark) .studio-hero {
-  background: rgba(255, 255, 255, 0.015);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 26px 30px;
+  background: linear-gradient(135deg, rgba(18, 24, 42, 0.92) 0%, rgba(13, 18, 32, 0.96) 100%);
+  border: 1px solid rgba(124, 161, 255, 0.18);
+  border-radius: 20px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .hero-main-row {
@@ -1389,12 +1378,12 @@ function copyInviteLink() {
   position: relative;
   z-index: 1;
   padding: 26px 28px;
-  background: transparent;
-  border-bottom: 1px solid var(--border);
-}
-
-:global(.dark) .studio-section {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .section-header {
@@ -1438,21 +1427,21 @@ function copyInviteLink() {
 }
 
 .pipeline-card {
-  padding: 16px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  transition: all 0.25s ease;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
 .pipeline-card:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(59, 130, 246, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
 .track-head {
@@ -1721,34 +1710,20 @@ function copyInviteLink() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: 20px;
-  padding: 26px 28px;
-  border-bottom: 1px solid var(--border);
-}
-
-:global(.dark) .dashboard-duo-grid {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.dashboard-duo-grid:last-of-type {
-  border-bottom: none;
 }
 
 .duo-panel {
   position: relative;
   z-index: 1;
-  padding: 22px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  padding: 24px 26px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-}
-
-:global(.dark) .duo-panel {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 /* Studio Focus Tasks */
@@ -2052,34 +2027,27 @@ function copyInviteLink() {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
-  padding: 24px 28px;
-  border-bottom: 1px solid var(--border);
-}
-
-:global(.dark) .team-kpi-grid {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .team-section {
+  position: relative;
+  z-index: 1;
   padding: 26px 28px;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-}
-
-:global(.dark) .team-section {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.team-section:last-of-type {
-  border-bottom: none;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .team-banner {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 20px 28px;
-  border-bottom: 1px solid var(--border);
+  padding: 16px 22px;
+  border-radius: 14px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
   background: rgba(16, 185, 129, 0.08);
 }
 

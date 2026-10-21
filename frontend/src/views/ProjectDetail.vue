@@ -1218,19 +1218,13 @@ onBeforeUnmount(() => {
 .project-detail-window {
   display: flex;
   flex-direction: column;
+  gap: 24px;
   max-width: 1260px;
   margin: 0 auto;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  box-shadow: var(--shadow-soft);
-  overflow: hidden;
-}
-
-:global(.dark) .project-detail-window {
-  background: linear-gradient(180deg, rgba(16, 23, 42, 0.94) 0%, rgba(11, 16, 29, 0.98) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .pd-hero {
@@ -1239,17 +1233,17 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
-  padding: 24px 28px 20px;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-}
-
-:global(.dark) .pd-hero {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 24px 28px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .content-grid {
-  padding: 24px 28px;
+  padding: 0;
 }
 .hero-main {
   display: flex;

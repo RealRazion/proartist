@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.19-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.19-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Restore full text visibility across light and dark modes, disable browser force-dark text inversion"
+                       ],
+        "changes":  [
+                        "fix(ui): restore full text visibility across light and dark modes, disable browser force-dark text inversion"
+                    ]
+    },
+    {
         "version":  "2.11.0.18-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.18-beta",

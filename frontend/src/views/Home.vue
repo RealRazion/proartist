@@ -139,7 +139,14 @@
   padding: 24px;
   min-width: 240px;
   width: min(100%, 280px);
-  background: rgba(15, 21, 37, 0.75);
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-strong);
+  border-radius: 18px;
+}
+:global(.dark) .hero-visual .stats {
+  background: rgba(15, 21, 37, 0.85);
   color: #fff;
 }
 .hero-visual .stats strong {

@@ -1127,14 +1127,17 @@ onBeforeUnmount(() => {
 }
 
 .song-card {
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  background: rgba(255,255,255,0.03);
-  transition: box-shadow 0.2s;
+  background: var(--surface);
+  transition: all 0.2s ease;
 }
-.song-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
-.song-card.expanded { border-color: rgba(99,179,237,0.35); }
+.song-card:hover {
+  box-shadow: var(--shadow-soft);
+  border-color: var(--brand);
+}
+.song-card.expanded { border-color: var(--brand); }
 
 .song-cover-area {
   position: relative;
@@ -1167,7 +1170,7 @@ onBeforeUnmount(() => {
 .song-quick-actions { display: flex; gap: 6px; align-items: center; }
 
 .versions-panel {
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid var(--border);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -1182,9 +1185,9 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: 10px;
   padding: 10px;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: rgba(255,255,255,0.02);
+  background: var(--card);
 }
 .version-left { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
 .version-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; white-space: nowrap; }
@@ -1260,14 +1263,14 @@ onBeforeUnmount(() => {
 }
 
 .album-card {
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
-  background: rgba(255,255,255,0.03);
+  background: var(--surface);
 }
-.album-card:hover { border-color: rgba(99,179,237,0.35); transform: translateY(-3px); }
+.album-card:hover { border-color: var(--brand); transform: translateY(-3px); }
 .album-cover-area { aspect-ratio: 1; overflow: hidden; }
 .album-cover { width: 100%; height: 100%; object-fit: cover; }
 .album-cover-placeholder {
@@ -1282,13 +1285,15 @@ onBeforeUnmount(() => {
 /* MODALS */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.72);
+  background: var(--modal-overlay);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(10px);
 }
 .modal-card {
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,0.14);
+  background: var(--modal-bg);
+  border: 1px solid var(--border);
+  box-shadow: var(--modal-shadow);
   border-radius: 14px;
   max-width: 640px;
   max-height: 86vh;
@@ -1300,14 +1305,14 @@ onBeforeUnmount(() => {
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 18px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.09);
+  border-bottom: 1px solid var(--border);
 }
 .album-header-left { display: flex; gap: 14px; align-items: center; }
 .album-modal-cover { width: 72px; height: 72px; border-radius: 8px; object-fit: cover; cursor: pointer; }
 .album-modal-cover-ph {
   width: 72px; height: 72px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,0.07); font-size: 2rem; cursor: pointer;
+  background: var(--surface); font-size: 2rem; cursor: pointer;
 }
 .modal-content { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 
@@ -1315,7 +1320,8 @@ onBeforeUnmount(() => {
 .album-song-row {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  background: var(--surface);
   border-radius: 8px;
 }
 .mini-cover { width: 36px; height: 36px; border-radius: 4px; object-fit: cover; }

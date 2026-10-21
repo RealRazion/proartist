@@ -1913,6 +1913,64 @@ onBeforeUnmount(() => {
   background: rgba(248, 113, 113, 0.2);
   color: #b91c1c;
 }
+
+:global(.dark) .priority,
+:global(.dark) .priority-chip {
+  color: #c7d2fe;
+}
+:global(.dark) .priority[data-priority="HIGH"],
+:global(.dark) .priority-chip[data-priority="HIGH"],
+:global(.dark) .priority[data-priority="CRITICAL"],
+:global(.dark) .priority-chip[data-priority="CRITICAL"] {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.22);
+}
+:global(.dark) .priority-chip[data-priority="MEDIUM"] {
+  color: #fde047;
+  background: rgba(245, 158, 11, 0.22);
+}
+:global(.dark) .priority[data-priority="LOW"],
+:global(.dark) .priority-chip[data-priority="LOW"] {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.2);
+}
+:global(.dark) .task-type,
+:global(.dark) .type-chip {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.2);
+}
+:global(.dark) .task-type[data-type="INTERNAL"],
+:global(.dark) .type-chip[data-type="INTERNAL"] {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.22);
+}
+:global(.dark) .task-type.review-needed {
+  color: #fde047;
+  background: rgba(234, 179, 8, 0.22);
+}
+:global(.dark) .task-type.recurrence,
+:global(.dark) .type-chip.recurrence {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.2);
+}
+:global(.dark) .due.overdue {
+  color: #f87171;
+}
+:global(.dark) .due.soon {
+  color: #fbbf24;
+}
+:global(.dark) .mentions span {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.22);
+}
+:global(.dark) .review-chip[data-review="REVIEWED"] {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.2);
+}
+:global(.dark) .review-chip[data-review="NOT_REVIEWED"] {
+  color: #fca5a5;
+  background: rgba(248, 113, 113, 0.22);
+}
 .review-summary {
   border: 1px solid var(--border);
   border-radius: 12px;

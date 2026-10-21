@@ -237,12 +237,20 @@ onMounted(async () => {
   color: #c7d2fe;
 }
 
+:global(.light) .ver-bold {
+  color: #4338ca;
+}
+
 .ver-thin {
   font-weight: 300;
   font-size: 11px;
   color: #94a3b8;
   opacity: 0.85;
   margin-left: 1px;
+}
+
+:global(.light) .ver-thin {
+  color: #64748b;
 }
 
 .patchnotes-link-btn {
@@ -260,9 +268,19 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
+:global(.light) .patchnotes-link-btn {
+  color: #4f46e5;
+  text-decoration-color: rgba(79, 70, 229, 0.45);
+}
+
 .patchnotes-link-btn:hover {
   color: #ffffff;
   text-decoration-color: #818cf8;
+}
+
+:global(.light) .patchnotes-link-btn:hover {
+  color: #312e81;
+  text-decoration-color: #312e81;
 }
 
 .subpage-context {

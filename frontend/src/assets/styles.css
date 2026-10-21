@@ -195,31 +195,80 @@ select:disabled {
   justify-content: center;
   gap: 8px;
   min-height: 42px;
-  padding: 10px 16px;
+  padding: 10px 18px;
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
   color: #fff !important;
   font-weight: 600;
+  font-size: 13.5px;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.22s ease;
-  box-shadow: 0 8px 18px rgba(47, 99, 255, 0.22);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(47, 99, 255, 0.25);
+  user-select: none;
+  text-decoration: none;
 }
 
-.btn:not(.ghost) span,
-.btn:not(.ghost) strong {
+.btn:not(.ghost):not(.secondary):not(.btn-secondary) span,
+.btn:not(.ghost):not(.secondary):not(.btn-secondary) strong {
   color: #fff !important;
 }
 
 .btn:hover:not(:disabled) {
-  transform: translateY(-0.5px);
-  box-shadow: 0 12px 22px rgba(47, 99, 255, 0.26);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(47, 99, 255, 0.32);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(47, 99, 255, 0.2);
 }
 
 .btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
+  transform: none !important;
+}
+
+/* Button Sizes */
+.btn.sm,
+.btn.btn-sm,
+.btn-sm {
+  min-height: 34px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  border-radius: 10px;
+  gap: 6px;
+}
+
+.btn.tiny,
+.btn.btn-xs,
+.btn-tiny {
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  border-radius: 8px;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.btn.lg,
+.btn.btn-lg,
+.btn-lg {
+  min-height: 48px;
+  padding: 12px 24px;
+  font-size: 15px;
+  border-radius: 14px;
+  font-weight: 700;
+}
+
+/* Button Variants */
+.btn.primary,
+.btn.btn-primary {
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(47, 99, 255, 0.25);
 }
 
 .btn.ghost {
@@ -233,6 +282,110 @@ select:disabled {
   border-color: var(--brand);
   color: var(--brand);
   background: var(--card);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+}
+
+.btn.ghost:active:not(:disabled) {
+  background: var(--surface);
+}
+
+.btn.secondary,
+.btn.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.btn.secondary:hover:not(:disabled),
+.btn.btn-secondary:hover:not(:disabled) {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--card);
+}
+
+.btn.danger,
+.btn.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+}
+
+.btn.danger:hover:not(:disabled),
+.btn.btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f87171, #ef4444);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+}
+
+.btn.ghost.danger,
+.btn.ghost.btn-danger {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  box-shadow: none;
+}
+
+.btn.ghost.danger:hover:not(:disabled),
+.btn.ghost.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* Unified Pill Toggles & Switchers */
+.mode-pill-toggle,
+.pw-view-switcher {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.mode-btn,
+.pw-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.mode-btn:hover:not(.active),
+.pw-switch-btn:hover:not(.active) {
+  color: var(--text);
+  background: rgba(124, 161, 255, 0.08);
+}
+
+.mode-btn.active,
+.pw-switch-btn.active {
+  background: var(--brand);
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(47, 99, 255, 0.3);
+}
+
+.mode-btn.active span,
+.pw-switch-btn.active span {
+  color: #ffffff !important;
 }
 
 .card {

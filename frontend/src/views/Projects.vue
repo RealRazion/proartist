@@ -356,7 +356,7 @@
           <p style="margin-bottom: 12px;">
             Möchtest du das Release-Projekt <strong>„{{ stageConfirmProject.project.title }}“</strong> wirklich in eine andere Phase verschieben?
           </p>
-          <div class="stage-transition-preview" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <div class="stage-transition-preview" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
             <div>
               <small class="muted" style="display:block;">Aktuelle Phase:</small>
               <strong>{{ stageConfirmProject.currentStage?.icon }} {{ stageConfirmProject.currentStage?.label }}</strong>
@@ -1365,14 +1365,14 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
 }
 .pw-kpi {
   display: flex;
   flex-direction: column;
   padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   min-width: 90px;
 }
@@ -1416,7 +1416,7 @@ onBeforeUnmount(() => {
   align-items: flex-start;
 }
 .kanban-col {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   display: flex;
@@ -1426,7 +1426,7 @@ onBeforeUnmount(() => {
 }
 .kanban-col-head {
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--card);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -1450,7 +1450,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
   color: var(--text);
 }
 .kanban-col-body {
@@ -1463,24 +1463,26 @@ onBeforeUnmount(() => {
 .kanban-empty-drop {
   padding: 30px 10px;
   text-align: center;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border: 1px dashed var(--border);
   border-radius: 10px;
 }
 .kanban-card {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--card);
   border: 1px solid var(--border);
   border-left-width: 4px;
   border-radius: 10px;
   padding: 12px;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 .kanban-card:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface);
+  border-color: var(--brand);
+  box-shadow: var(--shadow-soft);
 }
 .kc-top {
   display: flex;

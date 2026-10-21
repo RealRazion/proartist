@@ -964,7 +964,7 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: rgba(99, 102, 241, 0.1);
   border: 1px solid rgba(99, 102, 241, 0.25);
-  color: #f1f5f9;
+  color: var(--text);
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s ease;
@@ -987,5 +987,17 @@ onBeforeUnmount(() => {
   color: #818cf8;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+:global(.light) .ver-bold {
+  color: #4338ca;
+}
+
+:global(.light) .ver-thin {
+  color: #64748b;
+}
+
+:global(.light) .topbar-patchnotes-btn .pn-text {
+  color: #4f46e5;
 }
 </style>

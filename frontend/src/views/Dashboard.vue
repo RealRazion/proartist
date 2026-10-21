@@ -1277,10 +1277,10 @@ function copyInviteLink() {
 
 .mode-pill-toggle {
   display: inline-flex;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface);
   padding: 4px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
 }
 
 .mode-btn {
@@ -1299,9 +1299,9 @@ function copyInviteLink() {
 }
 
 .mode-btn.active {
-  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  background: var(--brand);
   color: #ffffff !important;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 12px rgba(47, 99, 255, 0.35);
 }
 
 .mode-btn.active span {
@@ -1449,16 +1449,10 @@ function copyInviteLink() {
   gap: 14px;
 }
 
-:global(.dark) .pipeline-card {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
 .pipeline-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(59, 130, 246, 0.35);
+  border-color: var(--brand);
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-strong);
 }
 
 .track-head {
@@ -1590,7 +1584,7 @@ function copyInviteLink() {
   left: 12px;
   right: 12px;
   height: 2px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
   z-index: 0;
 }
 
@@ -1776,13 +1770,13 @@ function copyInviteLink() {
   gap: 12px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
   transition: all 0.2s ease;
 }
 
 .studio-task-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--brand);
 }
 
 .task-check-label {
@@ -1936,8 +1930,8 @@ function copyInviteLink() {
   justify-content: space-between;
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface);
+  border: 1px solid var(--border);
   margin-bottom: 16px;
   gap: 16px;
 }
@@ -1973,7 +1967,7 @@ function copyInviteLink() {
   width: 100%;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--border);
   overflow: hidden;
 }
 
@@ -1998,8 +1992,8 @@ function copyInviteLink() {
   align-items: center;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
 
 /* Toolbox Grid */
@@ -2015,15 +2009,15 @@ function copyInviteLink() {
   gap: 12px;
   padding: 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--surface);
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .toolbox-item:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.25);
+  background: var(--card);
+  border-color: var(--brand);
   transform: translateY(-1px);
 }
 
@@ -2083,8 +2077,8 @@ function copyInviteLink() {
 .kpi-card {
   padding: 18px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--surface);
+  border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 4px;

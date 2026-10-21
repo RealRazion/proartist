@@ -2,7 +2,7 @@
 :root.dark,
 html.dark,
 body.dark {
-  color-scheme: only dark;
+  color-scheme: only light;
   --bg: #08132f;
   --bg-soft: #0f1c3f;
   --card: #0d1935;
@@ -15,7 +15,7 @@ body.dark {
   --modal-bg: rgba(9, 20, 45, 0.98);
   --modal-overlay: rgba(2, 6, 23, 0.8);
   --modal-shadow: 0 36px 88px rgba(2, 6, 23, 0.72);
-  --text: #e2e8f0;
+  --text: #ffffff;
   --muted: #94a3b8;
   --brand: #7ca1ff;
   --brand-2: #35d0ff;
@@ -109,10 +109,6 @@ html.light body {
   background-color: #f1f5f9;
 }
 
-/* Ensure headings and texts never inherit or get rendered with unwanted background boxes */
-h1, h2, h3, h4, h5, h6, p, label, .muted, .subtext {
-  background-color: transparent !important;
-}
 
 a {
   color: inherit;

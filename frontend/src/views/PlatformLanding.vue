@@ -812,8 +812,8 @@ onMounted(async () => {
 }
 
 .mode-btn.active {
-  background: #fff;
-  color: #0f172a;
+  background: var(--brand);
+  color: #ffffff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -831,13 +831,6 @@ onMounted(async () => {
   margin: 0 0 10px;
   line-height: 1.1;
   color: var(--text);
-  background: transparent;
-}
-
-:global(.dark) .hero-headline {
-  background: linear-gradient(120deg, #ffffff 40%, #c7d2fe 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .hero-subtext {

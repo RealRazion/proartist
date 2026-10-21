@@ -218,9 +218,7 @@ onMounted(async () => {
 }
 
 :global(.dark) .brand-title-clean {
-  background: linear-gradient(135deg, #ffffff 40%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #ffffff;
 }
 
 .header-version-badge {

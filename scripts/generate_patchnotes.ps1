@@ -30,7 +30,8 @@ if (Test-Path $versionJsPath) {
 # 2. Bestehende Patchnotes laden
 $patchnotes = @()
 if (Test-Path $patchnotesJsonPath) {
-    $rawObj = Get-Content $patchnotesJsonPath -Raw | ConvertFrom-Json
+    $rawText = [System.IO.File]::ReadAllText($patchnotesJsonPath, [System.Text.Encoding]::UTF8)
+    $rawObj = $rawText | ConvertFrom-Json
     if ($rawObj -is [System.Array]) {
         $patchnotes = $rawObj
     } elseif ($rawObj.value) {

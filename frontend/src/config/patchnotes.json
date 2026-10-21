@@ -108,11 +108,11 @@
                            "Redundanten Hub-Button im Header entfernt"
                        ],
         "changes":  [
-                        "feat: Git Hook (.git/hooks/pre-push) und Skript fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r automatische Versionierung und Patchnote-Generierung bei git push",
+                        "feat: Git Hook (.git/hooks/pre-push) und Skript für automatische Versionierung und Patchnote-Generierung bei git push",
                         "feat: PatchnotesModal Komponente mit \u0027X\u0027 oben rechts und \u0027Verstanden\u0027 Button unten",
                         "feat: Automatische Einblendung beim ersten Login nach Versions-Upgrade via localStorage",
                         "style: Versionsnummer oben links mit hervorgehobener Hauptversion (z. B. 2.11) und feinerem Patch-Suffix",
-                        "ui: Redundanten \u0027UNYQ Hub\u0027-Button im Header entfernt fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r ein aufgerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤umtes Erscheinungsbild"
+                        "ui: Redundanten \u0027UNYQ Hub\u0027-Button im Header entfernt für ein aufgeräumtes Erscheinungsbild"
                     ]
     },
     {
@@ -121,11 +121,11 @@
         "title":  "Patch 2.11.0.3-beta",
         "tagline":  "Vorbereitung Patchnotes System",
         "highlights":  [
-                           "Architektur fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r Patchnotes-Verwaltung aufgesetzt",
-                           "UI-Komponenten fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r Versionsanzeige integriert"
+                           "Architektur für Patchnotes-Verwaltung aufgesetzt",
+                           "UI-Komponenten für Versionsanzeige integriert"
                        ],
         "changes":  [
-                        "feat: Konfiguration und Composable usePatchnotes eingefÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼hrt",
+                        "feat: Konfiguration und Composable usePatchnotes eingeführt",
                         "style: Header-Anpassungen im PlatformLayout"
                     ]
     },
@@ -137,7 +137,7 @@
         "highlights":  [
                            "Turniere und Battles in ProArtist integriert",
                            "Frontend Layouts und Audio-Komponenten initialisiert",
-                           "Duale Ansichten fÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¼r Admin und Normal User"
+                           "Duale Ansichten für Admin und Normal User"
                        ],
         "changes":  [
                         "feat: initialize frontend layout, router, views, and audio components for ProArtist",
@@ -152,7 +152,7 @@
         "tagline":  "Plattform-Initialisierung",
         "highlights":  [
                            "8 Kern-Plattformen im UNYQ Hub",
-                           "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“berarbeitetes Arena-Design und Funktionen"
+                           "Überarbeitetes Arena-Design und Funktionen"
                        ],
         "changes":  [
                         "feat: Integriere UNYQ Turniere in ProArtist und ueberarbeite Arena-Design",

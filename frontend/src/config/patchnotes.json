@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.16-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.16-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Enforce dark mode default, add color-scheme metadata, and prevent browser force-dark inversion issues"
+                       ],
+        "changes":  [
+                        "fix(theme): enforce dark mode default, add color-scheme metadata, and prevent browser force-dark inversion issues"
+                    ]
+    },
+    {
         "version":  "2.11.0.15-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.15-beta",

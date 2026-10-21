@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.21-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.21-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Eliminate backdrop-filter on solid cards to resolve Opera GX white borders and text background boxes"
+                       ],
+        "changes":  [
+                        "fix(ui): eliminate backdrop-filter on solid cards to resolve Opera GX white borders and text background boxes"
+                    ]
+    },
+    {
         "version":  "2.11.0.20-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.20-beta",

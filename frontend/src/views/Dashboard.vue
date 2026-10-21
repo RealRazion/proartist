@@ -590,6 +590,9 @@
           <input class="input" readonly :value="inviteLink" />
           <button class="btn ghost tiny" type="button" @click="copyInviteLink">Kopieren</button>
         </div>
+      </div>
+    </div>
+
     <!-- Modal 4: Protected Stage Change Confirmation Modal -->
     <div v-if="stageConfirmData" class="modal-backdrop" @click.self="stageConfirmData = null">
       <div class="modal card" style="max-width: 440px;">

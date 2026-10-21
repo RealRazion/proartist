@@ -62,8 +62,8 @@
 
 <script setup>
 import { ref, onMounted } from "vue";
-import api from "../../api";
-import { useToast } from "../../composables/useToast";
+import api from "../api";
+import { useToast } from "../composables/useToast";
 
 const { showToast } = useToast();
 const invitations = ref([]);

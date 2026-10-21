@@ -1239,12 +1239,18 @@ function copyInviteLink() {
   position: relative;
   z-index: 1;
   padding: 26px 30px;
-  background: linear-gradient(135deg, rgba(18, 24, 42, 0.92) 0%, rgba(13, 18, 32, 0.96) 100%);
-  border: 1px solid rgba(124, 161, 255, 0.18);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 20px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+
+:global(.dark) .studio-hero {
+  background: linear-gradient(135deg, rgba(18, 24, 42, 0.95) 0%, rgba(13, 18, 32, 0.98) 100%);
+  border: 1px solid rgba(124, 161, 255, 0.18);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
 }
 
 .hero-main-row {
@@ -1378,12 +1384,18 @@ function copyInviteLink() {
   position: relative;
   z-index: 1;
   padding: 26px 28px;
-  background: rgba(15, 23, 42, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+:global(.dark) .studio-section {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
 .section-header {
@@ -1429,12 +1441,17 @@ function copyInviteLink() {
 .pipeline-card {
   padding: 18px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+:global(.dark) .pipeline-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .pipeline-card:hover {
@@ -1716,14 +1733,20 @@ function copyInviteLink() {
   position: relative;
   z-index: 1;
   padding: 24px 26px;
-  background: rgba(15, 23, 42, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 20px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+:global(.dark) .duo-panel {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
 /* Studio Focus Tasks */
@@ -2033,12 +2056,18 @@ function copyInviteLink() {
   position: relative;
   z-index: 1;
   padding: 26px 28px;
-  background: rgba(15, 23, 42, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+:global(.dark) .team-section {
+  background: rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
 }
 
 .team-banner {

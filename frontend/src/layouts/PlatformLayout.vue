@@ -185,7 +185,7 @@ onMounted(async () => {
   border-top: none;
   box-shadow: none;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card) 88%, #ffffff 12%);
+  background: var(--card);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -198,7 +198,7 @@ onMounted(async () => {
 }
 
 :global(.dark) .platform-topbar {
-  background: rgba(8, 19, 47, 0.82);
+  background: rgba(8, 19, 47, 0.88);
 }
 
 .topbar-left {
@@ -213,10 +213,14 @@ onMounted(async () => {
   font-size: 19px;
   font-weight: 900;
   letter-spacing: 0.05em;
+  color: var(--text);
+  user-select: none;
+}
+
+:global(.dark) .brand-title-clean {
   background: linear-gradient(135deg, #ffffff 40%, #a5b4fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  user-select: none;
 }
 
 .header-version-badge {

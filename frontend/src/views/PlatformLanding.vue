@@ -754,14 +754,20 @@ onMounted(async () => {
 /* Hero Section */
 .hub-hero {
   border-radius: 24px;
-  background: 
-    radial-gradient(circle at top right, rgba(99, 102, 241, 0.22), transparent 50%),
-    radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.12), transparent 40%),
-    linear-gradient(135deg, rgba(24, 28, 48, 0.85), rgba(15, 23, 42, 0.95));
-  border: 1px solid rgba(124, 161, 255, 0.22);
+  background: var(--card);
+  border: 1px solid var(--border);
   padding: clamp(28px, 4vw, 44px);
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+
+:global(.dark) .hub-hero {
+  background: 
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.22), transparent 50%),
+    radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.12), transparent 40%),
+    linear-gradient(135deg, rgba(24, 28, 48, 0.95), rgba(15, 23, 42, 0.98));
+  border: 1px solid rgba(124, 161, 255, 0.22);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 
@@ -783,8 +789,8 @@ onMounted(async () => {
 
 .mode-pill-toggle {
   display: inline-flex;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px;
   gap: 4px;
@@ -824,6 +830,11 @@ onMounted(async () => {
   font-weight: 900;
   margin: 0 0 10px;
   line-height: 1.1;
+  color: var(--text);
+  background: transparent;
+}
+
+:global(.dark) .hero-headline {
   background: linear-gradient(120deg, #ffffff 40%, #c7d2fe 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -839,12 +850,13 @@ onMounted(async () => {
 
 /* User Spotlight Card */
 .user-spotlight-card {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(168, 85, 247, 0.25);
+  background: var(--surface);
+  border: 1px solid var(--border);
   padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border-radius: 18px;
 }
 
 .sc-head {
@@ -868,7 +880,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--card);
   border-radius: 10px;
   border-left: 3px solid #a855f7;
 }
@@ -885,12 +897,13 @@ onMounted(async () => {
 
 /* Admin Status Card */
 .admin-status-card {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: var(--surface);
+  border: 1px solid var(--border);
   padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  border-radius: 18px;
 }
 
 .asc-head {
@@ -919,8 +932,8 @@ onMounted(async () => {
 }
 
 .asc-item {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 4px;
   display: flex;
@@ -949,11 +962,18 @@ onMounted(async () => {
 /* Admin Quick Dock */
 .admin-quick-dock {
   padding: 20px 24px;
-  background: rgba(15, 23, 42, 0.65);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  box-shadow: var(--shadow-soft);
+}
+
+:global(.dark) .admin-quick-dock {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.25);
 }
 
 .dock-headline {
@@ -984,7 +1004,7 @@ onMounted(async () => {
 }
 
 .dock-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
   padding: 8px 14px;
@@ -1000,8 +1020,8 @@ onMounted(async () => {
 }
 
 .dock-btn:hover {
-  background: rgba(124, 161, 255, 0.18);
-  border-color: rgba(124, 161, 255, 0.4);
+  background: var(--card);
+  border-color: var(--brand);
 }
 
 .dock-btn.admin-tool {
@@ -1262,13 +1282,19 @@ onMounted(async () => {
 
 /* Team Exclusive Quick-Share Tool Styling */
 .team-exclusive-tools {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.04) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-shadow: var(--shadow-soft);
+}
+
+:global(.dark) .team-exclusive-tools {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.08) 100%), rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(99, 102, 241, 0.25);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 .tet-header {

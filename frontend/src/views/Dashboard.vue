@@ -802,12 +802,6 @@ const songsList = computed(() => {
   ];
 });
 
-function getSongStageIndex(song) {
-  if (song.status === "RELEASED") return 4;
-  if (song.version_count >= 3) return 2; // Mixdown
-  if (song.version_count >= 2) return 1; // Recording
-  return 0; // Idee
-}
 
 function songStatusLabel(st) {
   const map = { ACTIVE: "In Produktion", DRAFT: "Entwurf", RELEASED: "Release Ready", ON_HOLD: "Pausiert" };

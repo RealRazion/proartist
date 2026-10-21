@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.8-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.8-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Resolve Cloudflare Pages build failure and remove redundant Hub topbar button"
+                       ],
+        "changes":  [
+                        "fix: resolve Cloudflare Pages build failure and remove redundant Hub topbar button"
+                    ]
+    },
+    {
         "version":  "2.11.0.7-beta",
         "date":  "2026-10-19",
         "title":  "Patch 2.11.0.7-beta",
@@ -48,11 +60,11 @@
                            "Redundanten Hub-Button im Header entfernt"
                        ],
         "changes":  [
-                        "feat: Git Hook (.git/hooks/pre-push) und Skript fÃ¼r automatische Versionierung und Patchnote-Generierung bei git push",
+                        "feat: Git Hook (.git/hooks/pre-push) und Skript fÃƒÂ¼r automatische Versionierung und Patchnote-Generierung bei git push",
                         "feat: PatchnotesModal Komponente mit \u0027X\u0027 oben rechts und \u0027Verstanden\u0027 Button unten",
                         "feat: Automatische Einblendung beim ersten Login nach Versions-Upgrade via localStorage",
                         "style: Versionsnummer oben links mit hervorgehobener Hauptversion (z. B. 2.11) und feinerem Patch-Suffix",
-                        "ui: Redundanten \u0027UNYQ Hub\u0027-Button im Header entfernt fÃ¼r ein aufgerÃ¤umtes Erscheinungsbild"
+                        "ui: Redundanten \u0027UNYQ Hub\u0027-Button im Header entfernt fÃƒÂ¼r ein aufgerÃƒÂ¤umtes Erscheinungsbild"
                     ]
     },
     {
@@ -61,11 +73,11 @@
         "title":  "Patch 2.11.0.3-beta",
         "tagline":  "Vorbereitung Patchnotes System",
         "highlights":  [
-                           "Architektur fÃ¼r Patchnotes-Verwaltung aufgesetzt",
-                           "UI-Komponenten fÃ¼r Versionsanzeige integriert"
+                           "Architektur fÃƒÂ¼r Patchnotes-Verwaltung aufgesetzt",
+                           "UI-Komponenten fÃƒÂ¼r Versionsanzeige integriert"
                        ],
         "changes":  [
-                        "feat: Konfiguration und Composable usePatchnotes eingefÃ¼hrt",
+                        "feat: Konfiguration und Composable usePatchnotes eingefÃƒÂ¼hrt",
                         "style: Header-Anpassungen im PlatformLayout"
                     ]
     },
@@ -77,7 +89,7 @@
         "highlights":  [
                            "Turniere und Battles in ProArtist integriert",
                            "Frontend Layouts und Audio-Komponenten initialisiert",
-                           "Duale Ansichten fÃ¼r Admin und Normal User"
+                           "Duale Ansichten fÃƒÂ¼r Admin und Normal User"
                        ],
         "changes":  [
                         "feat: initialize frontend layout, router, views, and audio components for ProArtist",
@@ -92,7 +104,7 @@
         "tagline":  "Plattform-Initialisierung",
         "highlights":  [
                            "8 Kern-Plattformen im UNYQ Hub",
-                           "Ãœberarbeitetes Arena-Design und Funktionen"
+                           "ÃƒÅ“berarbeitetes Arena-Design und Funktionen"
                        ],
         "changes":  [
                         "feat: Integriere UNYQ Turniere in ProArtist und ueberarbeite Arena-Design",

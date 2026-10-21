@@ -194,7 +194,6 @@ onMounted(async () => {
   position: sticky;
   top: 0;
   z-index: 30;
-  backdrop-filter: blur(10px);
 }
 
 :global(.dark) .platform-topbar {

@@ -1243,8 +1243,6 @@ function copyInviteLink() {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
 
 :global(.dark) .studio-hero {
@@ -1388,8 +1386,6 @@ function copyInviteLink() {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 :global(.dark) .studio-section {
@@ -1733,8 +1729,6 @@ function copyInviteLink() {
   display: flex;
   flex-direction: column;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 :global(.dark) .duo-panel {
@@ -2054,8 +2048,6 @@ function copyInviteLink() {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 :global(.dark) .team-section {

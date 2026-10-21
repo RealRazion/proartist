@@ -125,8 +125,7 @@ function onVolumeChange(e) {
   left: 0;
   right: 0;
   height: 68px;
-  background: rgba(14, 20, 36, 0.94);
-  backdrop-filter: blur(20px);
+  background: rgba(14, 20, 36, 0.96);
   border-top: 1px solid rgba(124, 161, 255, 0.2);
   z-index: 1000;
   display: flex;

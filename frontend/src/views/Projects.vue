@@ -1309,8 +1309,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 :global(.dark) .pw-header {
@@ -1399,8 +1397,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   overflow-x: auto;
 }
 
@@ -1547,8 +1543,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 :global(.dark) .pw-grid-section {

@@ -481,8 +481,6 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 :global(.dark) .timeline-hero {
@@ -500,8 +498,6 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 :global(.dark) .timeline-body {

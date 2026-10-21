@@ -394,8 +394,6 @@ select:disabled {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
   padding: var(--space-4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .modal-overlay,
@@ -807,8 +805,6 @@ select:disabled {
   background: var(--card);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 
 .content.compact-content > * > header.card.header h1,

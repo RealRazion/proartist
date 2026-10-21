@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.22-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.22-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Declare native dark/light color-scheme to prevent browser force-dark inversion"
+                       ],
+        "changes":  [
+                        "fix(theme): declare native dark/light color-scheme to prevent browser force-dark inversion"
+                    ]
+    },
+    {
         "version":  "2.11.0.21-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.21-beta",

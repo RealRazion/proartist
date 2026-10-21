@@ -1305,8 +1305,12 @@ function copyInviteLink() {
 
 .mode-btn.active {
   background: linear-gradient(135deg, #3b82f6, #6366f1);
-  color: #fff;
+  color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+}
+
+.mode-btn.active span {
+  color: #ffffff !important;
 }
 
 .hero-headline {
@@ -1339,9 +1343,13 @@ function copyInviteLink() {
 
 .btn-primary {
   background: linear-gradient(135deg, #3b82f6, #6366f1);
-  color: #fff;
+  color: #ffffff !important;
   border: none;
   box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+}
+
+.btn-primary span {
+  color: #ffffff !important;
 }
 
 .btn-primary:hover {
@@ -1606,14 +1614,22 @@ function copyInviteLink() {
 .stage-step.active .step-dot {
   background: #3b82f6;
   border-color: #60a5fa;
-  color: #fff;
+  color: #ffffff !important;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+}
+
+.stage-step.active .step-dot * {
+  color: #ffffff !important;
 }
 
 .stage-step.completed .step-dot {
   background: #10b981;
   border-color: #34d399;
-  color: #fff;
+  color: #ffffff !important;
+}
+
+.stage-step.completed .step-dot * {
+  color: #ffffff !important;
 }
 
 .step-label {

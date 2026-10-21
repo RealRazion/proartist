@@ -81,7 +81,7 @@ const { platformSlug, platformVersion } = usePlatformVersion(routeRef);
 const { openPatchnotes, parsedVersion, currentVersion: APP_VERSION } = usePatchnotes();
 
 const open = ref(false);
-const theme = ref("light");
+const theme = ref(typeof window !== "undefined" && localStorage.getItem("theme") === "light" ? "light" : "dark");
 
 const pageMeta = {
   platforms: { title: "UNYQ Hub", kicker: "Plattformen und Tools" },
@@ -120,8 +120,9 @@ const themeLabel = computed(() => (theme.value === "dark" ? "Dark" : "Light"));
 
 function applyTheme() {
   const root = document.documentElement;
-  const isDark = theme.value === "dark";
+  const isDark = theme.value !== "light";
   root.classList.toggle("dark", isDark);
+  root.classList.toggle("light", !isDark);
   localStorage.setItem("theme", isDark ? "dark" : "light");
 }
 
@@ -152,9 +153,9 @@ watch(
 onMounted(async () => {
   if (typeof window !== "undefined") {
     const storedTheme = localStorage.getItem("theme");
-    if (storedTheme === "dark" || storedTheme === "light") {
+    if (storedTheme === "light" || storedTheme === "dark") {
       theme.value = storedTheme;
-    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    } else {
       theme.value = "dark";
     }
   }

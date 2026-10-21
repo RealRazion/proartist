@@ -1,45 +1,8 @@
-:root {
-  --bg: #d7e6ff;
-  --bg-soft: #eef4ff;
-  --card: rgba(255, 255, 255, 0.9);
-  --surface: rgba(255, 255, 255, 0.74);
-  --input-bg: rgba(255, 255, 255, 0.86);
-  --input-bg-focus: rgba(255, 255, 255, 0.96);
-  --select-option-bg: #f8fbff;
-  --select-option-selected: rgba(47, 99, 255, 0.16);
-  --select-arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.5 7.5 10 12l4.5-4.5' stroke='%23547569' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  --modal-bg: rgba(255, 255, 255, 0.98);
-  --modal-overlay: rgba(7, 12, 24, 0.68);
-  --modal-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
-  --text: #0f172a;
-  --muted: #64748b;
-  --brand: #2f63ff;
-  --brand-2: #06b6d4;
-  --ring: rgba(47, 99, 255, 0.26);
-  --border: rgba(15, 23, 42, 0.11);
-  --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.1);
-  --shadow-strong: 0 16px 36px rgba(15, 23, 42, 0.16);
-
-  /* Status colors for light mode */
-  --status-open: #f59e0b;
-  --status-in-progress: #3b82f6;
-  --status-review: #a855f7;
-  --status-done: #10b981;
-  --status-overdue: #ef4444;
-  --status-soon: #f59e0b;
-  --status-ok: #22c55e;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-}
-
+:root,
 :root.dark,
 html.dark,
 body.dark {
+  color-scheme: dark;
   --bg: #08132f;
   --bg-soft: #0f1c3f;
   --card: rgba(13, 25, 53, 0.88);
@@ -69,6 +32,48 @@ body.dark {
   --status-overdue: #f87171;
   --status-soon: #fbbf24;
   --status-ok: #4ade80;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+}
+
+:root.light,
+html.light,
+body.light {
+  color-scheme: light;
+  --bg: #d7e6ff;
+  --bg-soft: #eef4ff;
+  --card: rgba(255, 255, 255, 0.9);
+  --surface: rgba(255, 255, 255, 0.74);
+  --input-bg: rgba(255, 255, 255, 0.86);
+  --input-bg-focus: rgba(255, 255, 255, 0.96);
+  --select-option-bg: #f8fbff;
+  --select-option-selected: rgba(47, 99, 255, 0.16);
+  --select-arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.5 7.5 10 12l4.5-4.5' stroke='%23547569' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --modal-bg: rgba(255, 255, 255, 0.98);
+  --modal-overlay: rgba(7, 12, 24, 0.68);
+  --modal-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+  --text: #0f172a;
+  --muted: #64748b;
+  --brand: #2f63ff;
+  --brand-2: #06b6d4;
+  --ring: rgba(47, 99, 255, 0.26);
+  --border: rgba(15, 23, 42, 0.11);
+  --shadow-soft: 0 10px 24px rgba(15, 23, 42, 0.1);
+  --shadow-strong: 0 16px 36px rgba(15, 23, 42, 0.16);
+
+  /* Status colors for light mode */
+  --status-open: #f59e0b;
+  --status-in-progress: #3b82f6;
+  --status-review: #a855f7;
+  --status-done: #10b981;
+  --status-overdue: #ef4444;
+  --status-soon: #f59e0b;
+  --status-ok: #22c55e;
 }
 
 * {
@@ -183,11 +188,16 @@ select:disabled {
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  color: #fff;
+  color: #fff !important;
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.16s ease, box-shadow 0.22s ease;
   box-shadow: 0 8px 18px rgba(47, 99, 255, 0.22);
+}
+
+.btn:not(.ghost) span,
+.btn:not(.ghost) strong {
+  color: #fff !important;
 }
 
 .btn:hover:not(:disabled) {

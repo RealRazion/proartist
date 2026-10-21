@@ -397,7 +397,7 @@ const open = ref(false);
 const search = ref("");
 const unreadCount = ref(0);
 const notificationCount = ref(0);
-const theme = ref("light");
+const theme = ref(typeof window !== "undefined" && localStorage.getItem("theme") === "light" ? "light" : "dark");
 const loadingUnread = ref(false);
 const collapsed = ref(false);
 const mobileOpen = ref(false);
@@ -430,8 +430,9 @@ function notify(msg) {
 
 function applyTheme() {
   const root = document.documentElement;
-  const isDark = theme.value === "dark";
+  const isDark = theme.value !== "light";
   root.classList.toggle("dark", isDark);
+  root.classList.toggle("light", !isDark);
   localStorage.setItem("theme", isDark ? "dark" : "light");
 }
 
@@ -600,9 +601,9 @@ watch(
 onMounted(async () => {
   if (typeof window !== "undefined") {
     const storedTheme = localStorage.getItem("theme");
-    if (storedTheme === "dark" || storedTheme === "light") {
+    if (storedTheme === "light" || storedTheme === "dark") {
       theme.value = storedTheme;
-    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    } else {
       theme.value = "dark";
     }
     collapsed.value = localStorage.getItem("layout:sidebar") === "collapsed";

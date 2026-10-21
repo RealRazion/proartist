@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.23-beta",
+        "date":  "2026-10-22",
+        "title":  "Patch 2.11.0.23-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Add frontend core styling, patchnotes modal, and layout view components"
+                       ],
+        "changes":  [
+                        "feat: add frontend core styling, patchnotes modal, and layout view components"
+                    ]
+    },
+    {
         "version":  "2.11.0.22-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.22-beta",

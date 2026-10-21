@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.18-beta",
+        "date":  "2026-10-21",
+        "title":  "Patch 2.11.0.18-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Eliminate nested background boxes, enforce \u0027color-scheme: only\u0027, and ensure full light/dark mode adaptability"
+                       ],
+        "changes":  [
+                        "fix(ui): eliminate nested background boxes, enforce \u0027color-scheme: only\u0027, and ensure full light/dark mode adaptability"
+                    ]
+    },
+    {
         "version":  "2.11.0.17-beta",
         "date":  "2026-10-21",
         "title":  "Patch 2.11.0.17-beta",

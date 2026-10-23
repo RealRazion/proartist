@@ -433,7 +433,7 @@ function applyTheme() {
   const isDark = theme.value !== "light";
   root.classList.toggle("dark", isDark);
   root.classList.toggle("light", !isDark);
-  root.style.colorScheme = isDark ? "dark" : "light";
+  root.style.colorScheme = isDark ? "only dark" : "only light";
   localStorage.setItem("theme", isDark ? "dark" : "light");
 }
 
@@ -779,9 +779,9 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   padding: 4px 6px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
 }
 
 .app-dock-btn {
@@ -791,7 +791,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding: 8px 4px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--card);
   text-decoration: none;
   color: inherit;
   font-size: 11px;
@@ -827,9 +827,9 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -888,7 +888,7 @@ onBeforeUnmount(() => {
   padding: 4px;
   border-radius: 10px;
   margin: 6px 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border);
 }
 
 .mode-switch-btn {

@@ -1288,7 +1288,6 @@ onBeforeUnmount(() => {
   background: var(--modal-overlay);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(10px);
 }
 .modal-card {
   background: var(--modal-bg);
@@ -1555,7 +1554,6 @@ onBeforeUnmount(() => {
 /* A/B Modal */
 .ab-modal-overlay {
   background: rgba(5, 7, 15, 0.88);
-  backdrop-filter: blur(12px);
   z-index: 1000;
   position: fixed;
   inset: 0;

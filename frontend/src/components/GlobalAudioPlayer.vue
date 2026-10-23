@@ -135,8 +135,8 @@ function onVolumeChange(e) {
   color: #f1f5f9;
 }
 
-:global(:not(.dark)) .global-player-bar {
-  background: rgba(255, 255, 255, 0.95);
+:global(.light) .global-player-bar {
+  background: rgba(255, 255, 255, 0.98);
   border-top: 1px solid rgba(15, 23, 42, 0.12);
   color: #0f172a;
   box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.12);
@@ -168,12 +168,12 @@ function onVolumeChange(e) {
   height: 44px;
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border);
 }
 
 .track-thumb img {
@@ -208,7 +208,7 @@ function onVolumeChange(e) {
   text-overflow: ellipsis;
 }
 
-:global(:not(.dark)) .track-artist {
+:global(.light) .track-artist {
   color: #64748b;
 }
 
@@ -263,7 +263,7 @@ function onVolumeChange(e) {
   min-width: 32px;
 }
 
-:global(:not(.dark)) .time-text {
+:global(.light) .time-text {
   color: #64748b;
 }
 
@@ -279,12 +279,12 @@ function onVolumeChange(e) {
   width: 100%;
   height: 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--surface);
   position: relative;
   overflow: hidden;
 }
 
-:global(:not(.dark)) .progress-track {
+:global(.light) .progress-track {
   background: rgba(15, 23, 42, 0.12);
 }
 
@@ -339,12 +339,12 @@ function onVolumeChange(e) {
   border-radius: 999px;
   appearance: none;
   -webkit-appearance: none;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--surface);
   outline: none;
   cursor: pointer;
 }
 
-:global(:not(.dark)) .vol-slider {
+:global(.light) .vol-slider {
   background: rgba(15, 23, 42, 0.18);
 }
 

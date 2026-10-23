@@ -2145,7 +2145,6 @@ select[multiple] {
 }
 .modal-backdrop.task-slide-over-backdrop {
   background: rgba(2, 6, 23, 0.48);
-  backdrop-filter: blur(4px);
   justify-content: flex-end;
   align-items: stretch;
   padding: 0;

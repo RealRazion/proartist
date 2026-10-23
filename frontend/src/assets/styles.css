@@ -2,7 +2,7 @@
 :root.dark,
 html.dark,
 body.dark {
-  color-scheme: dark;
+  color-scheme: only dark;
   --bg: #08132f;
   --bg-soft: #0f1c3f;
   --card: #0d1935;
@@ -44,7 +44,7 @@ body.dark {
 :root.light,
 html.light,
 body.light {
-  color-scheme: light;
+  color-scheme: only light;
   --bg: #f1f5f9;
   --bg-soft: #f8fafc;
   --card: #ffffff;
@@ -111,7 +111,8 @@ html.light body {
 
 /* Ensure headings and texts never inherit or get rendered with unwanted background boxes */
 h1, h2, h3, h4, h5, h6, p, label, .muted, .subtext {
-  background-color: transparent;
+  background-color: transparent !important;
+  background: transparent !important;
 }
 
 
@@ -437,6 +438,7 @@ select:disabled {
   align-items: stretch;
   min-height: 100vh;
   position: relative;
+  background: var(--bg);
 }
 
 .sidebar {
@@ -646,6 +648,7 @@ select:disabled {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  background: var(--bg);
 }
 
 .topbar {

@@ -604,7 +604,7 @@
           <p style="margin-bottom: 12px;">
             Möchtest du den Track <strong>„{{ stageConfirmData.song.title }}“</strong> wirklich in eine neue Phase verschieben?
           </p>
-          <div class="stage-transition-preview" style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+          <div class="stage-transition-preview" style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
             <div>
               <small class="muted" style="display:block;">Aktuelle Phase:</small>
               <strong>{{ releaseStages[getSongStageIndex(stageConfirmData.song)]?.label }}</strong>
@@ -1223,14 +1223,7 @@ function copyInviteLink() {
 }
 
 .studio-ambient-glow {
-  position: absolute;
-  top: -80px;
-  left: 20%;
-  width: 60%;
-  height: 280px;
-  background: radial-gradient(ellipse at 50% 30%, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.05) 50%, transparent 75%);
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 /* Studio Hero Header */
@@ -1521,7 +1514,7 @@ function copyInviteLink() {
   font-size: 9.5px;
   padding: 1px 6px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface);
   color: var(--muted);
 }
 
@@ -1585,7 +1578,7 @@ function copyInviteLink() {
   height: 20px;
   border-radius: 50%;
   background: #1e2433;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1648,7 +1641,7 @@ function copyInviteLink() {
   justify-content: space-between;
   align-items: center;
   padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border);
 }
 
 .version-badge {
@@ -1664,9 +1657,9 @@ function copyInviteLink() {
 .empty-pipeline-box {
   padding: 40px 20px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface);
   border-radius: 14px;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border: 1px dashed var(--border);
 }
 
 .empty-icon-ring {
@@ -1768,7 +1761,7 @@ function copyInviteLink() {
   width: 18px;
   height: 18px;
   border-radius: 6px;
-  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border: 1.5px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;

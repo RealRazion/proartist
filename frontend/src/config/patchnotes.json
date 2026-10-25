@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.28-beta",
+        "date":  "2026-10-25",
+        "title":  "Patch 2.11.0.28-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Turn battle hub into large modal popup from profile button and hide arena settings from artists"
+                       ],
+        "changes":  [
+                        "feat(arena): turn battle hub into large modal popup from profile button and hide arena settings from artists"
+                    ]
+    },
+    {
         "version":  "2.11.0.27-beta",
         "date":  "2026-10-25",
         "title":  "Patch 2.11.0.27-beta",

@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.26-beta",
+        "date":  "2026-10-25",
+        "title":  "Patch 2.11.0.26-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Decouple tournament arena, add admin stats reset manager, and overhaul auth security"
+                       ],
+        "changes":  [
+                        "feat: decouple tournament arena, add admin stats reset manager, and overhaul auth security"
+                    ]
+    },
+    {
         "version":  "2.11.0.25-beta",
         "date":  "2026-10-24",
         "title":  "Patch 2.11.0.25-beta",

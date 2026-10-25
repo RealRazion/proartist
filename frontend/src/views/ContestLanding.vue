@@ -3,12 +3,11 @@
     <!-- STANDALONE ARENA TOPBAR (Decoupled Navigation) -->
     <div class="arena-standalone-topbar">
       <div class="ast-left">
-        <router-link to="/dashboard" class="ast-back-link">
-          <span>← Zurück zum ProArtist Studio</span>
+        <router-link to="/platforms" class="ast-back-link">
+          <span>← Zurück zum Hub</span>
         </router-link>
         <div class="ast-brand">
           <span class="ast-brand-logo">🏆 UNYQ ARENA</span>
-          <span class="ast-tag">STANDALONE PLATFORM</span>
         </div>
       </div>
       <div class="ast-right">
@@ -19,13 +18,19 @@
         >
           <span>📊 Admin Stats &amp; Reset</span>
         </router-link>
-        <div class="ast-user-pill">
+        <button
+          type="button"
+          class="ast-user-pill"
+          @click="openMyBattlerProfile"
+          title="Zu deinem Battler-Profil, Bilanz &amp; Erfolgen"
+        >
           <span class="ast-user-avatar">{{ (me?.name || me?.username || 'A').charAt(0).toUpperCase() }}</span>
           <span class="ast-user-info">
             <strong>{{ me?.name || me?.username || 'Artist' }}</strong>
             <small>{{ userStats.tier }} Tier · {{ userStats.rp }} RP</small>
           </span>
-        </div>
+          <span class="ast-pill-arrow">›</span>
+        </button>
       </div>
     </div>
 
@@ -116,37 +121,35 @@
         </div>
       </div>
 
-      <!-- Header Right: Arena Stats & Jackpot -->
+      <!-- Header Right: Arena Quick Stats (No fake prize pool) -->
       <div class="header-stats-col">
-        <div class="jackpot-spotlight-card">
-          <div class="jsc-top">
-            <div class="jsc-badge">💰 ARENA PRIZE POOL</div>
-            <span class="jsc-live-pulse"></span>
+        <div class="arena-overview-stats-card">
+          <div class="aosc-header">
+            <span class="aosc-title">⚡ Arena Live-Status</span>
+            <span class="live-pulse-dot"></span>
           </div>
-          <div class="jsc-amount">{{ formatCurrency(totalPrizePool) }} €</div>
-          <p class="jsc-sub">+ Official Vinyl Pressung &amp; Master Distribution</p>
 
           <div class="asc-stat-grid">
-            <div class="asc-stat-box">
+            <div class="asc-stat-box" @click="activeTab = 'tournaments'" role="button" title="Zu Turnieren &amp; Übersicht">
               <span class="stat-number">{{ tournamentsList.length }}</span>
               <span class="stat-caption">Turniere</span>
             </div>
-            <div class="asc-stat-box highlight">
+            <div class="asc-stat-box highlight" @click="activeTab = 'battles'" role="button" title="Zu Live Battles">
               <span class="stat-number">{{ activeBattlesCount }}</span>
               <span class="stat-caption">Live Battles</span>
             </div>
-            <div class="asc-stat-box">
+            <div class="asc-stat-box" @click="activeTab = 'leaderboard'" role="button" title="Zum Leaderboard">
               <span class="stat-number">{{ totalRegisteredArtists }}</span>
               <span class="stat-caption">Artists</span>
             </div>
-            <div class="asc-stat-box user-rank">
+            <div class="asc-stat-box user-rank" @click="openMyBattlerProfile" role="button" title="Dein Battler-Profil">
               <span class="stat-number">{{ userStats.rankDisplay }}</span>
               <span class="stat-caption">Dein Rang</span>
             </div>
           </div>
 
           <!-- User Quick Rank Progress Strip -->
-          <div class="user-rp-progress-strip" @click="activeTab = 'ranks'">
+          <div class="user-rp-progress-strip" @click="openMyBattlerProfile" title="Zu deinem Rang-Fortschritt &amp; Erfolgen">
             <div class="urps-info">
               <span class="urps-tier">{{ userStats.tier }} Tier</span>
               <span class="urps-rp">{{ userStats.rp }} / {{ userStats.nextTierRP }} RP</span>
@@ -154,7 +157,7 @@
             <div class="urps-progress-bar">
               <div class="urps-progress-fill" :style="{ width: userProgressPercent + '%' }"></div>
             </div>
-            <small class="urps-hint">Noch {{ userStats.nextTierRP - userStats.rp }} RP bis zum nächsten Rang</small>
+            <small class="urps-hint">Noch {{ Math.max(0, userStats.nextTierRP - userStats.rp) }} RP bis zum nächsten Rang</small>
           </div>
         </div>
       </div>
@@ -172,6 +175,11 @@
         >
           <span class="tab-emoji">{{ tab.icon }}</span>
           <span class="tab-text">{{ tab.label }}</span>
+          <span
+            v-if="tab.key === 'battles' && activeBattlesCount > 0"
+            class="tab-live-dot"
+            title="Live Battles jetzt aktiv"
+          ></span>
           <span v-if="tab.badge" class="tab-counter-badge" :class="tab.badgeClass">
             {{ tab.badge }}
           </span>
@@ -609,7 +617,7 @@
     <section v-if="activeTab === 'leaderboard'" class="tab-view-container">
       <div class="section-hero-header">
         <div>
-          <h2>🥇 Ranked Leaderboard // Season '26</h2>
+          <h2>🥇 Leaderboard // Season '26</h2>
           <p class="muted">
             Punkte sammeln durch Siege in Runden, Battle-Votes und Jury-Auszeichnungen. 
             Die Top 3 qualifizieren sich direkt für die Champions Finals.
@@ -858,6 +866,61 @@
         <div class="apc-stat">
           <span class="lbl">Gewonnene Preisgelder</span>
           <strong class="val highlight">{{ userPrizeMoneyFormatted }}</strong>
+        </div>
+      </div>
+
+      <!-- Battler Achievements & Badges Strip -->
+      <div class="card battler-achievements-card">
+        <div class="bac-head">
+          <div class="bac-title-box">
+            <span class="bac-icon">🎖️</span>
+            <div>
+              <h3>Deine Arena-Erfolge &amp; Abzeichen</h3>
+              <p class="muted small">Auszeichnungen basierend auf deiner Season '26 Battler Performance</p>
+            </div>
+          </div>
+          <div class="bac-actions">
+            <button type="button" class="btn ghost btn-sm" @click="openMyDossier">
+              🔍 Artist Dossier anzeigen
+            </button>
+            <router-link to="/me" class="btn ghost btn-sm">
+              Studio-Profil ↗
+            </router-link>
+          </div>
+        </div>
+
+        <div class="bac-badges-grid">
+          <div class="achievement-pill unlocked">
+            <span class="ach-icon">⚡</span>
+            <div class="ach-info">
+              <strong>Season '26 Contender</strong>
+              <small>Aktiver Liga-Teilnehmer</small>
+            </div>
+          </div>
+
+          <div class="achievement-pill" :class="{ unlocked: userStats.wins > 0 }">
+            <span class="ach-icon">🔥</span>
+            <div class="ach-info">
+              <strong>Erster Battle-Sieg</strong>
+              <small>{{ userStats.wins > 0 ? `${userStats.wins} Siege errungen` : 'Noch kein Sieg' }}</small>
+            </div>
+          </div>
+
+          <div class="achievement-pill" :class="{ unlocked: userStats.wins >= 5 }">
+            <span class="ach-icon">⚔️</span>
+            <div class="ach-info">
+              <strong>Battle Veteran</strong>
+              <small>{{ userStats.wins >= 5 ? '5+ Duelle gewonnen' : `${userStats.wins}/5 Siege` }}</small>
+            </div>
+          </div>
+
+          <div class="achievement-pill" :class="{ unlocked: userStats.tier !== 'Bronze' }">
+            <span class="ach-icon">👑</span>
+            <div class="ach-info">
+              <strong>{{ userStats.tier }} Tier Rank</strong>
+              <small>{{ userStats.rp }} RP gesammelt</small>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2280,7 +2343,7 @@ const userProgressPercent = computed(() => {
 /* Arena Navigation Tabs */
 const arenaTabs = computed(() => {
   const tabs = [
-    { key: "tournaments", label: "Turniere & Arena", icon: "🏆" },
+    { key: "tournaments", label: "Übersicht", icon: "🏆" },
     {
       key: "battles",
       label: "Live Battles",
@@ -2288,7 +2351,7 @@ const arenaTabs = computed(() => {
       badge: activeBattlesCount.value ? `${activeBattlesCount.value}` : null,
       badgeClass: "badge-live",
     },
-    { key: "leaderboard", label: "Ranked Leaderboard", icon: "🥇" },
+    { key: "leaderboard", label: "Leaderboard", icon: "🥇" },
     { key: "ranks", label: "Ränge & Tiers", icon: "🛡️" },
     {
       key: "my-tournaments",
@@ -3089,6 +3152,26 @@ function inspectArtist(artist) {
   inspectedArtist.value = artist;
 }
 
+function openMyBattlerProfile() {
+  activeTab.value = "my-tournaments";
+  const target = document.querySelector(".arena-navigation-bar");
+  if (target) {
+    target.scrollIntoView({ behavior: "smooth" });
+  }
+}
+
+function openMyDossier() {
+  inspectedArtist.value = {
+    id: me.value?.id || "me",
+    name: me.value?.name || me.value?.username || "Du",
+    tier: userStats.value.tier || "Bronze",
+    ranked_points: userStats.value.rp || 0,
+    wins: userStats.value.wins || 0,
+    losses: userStats.value.losses || 0,
+    isMe: true,
+  };
+}
+
 async function saveArenaSettings() {
   localStorage.setItem("unyq_arena_settings", JSON.stringify(arenaSettings.value));
   if (isTeam.value) {
@@ -3601,7 +3684,7 @@ onMounted(async () => {
 .tournament-arena-page {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 16px;
   max-width: 1360px;
   margin: 0 auto;
   padding: 8px 16px 90px;
@@ -3659,16 +3742,16 @@ onMounted(async () => {
 .arena-header {
   display: grid;
   grid-template-columns: 1.35fr 0.95fr;
-  gap: 32px;
+  gap: 28px;
   align-items: center;
-  padding: 38px 36px;
+  padding: 26px 30px;
   background: 
     radial-gradient(circle at top right, rgba(245, 158, 11, 0.16), transparent 55%),
     radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 45%),
     linear-gradient(135deg, rgba(24, 21, 40, 0.92), rgba(12, 19, 36, 0.96));
   border: 1px solid rgba(245, 158, 11, 0.28);
-  border-radius: 28px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  border-radius: 24px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   position: relative;
   overflow: hidden;
   z-index: 1;
@@ -3830,53 +3913,38 @@ onMounted(async () => {
   font-size: 16px;
 }
 
-/* Jackpot Card */
-.jackpot-spotlight-card {
+/* Arena Overview Stats Card (Clean, No Fake Prize Pool) */
+.arena-overview-stats-card {
   background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: 20px;
-  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  gap: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
 }
 
-.jsc-top {
+.aosc-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.jsc-badge {
-  font-size: 11px;
+.aosc-title {
+  font-size: 11.5px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: #fbbf24;
-}
-
-.jsc-amount {
-  font-size: clamp(2rem, 3.2vw, 2.7rem);
-  font-weight: 900;
-  color: #fff;
-  letter-spacing: -0.02em;
-  background: linear-gradient(120deg, #fff 30%, #fde68a 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.jsc-sub {
-  font-size: 12px;
-  color: #34d399;
-  font-weight: 600;
-  margin: -6px 0 0;
+  text-transform: uppercase;
 }
 
 .asc-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .asc-stat-box {
@@ -3886,6 +3954,13 @@ onMounted(async () => {
   text-align: center;
   display: flex;
   flex-direction: column;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.asc-stat-box:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
 }
 
 .asc-stat-box .stat-number {
@@ -4030,6 +4105,23 @@ onMounted(async () => {
 .tab-counter-badge.badge-warn {
   background: #f59e0b;
   color: #0f172a;
+}
+
+.tab-live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef4444;
+  display: inline-block;
+  animation: pulseRedLiveDot 1.4s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes pulseRedLiveDot {
+  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.85); }
+  70% { transform: scale(1.2); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 /* =========================================================================
@@ -6460,7 +6552,7 @@ onMounted(async () => {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  margin-bottom: 20px;
+  margin-bottom: 0px;
   flex-wrap: wrap;
   gap: 12px;
 }
@@ -6506,17 +6598,6 @@ onMounted(async () => {
   text-shadow: 0 0 16px rgba(250, 204, 21, 0.3);
 }
 
-.ast-tag {
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  color: #a78bfa;
-  background: rgba(139, 92, 246, 0.15);
-  padding: 2px 7px;
-  border-radius: 4px;
-  border: 1px solid rgba(139, 92, 246, 0.25);
-}
-
 .ast-right {
   display: flex;
   align-items: center;
@@ -6546,10 +6627,22 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 12px 4px 6px;
+  padding: 5px 14px 5px 6px;
   background: #181b2c;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.ast-user-pill:hover {
+  background: #232742;
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.22);
+  transform: translateY(-1px);
 }
 
 .ast-user-avatar {
@@ -6579,5 +6672,96 @@ onMounted(async () => {
 .ast-user-info small {
   font-size: 10px;
   color: #94a3b8;
+}
+
+.ast-pill-arrow {
+  font-size: 16px;
+  color: #94a3b8;
+  font-weight: 700;
+  margin-left: 2px;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.ast-user-pill:hover .ast-pill-arrow {
+  color: #fbbf24;
+  transform: translateX(2px);
+}
+
+/* Battler Achievements Card */
+.battler-achievements-card {
+  margin-top: -8px;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: rgba(18, 22, 36, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bac-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.bac-title-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bac-icon {
+  font-size: 24px;
+}
+
+.bac-title-box h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #fff;
+}
+
+.bac-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bac-badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.achievement-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  opacity: 0.55;
+  transition: all 0.2s ease;
+}
+
+.achievement-pill.unlocked {
+  opacity: 1;
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.achievement-pill .ach-icon {
+  font-size: 20px;
+}
+
+.achievement-pill .ach-info strong {
+  display: block;
+  font-size: 12.5px;
+  color: #fff;
+}
+
+.achievement-pill .ach-info small {
+  font-size: 11px;
+  color: var(--muted);
 }
 </style>

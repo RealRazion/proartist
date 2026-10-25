@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.27-beta",
+        "date":  "2026-10-25",
+        "title":  "Patch 2.11.0.27-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Refine topbar navigation, tab names, battler profile link, and remove prize pool"
+                       ],
+        "changes":  [
+                        "fix(arena): refine topbar navigation, tab names, battler profile link, and remove prize pool"
+                    ]
+    },
+    {
         "version":  "2.11.0.26-beta",
         "date":  "2026-10-25",
         "title":  "Patch 2.11.0.26-beta",

@@ -834,226 +834,9 @@
     </section>
 
     <!-- ================================================================= -->
-    <!-- TAB 5: MEIN BATTLE HUB (ARTIST PASSPORT) -->
+    <!-- TAB: CONTEST & ARENA SETTINGS (TEAM ONLY) -->
     <!-- ================================================================= -->
-    <section v-if="activeTab === 'my-tournaments'" class="tab-view-container">
-      <div class="section-hero-header">
-        <div>
-          <h2>👤 Mein Battle Hub &amp; Runden</h2>
-          <p class="muted">
-            Deine laufenden Bewerbungen, aktive Matches und eingereichte Runden im Überblick.
-          </p>
-        </div>
-        <button class="btn" @click="openSpotlightApply">
-          + Neue Bewerbung einreichen
-        </button>
-      </div>
-
-      <!-- Quick Stats Card -->
-      <div class="card artist-passport-card">
-        <div class="apc-stat">
-          <span class="lbl">Ranked Status</span>
-          <strong class="val">{{ userStats.tier }} Tier ({{ userStats.rp }} RP)</strong>
-        </div>
-        <div class="apc-stat">
-          <span class="lbl">Turnier-Teilnahmen</span>
-          <strong class="val">{{ myApplications.length }} Contests</strong>
-        </div>
-        <div class="apc-stat">
-          <span class="lbl">Battle-Bilanz</span>
-          <strong class="val">{{ userStats.wins || 0 }} Wins / {{ userStats.losses || 0 }} Losses ({{ userWinRate }}%)</strong>
-        </div>
-        <div class="apc-stat">
-          <span class="lbl">Gewonnene Preisgelder</span>
-          <strong class="val highlight">{{ userPrizeMoneyFormatted }}</strong>
-        </div>
-      </div>
-
-      <!-- Battler Achievements & Badges Strip -->
-      <div class="card battler-achievements-card">
-        <div class="bac-head">
-          <div class="bac-title-box">
-            <span class="bac-icon">🎖️</span>
-            <div>
-              <h3>Deine Arena-Erfolge &amp; Abzeichen</h3>
-              <p class="muted small">Auszeichnungen basierend auf deiner Season '26 Battler Performance</p>
-            </div>
-          </div>
-          <div class="bac-actions">
-            <button type="button" class="btn ghost btn-sm" @click="openMyDossier">
-              🔍 Artist Dossier anzeigen
-            </button>
-            <router-link to="/me" class="btn ghost btn-sm">
-              Studio-Profil ↗
-            </router-link>
-          </div>
-        </div>
-
-        <div class="bac-badges-grid">
-          <div class="achievement-pill unlocked">
-            <span class="ach-icon">⚡</span>
-            <div class="ach-info">
-              <strong>Season '26 Contender</strong>
-              <small>Aktiver Liga-Teilnehmer</small>
-            </div>
-          </div>
-
-          <div class="achievement-pill" :class="{ unlocked: userStats.wins > 0 }">
-            <span class="ach-icon">🔥</span>
-            <div class="ach-info">
-              <strong>Erster Battle-Sieg</strong>
-              <small>{{ userStats.wins > 0 ? `${userStats.wins} Siege errungen` : 'Noch kein Sieg' }}</small>
-            </div>
-          </div>
-
-          <div class="achievement-pill" :class="{ unlocked: userStats.wins >= 5 }">
-            <span class="ach-icon">⚔️</span>
-            <div class="ach-info">
-              <strong>Battle Veteran</strong>
-              <small>{{ userStats.wins >= 5 ? '5+ Duelle gewonnen' : `${userStats.wins}/5 Siege` }}</small>
-            </div>
-          </div>
-
-          <div class="achievement-pill" :class="{ unlocked: userStats.tier !== 'Bronze' }">
-            <span class="ach-icon">👑</span>
-            <div class="ach-info">
-              <strong>{{ userStats.tier }} Tier Rank</strong>
-              <small>{{ userStats.rp }} RP gesammelt</small>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- HUB SUB-TABS: BEWERBUNGEN & RUNDEN -->
-      <div class="hub-tabs-row">
-        <button
-          type="button"
-          class="hub-tab-btn"
-          :class="{ active: myHubSubTab === 'applications' }"
-          @click="myHubSubTab = 'applications'"
-        >
-          <span>📋 Meine Bewerbungen ({{ myApplications.length }})</span>
-        </button>
-        <button
-          type="button"
-          class="hub-tab-btn"
-          :class="{ active: myHubSubTab === 'submissions' }"
-          @click="myHubSubTab = 'submissions'"
-        >
-          <span>🎵 Meine eingereichten Runden ({{ mySubmissionsList.length }})</span>
-        </button>
-      </div>
-
-      <!-- Section 1: Applications -->
-      <div v-if="myHubSubTab === 'applications'">
-        <div v-if="myApplications.length" class="my-battles-grid">
-          <div v-for="app in myApplications" :key="app.id" class="card my-entry-card" :class="{ rejected: app.status === 'REJECTED' }">
-            <div class="mec-head">
-              <span class="badge-status-pill" :class="app.status.toLowerCase()">
-                {{ app.status === 'APPROVED' || app.status === 'ACCEPTED' ? '✓ Zugelassen' : (app.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
-              </span>
-              <span class="mec-date">{{ app.created_at || 'Eingereicht' }}</span>
-            </div>
-
-            <h3 class="mec-title">{{ app.tournament_title }}</h3>
-            <p class="mec-msg">"{{ app.message }}"</p>
-
-            <!-- Prominent Rejection Reason Banner if rejected -->
-            <div v-if="app.status === 'REJECTED'" class="hub-rejection-banner">
-              <strong>❌ Von der Jury abgelehnt:</strong>
-              <p>"{{ app.rejection_reason || 'Die Bewerbung hat die Kriterien der aktuellen Runde leider nicht erfüllt.' }}"</p>
-              <small class="muted">Du kannst deine Bewerbung überarbeiten und erneut einreichen.</small>
-            </div>
-
-            <div class="mec-actions">
-              <button
-                v-if="app.status === 'ACCEPTED' || app.status === 'APPROVED'"
-                class="btn btn-sm btn-submit-round"
-                @click="openUploadRoundModal(app)"
-              >
-                📤 Runde einreichen (Audio/Video)
-              </button>
-              <button
-                v-if="app.status === 'REJECTED' || app.status === 'PENDING'"
-                class="btn btn-sm btn-edit-entry"
-                @click="openEditApplicationModal(app)"
-              >
-                ✏️ Bewerbung bearbeiten / überarbeiten
-              </button>
-              <button
-                class="btn ghost btn-sm"
-                @click="openTournamentDetail({ id: app.tournament_id, title: app.tournament_title })"
-              >
-                Turnier ansehen →
-              </button>
-            </div>
-          </div>
-        </div>
-        <div v-else class="card empty-tournaments-state">
-          <div class="ets-icon">🎤</div>
-          <h3>Du hast noch keine aktiven Bewerbungen</h3>
-          <p class="muted">Stöbere in den offenen Turnieren und reiche deine Bewerbung als Contender ein.</p>
-          <button class="btn btn-sm" @click="activeTab = 'tournaments'">Turniere ansehen →</button>
-        </div>
-      </div>
-
-      <!-- Section 2: Submissions -->
-      <div v-if="myHubSubTab === 'submissions'">
-        <div v-if="mySubmissionsList.length" class="my-battles-grid">
-          <div v-for="sub in mySubmissionsList" :key="sub.id" class="card my-entry-card" :class="{ rejected: sub.status === 'REJECTED' }">
-            <div class="mec-head">
-              <span class="badge-status-pill" :class="sub.status?.toLowerCase()">
-                {{ sub.status === 'APPROVED' ? '✓ Freigegeben' : (sub.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
-              </span>
-              <span class="mec-round-tag">Runde {{ sub.round_number || 1 }}</span>
-            </div>
-
-            <h3 class="mec-title">{{ sub.title }}</h3>
-            <p class="mec-tourney muted small">{{ sub.tournament_title }}</p>
-
-            <!-- Rejection Reason if rejected -->
-            <div v-if="sub.status === 'REJECTED'" class="hub-rejection-banner">
-              <strong>❌ Runde von der Jury abgelehnt:</strong>
-              <p>"{{ sub.rejection_reason || 'Kriterien nicht erfüllt.' }}"</p>
-              <small class="muted">Du kannst deinen Track anpassen und die Runde erneut zur Prüfung freigeben.</small>
-            </div>
-
-            <div class="mec-actions">
-              <button
-                class="btn btn-sm btn-play-audio"
-                :class="{ active: currentPlayingTrack === `hub-sub-${sub.id}` }"
-                @click="toggleAudio(`hub-sub-${sub.id}`, sub.artist_name || 'Du')"
-              >
-                {{ currentPlayingTrack === `hub-sub-${sub.id}` ? '⏸ Pause' : '▶ Anhören' }}
-              </button>
-              <button
-                class="btn ghost btn-sm btn-edit-entry"
-                @click="openEditRoundModal(sub)"
-              >
-                ✏️ Track bearbeiten / überarbeiten
-              </button>
-              <button
-                class="btn ghost btn-sm"
-                @click="openTournamentDetail({ id: sub.tournament_id, title: sub.tournament_title })"
-              >
-                Zum Turnier →
-              </button>
-            </div>
-          </div>
-        </div>
-        <div v-else class="card empty-tournaments-state">
-          <div class="ets-icon">🎵</div>
-          <h3>Noch keine Runden-Songs eingereicht</h3>
-          <p class="muted">Sobald du für ein Turnier zugelassen bist, kannst du hier deine Songs pro Runde hochladen und verwalten.</p>
-          <button class="btn btn-sm" @click="activeTab = 'tournaments'">Turniere durchsuchen →</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================================================================= -->
-    <!-- TAB 6: CONTEST & ARENA SETTINGS -->
-    <!-- ================================================================= -->
-    <section v-if="activeTab === 'settings'" class="tab-view-container">
+    <section v-if="activeTab === 'settings' && isTeam" class="tab-view-container">
       <div class="section-hero-header">
         <div>
           <h2>⚙️ Arena &amp; Contest Einstellungen</h2>
@@ -2231,6 +2014,262 @@
         </div>
       </div>
     </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL 8: MEIN BATTLE HUB (LARGE POPUP) -->
+    <!-- ================================================================= -->
+    <div v-if="showBattleHubModal" class="modal-overlay battle-hub-modal-overlay" @click.self="showBattleHubModal = false">
+      <div class="modal card battle-hub-modal">
+        <div class="modal-header bhm-header">
+          <div class="bhm-user-strip">
+            <span class="bhm-avatar">{{ (me?.name || me?.username || 'A').charAt(0).toUpperCase() }}</span>
+            <div class="bhm-title-info">
+              <h3>👤 Mein Battle Hub &amp; Profil</h3>
+              <span class="bhm-sub">{{ me?.name || me?.username || 'Artist' }} · {{ userStats.tier }} Tier · {{ userStats.rp }} RP</span>
+            </div>
+          </div>
+          <button class="btn ghost tiny bhm-close-btn" @click="showBattleHubModal = false" title="Schließen">✕</button>
+        </div>
+
+        <div class="bhm-body">
+          <!-- Top Hero Strip: Quick Stats & Bilanz -->
+          <div class="card artist-passport-card">
+            <div class="apc-stat">
+              <span class="lbl">Ranked Status</span>
+              <strong class="val">{{ userStats.tier }} Tier ({{ userStats.rp }} RP)</strong>
+            </div>
+            <div class="apc-stat">
+              <span class="lbl">Turnier-Teilnahmen</span>
+              <strong class="val">{{ myApplications.length }} Contests</strong>
+            </div>
+            <div class="apc-stat">
+              <span class="lbl">Battle-Bilanz</span>
+              <strong class="val">{{ userStats.wins || 0 }} Wins / {{ userStats.losses || 0 }} Losses ({{ userWinRate }}%)</strong>
+            </div>
+            <div class="apc-stat">
+              <span class="lbl">Gewonnene Preisgelder</span>
+              <strong class="val highlight">{{ userPrizeMoneyFormatted }}</strong>
+            </div>
+          </div>
+
+          <!-- Battler Achievements & Badges Strip -->
+          <div class="card battler-achievements-card">
+            <div class="bac-head">
+              <div class="bac-title-box">
+                <span class="bac-icon">🎖️</span>
+                <div>
+                  <h4>Deine Arena-Erfolge &amp; Abzeichen</h4>
+                  <p class="muted small">Auszeichnungen basierend auf deiner Season '26 Performance</p>
+                </div>
+              </div>
+              <div class="bac-actions">
+                <button type="button" class="btn ghost btn-sm" @click="openMyDossier">
+                  🔍 Artist Dossier anzeigen
+                </button>
+                <router-link to="/me" class="btn ghost btn-sm" @click="showBattleHubModal = false">
+                  Studio-Profil ↗
+                </router-link>
+              </div>
+            </div>
+
+            <div class="bac-badges-grid">
+              <div class="achievement-pill unlocked">
+                <span class="ach-icon">⚡</span>
+                <div class="ach-info">
+                  <strong>Season '26 Contender</strong>
+                  <small>Aktiver Liga-Teilnehmer</small>
+                </div>
+              </div>
+
+              <div class="achievement-pill" :class="{ unlocked: userStats.wins > 0 }">
+                <span class="ach-icon">🔥</span>
+                <div class="ach-info">
+                  <strong>Erster Battle-Sieg</strong>
+                  <small>{{ userStats.wins > 0 ? `${userStats.wins} Siege errungen` : 'Noch kein Sieg' }}</small>
+                </div>
+              </div>
+
+              <div class="achievement-pill" :class="{ unlocked: userStats.wins >= 5 }">
+                <span class="ach-icon">⚔️</span>
+                <div class="ach-info">
+                  <strong>Battle Veteran</strong>
+                  <small>{{ userStats.wins >= 5 ? '5+ Duelle gewonnen' : `${userStats.wins}/5 Siege` }}</small>
+                </div>
+              </div>
+
+              <div class="achievement-pill" :class="{ unlocked: userStats.tier !== 'Bronze' }">
+                <span class="ach-icon">👑</span>
+                <div class="ach-info">
+                  <strong>{{ userStats.tier }} Tier Rank</strong>
+                  <small>{{ userStats.rp }} RP gesammelt</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Stage Profile Settings for Artist -->
+          <div class="card bhm-stage-profile-card">
+            <div class="bspc-head">
+              <div class="bspc-title-box">
+                <span class="bspc-icon">🎤</span>
+                <div>
+                  <h4>Battle Stage-Profil</h4>
+                  <p class="muted small">Passe deinen Künstlernamen, Disziplin und deine Ansage an.</p>
+                </div>
+              </div>
+              <button class="btn btn-sm" @click="saveArenaSettings">Speichern 💾</button>
+            </div>
+            <div class="bspc-fields">
+              <label>
+                <span>Stage Name</span>
+                <input v-model.trim="arenaSettings.stageName" class="input input-sm" :placeholder="me?.name || 'Künstlername'" />
+              </label>
+              <label>
+                <span>Haupt-Disziplin</span>
+                <select v-model="arenaSettings.primaryDiscipline" class="input input-sm">
+                  <option value="BEATS">Beatmaking / Produzent</option>
+                  <option value="RAP">Rap &amp; Lyrics</option>
+                  <option value="VOCAL">Melodic Vocals &amp; R&amp;B</option>
+                  <option value="ALLROUND">Allrounder</option>
+                </select>
+              </label>
+              <label>
+                <span>Battle Tagline / Ansage</span>
+                <input v-model.trim="arenaSettings.tagline" class="input input-sm" placeholder="Härtester 808 aus Berlin..." />
+              </label>
+            </div>
+          </div>
+
+          <!-- HUB SUB-TABS: BEWERBUNGEN & RUNDEN -->
+          <div class="hub-tabs-row">
+            <button
+              type="button"
+              class="hub-tab-btn"
+              :class="{ active: myHubSubTab === 'applications' }"
+              @click="myHubSubTab = 'applications'"
+            >
+              <span>📋 Meine Bewerbungen ({{ myApplications.length }})</span>
+            </button>
+            <button
+              type="button"
+              class="hub-tab-btn"
+              :class="{ active: myHubSubTab === 'submissions' }"
+              @click="myHubSubTab = 'submissions'"
+            >
+              <span>🎵 Meine eingereichten Runden ({{ mySubmissionsList.length }})</span>
+            </button>
+            <button class="btn ghost btn-sm bhm-apply-quick" @click="openSpotlightApply">
+              + Neue Bewerbung
+            </button>
+          </div>
+
+          <!-- Section 1: Applications -->
+          <div v-if="myHubSubTab === 'applications'">
+            <div v-if="myApplications.length" class="my-battles-grid">
+              <div v-for="app in myApplications" :key="app.id" class="card my-entry-card" :class="{ rejected: app.status === 'REJECTED' }">
+                <div class="mec-head">
+                  <span class="badge-status-pill" :class="app.status.toLowerCase()">
+                    {{ app.status === 'APPROVED' || app.status === 'ACCEPTED' ? '✓ Zugelassen' : (app.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
+                  </span>
+                  <span class="mec-date">{{ app.created_at || 'Eingereicht' }}</span>
+                </div>
+
+                <h3 class="mec-title">{{ app.tournament_title }}</h3>
+                <p class="mec-msg">"{{ app.message }}"</p>
+
+                <!-- Prominent Rejection Reason Banner if rejected -->
+                <div v-if="app.status === 'REJECTED'" class="hub-rejection-banner">
+                  <strong>❌ Von der Jury abgelehnt:</strong>
+                  <p>"{{ app.rejection_reason || 'Die Bewerbung hat die Kriterien der aktuellen Runde leider nicht erfüllt.' }}"</p>
+                  <small class="muted">Du kannst deine Bewerbung überarbeiten und erneut einreichen.</small>
+                </div>
+
+                <div class="mec-actions">
+                  <button
+                    v-if="app.status === 'ACCEPTED' || app.status === 'APPROVED'"
+                    class="btn btn-sm btn-submit-round"
+                    @click="openUploadRoundModal(app)"
+                  >
+                    📤 Runde einreichen (Audio/Video)
+                  </button>
+                  <button
+                    v-if="app.status === 'REJECTED' || app.status === 'PENDING'"
+                    class="btn btn-sm btn-edit-entry"
+                    @click="openEditApplicationModal(app)"
+                  >
+                    ✏️ Bewerbung bearbeiten / überarbeiten
+                  </button>
+                  <button
+                    class="btn ghost btn-sm"
+                    @click="showBattleHubModal = false; openTournamentDetail({ id: app.tournament_id, title: app.tournament_title })"
+                  >
+                    Turnier ansehen →
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div v-else class="card empty-tournaments-state">
+              <div class="ets-icon">🎤</div>
+              <h3>Du hast noch keine aktiven Bewerbungen</h3>
+              <p class="muted">Stöbere in den offenen Turnieren und reiche deine Bewerbung als Contender ein.</p>
+              <button class="btn btn-sm" @click="showBattleHubModal = false; activeTab = 'tournaments'">Turniere ansehen →</button>
+            </div>
+          </div>
+
+          <!-- Section 2: Submissions -->
+          <div v-if="myHubSubTab === 'submissions'">
+            <div v-if="mySubmissionsList.length" class="my-battles-grid">
+              <div v-for="sub in mySubmissionsList" :key="sub.id" class="card my-entry-card" :class="{ rejected: sub.status === 'REJECTED' }">
+                <div class="mec-head">
+                  <span class="badge-status-pill" :class="sub.status?.toLowerCase()">
+                    {{ sub.status === 'APPROVED' ? '✓ Freigegeben' : (sub.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
+                  </span>
+                  <span class="mec-round-tag">Runde {{ sub.round_number || 1 }}</span>
+                </div>
+
+                <h3 class="mec-title">{{ sub.title }}</h3>
+                <p class="mec-tourney muted small">{{ sub.tournament_title }}</p>
+
+                <!-- Rejection Reason if rejected -->
+                <div v-if="sub.status === 'REJECTED'" class="hub-rejection-banner">
+                  <strong>❌ Runde von der Jury abgelehnt:</strong>
+                  <p>"{{ sub.rejection_reason || 'Kriterien nicht erfüllt.' }}"</p>
+                  <small class="muted">Du kannst deinen Track anpassen und die Runde erneut zur Prüfung freigeben.</small>
+                </div>
+
+                <div class="mec-actions">
+                  <button
+                    class="btn btn-sm btn-play-audio"
+                    :class="{ active: currentPlayingTrack === `hub-sub-${sub.id}` }"
+                    @click="toggleAudio(`hub-sub-${sub.id}`, sub.artist_name || 'Du')"
+                  >
+                    {{ currentPlayingTrack === `hub-sub-${sub.id}` ? '⏸ Pause' : '▶ Anhören' }}
+                  </button>
+                  <button
+                    class="btn ghost btn-sm btn-edit-entry"
+                    @click="openEditRoundModal(sub)"
+                  >
+                    ✏️ Track bearbeiten / überarbeiten
+                  </button>
+                  <button
+                    class="btn ghost btn-sm"
+                    @click="showBattleHubModal = false; openTournamentDetail({ id: sub.tournament_id, title: sub.tournament_title })"
+                  >
+                    Zum Turnier →
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div v-else class="card empty-tournaments-state">
+              <div class="ets-icon">🎵</div>
+              <h3>Noch keine Runden-Songs eingereicht</h3>
+              <p class="muted">Sobald du für ein Turnier zugelassen bist, kannst du hier deine Songs pro Runde hochladen und verwalten.</p>
+              <button class="btn btn-sm" @click="showBattleHubModal = false; activeTab = 'tournaments'">Turniere durchsuchen →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -2268,6 +2307,7 @@ const showApplyModal = ref(false);
 const applyingTournament = ref(null);
 const showUploadModal = ref(false);
 const inspectedArtist = ref(null);
+const showBattleHubModal = ref(false);
 
 /* Hub & Submissions State */
 const myHubSubTab = ref("applications");
@@ -2353,15 +2393,13 @@ const arenaTabs = computed(() => {
     },
     { key: "leaderboard", label: "Leaderboard", icon: "🥇" },
     { key: "ranks", label: "Ränge & Tiers", icon: "🛡️" },
-    {
-      key: "my-tournaments",
-      label: "Mein Battle Hub",
-      icon: "👤",
-      badge: myApplications.value.length ? `${myApplications.value.length}` : null,
-    },
-    { key: "settings", label: "Arena Settings", icon: "⚙️" },
   ];
   if (currentRoleMode.value === "TEAM") {
+    tabs.push({
+      key: "settings",
+      label: "Arena Settings",
+      icon: "⚙️",
+    });
     tabs.push({
       key: "admin",
       label: "Admin Director",
@@ -3153,11 +3191,7 @@ function inspectArtist(artist) {
 }
 
 function openMyBattlerProfile() {
-  activeTab.value = "my-tournaments";
-  const target = document.querySelector(".arena-navigation-bar");
-  if (target) {
-    target.scrollIntoView({ behavior: "smooth" });
-  }
+  showBattleHubModal.value = true;
 }
 
 function openMyDossier() {
@@ -6763,5 +6797,131 @@ onMounted(async () => {
 .achievement-pill .ach-info small {
   font-size: 11px;
   color: var(--muted);
+}
+
+/* Battle Hub Large Modal Popup */
+.battle-hub-modal-overlay {
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.battle-hub-modal {
+  width: min(1040px, calc(100vw - 32px)) !important;
+  max-width: 1040px !important;
+  max-height: min(90vh, 920px) !important;
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 24px !important;
+  background: rgba(14, 18, 32, 0.96) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(20px);
+}
+
+.bhm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 26px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.bhm-user-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bhm-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+}
+
+.bhm-title-info h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.bhm-sub {
+  font-size: 12px;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.bhm-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bhm-stage-profile-card {
+  padding: 18px 22px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.bspc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.bspc-title-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bspc-icon {
+  font-size: 22px;
+}
+
+.bspc-title-box h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+}
+
+.bspc-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.bspc-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.bhm-apply-quick {
+  margin-left: auto;
 }
 </style>

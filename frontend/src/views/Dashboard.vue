@@ -252,7 +252,7 @@
               v-for="tournament in activeTournaments.slice(0, 3)"
               :key="tournament.id"
               class="arena-mini-card"
-              @click="router.push(`/app/tournaments`)"
+              @click="router.push('/tournaments')"
             >
               <div class="am-left">
                 <div class="am-title-row">

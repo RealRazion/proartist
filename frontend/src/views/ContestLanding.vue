@@ -1,5 +1,34 @@
 <template>
   <div class="tournament-arena-page" :class="{ 'artist-view-mode': currentRoleMode === 'ARTIST' }">
+    <!-- STANDALONE ARENA TOPBAR (Decoupled Navigation) -->
+    <div class="arena-standalone-topbar">
+      <div class="ast-left">
+        <router-link to="/dashboard" class="ast-back-link">
+          <span>← Zurück zum ProArtist Studio</span>
+        </router-link>
+        <div class="ast-brand">
+          <span class="ast-brand-logo">🏆 UNYQ ARENA</span>
+          <span class="ast-tag">STANDALONE PLATFORM</span>
+        </div>
+      </div>
+      <div class="ast-right">
+        <router-link
+          v-if="isTeam"
+          to="/platforms/admin/stats-manager"
+          class="ast-admin-stats-link"
+        >
+          <span>📊 Admin Stats &amp; Reset</span>
+        </router-link>
+        <div class="ast-user-pill">
+          <span class="ast-user-avatar">{{ (me?.name || me?.username || 'A').charAt(0).toUpperCase() }}</span>
+          <span class="ast-user-info">
+            <strong>{{ me?.name || me?.username || 'Artist' }}</strong>
+            <small>{{ userStats.tier }} Tier · {{ userStats.rp }} RP</small>
+          </span>
+        </div>
+      </div>
+    </div>
+
     <!-- Floating Particle FX Container -->
     <div class="reaction-particles-container" aria-hidden="true">
       <span
@@ -824,11 +853,11 @@
         </div>
         <div class="apc-stat">
           <span class="lbl">Battle-Bilanz</span>
-          <strong class="val">8 Wins / 2 Losses (80%)</strong>
+          <strong class="val">{{ userStats.wins || 0 }} Wins / {{ userStats.losses || 0 }} Losses ({{ userWinRate }}%)</strong>
         </div>
         <div class="apc-stat">
           <span class="lbl">Gewonnene Preisgelder</span>
-          <strong class="val highlight">750,00 €</strong>
+          <strong class="val highlight">{{ userPrizeMoneyFormatted }}</strong>
         </div>
       </div>
 
@@ -2225,6 +2254,20 @@ const userStats = ref({
   tier: "Bronze",
   rp: 0,
   nextTierRP: 800,
+  wins: 0,
+  losses: 0,
+  prizeMoney: 0,
+});
+
+const userWinRate = computed(() => {
+  const total = (userStats.value.wins || 0) + (userStats.value.losses || 0);
+  if (total <= 0) return 0;
+  return Math.round(((userStats.value.wins || 0) / total) * 100);
+});
+
+const userPrizeMoneyFormatted = computed(() => {
+  const val = Number(userStats.value.prizeMoney || 0);
+  return `${val.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 });
 
 const userProgressPercent = computed(() => {
@@ -3389,10 +3432,16 @@ async function loadData() {
       userStats.value.rp = myRow.ranked_points || 0;
       userStats.value.tier = myRow.tier?.label || myRow.tier?.key || "Bronze";
       userStats.value.nextTierRP = myRow.tier?.next_tier_points || 800;
+      userStats.value.wins = myRow.wins || 0;
+      userStats.value.losses = myRow.losses || 0;
+      userStats.value.prizeMoney = myRow.prize_money || 0;
     } else {
       userStats.value.rp = 0;
       userStats.value.tier = "Bronze";
       userStats.value.nextTierRP = 800;
+      userStats.value.wins = 0;
+      userStats.value.losses = 0;
+      userStats.value.prizeMoney = 0;
     }
   } catch {
     leaderboardRows.value = [];
@@ -6399,5 +6448,136 @@ onMounted(async () => {
   .artist-passport-card {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* Standalone Arena Topbar */
+.arena-standalone-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(14, 16, 26, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ast-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ast-back-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.ast-back-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: translateX(-2px);
+}
+
+.ast-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ast-brand-logo {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #fde047;
+  text-shadow: 0 0 16px rgba(250, 204, 21, 0.3);
+}
+
+.ast-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.15);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.ast-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ast-admin-stats-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.ast-admin-stats-link:hover {
+  background: rgba(239, 68, 68, 0.28);
+  color: #fff;
+}
+
+.ast-user-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 6px;
+  background: #181b2c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.ast-user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.ast-user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ast-user-info strong {
+  font-size: 12px;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.ast-user-info small {
+  font-size: 10px;
+  color: #94a3b8;
 }
 </style>

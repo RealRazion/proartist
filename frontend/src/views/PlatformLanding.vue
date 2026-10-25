@@ -111,9 +111,9 @@
           <span class="dock-icon">🎵</span>
           <span>Songs &amp; Beats</span>
         </button>
-        <button class="dock-btn" @click="router.push('/app/tournaments')">
+        <button class="dock-btn" @click="router.push('/tournaments')">
           <span class="dock-icon">🏆</span>
-          <span>Turniere &amp; Arena</span>
+          <span>Turniere &amp; Arena ↗</span>
         </button>
         <button class="dock-btn" @click="router.push('/projects')">
           <span class="dock-icon">📁</span>

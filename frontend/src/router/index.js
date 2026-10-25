@@ -29,6 +29,7 @@ const Points = () => import("../views/Points.vue");
 const ApiCenter = () => import("../views/ApiCenter.vue");
 const PlatformLanding = () => import("../views/PlatformLanding.vue");
 const AdminPlatform = () => import("../views/AdminPlatform.vue");
+const AdminStatsManager = () => import("../views/AdminStatsManager.vue");
 const UserRoleManagement = () => import("../views/UserRoleManagement.vue");
 const TournamentAnimationLab = () => import("../views/TournamentAnimationLab.vue");
 const ContestLanding = () => import("../views/ContestLanding.vue");
@@ -85,14 +86,6 @@ const routes = [
       { path: "points", name: "points", component: Points, alias: "/points", meta: { requiresAuth: true } },
       { path: "growpro", name: "growpro", component: GrowPro, alias: "/growpro", meta: { requiresAuth: true } },
       { path: "songs", name: "songs", component: Songs, alias: "/songs", meta: { requiresAuth: true } },
-      { path: "tournaments", name: "tournaments", component: ContestLanding, alias: "/tournaments", meta: { requiresAuth: true } },
-      {
-        path: "tournaments/:tournamentId",
-        name: "tournament-detail",
-        component: TournamentDetail,
-        alias: "/tournaments/:tournamentId",
-        meta: { requiresAuth: true },
-      },
       { path: "team/roles", redirect: { name: "profiles" } },
       { path: "chats", name: "chats", component: Chats, alias: "/chats", meta: { requiresAuth: true } },
       { path: "search", name: "search", component: SearchView, alias: "/search", meta: { requiresAuth: true } },
@@ -105,18 +98,6 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: "", name: "platforms", component: PlatformLanding, meta: { requiresAuth: true } },
-      {
-        path: "contests",
-        name: "platform-contests",
-        component: ContestLanding,
-        meta: { requiresAuth: true, hidePlatformTopbar: true },
-      },
-      {
-        path: "contests/:tournamentId",
-        name: "platform-contest-detail",
-        component: TournamentDetail,
-        meta: { requiresAuth: true, hidePlatformTopbar: true },
-      },
       { path: "music", name: "platform-music", component: MusicPlayerView, meta: { requiresAuth: true } },
       { path: "finance", name: "platform-finance", component: FinanceContainer, meta: { requiresAuth: true } },
       { path: "finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
@@ -136,11 +117,32 @@ const routes = [
       { path: "fitness/tracker", name: "fitness", component: FitnessTool, meta: { requiresAuth: true } },
       { path: "todo", name: "platform-todo", component: TodoLanding, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },
+      { path: "admin/stats-manager", name: "admin-stats-manager", component: AdminStatsManager, meta: { requiresAuth: true } },
       { path: "admin/user-role-management", name: "admin-user-role-management", component: UserRoleManagement, meta: { requiresAuth: true } },
       { path: "admin/tournament-animations", name: "admin-tournament-animations", component: TournamentAnimationLab, meta: { requiresAuth: true } },
       { path: "manage-platforms", name: "manage-platforms", component: ManagePlatforms, meta: { requiresAuth: true } },
     ],
   },
+  /* =========================================================================
+     STANDALONE INDEPENDENT TOURNAMENT & ARENA PLATFORM (Decoupled from ProArtist)
+     ========================================================================= */
+  {
+    path: "/tournaments",
+    name: "tournaments",
+    component: ContestLanding,
+    meta: { requiresAuth: true, standaloneArena: true },
+  },
+  {
+    path: "/tournaments/:tournamentId",
+    name: "tournament-detail",
+    component: TournamentDetail,
+    meta: { requiresAuth: true, standaloneArena: true },
+  },
+  // Legacy / internal redirects to decoupled arena
+  { path: "/app/tournaments", redirect: "/tournaments" },
+  { path: "/app/tournaments/:tournamentId", redirect: (to) => `/tournaments/${to.params.tournamentId}` },
+  { path: "/platforms/contests", redirect: "/tournaments" },
+  { path: "/platforms/contests/:tournamentId", redirect: (to) => `/tournaments/${to.params.tournamentId}` },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 

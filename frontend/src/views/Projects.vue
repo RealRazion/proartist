@@ -8,7 +8,7 @@
       <div class="artist-quick-btns" style="display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;">
         <router-link to="/songs" class="btn btn-sm">🎵 Zu meinen Songs &amp; Beats</router-link>
         <router-link to="/profiles" class="btn ghost btn-sm">🎤 Artists &amp; Producer finden</router-link>
-        <router-link to="/app/tournaments" class="btn ghost btn-sm">🏆 Turniere &amp; Arena</router-link>
+        <router-link to="/tournaments" class="btn ghost btn-sm">🏆 Zur UNYQ Arena ↗</router-link>
       </div>
     </section>
 

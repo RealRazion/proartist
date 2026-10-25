@@ -256,11 +256,22 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-# Email (Gmail SMTP via App-Passwort)
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+AUTHENTICATION_BACKENDS = [
+    "backend.auth_backends.EmailOrUsernameModelBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Email (Gmail SMTP via App-Passwort; Fallback auf Console-Backend im Entwicklungsbetrieb)
 EMAIL_HOST_USER = get_env('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = get_env('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = get_env('EMAIL_HOST_USER', 'noreply@proartist.app')
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER or 'noreply@proartist.app'
+
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = 'smtp.gmail.com'
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+    logger.info("EMAIL_HOST_USER nicht konfiguriert: Verwende console.EmailBackend fuer lokale Entwicklung.")
+

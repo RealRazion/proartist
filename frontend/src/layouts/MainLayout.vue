@@ -4,9 +4,8 @@
       <div class="sidebar-top">
         <div class="brand">
           <span class="brand-mark">UNYQ</span>
-          <span class="brand-sub" v-if="!collapsed || isMobile">{{ isContestOnly ? 'ARENA' : 'PROARTIST' }}</span>
+          <span class="brand-sub" v-if="!collapsed || isMobile">PROARTIST</span>
           <span v-if="isTeam" class="badge">Team</span>
-          <span v-else-if="isContestOnly" class="badge contest" title="Nur Turniere & Battles">Contest</span>
           <span v-else-if="me" class="badge artist" title="Voller UNYQ Artist Zugang">UNYQ</span>
         </div>
         <button
@@ -20,34 +19,11 @@
         </button>
       </div>
 
-      <!-- Quick Workspace Mode Toggle (Visible only for Team members) -->
-      <div class="workspace-mode-strip" v-if="isTeam && (!collapsed || isMobile)">
-        <button
-          type="button"
-          class="mode-switch-btn"
-          :class="{ active: isContestOnly }"
-          @click="toggleWorkspace('CONTEST_ONLY')"
-          title="Fokus: Nur Turniere & Battles sehen (Clean Mode)"
-        >
-          🏆 Turniere
-        </button>
-        <button
-          type="button"
-          class="mode-switch-btn"
-          :class="{ active: !isContestOnly }"
-          @click="toggleWorkspace('UNYQ_ARTIST')"
-          title="Voller UNYQ Artist (Releases, Studio, Tasks)"
-        >
-          ⭐ UNYQ Studio
-        </button>
-      </div>
-
       <nav>
-        <!-- SECTION 1: STUDIO (Hidden for Contest-only Artists) -->
-        <template v-if="!isContestOnly">
-          <div class="nav-section-title" v-if="!collapsed || isMobile">
-            <span>STUDIO</span>
-          </div>
+        <!-- SECTION 1: STUDIO -->
+        <div class="nav-section-title" v-if="!collapsed || isMobile">
+          <span>STUDIO</span>
+        </div>
         <router-link
           to="/dashboard"
           class="nav-link"
@@ -93,31 +69,20 @@
           <span class="icon">🗓️</span>
           <span class="label">Timeline</span>
         </router-link>
-        </template>
 
         <!-- SECTION 2: ARENA & COMMUNITY -->
         <div class="nav-section-title" v-if="!collapsed || isMobile">
-          <span>{{ isContestOnly ? 'ARENA' : 'ARENA & COMMUNITY' }}</span>
+          <span>ARENA &amp; COMMUNITY</span>
         </div>
         <router-link
-          to="/app/tournaments"
-          class="nav-link highlight-arena"
+          to="/tournaments"
+          class="nav-link arena-external-link"
           @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Turniere & Battles' : null"
+          :title="collapsed && !isMobile ? 'Zur UNYQ Turnier & Battle Arena' : null"
         >
           <span class="icon">🏆</span>
-          <span class="label">Turniere &amp; Arena</span>
-          <span class="nav-live-dot" title="Live Turniere & Battles"></span>
-        </router-link>
-        <router-link
-          v-if="isContestOnly"
-          to="/app/tournaments?tab=my-tournaments"
-          class="nav-link"
-          @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Mein Battle Hub' : null"
-        >
-          <span class="icon">👤</span>
-          <span class="label">Mein Battle Hub</span>
+          <span class="label">UNYQ Arena</span>
+          <span class="ext-pill" v-if="!collapsed || isMobile">Öffnen ↗</span>
         </router-link>
         <router-link
           to="/profiles"
@@ -129,7 +94,7 @@
           <span class="label">Artists &amp; Collabs</span>
         </router-link>
         <router-link
-          v-if="!isContestOnly || isTeam"
+          v-if="isTeam"
           to="/reviews"
           class="nav-link"
           @click="handleNavClick"
@@ -149,75 +114,83 @@
           <small v-if="unreadCount" class="pill">{{ unreadCount }}</small>
         </router-link>
 
-        <!-- SECTION 3: WACHSTUM & APPS (Hidden for Contest-only Artists) -->
-        <template v-if="!isContestOnly">
-          <div class="nav-section-title" v-if="!collapsed || isMobile">
-            <span>WACHSTUM &amp; APPS</span>
-          </div>
-          <router-link
-            to="/growpro"
-            class="nav-link"
-            @click="handleNavClick"
-            :title="collapsed && !isMobile ? 'GrowPro Ziele' : null"
-          >
-            <span class="icon">🌱</span>
-            <span class="label">GrowPro Ziele</span>
-          </router-link>
-          <router-link
-            to="/points"
-            class="nav-link"
-            @click="handleNavClick"
-            :title="collapsed && !isMobile ? 'Points & XP' : null"
-          >
-            <span class="icon">🧮</span>
-            <span class="label">Points &amp; XP</span>
-          </router-link>
-          <router-link
-            v-if="isTeam"
-            to="/analytics"
-            class="nav-link"
-            @click="handleNavClick"
-            :title="collapsed && !isMobile ? 'Analytics' : null"
-          >
-            <span class="icon">📊</span>
-            <span class="label">Analytics</span>
-          </router-link>
+        <!-- SECTION 3: WACHSTUM & APPS -->
+        <div class="nav-section-title" v-if="!collapsed || isMobile">
+          <span>WACHSTUM &amp; APPS</span>
+        </div>
+        <router-link
+          to="/growpro"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'GrowPro Ziele' : null"
+        >
+          <span class="icon">🌱</span>
+          <span class="label">GrowPro Ziele</span>
+        </router-link>
+        <router-link
+          to="/points"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Points & XP' : null"
+        >
+          <span class="icon">🧮</span>
+          <span class="label">Points &amp; XP</span>
+        </router-link>
+        <router-link
+          v-if="isTeam"
+          to="/analytics"
+          class="nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Analytics' : null"
+        >
+          <span class="icon">📊</span>
+          <span class="label">Analytics</span>
+        </router-link>
+        <router-link
+          v-if="isAdmin"
+          to="/platforms/admin/stats-manager"
+          class="nav-link admin-nav-link"
+          @click="handleNavClick"
+          :title="collapsed && !isMobile ? 'Daten- & Stats-Manager' : null"
+        >
+          <span class="icon">⚙️</span>
+          <span class="label">Stats &amp; Reset</span>
+        </router-link>
 
-          <div class="apps-quick-dock" v-if="!collapsed || isMobile">
-            <router-link to="/platforms" class="app-dock-btn" title="UNYQ Hub">
-              <span class="dock-ico">🧭</span>
-              <span class="dock-name">Hub</span>
-            </router-link>
-            <router-link to="/platforms/music" class="app-dock-btn" title="UNYQ Music Player">
-              <span class="dock-ico">🎧</span>
-              <span class="dock-name">Music</span>
-            </router-link>
-            <router-link to="/platforms/library" class="app-dock-btn" title="Free Sound Library">
-              <span class="dock-ico">📦</span>
-              <span class="dock-name">Library</span>
-            </router-link>
-            <router-link to="/platforms/forum" class="app-dock-btn" title="Community Forum">
-              <span class="dock-ico">💭</span>
-              <span class="dock-name">Forum</span>
-            </router-link>
-            <router-link to="/platforms/finance" class="app-dock-btn" title="Finance & Royalties">
-              <span class="dock-ico">💰</span>
-              <span class="dock-name">Finance</span>
-            </router-link>
-            <router-link to="/platforms/extra" class="app-dock-btn" title="Tools & Socials">
-              <span class="dock-ico">🌐</span>
-              <span class="dock-name">Extra</span>
-            </router-link>
-          </div>
-          <router-link
-            v-else
-            to="/platforms"
-            class="nav-link"
-            :title="'UNYQ Hub & Apps'"
-          >
-            <span class="icon">🧭</span>
+        <div class="apps-quick-dock" v-if="!collapsed || isMobile">
+          <router-link to="/platforms" class="app-dock-btn" title="UNYQ Hub">
+            <span class="dock-ico">🧭</span>
+            <span class="dock-name">Hub</span>
           </router-link>
-        </template>
+          <router-link to="/platforms/music" class="app-dock-btn" title="UNYQ Music Player">
+            <span class="dock-ico">🎧</span>
+            <span class="dock-name">Music</span>
+          </router-link>
+          <router-link to="/platforms/library" class="app-dock-btn" title="Free Sound Library">
+            <span class="dock-ico">📦</span>
+            <span class="dock-name">Library</span>
+          </router-link>
+          <router-link to="/platforms/forum" class="app-dock-btn" title="Community Forum">
+            <span class="dock-ico">💭</span>
+            <span class="dock-name">Forum</span>
+          </router-link>
+          <router-link to="/platforms/finance" class="app-dock-btn" title="Finance & Royalties">
+            <span class="dock-ico">💰</span>
+            <span class="dock-name">Finance</span>
+          </router-link>
+          <router-link to="/platforms/extra" class="app-dock-btn" title="Tools & Socials">
+            <span class="dock-ico">🌐</span>
+            <span class="dock-name">Extra</span>
+          </router-link>
+        </div>
+        <router-link
+          v-else
+          to="/platforms"
+          class="nav-link"
+          :title="'UNYQ Hub & Apps'"
+        >
+          <span class="icon">🧭</span>
+        </router-link>
       </nav>
 
       <!-- Sidebar User Footer -->
@@ -253,6 +226,13 @@
           </button>
         </div>
         <div class="right">
+          <router-link
+            to="/tournaments"
+            class="topbar-arena-jump-btn"
+            title="Zur eigenständigen UNYQ Turnier- und Battle-Arena wechseln"
+          >
+            <span>🏆 Zur Arena ↗</span>
+          </router-link>
           <button
             class="topbar-patchnotes-btn"
             type="button"
@@ -1000,5 +980,57 @@ onBeforeUnmount(() => {
 
 :global(.light) .topbar-patchnotes-btn .pn-text {
   color: #4f46e5;
+}
+
+.topbar-arena-jump-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(245, 158, 11, 0.25));
+  border: 1px solid rgba(234, 179, 8, 0.4);
+  color: #fef08a;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.topbar-arena-jump-btn:hover {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.35), rgba(245, 158, 11, 0.4));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.2);
+  color: #fff;
+}
+
+.ext-pill {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fde047;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.arena-external-link {
+  background: rgba(234, 179, 8, 0.05);
+  border: 1px solid rgba(234, 179, 8, 0.15);
+}
+
+.arena-external-link:hover {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+.admin-nav-link {
+  color: #fca5a5 !important;
+}
+
+.admin-nav-link:hover {
+  background: rgba(239, 68, 68, 0.12) !important;
 }
 </style>

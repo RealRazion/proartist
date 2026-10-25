@@ -9,7 +9,7 @@
           Neues Passwort
           <input
             class="input"
-            v-model.trim="password"
+            v-model="password"
             type="password"
             autocomplete="new-password"
             placeholder="Mindestens 8 Zeichen"
@@ -19,7 +19,7 @@
           Passwort bestätigen
           <input
             class="input"
-            v-model.trim="confirm"
+            v-model="confirm"
             type="password"
             autocomplete="new-password"
             placeholder="Wiederholen"

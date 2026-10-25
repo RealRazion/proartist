@@ -140,6 +140,15 @@ const systemStats = ref({
 
 const adminTools = [
   {
+    key: "stats-manager",
+    title: "Nutzer-Daten & Stats-Zentrale",
+    category: "Daten & Reset",
+    description: "Alle Spieler-Stats, Ranked RP, Battle-Bilanzen und Preisgelder einsehen und per Knopfdruck granular oder global resetten.",
+    buttonLabel: "Stats verwalten",
+    icon: "📊",
+    features: ["Stats-Einsicht", "Entwicklungs-Reset", "RP-Steuerung"],
+  },
+  {
     key: "tournament-director",
     title: "Tournament & Arena Director",
     category: "Wettbewerb",
@@ -233,7 +242,8 @@ const adminTools = [
 
 function openTool(tool) {
   const mapping = {
-    "tournament-director": "/platforms/contests?tab=admin",
+    "stats-manager": "/platforms/admin/stats-manager",
+    "tournament-director": "/tournaments?tab=admin",
     "arena-animations": "/platforms/admin/tournament-animations",
     "user-role-management": "/platforms/admin/user-role-management",
     platforms: "/platforms/manage-platforms",

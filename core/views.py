@@ -17,7 +17,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.db.models import Case, Count, IntegerField, Max, Q, When
+from django.db.models import Case, Count, IntegerField, Max, Q, Sum, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
@@ -370,7 +370,7 @@ def _build_verification_email_html(code: str) -> str:
 @permission_classes([permissions.AllowAny])
 @throttle_classes([RegisterRateThrottle])
 def register(request):
-    import random
+    import secrets
     from django.utils import timezone
     from datetime import timedelta
     from django.core.mail import send_mail
@@ -379,14 +379,14 @@ def register(request):
     email = (request.data.get("email") or "").strip().lower()
     description = (request.data.get("description") or "").strip()
     if not email:
-        return Response({"detail": "email required"}, status=400)
+        return Response({"detail": "E-Mail ist erforderlich."}, status=400)
     if not description:
-        return Response({"detail": "description required"}, status=400)
+        return Response({"detail": "Beschreibung ist erforderlich."}, status=400)
     if User.objects.filter(email__iexact=email).exists():
-        return Response({"detail": "email already exists"}, status=400)
+        return Response({"detail": "Diese E-Mail ist bereits registriert. Bitte logge dich ein."}, status=400)
 
-    # Generate 6-digit code
-    code = f"{random.randint(100000, 999999)}"
+    # Cryptographically secure 6-digit code
+    code = f"{secrets.randbelow(900000) + 100000}"
     expires_at = timezone.now() + timedelta(minutes=15)
 
     # Invalidate any previous unused codes for this email
@@ -399,6 +399,8 @@ def register(request):
         expires_at=expires_at,
     )
 
+    logger.info("Bestätigungscode für Registrierung (%s) generiert: %s", email, code)
+
     html_body = _build_verification_email_html(code)
     try:
         send_mail(
@@ -410,6 +412,10 @@ def register(request):
             fail_silently=False,
         )
     except Exception as e:
+        logger.warning("E-Mail-Versand fehlgeschlagen für %s: %s", email, e)
+        # Im Debug- bzw. Console-Backend Modus nicht blockieren
+        if getattr(settings, "DEBUG", False) or "console" in getattr(settings, "EMAIL_BACKEND", ""):
+            return Response({"message": "code_sent", "dev_code": code})
         return Response({"detail": f"E-Mail konnte nicht gesendet werden: {e}"}, status=500)
 
     return Response({"message": "code_sent"})
@@ -420,12 +426,22 @@ def register(request):
 @throttle_classes([VerifyRegistrationRateThrottle])
 def verify_registration(request):
     from django.utils import timezone
+    from django.core.cache import cache
     from .models import EmailVerification
 
     email = (request.data.get("email") or "").strip().lower()
     code = (request.data.get("code") or "").strip()
     if not email or not code:
-        return Response({"detail": "email and code required"}, status=400)
+        return Response({"detail": "E-Mail und Bestätigungscode erforderlich."}, status=400)
+
+    cache_key = f"ev_fails_{email}"
+    failed_attempts = cache.get(cache_key, 0)
+    if failed_attempts >= 5:
+        EmailVerification.objects.filter(email__iexact=email, used=False).update(used=True)
+        return Response(
+            {"detail": "Zu viele Fehlversuche für diese E-Mail. Bitte fordere einen neuen Bestätigungscode an."},
+            status=429,
+        )
 
     verification = (
         EmailVerification.objects
@@ -434,15 +450,22 @@ def verify_registration(request):
         .first()
     )
     if not verification:
-        return Response({"detail": "Ungültiger Code."}, status=400)
+        cache.set(cache_key, failed_attempts + 1, timeout=900)
+        remaining = max(0, 4 - failed_attempts)
+        return Response(
+            {"detail": f"Ungültiger Code. Verbleibende Versuche: {remaining}"},
+            status=400,
+        )
     if verification.expires_at < timezone.now():
-        return Response({"detail": "Code abgelaufen. Bitte erneut registrieren."}, status=400)
+        return Response({"detail": "Code ist abgelaufen. Bitte erneut anfordern."}, status=400)
 
+    # Success: clear fail counter and mark used
+    cache.delete(cache_key)
     verification.used = True
     verification.save(update_fields=["used"])
 
     if User.objects.filter(email__iexact=email).exists():
-        return Response({"detail": "email already exists"}, status=400)
+        return Response({"detail": "Diese E-Mail ist bereits registriert."}, status=400)
 
     # Create user
     base_username = email.split("@")[0]
@@ -643,7 +666,11 @@ class ProfileViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["GET"])
     def me(self, request):
-        serializer = self.get_serializer(request.user.profile)
+        profile, _ = Profile.objects.get_or_create(
+            user=request.user,
+            defaults={"name": request.user.get_full_name() or request.user.username},
+        )
+        serializer = self.get_serializer(profile)
         return Response(serializer.data)
 
     @action(detail=False, methods=["GET"], url_path="search")
@@ -4791,6 +4818,308 @@ def admin_overview(request):
             "overdue_tasks": overdue_tasks,
         }
     )
+
+
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([SetPasswordRateThrottle])
+def request_password_reset(request):
+    """
+    Request password reset email. Sends a secure time-limited token link.
+    """
+    email = (request.data.get("email") or "").strip().lower()
+    if not email:
+        return Response({"detail": "Bitte eine E-Mail-Adresse eingeben."}, status=400)
+
+    user = User.objects.filter(email__iexact=email).first()
+    if user and user.is_active:
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+        link = f"{frontend_url}/set-password?uid={uid}&token={token}"
+
+        html_body = f"""<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"/></head>
+<body style="margin:0;padding:0;background:#0f0f13;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f13;padding:40px 0;">
+    <tr><td align="center">
+      <table width="540" cellpadding="0" cellspacing="0" style="background:#18181f;border-radius:16px;overflow:hidden;border:1px solid #2a2a3a;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#a855f7 100%);padding:36px 40px 28px;text-align:center;">
+            <div style="font-size:13px;letter-spacing:4px;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:10px;">UNYQ Platform</div>
+            <div style="font-size:26px;font-weight:800;color:#fff;letter-spacing:1px;">Passwort zurücksetzen</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 40px 32px;">
+            <h1 style="color:#fff;font-size:20px;font-weight:700;margin:0 0 12px;">Hallo {user.username},</h1>
+            <p style="color:#9ca3af;font-size:15px;line-height:1.6;margin:0 0 24px;">
+              Du hast eine Anfrage zum Zurücksetzen deines Passworts für deinen ProArtist-Account gestellt. Klicke auf den Button, um ein neues Passwort festzulegen:
+            </p>
+            <div style="text-align:center;margin:0 0 28px;">
+              <a href="{link}" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:700;font-size:15px;">
+                Neues Passwort vergeben →
+              </a>
+            </div>
+            <p style="color:#6b7280;font-size:13px;margin:0;">
+              Alternativ kannst du diesen Link in deinen Browser kopieren:<br/>
+              <a href="{link}" style="color:#8b5cf6;word-break:break-all;">{link}</a>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#111118;padding:20px 40px;border-top:1px solid #2a2a3a;text-align:center;">
+            <p style="color:#4b5563;font-size:12px;margin:0;">© 2026 UNYQ · ProArtist Platform</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+        try:
+            send_mail(
+                subject="UNYQ ProArtist – Passwort zurücksetzen",
+                message=f"Passwort zurücksetzen: {link}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                html_message=html_body,
+                fail_silently=False,
+            )
+            logger.info("Passwort-Reset-Link gesendet an: %s", email)
+        except Exception as exc:
+            logger.exception("Failed sending password reset email to %s: %s", email, exc)
+
+    return Response({
+        "message": "Falls ein aktiver Account mit dieser E-Mail existiert, haben wir einen Link zum Zurücksetzen gesendet."
+    })
+
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
+def admin_user_stats(request):
+    """
+    Returns full stats for all users: ranked RP, tier, wins, losses, win rate,
+    tournament applications, submissions, votes, songs, tasks, and real prize money / earnings.
+    """
+    profiles = Profile.objects.select_related("user").prefetch_related("roles").all().order_by("id")
+    tier_rows = TournamentViewSet._tier_configs()
+
+    user_rows = []
+    total_votes_global = TournamentVote.objects.count()
+    total_submissions_global = TournamentSubmission.objects.count()
+    total_applications_global = TournamentApplication.objects.count()
+    total_battles_global = TournamentBattle.objects.count()
+
+    for p in profiles:
+        arena_meta = (p.notification_settings or {}).get("arena_ranked") or {}
+        is_reset = arena_meta.get("is_reset", False)
+        manual_points = arena_meta.get("manual_points", None)
+
+        battles_left = TournamentBattle.objects.filter(left_submission__profile=p).count()
+        battles_right = TournamentBattle.objects.filter(right_submission__profile=p).count()
+        battles_total = battles_left + battles_right
+        wins_count = TournamentBattle.objects.filter(winner_submission__profile=p, status="CLOSED").count()
+        losses_count = max(0, TournamentBattle.objects.filter(
+            Q(left_submission__profile=p) | Q(right_submission__profile=p),
+            status="CLOSED"
+        ).exclude(winner_submission__profile=p).count())
+
+        win_rate = round((wins_count / battles_total) * 100, 1) if battles_total > 0 else 0
+
+        apps_count = TournamentApplication.objects.filter(profile=p).count()
+        subs_count = TournamentSubmission.objects.filter(profile=p).count()
+        votes_count = TournamentVote.objects.filter(voter=p).count()
+        songs_count = Song.objects.filter(profile=p).count()
+        tasks_count = Task.objects.filter(assignees=p, is_archived=False).count()
+        projects_count = Project.objects.filter(Q(participants=p) | Q(owners=p), is_archived=False).distinct().count()
+
+        if is_reset and manual_points is None:
+            ranked_points = 0
+        elif manual_points is not None:
+            ranked_points = max(0, int(manual_points))
+        else:
+            ranked_points = TournamentViewSet._rank_points(
+                wins=wins_count,
+                approved_votes=0,
+                battles=battles_total,
+                approved_submissions=subs_count,
+                losses=losses_count,
+                tier_rows=tier_rows,
+            )
+
+        tier_info = TournamentViewSet._rank_tier_for_points(ranked_points, tier_rows=tier_rows)
+
+        # Real prize earnings (no hardcoded fake 750€)
+        real_earnings = float(Payment.objects.filter(profile=p, status="PAID").aggregate(s=Sum("amount"))["s"] or 0)
+
+        user_rows.append({
+            "id": p.id,
+            "user_id": p.user.id,
+            "username": p.user.username,
+            "name": p.name or p.user.username,
+            "email": p.user.email,
+            "is_active": p.user.is_active,
+            "is_staff": p.user.is_staff,
+            "roles": [r.key for r in p.roles.all()],
+            "created_at": p.created_at,
+            "last_login": p.user.last_login,
+            # Ranked & Battle Stats
+            "ranked_points": ranked_points,
+            "tier": tier_info["key"],
+            "tier_label": tier_info["label"],
+            "tier_accent": tier_info["accent"],
+            "is_reset": is_reset,
+            "manual_points": manual_points,
+            "battles_count": battles_total,
+            "wins_count": wins_count,
+            "losses_count": losses_count,
+            "win_rate": win_rate,
+            "applications_count": apps_count,
+            "submissions_count": subs_count,
+            "votes_count": votes_count,
+            "prize_money": real_earnings,
+            "prize_money_formatted": f"{real_earnings:.2f} €",
+            # Workspace counts
+            "songs_count": songs_count,
+            "tasks_count": tasks_count,
+            "projects_count": projects_count,
+        })
+
+    return Response({
+        "total_users": len(user_rows),
+        "total_votes": total_votes_global,
+        "total_submissions": total_submissions_global,
+        "total_applications": total_applications_global,
+        "total_battles": total_battles_global,
+        "users": user_rows,
+    })
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated, IsAdmin])
+def admin_reset_stats(request):
+    """
+    Granular and global reset of stats, battle records, tournament activities, and RP.
+    Essential for dev testing and a clean season start.
+    """
+    action = (request.data.get("action") or "").strip().upper()
+    profile_id = request.data.get("profile_id")
+    points = request.data.get("points")
+
+    if action == "RESET_USER_RP":
+        if not profile_id:
+            return Response({"detail": "profile_id erforderlich."}, status=400)
+        profile = get_object_or_404(Profile, id=profile_id)
+        settings_dict = profile.notification_settings or {}
+        settings_dict["arena_ranked"] = {
+            "is_reset": True,
+            "manual_points": 0,
+            "reset_at": timezone.now().isoformat(),
+        }
+        profile.notification_settings = settings_dict
+        profile.save(update_fields=["notification_settings"])
+        return Response({
+            "message": f"RP und Rang für {profile.name or profile.user.username} wurden auf 0 (Bronze) zurückgesetzt.",
+            "profile_id": profile.id,
+        })
+
+    elif action == "SET_USER_RP":
+        if not profile_id:
+            return Response({"detail": "profile_id erforderlich."}, status=400)
+        if points is None:
+            return Response({"detail": "points erforderlich."}, status=400)
+        profile = get_object_or_404(Profile, id=profile_id)
+        settings_dict = profile.notification_settings or {}
+        val = max(0, int(points))
+        settings_dict["arena_ranked"] = {
+            "is_reset": False,
+            "manual_points": val,
+            "updated_at": timezone.now().isoformat(),
+        }
+        profile.notification_settings = settings_dict
+        profile.save(update_fields=["notification_settings"])
+        return Response({
+            "message": f"RP für {profile.name or profile.user.username} auf {val} gesetzt.",
+            "profile_id": profile.id,
+            "points": val,
+        })
+
+    elif action == "CLEAR_USER_TOURNAMENT_DATA":
+        if not profile_id:
+            return Response({"detail": "profile_id erforderlich."}, status=400)
+        profile = get_object_or_404(Profile, id=profile_id)
+
+        # Clear votes cast by user
+        votes_deleted, _ = TournamentVote.objects.filter(voter=profile).delete()
+
+        # Battles where user had submissions
+        user_submissions = TournamentSubmission.objects.filter(profile=profile)
+        battles_deleted, _ = TournamentBattle.objects.filter(
+            Q(left_submission__in=user_submissions) | Q(right_submission__in=user_submissions)
+        ).delete()
+        subs_deleted, _ = user_submissions.delete()
+
+        # Clear applications
+        apps_deleted, _ = TournamentApplication.objects.filter(profile=profile).delete()
+
+        # Reset RP
+        settings_dict = profile.notification_settings or {}
+        settings_dict["arena_ranked"] = {"is_reset": True, "manual_points": 0, "reset_at": timezone.now().isoformat()}
+        profile.notification_settings = settings_dict
+        profile.save(update_fields=["notification_settings"])
+
+        return Response({
+            "message": f"Alle Turnier- und Battle-Daten für {profile.name or profile.user.username} wurden bereinigt.",
+            "votes_deleted": votes_deleted,
+            "battles_deleted": battles_deleted,
+            "submissions_deleted": subs_deleted,
+            "applications_deleted": apps_deleted,
+        })
+
+    elif action == "RESET_ALL_RP":
+        profiles = Profile.objects.all()
+        for p in profiles:
+            s = p.notification_settings or {}
+            s["arena_ranked"] = {"is_reset": True, "manual_points": 0, "reset_at": timezone.now().isoformat()}
+            p.notification_settings = s
+            p.save(update_fields=["notification_settings"])
+        return Response({
+            "message": f"Alle Ränge und RP von {profiles.count()} Nutzern wurden erfolgreich auf 0 (Bronze) zurückgesetzt."
+        })
+
+    elif action == "FULL_CLEAN_SLATE":
+        # Global Clean Slate for dev / testing start
+        votes_deleted, _ = TournamentVote.objects.all().delete()
+        battles_deleted, _ = TournamentBattle.objects.all().delete()
+        subs_deleted, _ = TournamentSubmission.objects.all().delete()
+        apps_deleted, _ = TournamentApplication.objects.all().delete()
+
+        # Reset tournaments to DRAFT
+        Tournament.objects.all().update(status="DRAFT")
+
+        # Reset all users' ranked meta
+        profiles = Profile.objects.all()
+        for p in profiles:
+            s = p.notification_settings or {}
+            s["arena_ranked"] = {"is_reset": True, "manual_points": 0, "reset_at": timezone.now().isoformat()}
+            p.notification_settings = s
+            p.save(update_fields=["notification_settings"])
+
+        return Response({
+            "message": "Vollständiger Reset erfolgreich durchgeführt! Alle Battles, Runden, Votes und Bewerbungen wurden gelöscht und alle Ränge auf 0 RP zurückgesetzt.",
+            "deleted": {
+                "votes": votes_deleted,
+                "battles": battles_deleted,
+                "submissions": subs_deleted,
+                "applications": apps_deleted,
+            },
+            "reset_profiles": profiles.count(),
+        })
+
+    else:
+        return Response({"detail": f"Unbekannte Aktion '{action}'."}, status=400)
 
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated, IsAdmin])

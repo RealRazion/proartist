@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.30-beta",
+        "date":  "2026-10-26",
+        "title":  "Patch 2.11.0.30-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Eliminate restrictive max-width and center margins across UNYQ for full-width expansive design"
+                       ],
+        "changes":  [
+                        "style(layout): eliminate restrictive max-width and center margins across UNYQ for full-width expansive design"
+                    ]
+    },
+    {
         "version":  "2.11.0.29-beta",
         "date":  "2026-10-26",
         "title":  "Patch 2.11.0.29-beta",

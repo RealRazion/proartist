@@ -106,6 +106,7 @@ const pageMeta = {
   "platform-todo": { title: "Todo", kicker: "Todos mit optionalem Datum" },
   "manage-platforms": { title: "Manage Platforms", kicker: "Status und Zugriff steuern" },
   "admin-platform": { title: "Admin Platform", kicker: "Kontrollzentrum" },
+  "platform-hhu": { title: "HHU", kicker: "Team-Werkzeug" },
 };
 
 const pageMetaCurrent = computed(() => pageMeta[route.name] || { title: "UNYQ", kicker: "Plattform" });

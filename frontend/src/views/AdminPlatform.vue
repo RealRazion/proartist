@@ -238,6 +238,15 @@ const adminTools = [
     icon: "⚙️",
     features: ["Einstellungen", "Konfiguration", "Backups"],
   },
+  {
+    key: "hhu",
+    title: "HHU Lernbegleiter",
+    category: "Team-Werkzeug",
+    description: "Mathe für Informatik 1: Relationen-Analyzer, Quiz, Hüllen-Generator & HHU-Übungsblätter.",
+    buttonLabel: "HHU starten",
+    icon: "🎓",
+    features: ["Mathe 1", "Relationen", "Quiz", "HHU Blätter"],
+  },
 ];
 
 function openTool(tool) {
@@ -253,6 +262,7 @@ function openTool(tool) {
     requests: "/app/profiles",
     content: "/platforms/content-studio",
     system: "/app/testing",
+    hhu: "/platforms/hhu",
   };
   const path = mapping[tool];
   if (path) {

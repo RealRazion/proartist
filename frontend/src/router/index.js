@@ -55,6 +55,7 @@ const MusicPlayerView = () => import("../views/MusicPlayerView.vue");
 const LibraryView = () => import("../views/LibraryView.vue");
 const ForumView = () => import("../views/ForumView.vue");
 const ExtraView = () => import("../views/ExtraView.vue");
+const HhuTool = () => import("../views/HhuTool.vue");
 const MainLayout = () => import("../layouts/MainLayout.vue");
 const PlatformLayout = () => import("../layouts/PlatformLayout.vue");
 
@@ -132,6 +133,7 @@ const routes = [
       { path: "admin/user-role-management", name: "admin-user-role-management", component: UserRoleManagement, meta: { requiresAuth: true } },
       { path: "admin/tournament-animations", name: "admin-tournament-animations", component: TournamentAnimationLab, meta: { requiresAuth: true } },
       { path: "manage-platforms", name: "manage-platforms", component: ManagePlatforms, meta: { requiresAuth: true } },
+      { path: "hhu", name: "platform-hhu", component: HhuTool, meta: { requiresAuth: true, requiresTeam: true } },
     ],
   },
   /* =========================================================================
@@ -150,6 +152,8 @@ const routes = [
     meta: { requiresAuth: true, standaloneArena: true },
   },
   // Legacy / internal redirects to decoupled arena
+  { path: "/hhu", redirect: "/platforms/hhu" },
+  { path: "/app/hhu", redirect: "/platforms/hhu" },
   { path: "/app/tournaments", redirect: "/tournaments" },
   { path: "/app/tournaments/:tournamentId", redirect: (to) => `/tournaments/${to.params.tournamentId}` },
   { path: "/platforms/contests", redirect: "/tournaments" },

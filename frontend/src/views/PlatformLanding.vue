@@ -165,6 +165,10 @@
           <span class="dock-icon">🔗</span>
           <span>Quick-Share</span>
         </button>
+        <button v-if="isTeam" class="dock-btn team-tool-btn" @click="router.push('/platforms/hhu')">
+          <span class="dock-icon">🎓</span>
+          <span>HHU</span>
+        </button>
       </div>
     </section>
 
@@ -194,6 +198,22 @@
           <button class="btn ghost tiny" type="button" @click="copyQuickShareLink(link)">Kopieren</button>
           <button class="btn ghost tiny danger-text" type="button" @click="deleteQuickShareLink(link.id)">✕</button>
         </div>
+      </div>
+
+      <!-- HHU Companion Teaser -->
+      <div class="tet-companion-row">
+        <div class="tcr-left">
+          <span class="tcr-badge">🎓 HHU</span>
+          <div class="tcr-info">
+            <strong>Mathe für Informatik 1 – Interaktiver Lernbegleiter</strong>
+            <p class="muted tiny">
+              Theorie, 12-Fragen-Quiz, Relationen-Analyzer, Hüllen-Generator &amp; HHU-Übungsblätter.
+            </p>
+          </div>
+        </div>
+        <button class="btn btn-sm" @click="router.push('/platforms/hhu')">
+          HHU öffnen →
+        </button>
       </div>
     </section>
 
@@ -1527,6 +1547,40 @@ onMounted(async () => {
 }
 .danger-text {
   color: #f87171 !important;
+}
+.tet-companion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.tcr-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tcr-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  white-space: nowrap;
+}
+.tcr-info {
+  display: flex;
+  flex-direction: column;
+}
+.tcr-info strong {
+  font-size: 0.92rem;
+}
+.tcr-info p {
+  margin: 2px 0 0;
 }
 
 /* Quick Share Modal */

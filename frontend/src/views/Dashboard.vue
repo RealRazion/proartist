@@ -179,77 +179,16 @@
         </div>
       </section>
 
-      <!-- Section: Team & Tool Tasks (Quick View Shortcut) -->
-      <section class="team-tasks-widget card" v-if="!hideTeamTasksWidget && (isTeam || teamTasksList.length)">
-        <div class="tt-widget-head">
-          <div class="tt-head-left">
-            <span class="tt-icon">🛠️</span>
-            <div>
-              <h3>Team &amp; Tool Tasks <span class="tt-pill">Quick View</span></h3>
-              <p class="muted small">Die nächsten anstehenden Entwicklungs- und Plattform-Aufgaben.</p>
-            </div>
-          </div>
-          <div class="tt-head-actions">
-            <button class="btn ghost tiny" @click="goToRoute({ name: 'platform-team-tasks' })">
-              Zur Team-Plattform →
-            </button>
-            <button class="btn ghost tiny close-widget-btn" @click="toggleHideTeamWidget" title="Fenster für mich ausblenden">
-              ✕ Ausblenden
-            </button>
-          </div>
-        </div>
-
-        <div class="tt-tasks-list" v-if="teamTasksList.length">
-          <div
-            v-for="tt in teamTasksList.slice(0, 3)"
-            :key="tt.id"
-            class="tt-task-row"
-            :class="{ done: tt.status === 'DONE' }"
-          >
-            <label class="tt-check">
-              <input
-                type="checkbox"
-                :checked="tt.status === 'DONE'"
-                @change="toggleTaskDone(tt)"
-              />
-              <span class="checkmark"></span>
-            </label>
-            <div class="tt-details">
-              <div class="tt-tags">
-                <span class="prio-tag" :data-prio="tt.priority">{{ priorityMap[tt.priority] || tt.priority }}</span>
-                <span class="tt-due" v-if="tt.due_date" :class="dueState(tt.due_date)">
-                  📅 {{ formatDate(tt.due_date) }}
-                </span>
-                <span class="tt-assignee" v-if="tt.assignees && tt.assignees.length">
-                  👤 {{ tt.assignees[0].name }}
-                </span>
-              </div>
-              <strong class="tt-title" :class="{ strike: tt.status === 'DONE' }">{{ tt.title }}</strong>
-              <p class="tt-desc muted small" v-if="tt.description">{{ tt.description.slice(0, 100) }}</p>
-            </div>
-          </div>
-        </div>
-        <div class="empty-subtext" v-else>
-          <p class="muted small">Keine offenen Team-Tasks. Alle Tools laufen reibungslos!</p>
-        </div>
-      </section>
-
-      <!-- Restore Team Widget Banner if hidden -->
-      <div class="tt-restore-bar" v-else-if="hideTeamTasksWidget && isTeam">
-        <span class="muted small">🛠️ Team &amp; Tools Quick View ist ausgeblendet</span>
-        <button class="btn ghost tiny" @click="toggleHideTeamWidget">Einblenden</button>
-      </div>
-
-      <!-- Two-Column Layout: Daily Studio Focus + Live Arena Radar -->
+      <!-- Two-Column Layout: Aktuelle Aufgaben + Live Arena Radar -->
       <div class="dashboard-duo-grid">
-        <!-- Module 2: Daily Studio Focus & Tasks -->
+        <!-- Module 2: Aktuelle Aufgaben -->
         <section class="duo-panel">
           <div class="section-header">
             <div class="header-left">
               <span class="section-icon">✅</span>
               <div>
-                <h2>Heutiger Studio-Fokus</h2>
-                <p class="muted small">{{ myActiveTasks.length }} fällige Aufgaben für deine Releases</p>
+                <h2>Aktuelle Aufgaben</h2>
+                <p class="muted small">{{ myActiveTasks.length }} anstehende Aufgaben für deine Releases &amp; Projekte</p>
               </div>
             </div>
             <button class="btn ghost tiny" @click="goTo('tasks')">Task Board →</button>
@@ -260,7 +199,7 @@
             <input
               class="input quick-task-input"
               v-model.trim="quickTaskTitle"
-              placeholder="+ Neue Studio-Aufgabe erfassen (z.B. Vocal Take 2, Mix-Feedback)..."
+              placeholder="+ Neue Aufgabe schnell erfassen (z.B. Vocal Take, Promo-Video, Freigabe)..."
               :disabled="quickTaskSaving"
             />
             <button class="btn tiny" type="submit" :disabled="!quickTaskTitle || quickTaskSaving">

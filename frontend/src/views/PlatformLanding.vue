@@ -195,9 +195,108 @@
           <button class="btn ghost tiny danger-text" type="button" @click="deleteQuickShareLink(link.id)">✕</button>
         </div>
       </div>
+    <!-- TEAM & TOOL TASKS WIDGET IN HUB -->
+    <section v-if="isTeam && !hideTeamTasksWidget" class="hub-team-tasks card">
+      <div class="htt-header">
+        <div class="htt-title-group">
+          <span class="htt-badge">🛠️ TEAM &amp; PLATFORM TASKS</span>
+          <div class="htt-title-row">
+            <h3>Nächste Tool- &amp; Entwicklungsaufgaben</h3>
+            <span class="htt-count-chip" v-if="teamTasksList.length">{{ teamTasksList.length }} offen</span>
+          </div>
+          <p class="muted small">
+            Interne Aufgaben rund um Plattform-Tools, Backend, Features und Server-Wartung.
+          </p>
+        </div>
+        <div class="htt-actions">
+          <button class="btn btn-sm" @click="router.push('/platforms/team-tasks')">
+            Alle Team-Tasks →
+          </button>
+          <button class="btn ghost tiny htt-dismiss-btn" @click="requestHideTeamTasks" title="Widget ausblenden">
+            ✕ Ausblenden
+          </button>
+        </div>
+      </div>
+
+      <!-- 3 earliest tool tasks -->
+      <div class="htt-list" v-if="teamTasksList.length">
+        <div
+          v-for="task in teamTasksList.slice(0, 3)"
+          :key="task.id"
+          class="htt-item card"
+          :class="{ done: task.status === 'DONE' }"
+        >
+          <label class="htt-check">
+            <input
+              type="checkbox"
+              :checked="task.status === 'DONE'"
+              @change="toggleTaskDone(task)"
+            />
+            <span class="checkmark"></span>
+          </label>
+          <div class="htt-details">
+            <div class="htt-meta-row">
+              <span class="prio-tag" :data-prio="task.priority">{{ priorityMap[task.priority] || task.priority }}</span>
+              <span class="htt-due" v-if="task.due_date" :class="dueState(task.due_date)">
+                📅 {{ formatDate(task.due_date) }}
+              </span>
+              <span class="htt-assignee" v-if="task.assignees && task.assignees.length">
+                👤 {{ task.assignees[0].name || task.assignees[0].username }}
+              </span>
+            </div>
+            <strong class="htt-title" :class="{ strike: task.status === 'DONE' }">{{ task.title }}</strong>
+            <p class="htt-desc muted tiny" v-if="task.description">{{ task.description.slice(0, 110) }}</p>
+          </div>
+          <button class="btn ghost micro-btn" @click="router.push('/platforms/team-tasks')">
+            Details
+          </button>
+        </div>
+      </div>
+      <div class="htt-empty muted small" v-else>
+        Keine offenen Team-Tasks. Alle Plattform-Tools laufen rund!
+      </div>
     </section>
 
-    <!-- The 8 Core UNYQ Pillars Grid -->
+    <!-- Restore Bar if hidden -->
+    <div v-else-if="isTeam && hideTeamTasksWidget" class="hub-restore-chip card">
+      <div class="hrc-info">
+        <span>🛠️ Team &amp; Tool Tasks Widget ist ausgeblendet</span>
+      </div>
+      <button class="btn ghost tiny" @click="restoreTeamTasksWidget">
+        Widget wieder einblenden
+      </button>
+    </div>
+
+    <!-- Confirmation Modal: Hide Team Tasks Widget -->
+    <div v-if="showHideConfirmModal" class="modal-backdrop" @click.self="showHideConfirmModal = false">
+      <div class="modal card confirm-modal">
+        <div class="confirm-head">
+          <span class="confirm-icon">⚠️</span>
+          <div>
+            <h3>Team-Tasks Widget ausblenden?</h3>
+            <p class="muted small">
+              Bist du sicher, dass du das Team- &amp; Tool-Tasks Widget ausblenden möchtest?
+            </p>
+          </div>
+        </div>
+        <div class="confirm-body">
+          <div class="confirm-notice">
+            <span>ℹ️</span>
+            <p>
+              Du kannst das Widget jederzeit über den Button <strong>„Widget wieder einblenden“</strong> oder in den Einstellungen für Ansichten wieder aktivieren.
+            </p>
+          </div>
+        </div>
+        <div class="confirm-actions">
+          <button class="btn ghost" type="button" @click="showHideConfirmModal = false">
+            Abbrechen
+          </button>
+          <button class="btn danger" type="button" @click="confirmHideTeamTasks">
+            Ja, ausblenden
+          </button>
+        </div>
+      </div>
+    </div>
     <main class="hub-main-section">
       <div class="section-top-bar">
         <div class="section-title-wrap">
@@ -470,6 +569,85 @@ function deleteQuickShareLink(id) {
   quickShareLinks.value = quickShareLinks.value.filter((l) => l.id !== id);
   saveQuickShareLinks();
   showToast("Link gelöscht", "info");
+// Hub Team & Tool Tasks State
+const teamTasksList = ref([]);
+const hideTeamTasksWidget = ref(localStorage.getItem("unyq_hide_hub_team_tasks") === "1");
+const showHideConfirmModal = ref(false);
+
+const priorityMap = {
+  LOW: "Niedrig",
+  MEDIUM: "Mittel",
+  HIGH: "Hoch",
+  CRITICAL: "Kritisch",
+};
+
+function requestHideTeamTasks() {
+  showHideConfirmModal.value = true;
+}
+
+function confirmHideTeamTasks() {
+  hideTeamTasksWidget.value = true;
+  localStorage.setItem("unyq_hide_hub_team_tasks", "1");
+  showHideConfirmModal.value = false;
+  showToast("Team- & Tool-Tasks Widget ausgeblendet. Du kannst es jederzeit wieder einblenden.", "info");
+}
+
+function restoreTeamTasksWidget() {
+  hideTeamTasksWidget.value = false;
+  localStorage.removeItem("unyq_hide_hub_team_tasks");
+  showToast("Team-Tasks Widget wieder eingeblendet.", "success");
+}
+
+async function loadHubTeamTasks() {
+  if (!isTeam.value) return;
+  try {
+    const { data } = await api.get("tasks/", {
+      params: {
+        task_type: "INTERNAL",
+        status: "OPEN,IN_PROGRESS",
+        include_archived: 0,
+        page_size: 6,
+        ordering: "due_date",
+      },
+    });
+    const items = Array.isArray(data) ? data : data?.results || [];
+    teamTasksList.value = items;
+  } catch (err) {
+    console.error("Konnte Hub Team-Tasks nicht laden", err);
+  }
+}
+
+async function toggleTaskDone(task) {
+  const nextStatus = task.status === "DONE" ? "OPEN" : "DONE";
+  task.status = nextStatus;
+  try {
+    await api.patch(`tasks/${task.id}/`, { status: nextStatus });
+    showToast(nextStatus === "DONE" ? "Task erledigt! ✓" : "Task wieder geöffnet", "success");
+    await loadHubTeamTasks();
+  } catch (err) {
+    console.error(err);
+    showToast("Fehler beim Aktualisieren", "error");
+  }
+}
+
+function dueState(dueDate) {
+  if (!dueDate) return "normal";
+  const now = new Date();
+  const due = new Date(dueDate);
+  const diffHours = (due - now) / (1000 * 60 * 60);
+  if (diffHours < 0) return "overdue";
+  if (diffHours <= 48) return "soon";
+  return "normal";
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+  } catch {
+    return dateStr;
+  }
 }
 
 // The 8 Core UNYQ Pillars
@@ -739,7 +917,7 @@ onMounted(async () => {
     viewMode.value = isTeam.value ? "admin" : "user";
   }
   loadQuickShareLinks();
-  await Promise.all([loadAccessState(), loadNotificationCount(), loadHubBadges()]);
+  await Promise.all([loadAccessState(), loadNotificationCount(), loadHubBadges(), isTeam.value ? loadHubTeamTasks() : Promise.resolve()]);
 });
 </script>
 
@@ -1391,5 +1569,237 @@ onMounted(async () => {
 .cl-row {
   display: flex;
   gap: 8px;
+}
+
+/* Hub Team & Tool Tasks Section */
+.hub-team-tasks {
+  padding: 22px 24px;
+  background: var(--card);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.htt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.htt-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.htt-badge {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.htt-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.htt-title-row h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.htt-count-chip {
+  background: rgba(99, 102, 241, 0.25);
+  color: #c7d2fe;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.htt-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.htt-dismiss-btn {
+  color: var(--muted);
+}
+.htt-dismiss-btn:hover {
+  color: #ef4444;
+}
+
+.htt-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.htt-item {
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  transition: all 0.2s ease;
+}
+
+.htt-item:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+
+.htt-item.done {
+  opacity: 0.55;
+}
+
+.htt-check {
+  cursor: pointer;
+  display: inline-flex;
+  position: relative;
+  flex-shrink: 0;
+}
+.htt-check input {
+  position: absolute;
+  opacity: 0;
+}
+.htt-check .checkmark {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.htt-check input:checked ~ .checkmark {
+  background: #10b981;
+  border-color: #10b981;
+}
+.htt-check input:checked ~ .checkmark::after {
+  content: "✓";
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.htt-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.htt-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.prio-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.prio-tag[data-prio="CRITICAL"] { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+.prio-tag[data-prio="HIGH"] { background: rgba(245, 158, 11, 0.2); color: #fde047; }
+.prio-tag[data-prio="MEDIUM"] { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+.prio-tag[data-prio="LOW"] { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+
+.htt-due.overdue { color: #ef4444; font-weight: 700; }
+.htt-due.soon { color: #f59e0b; font-weight: 700; }
+
+.htt-title {
+  display: block;
+  font-size: 13.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.htt-title.strike {
+  text-decoration: line-through;
+}
+
+.htt-desc {
+  margin: 2px 0 0;
+  line-height: 1.35;
+}
+
+.hub-restore-chip {
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px dashed rgba(99, 102, 241, 0.3);
+}
+
+/* Confirmation Modal */
+.confirm-modal {
+  width: 440px;
+  max-width: 90vw;
+  padding: 24px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.confirm-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.confirm-icon {
+  font-size: 28px;
+}
+
+.confirm-head h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.confirm-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.confirm-notice p {
+  margin: 0;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
 }
 </style>

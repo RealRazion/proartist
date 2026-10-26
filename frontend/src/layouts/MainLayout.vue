@@ -82,7 +82,7 @@
         >
           <span class="icon">🏆</span>
           <span class="label">UNYQ Arena</span>
-          <span class="ext-pill" v-if="!collapsed || isMobile">Öffnen ↗</span>
+          <span class="ext-pill" v-if="!collapsed || isMobile">Öffnen&nbsp;↗</span>
         </router-link>
         <router-link
           to="/profiles"
@@ -272,18 +272,89 @@
               <path d="M12 2.5v2.2M12 19.3v2.2M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" />
             </svg>
           </button>
-          <button
-            class="iconbtn top-icon-btn"
-            type="button"
-            @click="router.push({ name: 'notifications' })"
-            title="Benachrichtigungen"
-          >
-            <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 8a6 6 0 1 1 12 0v4.5l1.7 2.6A1 1 0 0 1 18.9 17H5.1a1 1 0 0 1-.8-1.9L6 12.5z" />
-              <path d="M10 19a2 2 0 0 0 4 0" />
-            </svg>
-            <span v-if="notificationCount" class="pill toolbar-pill">{{ notificationBadge }}</span>
-          </button>
+          <div class="notification-dropdown">
+            <button
+              class="iconbtn top-icon-btn"
+              type="button"
+              @click.stop="toggleNotificationMenu"
+              title="Benachrichtigungen"
+            >
+              <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 8a6 6 0 1 1 12 0v4.5l1.7 2.6A1 1 0 0 1 18.9 17H5.1a1 1 0 0 1-.8-1.9L6 12.5z" />
+                <path d="M10 19a2 2 0 0 0 4 0" />
+              </svg>
+              <span v-if="notificationCount" class="pill toolbar-pill">{{ notificationBadge }}</span>
+            </button>
+
+            <!-- Small Notification Popover Dropdown -->
+            <div v-if="notificationMenuOpen" class="notification-popover card" @click.stop>
+              <div class="notif-popover-head">
+                <div class="notif-title-group">
+                  <strong>Benachrichtigungen</strong>
+                  <span class="notif-count-badge" v-if="notificationCount">{{ notificationCount }}</span>
+                </div>
+                <div class="notif-head-actions">
+                  <button
+                    class="btn ghost micro-btn"
+                    type="button"
+                    v-if="notificationCount"
+                    @click="markAllNotificationsRead"
+                    :disabled="markingNotifsRead"
+                    title="Alle als gelesen markieren"
+                  >
+                    Gelesen
+                  </button>
+                  <button
+                    class="btn ghost micro-btn expand-btn"
+                    type="button"
+                    @click="openNotificationModal"
+                    title="Als großes Pop-up öffnen"
+                  >
+                    ⛶ Großformat
+                  </button>
+                </div>
+              </div>
+
+              <!-- Mini List -->
+              <div v-if="notificationsLoading" class="notif-loading muted small">
+                Lade Benachrichtigungen...
+              </div>
+              <div v-else-if="!recentNotifications.length" class="notif-empty muted small">
+                Keine neuen Benachrichtigungen 🎉
+              </div>
+              <div v-else class="notif-popover-list">
+                <div
+                  v-for="item in recentNotifications.slice(0, 5)"
+                  :key="item.id"
+                  class="notif-mini-item"
+                  :class="{ unread: !item.is_read }"
+                  @click="handleNotificationClick(item)"
+                >
+                  <span class="notif-dot" v-if="!item.is_read"></span>
+                  <div class="notif-mini-body">
+                    <strong class="notif-mini-title">{{ item.title }}</strong>
+                    <p class="notif-mini-snippet muted tiny" v-if="item.body">{{ item.body }}</p>
+                    <span class="notif-mini-time muted tiny">{{ formatNotifTime(item.created_at) }}</span>
+                  </div>
+                  <button
+                    v-if="!item.is_read"
+                    class="notif-check-btn"
+                    type="button"
+                    @click.stop="markSingleNotificationRead(item)"
+                    title="Als gelesen markieren"
+                  >
+                    ✓
+                  </button>
+                </div>
+              </div>
+
+              <div class="notif-popover-foot">
+                <button class="btn btn-sm full-width-btn" type="button" @click="openNotificationModal">
+                  Alle Benachrichtigungen anzeigen (Pop-up) ↗
+                </button>
+              </div>
+            </div>
+          </div>
           <div class="chat-dropdown">
             <button class="iconbtn top-icon-btn" type="button" @click.stop="toggleChatMenu" title="Chats öffnen">
               <svg class="toolbar-svg" viewBox="0 0 24 24" aria-hidden="true">
@@ -330,8 +401,90 @@
       </main>
     </div>
 
-    <!-- Global Studio Audio Player -->
-    <GlobalAudioPlayer />
+    <!-- Large Notification Modal Popup -->
+    <div v-if="showNotificationModal" class="modal-backdrop" @click.self="showNotificationModal = false">
+      <div class="modal card notification-modal-wide">
+        <div class="modal-head">
+          <div class="modal-title-with-badge">
+            <span class="notif-modal-icon">🔔</span>
+            <div>
+              <h3>Benachrichtigungen</h3>
+              <p class="muted small">Alle Hinweise zu Projekten, Tasks, Releases und System-Updates.</p>
+            </div>
+          </div>
+          <div class="modal-head-right">
+            <button
+              class="btn ghost tiny"
+              v-if="notificationCount"
+              @click="markAllNotificationsRead"
+              :disabled="markingNotifsRead"
+            >
+              Alle als gelesen
+            </button>
+            <button class="btn ghost tiny close-btn" type="button" @click="showNotificationModal = false">✕</button>
+          </div>
+        </div>
+
+        <!-- Filter Chips in Modal -->
+        <div class="notif-modal-filters">
+          <button
+            class="chip"
+            :class="{ active: notifFilterMode === 'all' }"
+            @click="notifFilterMode = 'all'"
+          >
+            Alle ({{ fullNotifications.length }})
+          </button>
+          <button
+            class="chip"
+            :class="{ active: notifFilterMode === 'unread' }"
+            @click="notifFilterMode = 'unread'"
+          >
+            Ungelesen ({{ notificationCount }})
+          </button>
+        </div>
+
+        <div class="notif-modal-body">
+          <div v-if="notificationsLoading" class="muted p-4">Lade Benachrichtigungen...</div>
+          <div v-else-if="!filteredFullNotifications.length" class="muted empty-notifs">
+            Keine Benachrichtigungen gefunden.
+          </div>
+          <div v-else class="notif-full-list">
+            <div
+              v-for="n in filteredFullNotifications"
+              :key="n.id"
+              class="notif-full-card card"
+              :class="{ unread: !n.is_read }"
+            >
+              <div class="nfc-left">
+                <span class="nfc-dot" v-if="!n.is_read"></span>
+                <div class="nfc-main">
+                  <div class="nfc-header-row">
+                    <strong class="nfc-title">{{ n.title }}</strong>
+                    <span class="nfc-time muted tiny">{{ formatNotifTime(n.created_at) }}</span>
+                  </div>
+                  <p class="nfc-body" v-if="n.body">{{ n.body }}</p>
+                  <div class="nfc-context-row" v-if="n.project || n.task || n.actor">
+                    <span v-if="n.project" class="context-tag">📁 {{ n.project.title || n.project }}</span>
+                    <span v-if="n.task" class="context-tag">🗒️ {{ n.task.title || n.task }}</span>
+                    <span v-if="n.actor" class="context-tag">👤 {{ n.actor.name || n.actor.username || n.actor }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="nfc-actions">
+                <button
+                  v-if="!n.is_read"
+                  class="btn ghost tiny"
+                  type="button"
+                  @click="markSingleNotificationRead(n)"
+                >
+                  Als gelesen
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="sidebar-overlay" v-if="mobileOpen && isMobile" @click="toggleSidebar"></div>
   </div>
@@ -397,6 +550,114 @@ const chatLoading = ref(false);
 const chatError = ref(null);
 const { showToast } = useToast();
 const viewRefreshKey = ref(0);
+
+const notificationMenuOpen = ref(false);
+const showNotificationModal = ref(false);
+const recentNotifications = ref([]);
+const fullNotifications = ref([]);
+const notificationsLoading = ref(false);
+const markingNotifsRead = ref(false);
+const notifFilterMode = ref("all");
+
+const filteredFullNotifications = computed(() => {
+  if (notifFilterMode.value === "unread") {
+    return fullNotifications.value.filter((n) => !n.is_read);
+  }
+  return fullNotifications.value;
+});
+
+function toggleNotificationMenu() {
+  notificationMenuOpen.value = !notificationMenuOpen.value;
+  if (notificationMenuOpen.value) {
+    chatOpen.value = false;
+    open.value = false;
+    fetchNotificationsPreview();
+  }
+}
+
+function openNotificationModal() {
+  notificationMenuOpen.value = false;
+  showNotificationModal.value = true;
+  fetchAllNotifications();
+}
+
+function formatNotifTime(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "Gerade eben";
+    if (diffMins < 60) return `Vor ${diffMins}m`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `Vor ${diffHours}h`;
+    return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+async function fetchNotificationsPreview() {
+  notificationsLoading.value = true;
+  try {
+    const { data } = await api.get("notifications/", { params: { page_size: 6 } });
+    recentNotifications.value = Array.isArray(data) ? data : data.results || [];
+  } catch (err) {
+    console.error("Konnte Benachrichtigungen nicht laden", err);
+  } finally {
+    notificationsLoading.value = false;
+  }
+}
+
+async function fetchAllNotifications() {
+  notificationsLoading.value = true;
+  try {
+    const { data } = await api.get("notifications/", { params: { page_size: 100 } });
+    fullNotifications.value = Array.isArray(data) ? data : data.results || [];
+  } catch (err) {
+    console.error(err);
+  } finally {
+    notificationsLoading.value = false;
+  }
+}
+
+async function markSingleNotificationRead(n) {
+  if (!n?.id || n.is_read) return;
+  n.is_read = true;
+  if (notificationCount.value > 0) notificationCount.value--;
+  try {
+    await api.patch(`notifications/${n.id}/`, { is_read: true });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function markAllNotificationsRead() {
+  if (markingNotifsRead.value) return;
+  markingNotifsRead.value = true;
+  try {
+    await api.post("notifications/mark-all-read/");
+    notificationCount.value = 0;
+    recentNotifications.value.forEach((n) => (n.is_read = true));
+    fullNotifications.value.forEach((n) => (n.is_read = true));
+    showToast("Alle Benachrichtigungen als gelesen markiert", "success");
+  } catch (err) {
+    console.error(err);
+  } finally {
+    markingNotifsRead.value = false;
+  }
+}
+
+function handleNotificationClick(item) {
+  markSingleNotificationRead(item);
+  notificationMenuOpen.value = false;
+  if (item.task) {
+    router.push({ name: "tasks" });
+  } else if (item.project) {
+    router.push({ name: "projects" });
+  }
+}
 
 let unreadInterval = null;
 let notificationInterval = null;
@@ -578,6 +839,8 @@ watch(
   () => route.fullPath,
   () => {
     open.value = false;
+    chatOpen.value = false;
+    notificationMenuOpen.value = false;
     if (isMobile.value) {
       mobileOpen.value = false;
       if (typeof document !== "undefined") {
@@ -586,6 +849,12 @@ watch(
     }
   }
 );
+
+function handleWindowClick() {
+  open.value = false;
+  chatOpen.value = false;
+  notificationMenuOpen.value = false;
+}
 
 onMounted(async () => {
   if (typeof window !== "undefined") {
@@ -601,6 +870,7 @@ onMounted(async () => {
   updateViewport();
   if (typeof window !== "undefined") {
     window.addEventListener("resize", updateViewport);
+    window.addEventListener("click", handleWindowClick);
   }
   try {
     await fetchProfile();
@@ -622,6 +892,7 @@ onBeforeUnmount(() => {
   if (notificationInterval) clearInterval(notificationInterval);
   if (typeof window !== "undefined") {
     window.removeEventListener("resize", updateViewport);
+    window.removeEventListener("click", handleWindowClick);
   }
   if (typeof document !== "undefined") {
     document.body.style.overflow = "";
@@ -1020,8 +1291,14 @@ onBeforeUnmount(() => {
   color: #fde047;
   background: rgba(234, 179, 8, 0.15);
   border: 1px solid rgba(234, 179, 8, 0.3);
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: 6px;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  flex-shrink: 0 !important;
+  line-height: 1;
 }
 
 .arena-external-link {
@@ -1040,5 +1317,302 @@ onBeforeUnmount(() => {
 
 .admin-nav-link:hover {
   background: rgba(239, 68, 68, 0.12) !important;
+}
+
+/* Notification Popover Dropdown */
+.notification-dropdown {
+  position: relative;
+}
+
+.notification-popover {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  width: 350px;
+  max-width: 90vw;
+  z-index: 50;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  animation: popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.notif-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.notif-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-count-badge {
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.notif-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.micro-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.expand-btn {
+  color: var(--brand);
+}
+
+.notif-loading,
+.notif-empty {
+  padding: 16px 8px;
+  text-align: center;
+}
+
+.notif-popover-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.notif-mini-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.notif-mini-item:hover {
+  background: rgba(124, 161, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.notif-mini-item.unread {
+  border-left: 3px solid var(--brand);
+}
+
+.notif-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.notif-mini-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-mini-title {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-mini-snippet {
+  margin: 2px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.notif-mini-time {
+  font-size: 10px;
+  display: block;
+  margin-top: 2px;
+}
+
+.notif-check-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: color 0.15s ease;
+}
+
+.notif-check-btn:hover {
+  color: #10b981;
+}
+
+.notif-popover-foot {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.full-width-btn {
+  width: 100%;
+  text-align: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+/* Large Notification Modal */
+.notification-modal-wide {
+  width: 720px;
+  max-width: 95vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: 20px;
+}
+
+.modal-title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notif-modal-icon {
+  font-size: 24px;
+}
+
+.modal-head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-modal-filters {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+
+.notif-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+  max-height: 55vh;
+  padding-right: 4px;
+}
+
+.empty-notifs {
+  padding: 36px 0;
+  text-align: center;
+}
+
+.notif-full-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notif-full-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.notif-full-card.unread {
+  border-color: rgba(124, 161, 255, 0.4);
+  background: rgba(124, 161, 255, 0.05);
+}
+
+.nfc-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+}
+
+.nfc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3b82f6;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.nfc-main {
+  flex: 1;
+}
+
+.nfc-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nfc-title {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.nfc-time {
+  font-size: 11px;
+}
+
+.nfc-body {
+  margin: 6px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.nfc-context-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.context-tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.nfc-actions {
+  flex-shrink: 0;
 }
 </style>

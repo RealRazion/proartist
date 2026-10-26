@@ -571,6 +571,8 @@ function deleteQuickShareLink(id) {
   quickShareLinks.value = quickShareLinks.value.filter((l) => l.id !== id);
   saveQuickShareLinks();
   showToast("Link gelöscht", "info");
+}
+
 // Hub Team & Tool Tasks State
 const teamTasksList = ref([]);
 const hideTeamTasksWidget = ref(localStorage.getItem("unyq_hide_hub_team_tasks") === "1");

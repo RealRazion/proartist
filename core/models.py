@@ -142,6 +142,7 @@ class Task(models.Model):
 
     project=models.ForeignKey(Project,on_delete=models.CASCADE,related_name="tasks", null=True, blank=True)
     title=models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
     status=models.CharField(max_length=50,default="OPEN")
     due_date=models.DateField(null=True,blank=True)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="MEDIUM")
@@ -484,10 +485,47 @@ class FinanceSavingsGoal(models.Model):
 
 class Release(models.Model):
     profile = models.ForeignKey(Profile,on_delete=models.CASCADE,related_name="releases")
+    created_by = models.ForeignKey(Profile, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_releases")
     title = models.CharField(max_length=200)
     planned_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=30, default="PLANNED")
     links = models.JSONField(default=dict, blank=True)
+    promo_model = models.CharField(max_length=50, default="CUSTOM")
+    promo_plan = models.JSONField(default=dict, blank=True)
+    reminder_email_enabled = models.BooleanField(default=True)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.planned_date})"
+
+
+class PromoQueueTask(models.Model):
+    CATEGORY_CHOICES = [
+        ("TIKTOK_DAILY", "Daily TikTok / Reel"),
+        ("COLLAB_POST", "Collab Post"),
+        ("SNIPPET", "Audio Snippet Drop"),
+        ("PRE_SAVE", "Pre-Save Link"),
+        ("RELEASE_DAY", "Release Day Blast"),
+        ("POST_PUSH", "Post-Release Push"),
+        ("CUSTOM", "Individuelle Promo"),
+    ]
+    release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="promo_tasks")
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="promo_tasks")
+    title = models.CharField(max_length=200)
+    scheduled_date = models.DateField(db_index=True)
+    category = models.CharField(max_length=40, choices=CATEGORY_CHOICES, default="CUSTOM")
+    platform = models.CharField(max_length=50, default="TikTok")
+    is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["scheduled_date", "id"]
+
+    def __str__(self):
+        return f"{self.scheduled_date} - {self.title}"
 
 class Event(models.Model):
     title = models.CharField(max_length=200)

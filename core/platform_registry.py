@@ -13,6 +13,9 @@ PLATFORM_REGISTRY = [
     {"slug": "admin", "name": "Admin", "allow_non_team_users": False},
     {"slug": "manage-platforms", "name": "Platform Control", "allow_non_team_users": False},
     {"slug": "testing", "name": "Testing", "allow_non_team_users": False},
+    {"slug": "songs", "name": "Song-Bibliothek", "allow_non_team_users": True},
+    {"slug": "team-tasks", "name": "Team Tasks", "allow_non_team_users": False},
+    {"slug": "promo-queue", "name": "Release & Promo Queue", "allow_non_team_users": True},
 ]
 
 

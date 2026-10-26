@@ -66,6 +66,7 @@ from .models import (
     ProjectAttachment,
     RegistrationRequest,
     Release,
+    PromoQueueTask,
     Request,
     RankedSeasonSettings,
     RankTierConfig,
@@ -126,6 +127,7 @@ from .serializers import (
     ProjectAttachmentSerializer,
     ProjectSerializer,
     ReleaseSerializer,
+    PromoQueueTaskSerializer,
     RegistrationRequestSerializer,
     RankedSeasonSettingsSerializer,
     RankTierConfigSerializer,
@@ -1309,7 +1311,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(status__in=statuses)
         search = self.request.query_params.get("search")
         if search:
-            qs = qs.filter(Q(title__icontains=search) | Q(project__title__icontains=search))
+            qs = qs.filter(Q(title__icontains=search) | Q(project__title__icontains=search) | Q(description__icontains=search))
         assignee = self.request.query_params.get("assignee")
         if assignee:
             ids = [pk.strip() for pk in str(assignee).split(",") if pk.strip()]
@@ -2844,8 +2846,259 @@ class DailyExpenseViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
+def generate_promo_tasks_for_release(release):
+    """
+    Generates scheduled PromoQueueTask instances based on release.planned_date,
+    release.promo_model, and release.promo_plan configuration.
+    """
+    if not release.planned_date:
+        return []
+
+    plan = release.promo_plan or {}
+    rel_date = release.planned_date
+    tasks_to_create = []
+
+    # 1. Daily TikTok / Reels posts
+    include_daily = plan.get("include_daily_tiktok", True)
+    daily_days = int(plan.get("daily_tiktok_days", 7))
+    if include_daily and daily_days > 0:
+        for offset in range(daily_days, 0, -1):
+            scheduled = rel_date - timedelta(days=offset)
+            day_text = f"Noch {offset} Tag{'e' if offset > 1 else ''} bis '{release.title}'"
+            tasks_to_create.append(PromoQueueTask(
+                release=release,
+                profile=release.profile,
+                title=f"Promo TikTok Post: {day_text}",
+                scheduled_date=scheduled,
+                category="TIKTOK_DAILY",
+                platform="TikTok / Reels",
+                notes="Daily Hook/Snippet Video posten. Sound taggen & Pre-Save erwähnen.",
+            ))
+
+    # 2. Pre-Save Launch
+    if plan.get("include_presave", True):
+        ps_offset = int(plan.get("presave_days", min(10, daily_days if daily_days > 0 else 7)))
+        tasks_to_create.append(PromoQueueTask(
+            release=release,
+            profile=release.profile,
+            title=f"Pre-Save Link aktivieren & in Bio hinterlegen",
+            scheduled_date=rel_date - timedelta(days=ps_offset),
+            category="PRE_SAVE",
+            platform="Multi-Link",
+            notes="Linkfire/Distrokid Pre-save Link testen, Spotify Story posten.",
+        ))
+
+    # 3. Audio Snippet Drop
+    if plan.get("include_snippet", True):
+        snip_offset = int(plan.get("snippet_days", 5))
+        tasks_to_create.append(PromoQueueTask(
+            release=release,
+            profile=release.profile,
+            title=f"Audio Snippet Drop (Erste 15s Hook)",
+            scheduled_date=rel_date - timedelta(days=snip_offset),
+            category="SNIPPET",
+            platform="TikTok / Reels",
+            notes="Zeige Studio-Reaction oder Lip-Sync mit offiziellem Teaser.",
+        ))
+
+    # 4. Collab Post (optional)
+    if plan.get("include_collab_post", False):
+        collab_offset = int(plan.get("collab_days", 2))
+        partner = plan.get("collab_partner", "")
+        tasks_to_create.append(PromoQueueTask(
+            release=release,
+            profile=release.profile,
+            title=f"Collab Post vorbereiten & senden" + (f" mit {partner}" if partner else ""),
+            scheduled_date=rel_date - timedelta(days=collab_offset),
+            category="COLLAB_POST",
+            platform="Instagram",
+            notes="Gemeinsamen Instagram-Collab-Invite rausschicken und bestätigen lassen.",
+        ))
+
+    # 5. Release Day Blast
+    if plan.get("include_release_day", True):
+        tasks_to_create.append(PromoQueueTask(
+            release=release,
+            profile=release.profile,
+            title=f"🚀 RELEASE DAY: '{release.title}' ist online! (Full Blast)",
+            scheduled_date=rel_date,
+            category="RELEASE_DAY",
+            platform="Alle Kanäle",
+            notes="Story-Blast, Feed-Post, Bio-Link aktualisieren, Spotify Canvas checken, Discord/WhatsApp Announcement.",
+        ))
+
+    # 6. Post-Release Push
+    if plan.get("include_post_push", True):
+        post_offset = int(plan.get("post_push_days", 2))
+        tasks_to_create.append(PromoQueueTask(
+            release=release,
+            profile=release.profile,
+            title=f"Post-Release Push: Community-Storys reposten & Feedback-TikTok",
+            scheduled_date=rel_date + timedelta(days=post_offset),
+            category="POST_PUSH",
+            platform="Instagram & TikTok",
+            notes="Hörer-Storys reposten, Playlist-Pitching prüfen, Behind-The-Scenes teilen.",
+        ))
+
+    # 7. Custom Items
+    custom_items = plan.get("custom_items", [])
+    if isinstance(custom_items, list):
+        for item in custom_items:
+            if isinstance(item, dict) and item.get("title"):
+                item_date = parse_date(item.get("date", "")) or rel_date
+                tasks_to_create.append(PromoQueueTask(
+                    release=release,
+                    profile=release.profile,
+                    title=item["title"],
+                    scheduled_date=item_date,
+                    category="CUSTOM",
+                    platform=item.get("platform", "Social Media"),
+                    notes=item.get("notes", ""),
+                ))
+
+    # Bulk create
+    PromoQueueTask.objects.bulk_create(tasks_to_create)
+    return tasks_to_create
+
+
 class ReleaseViewSet(viewsets.ModelViewSet):
-    queryset=Release.objects.all(); serializer_class=ReleaseSerializer; permission_classes=[permissions.IsAuthenticated]
+    queryset = Release.objects.select_related("profile", "created_by").prefetch_related("promo_tasks").all().order_by("planned_date")
+    serializer_class = ReleaseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = Release.objects.select_related("profile", "created_by").prefetch_related("promo_tasks").all().order_by("planned_date")
+        me = getattr(self.request.user, "profile", None)
+        if not me:
+            return qs.none()
+        is_team = me.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
+        artist_id = self.request.query_params.get("artist") or self.request.query_params.get("profile")
+        if artist_id:
+            qs = qs.filter(profile_id=artist_id)
+        elif not is_team:
+            qs = qs.filter(profile=me)
+        return qs
+
+    def perform_create(self, serializer):
+        me = getattr(self.request.user, "profile", None)
+        is_team = me.roles.filter(key__in=["TEAM", "ADMIN"]).exists() if me else False
+        target_profile = serializer.validated_data.get("profile")
+        if not target_profile or not is_team:
+            target_profile = me
+        release = serializer.save(profile=target_profile, created_by=me)
+        # Auto generate promo tasks
+        generate_promo_tasks_for_release(release)
+
+    @action(detail=True, methods=["post"])
+    def regenerate_promo(self, request, pk=None):
+        release = self.get_object()
+        # Delete old uncompleted tasks
+        release.promo_tasks.filter(is_completed=False).delete()
+        tasks = generate_promo_tasks_for_release(release)
+        return Response({"status": "ok", "generated_count": len(tasks)})
+
+
+class PromoQueueTaskViewSet(viewsets.ModelViewSet):
+    queryset = PromoQueueTask.objects.select_related("release", "profile").all().order_by("scheduled_date")
+    serializer_class = PromoQueueTaskSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = PromoQueueTask.objects.select_related("release", "profile").all().order_by("scheduled_date")
+        me = getattr(self.request.user, "profile", None)
+        if not me:
+            return qs.none()
+        is_team = me.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
+        artist_id = self.request.query_params.get("artist") or self.request.query_params.get("profile")
+        if artist_id:
+            qs = qs.filter(profile_id=artist_id)
+        elif not is_team:
+            qs = qs.filter(profile=me)
+
+        release_id = self.request.query_params.get("release")
+        if release_id:
+            qs = qs.filter(release_id=release_id)
+
+        date_filter = self.request.query_params.get("date")
+        if date_filter == "today":
+            qs = qs.filter(scheduled_date=timezone.now().date())
+        elif date_filter == "upcoming":
+            qs = qs.filter(scheduled_date__gte=timezone.now().date())
+        elif date_filter:
+            p_date = parse_date(date_filter)
+            if p_date:
+                qs = qs.filter(scheduled_date=p_date)
+
+        completed = self.request.query_params.get("completed")
+        if completed is not None:
+            qs = qs.filter(is_completed=(completed.lower() in ["true", "1"]))
+
+        return qs
+
+    @action(detail=True, methods=["post"])
+    def toggle_complete(self, request, pk=None):
+        task = self.get_object()
+        task.is_completed = not task.is_completed
+        task.completed_at = timezone.now() if task.is_completed else None
+        task.save(update_fields=["is_completed", "completed_at"])
+        return Response(PromoQueueTaskSerializer(task).data)
+
+    @action(detail=False, methods=["post"])
+    def send_reminders(self, request):
+        today = timezone.now().date()
+        pending_tasks = PromoQueueTask.objects.select_related("profile__user", "release").filter(
+            scheduled_date=today,
+            is_completed=False,
+            release__reminder_email_enabled=True,
+        )
+
+        sent_count = 0
+        reminded_artists = {}
+        for ptask in pending_tasks:
+            artist = ptask.profile
+            if not artist or not artist.user or not getattr(artist.user, "email", None):
+                continue
+            if artist.id not in reminded_artists:
+                reminded_artists[artist.id] = {
+                    "artist": artist,
+                    "tasks": [],
+                }
+            reminded_artists[artist.id]["tasks"].append(ptask)
+
+        for a_id, data in reminded_artists.items():
+            artist = data["artist"]
+            tasks_list = data["tasks"]
+            subject = f"📢 UNYQ Promo Reminder: {len(tasks_list)} offene Promo-Posts für heute!"
+            task_titles = "\n".join([f"- {t.title} ({t.release.title})" for t in tasks_list])
+            frontend_url = getattr(settings, "FRONTEND_URL", "https://unyq.app")
+            message = (
+                f"Hey {artist.name},\n\n"
+                f"vergiss nicht deinen täglichen Promo-Post für deinen Release!\n"
+                f"Für heute ({today.strftime('%d.%m.%Y')}) stehen folgende Punkte an:\n\n"
+                f"{task_titles}\n\n"
+                f"Öffne jetzt deine UNYQ Release & Promo Queue, um die Posts abzuhaken:\n"
+                f"{frontend_url}/app/promo-queue\n\n"
+                f"Viel Erfolg beim Release Push!\nDein UNYQ Team"
+            )
+            try:
+                send_notification_email(subject, message, [artist.user.email])
+                create_in_app_notification(
+                    recipient=artist,
+                    title="Promo Reminder: Posts für heute offen!",
+                    body=f"Du hast noch {len(tasks_list)} offene Promo-Aufgaben für heute.",
+                    notification_type="promo_reminder",
+                    severity="WARNING",
+                )
+                sent_count += 1
+            except Exception as e:
+                logger.exception("Failed to send promo reminder email: %s", e)
+
+        return Response({
+            "status": "ok",
+            "today": str(today),
+            "pending_tasks_count": pending_tasks.count(),
+            "artists_reminded": sent_count,
+        })
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset=Event.objects.all(); serializer_class=EventSerializer

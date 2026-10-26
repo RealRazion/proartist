@@ -34,13 +34,13 @@
           <span class="label">Dashboard</span>
         </router-link>
         <router-link
-          to="/songs"
+          to="/promo-queue"
           class="nav-link"
           @click="handleNavClick"
-          :title="collapsed && !isMobile ? 'Songs & Beats' : null"
+          :title="collapsed && !isMobile ? 'Release & Promo Queue' : null"
         >
-          <span class="icon">🎵</span>
-          <span class="label">Songs &amp; Beats</span>
+          <span class="icon">🚀</span>
+          <span class="label">Promo &amp; Releases</span>
         </router-link>
         <router-link
           to="/projects"
@@ -166,9 +166,17 @@
             <span class="dock-ico">🎧</span>
             <span class="dock-name">Music</span>
           </router-link>
+          <router-link to="/platforms/songs" class="app-dock-btn" title="Songs & Beats Tool">
+            <span class="dock-ico">🎵</span>
+            <span class="dock-name">Songs</span>
+          </router-link>
           <router-link to="/platforms/library" class="app-dock-btn" title="Free Sound Library">
             <span class="dock-ico">📦</span>
             <span class="dock-name">Library</span>
+          </router-link>
+          <router-link v-if="isTeam" to="/platforms/team-tasks" class="app-dock-btn" title="Team & Tool Tasks">
+            <span class="dock-ico">🛠️</span>
+            <span class="dock-name">Tools</span>
           </router-link>
           <router-link to="/platforms/forum" class="app-dock-btn" title="Community Forum">
             <span class="dock-ico">💭</span>

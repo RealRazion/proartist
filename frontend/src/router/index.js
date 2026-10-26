@@ -22,6 +22,8 @@ const ActivityFeed = () => import("../views/ActivityFeed.vue");
 const Notifications = () => import("../views/Notifications.vue");
 const GrowPro = () => import("../views/GrowPro.vue");
 const Songs = () => import("../views/Songs.vue");
+const ReleasePromoQueue = () => import("../views/ReleasePromoQueue.vue");
+const TeamTasks = () => import("../views/TeamTasks.vue");
 const Timeline = () => import("../views/Timeline.vue");
 const PluginGuides = () => import("../views/PluginGuides.vue");
 const ReviewQueue = () => import("../views/ReviewQueue.vue");
@@ -78,6 +80,13 @@ const routes = [
         alias: "/projects/:projectId",
         meta: { requiresAuth: true },
       },
+      {
+        path: "promo-queue",
+        name: "promo-queue",
+        component: ReleasePromoQueue,
+        alias: ["/promo-queue", "/releases", "/app/releases"],
+        meta: { requiresAuth: true },
+      },
       { path: "tasks", name: "tasks", component: Tasks, alias: "/tasks", meta: { requiresAuth: true } },
       { path: "reviews", name: "reviews", component: ReviewQueue, alias: "/reviews", meta: { requiresAuth: true } },
       { path: "timeline", name: "timeline", component: Timeline, alias: "/timeline", meta: { requiresAuth: true } },
@@ -99,6 +108,8 @@ const routes = [
     children: [
       { path: "", name: "platforms", component: PlatformLanding, meta: { requiresAuth: true } },
       { path: "music", name: "platform-music", component: MusicPlayerView, meta: { requiresAuth: true } },
+      { path: "songs", name: "platform-songs", component: Songs, meta: { requiresAuth: true } },
+      { path: "team-tasks", name: "platform-team-tasks", component: TeamTasks, meta: { requiresAuth: true } },
       { path: "finance", name: "platform-finance", component: FinanceContainer, meta: { requiresAuth: true } },
       { path: "finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
       { path: "earn", name: "platform-earn", component: EarnContainer, meta: { requiresAuth: true } },

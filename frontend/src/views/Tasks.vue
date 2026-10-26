@@ -31,7 +31,31 @@
           >
             {{ boardTypeLabels[type] }}
           </button>
+          <router-link to="/platforms/team-tasks" class="chip team-tools-shortcut" v-if="isTeam">
+            🛠️ Zu Team-Tasks (Plattform) →
+          </router-link>
         </div>
+
+        <!-- Quick Add Bar -->
+        <form class="tasks-quick-add-bar card" @submit.prevent="submitQuickInlineTask">
+          <span class="quick-add-icon">⚡</span>
+          <input
+            class="quick-add-input"
+            v-model.trim="quickInlineTitle"
+            placeholder="+ Neue Künstler-Aufgabe schnell anlegen (z.B. Vocal Take 3, Cover Freigabe)... [Enter]"
+            :disabled="quickInlineSaving"
+          />
+          <select class="quick-add-prio" v-model="quickInlinePrio">
+            <option value="MEDIUM">Mittel</option>
+            <option value="HIGH">Hoch</option>
+            <option value="CRITICAL">Kritisch</option>
+            <option value="LOW">Niedrig</option>
+          </select>
+          <button class="btn tiny primary-btn" type="submit" :disabled="!quickInlineTitle || quickInlineSaving">
+            {{ quickInlineSaving ? '...' : '+ Anlegen' }}
+          </button>
+        </form>
+
         <div class="kpi-row" v-if="taskSummary.total">
           <div class="kpi">
             <span>Gesamt</span>
@@ -79,59 +103,66 @@
               <span class="category-toggle">{{ isProjectGroupCollapsed(section.id) ? "+" : "-" }}</span>
             </button>
             <div v-if="!isProjectGroupCollapsed(section.id)" class="category-content">
-              <ul v-if="projectTasks(section.id).length">
+              <ul v-if="projectTasks(section.id).length" class="clean-tasks-list">
                 <li
                   v-for="task in projectTasks(section.id)"
                   :key="task.id"
-                  class="task-card"
-                  :class="{ overdue: dueState(task) === 'overdue', soon: dueState(task) === 'soon' }"
+                  class="task-card modern-card"
+                  :class="{ overdue: dueState(task) === 'overdue', soon: dueState(task) === 'soon', completed: task.status === 'DONE' }"
                   :data-status="task.status"
                 >
-                  <div class="title-row">
-                    <div>
-                      <div class="title">{{ task.title }}</div>
-                      <div class="pill-row">
-                        <span class="priority" :data-priority="task.priority">
-                          {{ priorityLabels[task.priority] }}
-                        </span>
-                        <span class="task-type" :data-type="task.task_type">
-                          {{ taskTypeLabels[task.task_type] || task.task_type }}
-                        </span>
-                        <span v-if="task.review_required" class="task-type review-needed">
-                          Review nötig
-                        </span>
-                        <span v-if="task.recurrence_pattern && task.recurrence_pattern !== 'NONE'" class="task-type recurrence">
-                          {{ recurrenceLabel(task) }}
-                        </span>
-                        <span
-                          v-if="task.review_status"
-                          class="review-chip"
-                          :data-review="task.review_status"
-                        >
-                          {{ reviewStatusLabels[task.review_status] || task.review_status }}
-                        </span>
+                  <div class="task-card-inner">
+                    <label class="custom-card-check" title="Als erledigt abhaken">
+                      <input
+                        type="checkbox"
+                        :checked="task.status === 'DONE'"
+                        @change="task.status === 'DONE' ? onStatusChange(task, { target: { value: 'OPEN' } }) : markTaskAsDone(task)"
+                      />
+                      <span class="card-checkmark"></span>
+                    </label>
+
+                    <div class="task-card-content" @click="startEditTask(task)">
+                      <div class="title-row-modern">
+                        <span class="title" :class="{ strike: task.status === 'DONE' }">{{ task.title }}</span>
+                        <div class="pill-row">
+                          <span class="priority" :data-priority="task.priority">
+                            {{ priorityLabels[task.priority] }}
+                          </span>
+                          <span v-if="task.due_date" class="due-pill" :class="dueState(task)">
+                            📅 {{ formatDueDate(task.due_date) }}
+                          </span>
+                          <span v-if="task.project" class="project-pill">
+                            📁 {{ projectMap[task.project]?.title || "-" }}
+                          </span>
+                          <span v-if="task.review_required" class="task-type review-needed">
+                            Review nötig
+                          </span>
+                          <span
+                            v-if="task.review_status"
+                            class="review-chip"
+                            :data-review="task.review_status"
+                          >
+                            {{ reviewStatusLabels[task.review_status] || task.review_status }}
+                          </span>
+                        </div>
                       </div>
+
+                      <p class="task-description muted small" v-if="task.description">
+                        📝 {{ task.description }}
+                      </p>
                     </div>
-                    <div class="card-buttons">
+
+                    <div class="card-controls-right">
+                      <select class="input input-mini-status" v-model="task.status" @change="onStatusChange(task, $event)">
+                        <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
+                      </select>
                       <button class="btn ghost tiny" type="button" @click="startEditTask(task)">
-                        Bearbeiten
+                        Details
+                      </button>
+                      <button class="btn ghost danger tiny" type="button" @click="archiveTask(task)" title="Archivieren">
+                        ✕
                       </button>
                     </div>
-                  </div>
-                  <p class="muted">Projekt: {{ task.project ? projectMap[task.project]?.title || "-" : "Kein Projekt" }}</p>
-                  <p class="due" :class="dueState(task)">
-                    {{ task.due_date ? `Fällig ${formatDueDate(task.due_date)}` : "Kein Termin" }}
-                  </p>
-                  <div class="actions task-actions-grid">
-                    <select class="input" v-model="task.status" @change="onStatusChange(task, $event)">
-                      <option v-for="opt in statusOptions" :key="opt" :value="opt">{{ statusLabels[opt] }}</option>
-                    </select>
-                    <button class="btn tiny" type="button" @click="markTaskAsDone(task)" :disabled="task.status === 'DONE'">
-                      Als erledigt
-                    </button>
-                    <button class="btn ghost danger tiny" type="button" @click="archiveTask(task)">
-                      Archivieren
-                    </button>
                   </div>
                 </li>
               </ul>
@@ -271,6 +302,15 @@
           <label>
             Titel
             <input class="input" v-model.trim="taskForm.title" placeholder="z. B. Mix finalisieren" required />
+          </label>
+          <label class="full">
+            Details &amp; Beschreibung (Notizen, Links, Anforderungen)
+            <textarea
+              class="input textarea"
+              rows="3"
+              v-model="taskForm.description"
+              placeholder="Füge hier Details, Links zu Stems/Referenzen oder Notizen ein..."
+            ></textarea>
           </label>
           <label>
             Projekt (optional)
@@ -589,6 +629,7 @@ function markTaskAsDone(task) {
 function getDefaultTaskForm() {
   return {
     title: "",
+    description: "",
     project: "",
     status: "OPEN",
     review_required: false,
@@ -601,6 +642,11 @@ function getDefaultTaskForm() {
     recurrence_interval: 1,
   };
 }
+
+const quickInlineTitle = ref("");
+const quickInlinePrio = ref("MEDIUM");
+const quickInlineSaving = ref(false);
+
 const filterProject = ref("ALL");
 const filterStatus = ref("ALL");
 const priorityFilter = ref("ALL");
@@ -646,11 +692,11 @@ const recurrenceLabels = {
   WEEKLY: "WÖchentlich",
   MONTHLY: "Monatlich",
 };
-const boardTypeOptions = ["ALL", ...taskTypeOptions];
+const boardTypeOptions = ["EXTERNAL", "ALL", "INTERNAL"];
 const boardTypeLabels = {
-  ALL: "Alle Tasks",
-  INTERNAL: "Intern",
-  EXTERNAL: "Extern",
+  EXTERNAL: "🎨 Künstler-Tasks",
+  ALL: "Alle anzeigen",
+  INTERNAL: "🛠️ Team-Tasks",
 };
 const priorityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const priorityLabels = {
@@ -666,7 +712,7 @@ function recurrenceLabel(task) {
   const interval = Number(task.recurrence_interval || 1);
   return interval > 1 ? `${base} x${interval}` : base;
 }
-const boardTypeFilter = ref("ALL");
+const boardTypeFilter = ref("EXTERNAL");
 function setBoardType(value) {
   boardTypeFilter.value = value;
   taskTypeFilter.value = value === "ALL" ? "ALL" : value;
@@ -1066,6 +1112,7 @@ async function submitTaskForm() {
   taskSaving.value = true;
   const payload = {
     title: taskForm.value.title.trim(),
+    description: taskForm.value.description || "",
     status: taskForm.value.status,
     review_required: Boolean(taskForm.value.review_required),
     priority: taskForm.value.priority,
@@ -1102,6 +1149,27 @@ async function submitTaskForm() {
   }
 }
 
+async function submitQuickInlineTask() {
+  if (!quickInlineTitle.value.trim()) return;
+  quickInlineSaving.value = true;
+  try {
+    await api.post("tasks/", {
+      title: quickInlineTitle.value.trim(),
+      status: "OPEN",
+      priority: quickInlinePrio.value,
+      task_type: "EXTERNAL",
+      assignee_ids: currentProfile.value?.id ? [currentProfile.value.id] : [],
+    });
+    quickInlineTitle.value = "";
+    showToast("Künstler-Aufgabe angelegt! 🎯", "success");
+    await refreshTasks();
+  } catch (err) {
+    showToast("Aufgabe konnte nicht erstellt werden", "error");
+  } finally {
+    quickInlineSaving.value = false;
+  }
+}
+
 function openTaskModal() {
   taskModalMode.value = "create";
   editingTaskId.value = null;
@@ -1118,6 +1186,7 @@ function startEditTask(task) {
   editingTaskId.value = task.id;
   taskForm.value = {
     title: task.title,
+    description: task.description || "",
     project: task.project || "",
     status: task.status,
     review_required: Boolean(task.review_required),
@@ -2348,9 +2417,158 @@ select[multiple] {
   .actions {
     grid-template-columns: 1fr;
   }
-  .actions .btn,
-  .actions .input {
-    width: 100%;
-  }
+}
+.team-tools-shortcut {
+  background: rgba(99, 102, 241, 0.12) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+  color: #a5b4fc !important;
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+.team-tools-shortcut:hover {
+  background: rgba(99, 102, 241, 0.25) !important;
+  transform: translateY(-1px);
+}
+.tasks-quick-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.quick-add-icon {
+  font-size: 16px;
+}
+.quick-add-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+.quick-add-prio {
+  background: var(--surface-muted, #1a1a24);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+}
+.clean-tasks-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.modern-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+}
+.modern-card:hover {
+  border-color: var(--border-hover, rgba(255, 255, 255, 0.2));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+.modern-card.completed {
+  opacity: 0.65;
+  background: rgba(255, 255, 255, 0.02);
+}
+.task-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.custom-card-check {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+.custom-card-check input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+.card-checkmark {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--muted);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.custom-card-check input:checked ~ .card-checkmark {
+  background: #10b981;
+  border-color: #10b981;
+}
+.custom-card-check input:checked ~ .card-checkmark::after {
+  content: "✓";
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.task-card-content {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.title-row-modern {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.title-row-modern .title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+.title-row-modern .title.strike {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+.task-description {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+  white-space: pre-line;
+  max-height: 48px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.input-mini-status {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  background: var(--surface-muted, #1a1a24);
+  border: 1px solid var(--border);
+  color: var(--text);
+  outline: none;
+  cursor: pointer;
 }
 </style>

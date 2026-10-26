@@ -107,9 +107,17 @@
           <span class="dock-icon">🏠</span>
           <span>Dashboard</span>
         </button>
-        <button class="dock-btn" @click="router.push('/songs')">
+        <button class="dock-btn" @click="router.push('/promo-queue')">
+          <span class="dock-icon">🚀</span>
+          <span>Promo Queue</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/platforms/songs')">
           <span class="dock-icon">🎵</span>
-          <span>Songs &amp; Beats</span>
+          <span>Songs (Tool)</span>
+        </button>
+        <button class="dock-btn" @click="router.push('/platforms/team-tasks')">
+          <span class="dock-icon">🛠️</span>
+          <span>Team-Tasks</span>
         </button>
         <button class="dock-btn" @click="router.push('/tournaments')">
           <span class="dock-icon">🏆</span>

@@ -42,9 +42,9 @@
 
         <!-- Hero Quick Action Dock -->
         <div class="hero-actions-dock">
-          <button class="btn btn-primary" type="button" @click="openSongModal">
-            <span class="btn-icon">🎵</span>
-            <span>+ Song / Beat</span>
+          <button class="btn btn-primary" type="button" @click="goTo('promo-queue')">
+            <span class="btn-icon">🚀</span>
+            <span>+ Release</span>
           </button>
           <button class="btn ghost" type="button" @click="openTaskModal">
             <span class="btn-icon">🗒️</span>
@@ -70,98 +70,175 @@
     <!-- CREATOR STUDIO VIEW (Artist Value First)    -->
     <!-- ========================================== -->
     <template v-if="viewMode === 'creator'">
-      <!-- Section 1: Studio Pipeline & Release Radar -->
-      <section class="studio-section">
+      <!-- Section 1: Release & Promo Radar (Daily Action & Upcoming Drops) -->
+      <section class="studio-section promo-radar-section">
         <div class="section-header">
           <div class="header-left">
-            <span class="section-icon">🎛️</span>
+            <span class="section-icon">🚀</span>
             <div>
-              <h2>Studio Pipeline &amp; Release Radar</h2>
-              <p class="muted small">Verfolge deine aktiven Songs von der Beat-Idee bis zum fertigen Master &amp; Release.</p>
+              <h2>Release &amp; Promo Radar</h2>
+              <p class="muted small">Tägliche Promo-Aufgaben (TikToks, Collabs &amp; Pre-Saves) und anstehende Veröffentlichungstermine.</p>
             </div>
           </div>
           <div class="header-actions">
-            <button class="btn ghost tiny" @click="goTo('songs')">Alle Songs &amp; Stems →</button>
-            <button class="btn tiny" @click="openSongModal">+ Neuer Track</button>
+            <button class="btn ghost tiny" @click="goTo('promo-queue')">Zur Promo-Queue →</button>
+            <button class="btn tiny" @click="goTo('promo-queue')">+ Neuer Release</button>
           </div>
         </div>
 
-        <!-- Song Cards Grid -->
-        <div class="pipeline-grid" v-if="songsList.length">
-          <article
-            v-for="song in songsList.slice(0, 4)"
-            :key="song.id"
-            class="pipeline-card"
-          >
-            <div class="track-head">
-              <div class="cover-wrapper" @click="togglePlayAudio(song)">
-                <img v-if="song.cover_url" :src="song.cover_url" :alt="song.title" class="track-cover-img" />
-                <div v-else class="track-cover-placeholder">
-                  <span>🎹</span>
-                </div>
-                <button class="cover-play-btn" :class="{ playing: currentPlayingSongId === song.id }">
-                  {{ currentPlayingSongId === song.id ? '⏸' : '▶' }}
-                </button>
-              </div>
-
-              <div class="track-meta">
-                <div class="meta-row-top">
-                  <span class="status-pill" :data-status="song.status">{{ songStatusLabel(song.status) }}</span>
-                  <span v-if="song.genre" class="tag-mini">{{ song.genre }}</span>
-                  <span v-if="song.bpm" class="tag-mini bpm">{{ song.bpm }} BPM</span>
-                </div>
-                <h3 class="track-title" @click="goTo('songs')">{{ song.title }}</h3>
-                <p class="track-desc muted">{{ song.description || 'Aktiver Studio-Track in Bearbeitung' }}</p>
-              </div>
+        <!-- Today's Promo Posts Focus Bar -->
+        <div class="daily-promo-banner card" v-if="todayPromoTasks.length">
+          <div class="dp-head">
+            <div class="dp-title">
+              <span class="dp-badge">HEUTE ZU POSTEN</span>
+              <strong>{{ todayPendingPromoCount }} offene Promo-Aufgaben für heute</strong>
             </div>
-
-            <!-- 5-Stage Protected Release Progress Pipeline -->
-            <div class="stage-pipeline-bar">
-              <div
-                v-for="(stage, idx) in releaseStages"
-                :key="stage.key"
-                class="stage-step"
-                :class="{
-                  active: getSongStageIndex(song) === idx,
-                  completed: getSongStageIndex(song) > idx,
-                  clickable: true
-                }"
-                @click.stop="confirmChangeStage(song, idx)"
-                :title="`Phase ${idx + 1}: ${stage.label} (Klicken zum Ändern)`"
+            <small class="muted">Tägliche Erinnerung um 19:00 Uhr aktiv</small>
+          </div>
+          <div class="dp-task-grid">
+            <div
+              v-for="ptask in todayPromoTasks"
+              :key="ptask.id"
+              class="dp-item card"
+              :class="{ done: ptask.is_completed }"
+            >
+              <label class="dp-check">
+                <input
+                  type="checkbox"
+                  :checked="ptask.is_completed"
+                  @change="togglePromoDone(ptask)"
+                />
+                <span class="checkmark"></span>
+              </label>
+              <div class="dp-info">
+                <div class="dp-tags">
+                  <span class="dp-plat">{{ ptask.platform || 'TikTok' }}</span>
+                  <span class="dp-rel" v-if="ptask.release_title">💿 {{ ptask.release_title }}</span>
+                </div>
+                <strong class="dp-name" :class="{ strike: ptask.is_completed }">{{ ptask.title }}</strong>
+                <p class="dp-notes muted small" v-if="ptask.notes">💡 {{ ptask.notes }}</p>
+              </div>
+              <button
+                class="btn ghost tiny dp-action-btn"
+                type="button"
+                @click="togglePromoDone(ptask)"
               >
-                <div class="step-dot">
-                  <span v-if="getSongStageIndex(song) > idx">✓</span>
-                  <span v-else>{{ idx + 1 }}</span>
+                {{ ptask.is_completed ? "Wieder öffnen" : "✓ Gepostet" }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upcoming Releases Grid -->
+        <div class="releases-radar-grid" v-if="activeReleases.length">
+          <article
+            v-for="rel in activeReleases.slice(0, 3)"
+            :key="rel.id"
+            class="rel-radar-card card"
+          >
+            <div class="rel-radar-top">
+              <div class="rel-cover-mini">💿</div>
+              <div class="rel-meta">
+                <span class="rel-artist-lbl" v-if="rel.artist_name">👤 {{ rel.artist_name }}</span>
+                <h3 class="rel-heading" @click="goTo('promo-queue')">{{ rel.title }}</h3>
+                <div class="rel-countdown-tag" :class="getCountdownClass(rel.planned_date)">
+                  📅 {{ formatReleaseDate(rel.planned_date) }} &middot; {{ getCountdownText(rel.planned_date) }}
                 </div>
-                <span class="step-label">{{ stage.label }}</span>
-                <span class="step-lock-tag" v-if="getSongStageIndex(song) === idx" title="Geschützte Phase">🔒</span>
               </div>
             </div>
 
-            <div class="track-footer">
-              <span class="version-badge">
-                {{ song.version_count ? `${song.version_count} Versionen / Stems` : 'v1 Demo Cut' }}
-              </span>
-              <button class="btn ghost tiny link-btn" @click="goTo('songs')">
-                Versionen öffnen →
-              </button>
+            <div class="rel-radar-progress">
+              <div class="rel-prog-text">
+                <small class="muted">Promo-Fortschritt</small>
+                <small><strong>{{ rel.completed_promo_tasks_count || 0 }}</strong> / {{ rel.promo_tasks_count || 0 }} Posts</small>
+              </div>
+              <div class="rel-prog-bar">
+                <div
+                  class="rel-prog-fill"
+                  :style="{ width: calcPercent(rel.completed_promo_tasks_count, rel.promo_tasks_count) + '%' }"
+                ></div>
+              </div>
+            </div>
+
+            <div class="rel-radar-footer">
+              <span class="rel-model-tag">{{ promoModelLabel(rel.promo_model) }}</span>
+              <button class="btn ghost tiny" @click="goTo('promo-queue')">Plan ansehen →</button>
             </div>
           </article>
         </div>
 
-        <!-- Empty State with Creator Action -->
-        <div class="empty-pipeline-box" v-else>
-          <div class="empty-icon-ring">🎵</div>
-          <h3>Starte deinen nächsten Release</h3>
+        <div class="empty-pipeline-box" v-else-if="!todayPromoTasks.length">
+          <div class="empty-icon-ring">🚀</div>
+          <h3>Plane deinen nächsten Release &amp; Promo-Push</h3>
           <p class="muted">
-            Lade deine Beats, Demos oder Vocals hoch. Organisiere Mixdown, Mastering und Feedback direkt im Workflow.
+            Trage einfach das Veröffentlichungsdatum ein und wähle dein Promo-Modell (z.B. 7 Tage tägliche TikToks, Collab-Posts, Snippets).
           </p>
           <div class="empty-actions">
-            <button class="btn" @click="openSongModal">+ Ersten Song / Beat anlegen</button>
-            <button class="btn ghost" @click="router.push('/platforms/library')">📦 Sound Library durchsuchen</button>
+            <button class="btn" @click="goTo('promo-queue')">+ Neuen Release &amp; Promo-Plan anlegen</button>
           </div>
         </div>
       </section>
+
+      <!-- Section: Team & Tool Tasks (Quick View Shortcut) -->
+      <section class="team-tasks-widget card" v-if="!hideTeamTasksWidget && (isTeam || teamTasksList.length)">
+        <div class="tt-widget-head">
+          <div class="tt-head-left">
+            <span class="tt-icon">🛠️</span>
+            <div>
+              <h3>Team &amp; Tool Tasks <span class="tt-pill">Quick View</span></h3>
+              <p class="muted small">Die nächsten anstehenden Entwicklungs- und Plattform-Aufgaben.</p>
+            </div>
+          </div>
+          <div class="tt-head-actions">
+            <button class="btn ghost tiny" @click="goToRoute({ name: 'platform-team-tasks' })">
+              Zur Team-Plattform →
+            </button>
+            <button class="btn ghost tiny close-widget-btn" @click="toggleHideTeamWidget" title="Fenster für mich ausblenden">
+              ✕ Ausblenden
+            </button>
+          </div>
+        </div>
+
+        <div class="tt-tasks-list" v-if="teamTasksList.length">
+          <div
+            v-for="tt in teamTasksList.slice(0, 3)"
+            :key="tt.id"
+            class="tt-task-row"
+            :class="{ done: tt.status === 'DONE' }"
+          >
+            <label class="tt-check">
+              <input
+                type="checkbox"
+                :checked="tt.status === 'DONE'"
+                @change="toggleTaskDone(tt)"
+              />
+              <span class="checkmark"></span>
+            </label>
+            <div class="tt-details">
+              <div class="tt-tags">
+                <span class="prio-tag" :data-prio="tt.priority">{{ priorityMap[tt.priority] || tt.priority }}</span>
+                <span class="tt-due" v-if="tt.due_date" :class="dueState(tt.due_date)">
+                  📅 {{ formatDate(tt.due_date) }}
+                </span>
+                <span class="tt-assignee" v-if="tt.assignees && tt.assignees.length">
+                  👤 {{ tt.assignees[0].name }}
+                </span>
+              </div>
+              <strong class="tt-title" :class="{ strike: tt.status === 'DONE' }">{{ tt.title }}</strong>
+              <p class="tt-desc muted small" v-if="tt.description">{{ tt.description.slice(0, 100) }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="empty-subtext" v-else>
+          <p class="muted small">Keine offenen Team-Tasks. Alle Tools laufen reibungslos!</p>
+        </div>
+      </section>
+
+      <!-- Restore Team Widget Banner if hidden -->
+      <div class="tt-restore-bar" v-else-if="hideTeamTasksWidget && isTeam">
+        <span class="muted small">🛠️ Team &amp; Tools Quick View ist ausgeblendet</span>
+        <button class="btn ghost tiny" @click="toggleHideTeamWidget">Einblenden</button>
+      </div>
 
       <!-- Two-Column Layout: Daily Studio Focus + Live Arena Radar -->
       <div class="dashboard-duo-grid">
@@ -662,6 +739,81 @@ const tournaments = ref([]);
 const examples = ref([]);
 const reviewSaving = ref({});
 
+// Release & Promo Queue Collections
+const activeReleases = ref([]);
+const todayPromoTasks = ref([]);
+const teamTasksList = ref([]);
+const hideTeamTasksWidget = ref(localStorage.getItem("unyq_hide_team_tasks_widget") === "true");
+
+const todayPendingPromoCount = computed(() => {
+  return todayPromoTasks.value.filter((t) => !t.is_completed).length;
+});
+
+function toggleHideTeamWidget() {
+  hideTeamTasksWidget.value = !hideTeamTasksWidget.value;
+  localStorage.setItem("unyq_hide_team_tasks_widget", String(hideTeamTasksWidget.value));
+}
+
+async function togglePromoDone(ptask) {
+  try {
+    const res = await api.post(`promo-queue/${ptask.id}/toggle_complete/`);
+    ptask.is_completed = res.data.is_completed;
+    ptask.completed_at = res.data.completed_at;
+    showToast(ptask.is_completed ? "✓ Promo-Post erledigt!" : "Post wieder geöffnet", "info");
+  } catch {
+    showToast("Konnte Status nicht aktualisieren", "error");
+  }
+}
+
+function formatReleaseDate(d) {
+  if (!d) return "";
+  try {
+    return new Date(d).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+  } catch {
+    return d;
+  }
+}
+
+function getCountdownText(dateStr) {
+  if (!dateStr) return "";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target - today) / 86400000);
+  if (diffDays === 0) return "🚀 Heute Release!";
+  if (diffDays === 1) return "Morgen!";
+  if (diffDays > 1) return `In ${diffDays} Tagen`;
+  return `Vor ${Math.abs(diffDays)} Tagen`;
+}
+
+function getCountdownClass(dateStr) {
+  if (!dateStr) return "";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target - today) / 86400000);
+  if (diffDays === 0) return "tag-today";
+  if (diffDays <= 3 && diffDays > 0) return "tag-soon";
+  return "tag-future";
+}
+
+function promoModelLabel(m) {
+  const map = {
+    DAILY_7D: "7 Tage Daily TikTok",
+    HIGH_VOLTAGE: "14 Tage High Voltage",
+    QUICK_DROP: "3 Tage Quick Drop",
+    CUSTOM: "Individuell",
+  };
+  return map[m] || m || "Standard";
+}
+
+function calcPercent(completed, total) {
+  if (!total) return 0;
+  return Math.min(100, Math.round(((completed || 0) / total) * 100));
+}
+
 // Modals
 const taskModalOpen = ref(false);
 const taskSaving = ref(false);
@@ -1029,7 +1181,7 @@ async function refresh() {
   try {
     await fetchProfile(true);
 
-    const [tasksRes, songsRes, tournsRes, projectsRes, gpRes, reqRes, reviewRes, pendingRes] = await Promise.all([
+    const [tasksRes, songsRes, tournsRes, projectsRes, gpRes, reqRes, reviewRes, pendingRes, relRes, promoRes, teamRes] = await Promise.all([
       api.get("tasks/", { params: { include_archived: 0, page_size: 100 } }).catch(() => ({ data: [] })),
       api.get("songs/", { params: { page_size: 20, ordering: "-created_at" } }).catch(() => ({ data: [] })),
       api.get("tournaments/").catch(() => ({ data: [] })),
@@ -1038,6 +1190,9 @@ async function refresh() {
       api.get("requests/team-open/").catch(() => ({ data: [] })),
       api.get("tasks/", { params: { status: "REVIEW", page_size: 50 } }).catch(() => ({ data: [] })),
       api.get("tasks/", { params: { status: "DONE", review_status: "NOT_REVIEWED", page_size: 50 } }).catch(() => ({ data: [] })),
+      api.get("releases/").catch(() => ({ data: [] })),
+      api.get("promo-queue/", { params: { date: "today" } }).catch(() => ({ data: [] })),
+      api.get("tasks/", { params: { task_type: "INTERNAL", include_done: 0, page_size: 5 } }).catch(() => ({ data: [] })),
     ]);
 
     tasks.value = normalizeList(tasksRes.data);
@@ -1048,6 +1203,9 @@ async function refresh() {
     requests.value = normalizeList(reqRes.data);
     reviewTasks.value = normalizeList(reviewRes.data);
     pendingReviews.value = normalizeList(pendingRes.data);
+    activeReleases.value = normalizeList(relRes.data);
+    todayPromoTasks.value = normalizeList(promoRes.data);
+    teamTasksList.value = normalizeList(teamRes.data);
   } finally {
     loading.value = false;
   }
@@ -2129,6 +2287,288 @@ function copyInviteLink() {
   display: flex;
   gap: 8px;
   margin-top: 14px;
+}
+
+/* Promo Radar & Daily Focus */
+.daily-promo-banner {
+  padding: 1.15rem 1.35rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(56, 189, 248, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 14px;
+  margin-bottom: 1.25rem;
+}
+
+.dp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.85rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dp-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dp-badge {
+  font-size: 0.7rem;
+  background: #38bdf8;
+  color: #0f172a;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+.dp-task-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.dp-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.dp-item.done {
+  opacity: 0.6;
+}
+
+.dp-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.dp-tags {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.dp-plat {
+  font-size: 0.68rem;
+  background: rgba(236, 72, 153, 0.2);
+  color: #f472b6;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.dp-rel {
+  font-size: 0.68rem;
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.dp-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.dp-name.strike {
+  text-decoration: line-through;
+}
+
+.dp-notes {
+  margin: 0;
+}
+
+/* Releases Radar Grid */
+.releases-radar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.rel-radar-card {
+  padding: 1rem 1.15rem;
+  border-radius: 12px;
+  background: var(--card, #161a23);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.rel-radar-top {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.rel-cover-mini {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.rel-heading {
+  margin: 0.1rem 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rel-countdown-tag {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  display: inline-block;
+  font-weight: 600;
+}
+
+.rel-countdown-tag.tag-today {
+  background: #10b981;
+  color: white;
+}
+
+.rel-countdown-tag.tag-soon {
+  background: #f59e0b;
+  color: white;
+}
+
+.rel-countdown-tag.tag-future {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted, #94a3b8);
+}
+
+.rel-prog-text {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.rel-prog-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.rel-prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4f46e5, #38bdf8);
+}
+
+.rel-radar-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rel-model-tag {
+  font-size: 0.72rem;
+  color: var(--muted, #94a3b8);
+}
+
+/* Team Tasks Widget */
+.team-tasks-widget {
+  padding: 1.15rem 1.35rem;
+  border-radius: 14px;
+  background: var(--card, #161a23);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  margin-bottom: 1.5rem;
+}
+
+.tt-widget-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tt-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.tt-head-left h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.tt-pill {
+  font-size: 0.68rem;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+  margin-left: 0.35rem;
+}
+
+.tt-icon {
+  font-size: 1.6rem;
+}
+
+.tt-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tt-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tt-task-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tt-task-row.done {
+  opacity: 0.6;
+}
+
+.tt-tags {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tt-title {
+  font-size: 0.9rem;
+}
+
+.tt-title.strike {
+  text-decoration: line-through;
+}
+
+.tt-restore-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  margin-bottom: 1.25rem;
 }
 
 @media (max-width: 768px) {

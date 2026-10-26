@@ -39,6 +39,7 @@ from .models import (
     PluginGuide,
     Project,
     Release,
+    PromoQueueTask,
     Request,
     RankedSeasonSettings,
     RankTierConfig,
@@ -560,6 +561,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "project",
             "project_title",
             "title",
+            "description",
             "status",
             "review_required",
             "review_status",
@@ -1624,10 +1626,63 @@ class DebtSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class PromoQueueTaskSerializer(serializers.ModelSerializer):
+    artist_name = serializers.CharField(source="profile.name", read_only=True)
+    release_title = serializers.CharField(source="release.title", read_only=True)
+    release_date = serializers.DateField(source="release.planned_date", read_only=True)
+
+    class Meta:
+        model = PromoQueueTask
+        fields = [
+            "id",
+            "release",
+            "release_title",
+            "release_date",
+            "profile",
+            "artist_name",
+            "title",
+            "scheduled_date",
+            "category",
+            "platform",
+            "is_completed",
+            "completed_at",
+            "notes",
+            "created_at",
+        ]
+
+
 class ReleaseSerializer(serializers.ModelSerializer):
+    artist_name = serializers.CharField(source="profile.name", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.name", read_only=True)
+    promo_tasks_count = serializers.SerializerMethodField()
+    completed_promo_tasks_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Release
-        fields = "__all__"
+        fields = [
+            "id",
+            "profile",
+            "artist_name",
+            "created_by",
+            "created_by_name",
+            "title",
+            "planned_date",
+            "status",
+            "links",
+            "promo_model",
+            "promo_plan",
+            "reminder_email_enabled",
+            "notes",
+            "created_at",
+            "promo_tasks_count",
+            "completed_promo_tasks_count",
+        ]
+
+    def get_promo_tasks_count(self, obj):
+        return obj.promo_tasks.count()
+
+    def get_completed_promo_tasks_count(self, obj):
+        return obj.promo_tasks.filter(is_completed=True).count()
 
 
 class EventSerializer(serializers.ModelSerializer):

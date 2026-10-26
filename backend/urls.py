@@ -34,6 +34,7 @@ from core.views import (
     ProjectViewSet,
     RegistrationRequestViewSet,
     ReleaseViewSet,
+    PromoQueueTaskViewSet,
     RequestViewSet,
     RoleViewSet,
     RoleAccessPolicyViewSet,
@@ -103,7 +104,8 @@ router.register(r"finance-members", FinanceMemberViewSet, basename="finance-memb
 router.register(r"finance-entries", FinanceEntryViewSet, basename="finance-entries")
 router.register(r"debts", DebtViewSet, basename="debts")
 router.register(r"daily-expenses", DailyExpenseViewSet, basename="daily-expenses")
-router.register(r"releases", ReleaseViewSet)
+router.register(r"releases", ReleaseViewSet, basename="releases")
+router.register(r"promo-queue", PromoQueueTaskViewSet, basename="promo-queue")
 router.register(r"events", EventViewSet)
 router.register(r"bookings", BookingViewSet)
 router.register(r"news", NewsPostViewSet)

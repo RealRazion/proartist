@@ -21,22 +21,23 @@
         <div class="hhu-hero-left">
           <div class="hhu-badge-row">
             <span class="hhu-chip team-chip">🔒 EXKLUSIVES TEAM-WERKZEUG</span>
-            <span class="hhu-chip uni-chip">🏛️ HHU DÜSSELDORF</span>
+            <span class="hhu-chip uni-chip">🏛️ HHU DÜSSELDORF • WS 2026/2027</span>
+            <span class="hhu-chip deadline-chip">⏱️ Abgabe: Di. 08:30 Uhr</span>
           </div>
           <h1 class="hhu-title">HHU – Mathe für Informatik 1</h1>
           <p class="hhu-subtitle">
-            Interaktiver Lernbegleiter: Vorlesungen 1–4 &amp; Anwesenheitsblätter 1–2. Mengenlehre, De-Morgan, Relationen, Hüllen-Generator, Äquivalenzklassen &amp; Abbildungen.
+            Offizieller Lernbegleiter zu Vorlesung (Dr. Nadja Valentin) &amp; Übungen (Dr. Nicole Hufnagel). Skript, Notations-Guide, 18-Fragen-Quiz, Relationen-Analyzer, Klausurzulassungs-Rechner &amp; Übungsblätter.
           </p>
         </div>
 
         <div class="hhu-hero-right">
           <div class="hhu-score-box">
-            <span class="score-label">Quiz-Fortschritt</span>
+            <span class="score-label">Quiz-Score</span>
             <span class="score-val">{{ correctAnswersCount }} / {{ quizData.length }}</span>
             <div class="score-bar-mini">
               <div class="score-fill" :style="{ width: `${(answeredCount / quizData.length) * 100}%` }"></div>
             </div>
-            <small class="muted tiny">{{ answeredCount }} von {{ quizData.length }} gelöst</small>
+            <small class="muted tiny">{{ answeredCount }} von {{ quizData.length }} beantwortet</small>
           </div>
         </div>
       </header>
@@ -49,7 +50,7 @@
           @click="selectTab('theorie')"
         >
           <span class="tab-icon">📖</span>
-          <span>Theorie &amp; Definitionen</span>
+          <span>Theorie &amp; Skript</span>
         </button>
         <button
           class="tab-btn"
@@ -74,7 +75,15 @@
           @click="selectTab('aufgaben')"
         >
           <span class="tab-icon">🎓</span>
-          <span>Übungsblatt-Trainer (HHU)</span>
+          <span>Übungsblatt-Trainer</span>
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: currentTab === 'orga' }"
+          @click="selectTab('orga')"
+        >
+          <span class="tab-icon">📅</span>
+          <span>Orga, Termine &amp; Klausur</span>
         </button>
       </nav>
 
@@ -84,16 +93,47 @@
       <section v-show="currentTab === 'theorie'" class="tab-pane theorie-pane">
         <div class="pane-intro-banner">
           <div>
-            <span class="intro-tag">Exakter Vorlesungsstoff</span>
-            <h2>Grundlagen, Sätze &amp; Definitionen</h2>
+            <span class="intro-tag">Exakter Vorlesungsstoff • Dr. Nadja Valentin</span>
+            <h2>Kapitel 1: Grundlagen – Mengen, Aussagen &amp; Relationen</h2>
             <p>
-              Strukturiert aufbereitet für die HHU-Vorlesung: Mengen, Teilmengenbeweise, De-Morgan, kartesische Produkte, binäre Relationen, Hüllenbildung, Äquivalenzklassen, Halbordnungen &amp; Abbildungen.
+              Präzise aufbereitet nach dem Originalskript der Heinrich-Heine-Universität Düsseldorf: Exakte Definitionen (Def. 1.1.1 bis 1.3.12), handschriftliche Tafel-Beispiele, Besonderheiten der HHU-Notation und Beweismethoden.
             </p>
           </div>
         </div>
 
         <div class="theorie-grid">
-          <!-- Card 1: Mengen & Element vs. Teilmenge -->
+          <!-- Card: Sprache der Mathematik & Beweisen -->
+          <article class="theorie-card card span-2 highlight-card">
+            <div class="tc-header">
+              <span class="tc-icon">✍️</span>
+              <div>
+                <h3>Die Sprache der Mathematik &amp; Die Gedicht-Analogie</h3>
+                <span class="muted tiny">Vorlesungsphilosophie (Kapitel 1 Einführung)</span>
+              </div>
+            </div>
+            <div class="tc-subgrid">
+              <div class="sub-col">
+                <strong>Begründen statt Rechnen</strong>
+                <p>
+                  Anders als in der Schule geht es an der Universität nicht mehr primär um das Einsetzen in Formeln (wie $p$-$q$-Formel oder Ableitungsregeln). Im Mittelpunkt steht: <em>Warum</em> gelten mathematische Aussagen und <em>unter welchen Voraussetzungen</em> dürfen sie verwendet werden?
+                </p>
+              </div>
+              <div class="sub-col">
+                <strong>Mathematik als Sprache</strong>
+                <p>
+                  Begriffe und Symbole sind die <strong>Vokabeln und Grammatik</strong>. Genau wie beim Erlernen einer Fremdsprache gewinnt man Sicherheit nur durch regelmäßiges Lesen, Verstehen und <em>eigenes Formulieren vollständiger deutscher Sätze</em>, nicht durch bloße Symbolketten.
+                </p>
+              </div>
+              <div class="sub-col poem-box">
+                <strong>Die Gedicht-Analogie</strong>
+                <p class="italic text-xs">
+                  „Beweise zu verstehen und selbst zu schreiben, ähnelt dem Schreiben eines Gedichtes: Gedichtformen wie Paarreim bieten Orientierung. Beweismethoden (Induktion, Widerspruch, Kontraposition) geben uns einen Rahmen, um eine Beweisidee klar aufzuschreiben.“
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 1: Mengen & Der feine Unterschied -->
           <article class="theorie-card card">
             <div class="tc-header">
               <span class="tc-icon">📦</span>
@@ -101,28 +141,74 @@
             </div>
             <div class="tc-body">
               <p>
-                <strong>Element vs. Teilmenge:</strong> $x \in M$ bedeutet, dass $x$ ein Element in der Menge $M$ ist. $A \subset M$ bedeutet, dass <em>jedes</em> Element von $A$ auch in $M$ liegt.
+                <strong>Element vs. Teilmenge:</strong> $x \in X$ bedeutet, dass $x$ ein Element der Menge $X$ ist. $A \subset X$ bedeutet, dass <em>jedes</em> Element von $A$ auch in $X$ liegt.
               </p>
+
+              <div class="tc-callout note">
+                <strong>Wichtige HHU-Notation von Frau Valentin:</strong>
+                <p>
+                  In anderer Literatur wird oft $\subseteq$ benutzt. Frau Valentin schreibt explizit: <em>„benutze ich nicht! Notation: $\subset$ Teilmenge, darf auch gleich sein!“</em>
+                </p>
+              </div>
+
               <div class="tc-callout warn">
-                <strong>Typische Stolperfalle aus der Vorlesung:</strong>
-                <p>Für $X = \{1, 2\}$ gilt:</p>
+                <strong>Tafel-Beispiel von Frau Valentin:</strong>
+                <p>Betrachte $M = \{\mathbb{N}, \pi, \{3, 4\}, \{1, 2, 3\}, \{\emptyset\}\}$. Es gilt:</p>
                 <ul>
-                  <li>$1 \in X$, aber $\{1\} \subset X$ und $\{1\} \in \mathcal{P}(X)$.</li>
-                  <li>$\emptyset \subset X$ gilt immer! Aber $\emptyset \in X$ gilt hier <em>nicht</em>.</li>
-                  <li>Bei $Y = \{\emptyset\}$ gilt: $\emptyset \in Y$ und $\emptyset \subset Y$.</li>
+                  <li>$\{\emptyset\} \in M$, aber $\emptyset \notin M$</li>
+                  <li>$\{3, 4\} \in M$, aber $3 \notin M$ und $4 \notin M$</li>
+                  <li>$\{2, 3\} \notin M$ (als Menge kein direktes Element)</li>
+                  <li>$1 \in \mathbb{N}$, aber $0 \notin \mathbb{N}$! (In HHU ist $\mathbb{N} = \{1, 2, 3, \dots\}$ ohne Null; $\mathbb{N}_0 = \{0, 1, 2, \dots\}$)</li>
                 </ul>
               </div>
+
               <p>
                 <strong>Potenzmenge $\mathcal{P}(X)$:</strong> Die Menge aller Teilmengen. $|\mathcal{P}(X)| = 2^{|X|}$. Es gilt stets $\emptyset \in \mathcal{P}(X)$ und $X \in \mathcal{P}(X)$.
               </p>
             </div>
           </article>
 
-          <!-- Card 2: Mengenoperationen & De Morgan -->
+          <!-- Card: Definition 1.1.3 (Teilbarkeit, Gerade, Ungerade, Primzahlen) -->
+          <article class="theorie-card card">
+            <div class="tc-header">
+              <span class="tc-icon">🔢</span>
+              <h3>2. Teilbarkeit, Gerade, Ungerade &amp; Prim (Def. 1.1.3)</h3>
+            </div>
+            <div class="tc-body">
+              <div class="math-list-box">
+                <div>
+                  <strong>(i) Teilbarkeit:</strong> $z \in \mathbb{Z}$ ist durch $n \in \mathbb{N}$ teilbar ($n \mid z$), falls es ein $k \in \mathbb{Z}$ gibt mit:
+                  <div class="code-inline">$z = k \cdot n$</div>
+                </div>
+                <div>
+                  <strong>(ii) Gerade Zahlen:</strong> $z \in \mathbb{Z}$ heißt gerade, falls $2 \mid z$.
+                  <div class="code-inline">$\exists k \in \mathbb{Z}: z = 2k$</div>
+                  Menge: $2\mathbb{Z} = \{z \in \mathbb{Z} : 2 \mid z\}$.
+                </div>
+                <div>
+                  <strong>(iii) Ungerade Zahlen:</strong> $z \in \mathbb{Z}$ heißt ungerade, falls $2 \mid z + 1$.
+                  <div class="code-inline">$\exists k \in \mathbb{Z}: z = 2k + 1$</div>
+                </div>
+                <div>
+                  <strong>(iv) Primzahlen:</strong> $p \in \mathbb{N}$ mit $p > 1$ heißt prim, falls $1$ und $p$ die einzigen Teiler von $p$ sind.
+                </div>
+              </div>
+
+              <div class="tc-callout info">
+                <strong>Zahlenmengen &amp; Polynomring:</strong>
+                <ul>
+                  <li>$\mathbb{Q} = \{\frac{m}{n} : m \in \mathbb{Z}, n \in \mathbb{N}\}$. Da Mengen keine Duplikate zählen: $\{2, 3, 3\} = \{2, 3\}$ und $\{\frac{1}{2}\} = \{\frac{2}{4}\}$.</li>
+                  <li><strong>Polynome $\mathbb{R}[X]$:</strong> $\sum_{i=0}^n a_i X^i$. Koeffizientenvergleich: Zwei Polynome sind gleich genau dann, wenn alle entsprechenden Koeffizienten übereinstimmen.</li>
+                </ul>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card: Mengenoperationen & De Morgan -->
           <article class="theorie-card card">
             <div class="tc-header">
               <span class="tc-icon">🔄</span>
-              <h3>2. Operationen &amp; De-Morgansche Gesetze</h3>
+              <h3>3. Operationen &amp; De-Morgansche Gesetze</h3>
             </div>
             <div class="tc-body">
               <div class="math-list-box">
@@ -140,11 +226,11 @@
             </div>
           </article>
 
-          <!-- Card 3: Relationen & Eigenschaften -->
+          <!-- Card: Relationen & Eigenschaften -->
           <article class="theorie-card card">
             <div class="tc-header">
               <span class="tc-icon">↔️</span>
-              <h3>3. Relationen &amp; Eigenschaften (Def. 1.2.6)</h3>
+              <h3>4. Relationen &amp; Eigenschaften (Def. 1.2.6)</h3>
             </div>
             <div class="tc-body">
               <p>Eine Relation $R$ auf $X$ ist $R \subset X \times X$. Eigenschaften für alle $x,y,z \in X$:</p>
@@ -163,7 +249,7 @@
                 </div>
                 <div class="prop-chip">
                   <strong>Asymmetrisch:</strong>
-                  <span>$(x,y) \in R \implies (y,x) \notin R$ (verbietet auch $(x,x)$!)</span>
+                  <span>$(x,y) \in R \implies (y,x) \notin R$</span>
                 </div>
                 <div class="prop-chip full">
                   <strong>Transitiv:</strong>
@@ -176,11 +262,11 @@
             </div>
           </article>
 
-          <!-- Card 4: Hüllen, Äquivalenz & Ordnungen -->
+          <!-- Card: Hüllen & Ordnungen -->
           <article class="theorie-card card">
             <div class="tc-header">
               <span class="tc-icon">🔀</span>
-              <h3>4. Hüllen, Äquivalenz &amp; Ordnungen</h3>
+              <h3>5. Hüllen, Äquivalenz &amp; Ordnungen</h3>
             </div>
             <div class="tc-body">
               <div class="section-sub">
@@ -195,18 +281,18 @@
                 <strong>Spezielle Relationen:</strong>
                 <ul>
                   <li><strong>Äquivalenzrelation:</strong> reflexiv, symmetrisch, transitiv. Äquivalenzklassen $[x] = \{y \in X : (x,y) \in R\}$ bilden eine Partition von $X$.</li>
-                  <li><strong>Partielle Ordnung (Halbordnung):</strong> reflexiv, antisymmetrisch, transitiv (z. B. $\le$ oder $\subseteq$).</li>
+                  <li><strong>Partielle Ordnung (Halbordnung):</strong> reflexiv, antisymmetrisch, transitiv (z. B. $\le$ oder $\subset$).</li>
                   <li><strong>Totalordnung:</strong> Partielle Ordnung, bei der je zwei Elemente vergleichbar sind ($x \le y \lor y \le x$).</li>
                 </ul>
               </div>
             </div>
           </article>
 
-          <!-- Card 5: Abbildungen (Span 2) -->
+          <!-- Card: Abbildungen (Span 2) -->
           <article class="theorie-card card span-2">
             <div class="tc-header">
               <span class="tc-icon">🎯</span>
-              <h3>5. Abbildungen: Bild, Urbild, Injektiv, Surjektiv &amp; Bijektiv (Def. 1.3.2 – 1.3.8)</h3>
+              <h3>6. Abbildungen: Bild, Urbild, Injektiv, Surjektiv &amp; Bijektiv (Def. 1.3.2 – 1.3.8)</h3>
             </div>
             <div class="tc-subgrid">
               <div class="sub-col">
@@ -252,7 +338,7 @@
             <div>
               <h2>Interaktiver Wissens-Check</h2>
               <p class="muted small">
-                Prüfe dein Verständnis zu Mengen, Relationen, Hüllen und Abbildungen mit sofortiger Rückmeldung.
+                18 gezielte Fragen zu Vorlesung 1–4, Skriptdefinitionen, Notation von Frau Valentin &amp; HHU-Organisatorischem.
               </p>
             </div>
             <div class="qp-actions">
@@ -345,6 +431,82 @@
       <!-- TAB 3: INTERAKTIVE WERKZEUGE / SANDBOX                   -->
       <!-- ======================================================== -->
       <section v-show="currentTab === 'sandbox'" class="tab-pane sandbox-pane">
+        <!-- Tool 0: Klausurzulassungs- & Punkte-Tracker (HHU) -->
+        <div class="tool-box card points-tracker-box">
+          <div class="tb-header">
+            <span class="tb-icon">🎯</span>
+            <div>
+              <h2>HHU Klausurzulassungs-Rechner (200 Punkte-Ziel)</h2>
+              <p class="muted small">
+                Regel nach Modulprüfung: <strong>5 Punkte Testblatt + 50% der Blätter 1–13 (insgesamt 200 Punkte)</strong>. Plus bis zu <strong>5 Extrapunkte pro Woche</strong> durch aktive Übungsteilnahme!
+              </p>
+            </div>
+          </div>
+
+          <div class="points-tracker-grid">
+            <div class="pt-controls card">
+              <div class="form-group">
+                <label>Punkte aus Übungsblättern 1–13:</label>
+                <input
+                  type="number"
+                  v-model.number="trackerSheetPoints"
+                  min="0"
+                  max="400"
+                  class="hhu-input"
+                />
+                <small class="muted tiny">Übungsaufgaben-Punkte insgesamt</small>
+              </div>
+
+              <div class="form-group">
+                <label>Test-Übungsblatt Punkte (min. 5 nötig):</label>
+                <input
+                  type="number"
+                  v-model.number="trackerTestSheetPoints"
+                  min="0"
+                  max="20"
+                  class="hhu-input"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>Aktive Übungswochen (5 Extrapunkte / Woche):</label>
+                <input
+                  type="number"
+                  v-model.number="trackerExtraWeeks"
+                  min="0"
+                  max="14"
+                  class="hhu-input"
+                />
+                <small class="muted tiny">{{ trackerExtraWeeks * 5 }} Extrapunkte gesammelt</small>
+              </div>
+            </div>
+
+            <div class="pt-status card" :class="isZulassungErreicht ? 'admitted' : 'pending'">
+              <span class="pt-badge">
+                {{ isZulassungErreicht ? '🎉 ZULASSUNG ERREICHT!' : '⏳ NOCH IN ARBEIT' }}
+              </span>
+              <div class="pt-number-row">
+                <strong class="pt-big-num">{{ totalCalcPoints }}</strong>
+                <span class="pt-denom">/ 200 Punkte</span>
+              </div>
+              <div class="score-bar-mini big">
+                <div
+                  class="score-fill"
+                  :style="{ width: `${Math.min(100, (totalCalcPoints / 200) * 100)}%` }"
+                ></div>
+              </div>
+              <p class="muted tiny">
+                <template v-if="isZulassungErreicht">
+                  Klasse! Du hast die 200-Punkte-Marke geknackt und erfüllst alle Voraussetzungen zur 1. Klausur am 18.02.2027!
+                </template>
+                <template v-else>
+                  Noch <strong>{{ Math.max(0, 200 - totalCalcPoints) }} Punkte</strong> bis zur sicheren Klausurzulassung!
+                </template>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Tool 1: Relationen-Prüfer & Hüllen-Rechner -->
         <div class="tool-box card">
           <div class="tb-header">
@@ -656,6 +818,253 @@
           </div>
         </div>
       </section>
+
+      <!-- ======================================================== -->
+      <!-- TAB 5: ORGANISATION, TERMINE & KLAUSUR-GUIDE (NEU)        -->
+      <!-- ======================================================== -->
+      <section v-show="currentTab === 'orga'" class="tab-pane orga-pane">
+        <!-- Klausurtermine Countdown Banner -->
+        <div class="klausur-hero card">
+          <div class="kh-header">
+            <span class="kh-chip">🎓 MODULPRÜFUNG MATHEMATIK FÜR INFORMATIK 1</span>
+            <h2>Wichtige Termine &amp; Deadlines</h2>
+          </div>
+          <div class="kh-dates-grid">
+            <div class="kh-date-card card">
+              <span class="kh-badge primary">1. KLAUSURTERMIN</span>
+              <strong class="kh-date">18. Februar 2027</strong>
+              <p class="muted tiny">Start: 08:30 Uhr • Bearbeitungszeit: 2 Stunden</p>
+              <div class="kh-einsicht">
+                <span>Einsicht:</span> 23.02.2027, 10:00 – 12:00 Uhr
+              </div>
+            </div>
+
+            <div class="kh-date-card card">
+              <span class="kh-badge secondary">2. KLAUSURTERMIN</span>
+              <strong class="kh-date">19. März 2027</strong>
+              <p class="muted tiny">Start: 08:30 Uhr • Bearbeitungszeit: 2 Stunden</p>
+              <div class="kh-einsicht">
+                <span>Einsicht:</span> 09.04.2027, 10:30 – 12:15 Uhr
+              </div>
+            </div>
+
+            <div class="kh-date-card card deadline-card">
+              <span class="kh-badge alert">WÖCHENTLICHE ABGABE</span>
+              <strong class="kh-date">Jeden Dienstag 08:30 Uhr</strong>
+              <p class="muted tiny">Abgabe auf ILIAS • Strikte Einzelabgabe!</p>
+              <div class="kh-einsicht warn">
+                ⚠️ Keine Nachfristen oder Gruppenabgaben erlaubt!
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Orga Grid -->
+        <div class="orga-grid">
+          <!-- Card: Verantwortliche & Kontakt -->
+          <article class="orga-card card">
+            <div class="oc-head">
+              <span class="oc-icon">👥</span>
+              <h3>Lehrstuhl &amp; Kontakt</h3>
+            </div>
+            <div class="oc-body">
+              <ul class="contact-list">
+                <li>
+                  <strong>Dr. Nadja Valentin</strong> (Vorlesung, Übungen, Tutorium)
+                  <a href="mailto:matheinfo1@hhu.de" class="contact-mail">matheinfo1@hhu.de</a>
+                </li>
+                <li>
+                  <strong>Dr. Nicole Hufnagel</strong> (Übungen)
+                  <a href="mailto:Nicole.Hufnagel@hhu.de" class="contact-mail">Nicole.Hufnagel@hhu.de</a>
+                </li>
+                <li>
+                  <strong>Moritz Warneke</strong> (Tutorium)
+                </li>
+              </ul>
+              <div class="tc-callout warn" style="margin-top: 10px;">
+                <strong>Wichtige Kontakt-Regel:</strong>
+                <p class="tiny">
+                  Wählen Sie stets <strong>EINEN</strong> Kanal (Forum oder Mail an <code>matheinfo1@hhu.de</code>). Fragen an private Mailadressen von Frau Valentin werden <em>nicht</em> beantwortet.
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card: Klausurzulassung & Extrapunkte -->
+          <article class="orga-card card">
+            <div class="oc-head">
+              <span class="oc-icon">⭐</span>
+              <h3>Klausurzulassung &amp; Extrapunkte</h3>
+            </div>
+            <div class="oc-body">
+              <div class="rules-box">
+                <div class="rule-item">
+                  <span class="rule-num">1</span>
+                  <div>
+                    <strong>Studienleistung:</strong> 5 Punkte Test-Übungsblatt + 50% der Punkte in Blättern 1–13.
+                  </div>
+                </div>
+                <div class="rule-item">
+                  <span class="rule-num">2</span>
+                  <div>
+                    <strong>200 Punkte Gesamtziel:</strong> Wie die Punkte erreicht werden, ist egal (keine Verpflichtung auf bestimmte Einzelblätter).
+                  </div>
+                </div>
+                <div class="rule-item highlight">
+                  <span class="rule-num">3</span>
+                  <div>
+                    <strong>🔥 5 Extrapunkte / Woche:</strong> Für aktive Teilnahme in den Präsenzübungen gibt es pro Woche 5 wertvolle Extrapunkte für das Übungskonto!
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card: Stundenplan & Übungsgruppen (Span 2) -->
+          <article class="orga-card card span-2">
+            <div class="oc-head">
+              <span class="oc-icon">🏢</span>
+              <h3>Übungsgruppen &amp; Raumverteilung</h3>
+            </div>
+            <div class="groups-table-wrap">
+              <table class="groups-table">
+                <thead>
+                  <tr>
+                    <th>Tag</th>
+                    <th>Gruppe</th>
+                    <th>Gebäude &amp; Raum</th>
+                    <th>Uhrzeit</th>
+                    <th>Sprache</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Mittwoch</td>
+                    <td>Gruppe 1</td>
+                    <td>2522.U1.52</td>
+                    <td>10:30 – 12:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Mittwoch</td>
+                    <td>Gruppe 2</td>
+                    <td>2321.HS 3F</td>
+                    <td>10:30 – 12:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Mittwoch</td>
+                    <td>Gruppe 3</td>
+                    <td>2522.00.74</td>
+                    <td>10:30 – 12:00</td>
+                    <td><span class="lang-tag en">Englisch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Donnerstag</td>
+                    <td>Gruppe 4</td>
+                    <td>2522.U1.52</td>
+                    <td>08:30 – 10:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Donnerstag</td>
+                    <td>Gruppe 5</td>
+                    <td>2522.00.72</td>
+                    <td>10:30 – 12:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Donnerstag</td>
+                    <td>Gruppe 6</td>
+                    <td>2513.U1.24</td>
+                    <td>10:30 – 12:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Donnerstag</td>
+                    <td>Gruppe 7</td>
+                    <td>2522.U1.72</td>
+                    <td>14:30 – 16:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Freitag</td>
+                    <td>Gruppe 8</td>
+                    <td>2522.U1.34</td>
+                    <td>10:30 – 12:00</td>
+                    <td><span class="lang-tag en">Englisch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Freitag</td>
+                    <td>Gruppe 9</td>
+                    <td>2522.U1.52</td>
+                    <td>10:30 – 12:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Freitag</td>
+                    <td>Gruppe 10</td>
+                    <td>2522.U1.34</td>
+                    <td>12:30 – 14:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr>
+                    <td>Freitag</td>
+                    <td>Gruppe 11</td>
+                    <td>2511.HS 5B</td>
+                    <td>12:30 – 14:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                  <tr class="online-row">
+                    <td>Freitag</td>
+                    <td>Online-Gruppe</td>
+                    <td>Online (Webex / ILIAS)</td>
+                    <td>12:30 – 14:00</td>
+                    <td><span class="lang-tag de">Deutsch</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <!-- Card: Hilfreiche Links & Vorbereitung -->
+          <article class="orga-card card span-2">
+            <div class="oc-head">
+              <span class="oc-icon">🌐</span>
+              <h3>Vorbereitung, Brückenkurse &amp; Slido-Umfrage</h3>
+            </div>
+            <div class="links-row">
+              <a
+                href="https://www.ombplus.de/ombplus/public/index.html"
+                target="_blank"
+                rel="noopener"
+                class="external-card"
+              >
+                <span class="ec-icon">📐</span>
+                <div>
+                  <strong>OMB+ Mathe-Brückenkurs</strong>
+                  <p class="muted tiny">Kostenloser Online-Vorkurs für Bruchrechnen, Potenzen, Ungleichungen &amp; Trigonometrie.</p>
+                </div>
+                <span class="ec-arrow">↗</span>
+              </a>
+
+              <a
+                href="https://app.sli.do/event/cgjKQguEXCpjZBqYNQDb7L"
+                target="_blank"
+                rel="noopener"
+                class="external-card"
+              >
+                <span class="ec-icon">📊</span>
+                <div>
+                  <strong>Sli.do Vorlesungs-Umfrage</strong>
+                  <p class="muted tiny">Code: <code>2032714</code> • Passcode: <code>2b3pca</code></p>
+                </div>
+                <span class="ec-arrow">↗</span>
+              </a>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -668,7 +1077,7 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 const router = useRouter();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 
-// Tabs: 'theorie', 'trainer', 'sandbox', 'aufgaben'
+// Tabs: 'theorie', 'trainer', 'sandbox', 'aufgaben', 'orga'
 const currentTab = ref("theorie");
 
 function selectTab(tab) {
@@ -726,7 +1135,7 @@ function triggerMathJax() {
 }
 
 /* =========================================================================
-   QUIZ ENGINE & DATA
+   QUIZ ENGINE & DATA (Erweitert auf 18 Fragen)
    ========================================================================= */
 const quizData = [
   {
@@ -757,6 +1166,19 @@ const quizData = [
   },
   {
     id: 3,
+    topic: "HHU-Notation",
+    question: "Was bedeutet die Schreibweise X ⊂ Y im Skript von Frau Dr. Valentin?",
+    options: [
+      { text: "X ist Teilmenge von Y, und X darf auch gleich Y sein (entspricht ⊆ in anderer Literatur).", correct: true },
+      { text: "X muss eine strikt echte Teilmenge sein (X ≠ Y zwingend gefordert).", correct: false },
+      { text: "X ist Element von Y (Synonym für ∈).", correct: false },
+      { text: "X und Y sind disjunkt.", correct: false },
+    ],
+    explanation:
+      "Frau Valentin notiert handschriftlich im Skript explizit: 'In anderer Literatur benutzt man dafür ⊆. Benutze ich nicht! Notation: ⊂ Teilmenge, darf auch gleich sein!'",
+  },
+  {
+    id: 4,
     topic: "De-Morgan",
     question: "Welche Mengengleichheit entspricht dem De-Morganschen Gesetz für das Komplement des Schnitts?",
     options: [
@@ -769,7 +1191,59 @@ const quizData = [
       "Nach Satz 1.1.14 (i) dreht sich beim Komplementieren der Schnitt ∩ zur Vereinigung ∪ um: X \\ (A ∩ B) = (X \\ A) ∪ (X \\ B).",
   },
   {
-    id: 4,
+    id: 5,
+    topic: "Zahlenbereiche",
+    question: "Ist die Zahl 0 in der HHU-Vorlesung in N enthalten?",
+    options: [
+      { text: "Nein, N = {1, 2, 3, 4, ...}. Die Zahl 0 gehört zu N_0 = {0, 1, 2, 3, ...}.", correct: true },
+      { text: "Ja, standardmäßig ist 0 stets in N enthalten.", correct: false },
+      { text: "Nur bei geraden Zahlen.", correct: false },
+      { text: "0 gehört weder zu N noch zu N_0.", correct: false },
+    ],
+    explanation:
+      "Im Vorlesungsskript (Seite 2) definiert Frau Valentin handschriftlich: N = {1, 2, 3, 4, ...} und N_0 = {0, 1, 2, 3, 4, ...}. Somit gilt 1 ∈ N, aber 0 ∉ N!",
+  },
+  {
+    id: 6,
+    topic: "Teilbarkeit (Def. 1.1.3)",
+    question: "Wann heißt eine ganze Zahl z ∈ Z per Definition durch n ∈ N teilbar (n | z)?",
+    options: [
+      { text: "Wenn es ein k ∈ Z gibt, sodass z = k · n gilt.", correct: true },
+      { text: "Wenn z / n eine Primzahl ergibt.", correct: false },
+      { text: "Wenn z positiv und n ungerade ist.", correct: false },
+      { text: "Wenn der Rest bei Division durch n gleich 1 ist.", correct: false },
+    ],
+    explanation:
+      "Definition 1.1.3 (i): Eine ganze Zahl z ∈ Z ist durch n ∈ N teilbar, falls es ein k ∈ Z gibt, sodass z = kn gilt. Dann wird n auch als Teiler von z bezeichnet.",
+  },
+  {
+    id: 7,
+    topic: "Ungerade Zahlen",
+    question: "Wie lautet die exakte formale Charakterisierung einer ungeraden Zahl z ∈ Z?",
+    options: [
+      { text: "Es existiert ein k ∈ Z mit z = 2k + 1 (bzw. 2 | z + 1).", correct: true },
+      { text: "z lässt sich nicht durch 3 teilen.", correct: false },
+      { text: "z ist stets größer als 0.", correct: false },
+      { text: "z ist eine Primzahl.", correct: false },
+    ],
+    explanation:
+      "Definition 1.1.3 (iii): Eine ganze Zahl z ∈ Z heißt ungerade, falls 2 | z + 1, was äquivalent zu z = 2k + 1 für ein k ∈ Z ist.",
+  },
+  {
+    id: 8,
+    topic: "Verschachtelte Mengen",
+    question: "Sei M = {N, π, {3, 4}, {1, 2, 3}, {∅}} aus der Vorlesung. Welche Aussage ist WAHR?",
+    options: [
+      { text: "{∅} ∈ M, aber ∅ ∉ M", correct: true },
+      { text: "3 ∈ M", correct: false },
+      { text: "{2, 3} ∈ M", correct: false },
+      { text: "M = {1, 2, 3, 4}", correct: false },
+    ],
+    explanation:
+      "Das Element ist hier die einelementige Menge {∅}. Die leere Menge ∅ selbst ist kein direktes Element von M. Ebenso ist {3, 4} ein Element von M, aber 3 und 4 einzeln nicht!",
+  },
+  {
+    id: 9,
     topic: "Relationen",
     question: "Wann heißt eine Relation R auf einer Menge X antisymmetrisch?",
     options: [
@@ -779,10 +1253,10 @@ const quizData = [
       { text: "Wenn (x,y) ∈ R niemals (y,x) ∈ R erlaubt.", correct: false },
     ],
     explanation:
-      "Genau das ist Definition 1.2.6: Symmetrische Paare dürfen nur auf der Diagonale auftreten (x = y). Die Aussage 'Aus (x,y) ∈ R folgt (y,x) ∉ R' beschreibt hingegen Asymmetrie.",
+      "Definition 1.2.6: Symmetrische Paare dürfen nur auf der Diagonale auftreten (x = y). Die Aussage 'Aus (x,y) ∈ R folgt (y,x) ∉ R' beschreibt hingegen Asymmetrie.",
   },
   {
-    id: 5,
+    id: 10,
     topic: "Relationen",
     question: "Kann eine Relation gleichzeitig symmetrisch und antisymmetrisch sein?",
     options: [
@@ -794,7 +1268,7 @@ const quizData = [
       "Gilt R ⊆ I_X (also nur Paare der Form (x,x)), so ist R sowohl symmetrisch (denn (x,x) ∈ R ⇒ (x,x) ∈ R) als auch antisymmetrisch!",
   },
   {
-    id: 6,
+    id: 11,
     topic: "Relationen",
     question: "Betrachte R = {(x,y) ∈ Z × Z : y = x + 1}. Welche Eigenschaft besitzt R?",
     options: [
@@ -807,7 +1281,7 @@ const quizData = [
       "Aus y = x + 1 folgt x = y - 1 ≠ y + 1. Also kann (y,x) niemals in R sein ⇒ Asymmetrisch (und damit automatisch antisymmetrisch). Nicht reflexiv, da x ≠ x + 1. Nicht transitiv, da (0,1) ∈ R, (1,2) ∈ R, aber (0,2) ∉ R.",
   },
   {
-    id: 7,
+    id: 12,
     topic: "Hüllen",
     question: "Auf X = {1, 2, 3} sei R = {(1,2), (2,3)}. Wie viele Paare enthält die transitive Hülle R_trans?",
     options: [
@@ -820,7 +1294,7 @@ const quizData = [
       "Der Pfad 1 → 2 → 3 erfordert das neue Paar (1,3). Damit ist R_trans = {(1,2), (2,3), (1,3)} bereits transitiv (3 Elemente).",
   },
   {
-    id: 8,
+    id: 13,
     topic: "Äquivalenz & Ordnung",
     question: "Was ist der entscheidende Unterschied zwischen einer Äquivalenzrelation und einer partiellen Ordnung?",
     options: [
@@ -833,7 +1307,7 @@ const quizData = [
       "Beide sind reflexiv und transitiv. Der einzige definierende Unterschied ist: Äquivalenzrelation = symmetrisch; partielle Ordnung = antisymmetrisch!",
   },
   {
-    id: 9,
+    id: 14,
     topic: "Abbildungen",
     question: "Sei f: Z → Z, n ↦ 2n + 1. Welche Eigenschaft hat f?",
     options: [
@@ -843,10 +1317,10 @@ const quizData = [
       { text: "Weder injektiv noch surjektiv", correct: false },
     ],
     explanation:
-      "Injektiv: 2n_1 + 1 = 2n_2 + 1 ⇒ 2n_1 = 2n_2 ⇒ n_1 = n_2. Nicht surjektiv, da die geraden Zahlen (z. B. 0 oder 2) niemals als Funktionswert 2n + 1 für ein ganzes n angenommen werden.",
+      "Injektiv: 2n_1 + 1 = 2n_2 + 1 ⇒ 2n_1 = 2n_2 ⇒ n_1 = n_2. Nicht surjektiv, da die geraden Zahlen niemals als Funktionswert 2n + 1 für ein ganzes n angenommen werden.",
   },
   {
-    id: 10,
+    id: 15,
     topic: "Abbildungen",
     question: "Für f: Z → N_0, n ↦ n^2 und B = {0, 1, 4}: Was ist das Urbild f^{-1}(B)?",
     options: [
@@ -859,7 +1333,7 @@ const quizData = [
       "f^{-1}(B) = {n ∈ Z : n^2 ∈ {0, 1, 4}}. Da 0^2 = 0, (±1)^2 = 1 und (±2)^2 = 4, gehören alle 5 ganzen Zahlen {-2, -1, 0, 1, 2} zum Urbild!",
   },
   {
-    id: 11,
+    id: 16,
     topic: "Abbildungen",
     question: "Seien f: X → Y und g: Y → Z. Welche Aussage aus Satz 1.3.12 ist korrekt?",
     options: [
@@ -869,20 +1343,33 @@ const quizData = [
       { text: "g ∘ f ist nur definiert, wenn X = Z.", correct: false },
     ],
     explanation:
-      "Wäre f nicht injektiv (f(x_1) = f(x_2) mit x_1 ≠ x_2), dann wäre auch g(f(x_1)) = g(f(x_2)), also g ∘ f nicht injektiv. Widerspruch! Daher muss f zwingend injektiv sein.",
+      "Wäre f nicht injektiv, so gäbe es x_1 ≠ x_2 mit f(x_1) = f(x_2), woraus g(f(x_1)) = g(f(x_2)) folgen würde – Widerspruch zur Injektivität von g ∘ f!",
   },
   {
-    id: 12,
-    topic: "Relationale Algebra",
-    question: "Was bewirkt die Projektion π_{Name}(R) in der relationalen Algebra mathematisch bei Duplikaten?",
+    id: 17,
+    topic: "Modulprüfung HHU",
+    question: "Wie viele Punkte werden für die Klausurzulassung in Mathe für Informatik 1 benötigt?",
     options: [
-      { text: "Da eine Relation eine Menge von Tupeln ist, werden Duplikate automatisch entfernt.", correct: true },
-      { text: "Duplikate bleiben erhalten wie in einer SQL-Tabelle ohne DISTINCT.", correct: false },
-      { text: "Die Operation bricht mit einem Fehler ab.", correct: false },
-      { text: "Sie selektiert nur Zeilen mit Primärschlüssel.", correct: false },
+      { text: "200 Punkte insgesamt (5 Punkte Testblatt + 50% der Blätter 1–13)", correct: true },
+      { text: "Mindestens 50% auf JEDEM einzelnen Übungsblatt", correct: false },
+      { text: "100 Punkte", correct: false },
+      { text: "Bestehen aller Anwesenheitsblätter", correct: false },
     ],
     explanation:
-      "Bemerkung 1.2.22 aus der Vorlesung: Eine mathematische Relation ist eine Menge. In Mengen gibt es keine Duplikate (z. B. {a, a} = {a}), sodass die Projektion doppelte Werte vereinigt.",
+      "Folie 25 (Modulprüfung): Klausurzulassung = 5 Punkte des Test-Übungsblatts + 50% der Punkte in Blättern 1–13. Dies entspricht 200 Punkten insgesamt. Wie man die Punkte erreicht, ist irrelevant!",
+  },
+  {
+    id: 18,
+    topic: "Übungsbetrieb",
+    question: "Wie viele Extrapunkte können pro Woche durch aktive Teilnahme in der Übung erworben werden?",
+    options: [
+      { text: "5 Extrapunkte pro Woche", correct: true },
+      { text: "10 Extrapunkte pro Woche", correct: false },
+      { text: "2 Extrapunkte pro Woche", correct: false },
+      { text: "Es gibt keine Extrapunkte", correct: false },
+    ],
+    explanation:
+      "Folie 14 (**Neu** bei den Übungen): 'Für aktive Teilnahme bei den Übungen können Sie pro Woche 5 Extrapunkte für die Übungsaufgaben bekommen.'",
   },
 ];
 
@@ -910,6 +1397,28 @@ function resetQuiz() {
   userAnswers.value = {};
   triggerMathJax();
 }
+
+/* =========================================================================
+   TOOL 0: KLAUSURZULASSUNGS-RECHNER (HHU)
+   ========================================================================= */
+const trackerSheetPoints = ref(150);
+const trackerTestSheetPoints = ref(5);
+const trackerExtraWeeks = ref(4);
+
+const totalCalcPoints = computed(() => {
+  return (
+    (trackerSheetPoints.value || 0) +
+    (trackerTestSheetPoints.value || 0) +
+    (trackerExtraWeeks.value || 0) * 5
+  );
+});
+
+const isZulassungErreicht = computed(() => {
+  return (
+    totalCalcPoints.value >= 200 &&
+    (trackerTestSheetPoints.value || 0) >= 5
+  );
+});
 
 /* =========================================================================
    TOOL 1: RELATIONEN-ANALYZER & HÜLLEN-GENERATOR
@@ -1143,7 +1652,7 @@ function runComposition() {
    TAB 4: ÜBUNGSBLATT-TRAINER (HHU CONTENT)
    ========================================================================= */
 const sheetFilter = ref(0); // 0 = all, 1 = sheet 1, 2 = sheet 2
-const openTaskIds = ref(new Set([1])); // First task open by default
+const openTaskIds = ref(new Set([1]));
 
 function setSheetFilter(num) {
   sheetFilter.value = num;
@@ -1425,6 +1934,11 @@ onMounted(async () => {
   color: #7dd3fc;
   border: 1px solid rgba(56, 189, 248, 0.3);
 }
+.deadline-chip {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fde047;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
 .hhu-title {
   font-size: 1.65rem;
   font-weight: 800;
@@ -1473,6 +1987,10 @@ onMounted(async () => {
   border-radius: 999px;
   overflow: hidden;
   margin-bottom: 4px;
+}
+.score-bar-mini.big {
+  height: 10px;
+  margin: 8px 0;
 }
 .score-fill {
   height: 100%;
@@ -1563,6 +2081,10 @@ onMounted(async () => {
 .theorie-card.span-2 {
   grid-column: 1 / -1;
 }
+.theorie-card.highlight-card {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, var(--card) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
 .tc-header {
   display: flex;
   align-items: center;
@@ -1592,6 +2114,11 @@ onMounted(async () => {
   font-size: 0.8rem;
   line-height: 1.45;
 }
+.tc-callout.note {
+  background: rgba(56, 189, 248, 0.1);
+  border-left: 4px solid #38bdf8;
+  color: #e0f2fe;
+}
 .tc-callout.warn {
   background: rgba(245, 158, 11, 0.1);
   border-left: 4px solid #f59e0b;
@@ -1615,7 +2142,15 @@ onMounted(async () => {
   font-size: 0.82rem;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+.code-inline {
+  background: var(--card);
+  padding: 3px 6px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-top: 2px;
+  font-family: monospace;
 }
 .props-mini-grid {
   display: grid;
@@ -1657,6 +2192,10 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.sub-col.poem-box {
+  border-left: 3px solid var(--brand);
+  background: rgba(99, 102, 241, 0.08);
 }
 .code-box {
   background: var(--card);
@@ -1863,6 +2402,73 @@ onMounted(async () => {
   font-size: 1.15rem;
   margin: 0 0 2px;
 }
+
+/* Points Tracker Box */
+.points-tracker-box {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, var(--card) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+.points-tracker-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.pt-controls {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.pt-status {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.pt-status.admitted {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.08);
+}
+.pt-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.pt-status.admitted .pt-badge {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+}
+.pt-status.pending .pt-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+.pt-number-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.pt-big-num {
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1;
+}
+.pt-denom {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
 .tool-content-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -2204,6 +2810,268 @@ onMounted(async () => {
   padding-left: 20px;
 }
 
+/* ORGA PANE */
+.orga-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.klausur-hero {
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(14, 165, 233, 0.1) 100%), var(--card);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.kh-chip {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #c7d2fe;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.kh-header h2 {
+  font-size: 1.35rem;
+  margin: 4px 0 0;
+}
+.kh-dates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.kh-date-card {
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kh-date-card.deadline-card {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.06);
+}
+.kh-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+.kh-badge.primary {
+  background: rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+}
+.kh-badge.secondary {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+.kh-badge.alert {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+.kh-date {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.kh-einsicht {
+  font-size: 0.75rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 4px;
+}
+.kh-einsicht.warn {
+  color: #fde047;
+  font-weight: 600;
+}
+
+.orga-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+}
+.orga-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.orga-card.span-2 {
+  grid-column: 1 / -1;
+}
+.oc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+.oc-icon {
+  font-size: 1.3rem;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 6px;
+  border-radius: 8px;
+}
+.oc-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.contact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+.contact-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.contact-mail {
+  color: var(--brand);
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+.contact-mail:hover {
+  text-decoration: underline;
+}
+
+.rules-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+.rule-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+.rule-item.highlight {
+  border-color: rgba(52, 211, 153, 0.4);
+  background: rgba(52, 211, 153, 0.08);
+}
+.rule-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+.rule-item.highlight .rule-num {
+  background: rgba(52, 211, 153, 0.3);
+  color: #34d399;
+}
+
+/* Groups Table */
+.groups-table-wrap {
+  overflow-x: auto;
+}
+.groups-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  text-align: left;
+}
+.groups-table th {
+  padding: 10px 14px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+.groups-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.groups-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.online-row td {
+  background: rgba(99, 102, 241, 0.05);
+}
+.lang-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.lang-tag.de {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+}
+.lang-tag.en {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+/* Links Row */
+.links-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.external-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+.external-card:hover {
+  border-color: var(--brand);
+  background: rgba(99, 102, 241, 0.08);
+  transform: translateY(-2px);
+}
+.ec-icon {
+  font-size: 1.5rem;
+  background: var(--card);
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.external-card strong {
+  display: block;
+  font-size: 0.92rem;
+  margin-bottom: 2px;
+}
+.external-card code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+.ec-arrow {
+  margin-left: auto;
+  font-size: 1.1rem;
+  color: var(--brand);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hhu-hero {
@@ -2217,6 +3085,9 @@ onMounted(async () => {
     width: 100%;
   }
   .comp-summary-row {
+    grid-template-columns: 1fr;
+  }
+  .points-tracker-grid {
     grid-template-columns: 1fr;
   }
 }

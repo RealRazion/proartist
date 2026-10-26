@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.35-beta",
+        "date":  "2026-10-26",
+        "title":  "Patch 2.11.0.35-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Expand HHU tool with lecture slides, script notes and exam tracker"
+                       ],
+        "changes":  [
+                        "feat(hhu): expand HHU tool with lecture slides, script notes and exam tracker"
+                    ]
+    },
+    {
         "version":  "2.11.0.34-beta",
         "date":  "2026-10-26",
         "title":  "Patch 2.11.0.34-beta",

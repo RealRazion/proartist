@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.36-beta",
+        "date":  "2026-10-26",
+        "title":  "Patch 2.11.0.36-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Add interactive HHU Mathematics 1 learning tool and script viewer for team members"
+                       ],
+        "changes":  [
+                        "feat: add interactive HHU Mathematics 1 learning tool and script viewer for team members"
+                    ]
+    },
+    {
         "version":  "2.11.0.35-beta",
         "date":  "2026-10-26",
         "title":  "Patch 2.11.0.35-beta",

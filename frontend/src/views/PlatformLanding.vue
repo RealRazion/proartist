@@ -195,6 +195,8 @@
           <button class="btn ghost tiny danger-text" type="button" @click="deleteQuickShareLink(link.id)">✕</button>
         </div>
       </div>
+    </section>
+
     <!-- TEAM & TOOL TASKS WIDGET IN HUB -->
     <section v-if="isTeam && !hideTeamTasksWidget" class="hub-team-tasks card">
       <div class="htt-header">

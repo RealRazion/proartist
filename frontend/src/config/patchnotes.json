@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.29-beta",
+        "date":  "2026-10-26",
+        "title":  "Patch 2.11.0.29-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Decouple music library, add release promo queue, streamline tasks \u0026 create team tasks platform"
+                       ],
+        "changes":  [
+                        "feat(releases): decouple music library, add release promo queue, streamline tasks \u0026 create team tasks platform"
+                    ]
+    },
+    {
         "version":  "2.11.0.28-beta",
         "date":  "2026-10-25",
         "title":  "Patch 2.11.0.28-beta",

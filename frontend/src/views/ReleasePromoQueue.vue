@@ -937,8 +937,9 @@ onMounted(() => {
 
 <style scoped>
 .promo-queue-view {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding: 1.5rem 1rem 3rem;
   display: flex;
   flex-direction: column;

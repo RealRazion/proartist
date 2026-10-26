@@ -316,8 +316,9 @@ onMounted(async () => {
 }
 
 .hero-content {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 40px;
@@ -375,8 +376,9 @@ onMounted(async () => {
 }
 
 .section-header {
-  max-width: 1200px;
-  margin: 0 auto 40px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 40px;
   text-align: center;
 }
 
@@ -393,8 +395,9 @@ onMounted(async () => {
 }
 
 .tools-grid {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
   gap: 24px;
@@ -505,8 +508,9 @@ onMounted(async () => {
 }
 
 .stats-grid {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
@@ -534,8 +538,9 @@ onMounted(async () => {
 
 /* Feature Settings Card */
 .admin-settings-section {
-  max-width: 1200px;
-  margin: 0 auto 30px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 30px;
   padding: 0 20px;
 }
 

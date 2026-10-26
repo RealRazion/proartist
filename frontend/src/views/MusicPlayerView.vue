@@ -614,8 +614,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 1240px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding: 8px 0 120px; /* Space for bottom player */
 }
 

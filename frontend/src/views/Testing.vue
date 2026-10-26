@@ -58,8 +58,9 @@ async function sendTestEmail() {
 
 <style scoped>
 .testing-page {
-  max-width: 760px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding: 2rem 1.5rem;
 }
 

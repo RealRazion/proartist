@@ -445,8 +445,9 @@ onMounted(() => {
 
 <style scoped>
 .admin-stats-manager {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   padding: 24px 20px 80px;
   display: flex;
   flex-direction: column;

@@ -1375,9 +1375,10 @@ function copyInviteLink() {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 8px 4px 64px;
-  max-width: 1240px;
-  margin: 0 auto;
+  padding: 8px 8px 64px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 .studio-ambient-glow {

@@ -792,8 +792,9 @@ select:disabled {
 }
 
 .content.compact-content > * {
-  max-width: 1260px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 .content.compact-content > * > header.card.header,

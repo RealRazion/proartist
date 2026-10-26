@@ -191,7 +191,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 20px;
+  padding: 14px 24px;
   position: sticky;
   top: 0;
   z-index: 30;
@@ -328,7 +328,7 @@ onMounted(async () => {
 }
 
 .platform-content {
-  padding: 20px;
+  padding: 20px 24px;
 }
 
 .platform-content.hub-content {

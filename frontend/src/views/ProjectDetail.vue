@@ -1219,8 +1219,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 1260px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   background: transparent;
   border: none;
   box-shadow: none;

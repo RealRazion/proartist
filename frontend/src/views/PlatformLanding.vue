@@ -749,9 +749,11 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 16px 20px 80px;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 18px 24px 80px;
+  box-sizing: border-box;
 }
 
 /* User Relaxed Mode adjustments */
@@ -781,7 +783,7 @@ onMounted(async () => {
 
 .hero-inner {
   display: grid;
-  grid-template-columns: 1.35fr 0.9fr;
+  grid-template-columns: minmax(0, 1.4fr) minmax(360px, 480px);
   gap: 32px;
   align-items: center;
 }
@@ -845,7 +847,7 @@ onMounted(async () => {
   font-size: clamp(14px, 1.6vw, 16px);
   color: var(--muted);
   line-height: 1.6;
-  max-width: 620px;
+  max-width: 840px;
   margin: 0;
 }
 

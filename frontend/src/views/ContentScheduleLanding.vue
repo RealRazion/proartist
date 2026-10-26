@@ -100,8 +100,9 @@ function goBack() {
   flex-direction: column;
   gap: 24px;
   padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
 }
 
 .hero {

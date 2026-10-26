@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.32-beta",
+        "date":  "2026-10-26",
+        "title":  "Patch 2.11.0.32-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Add missing closing section tag in PlatformLanding.vue"
+                       ],
+        "changes":  [
+                        "fix(hub): add missing closing section tag in PlatformLanding.vue"
+                    ]
+    },
+    {
         "version":  "2.11.0.31-beta",
         "date":  "2026-10-26",
         "title":  "Patch 2.11.0.31-beta",

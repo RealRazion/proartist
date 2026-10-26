@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.31-beta",
+        "date":  "2026-10-26",
+        "title":  "Patch 2.11.0.31-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Polish sidebar collapse, fix arena arrow, add notification popover \u0026 modal, add avatar hover and move tool tasks to hub"
+                       ],
+        "changes":  [
+                        "fix(ui): polish sidebar collapse, fix arena arrow, add notification popover \u0026 modal, add avatar hover and move tool tasks to hub"
+                    ]
+    },
+    {
         "version":  "2.11.0.30-beta",
         "date":  "2026-10-26",
         "title":  "Patch 2.11.0.30-beta",

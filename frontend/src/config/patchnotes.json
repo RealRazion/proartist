@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.34-beta",
+        "date":  "2026-10-26",
+        "title":  "Patch 2.11.0.34-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Add team-exclusive HHU math companion tool"
+                       ],
+        "changes":  [
+                        "feat(hhu): add team-exclusive HHU math companion tool"
+                    ]
+    },
+    {
         "version":  "2.11.0.33-beta",
         "date":  "2026-10-26",
         "title":  "Patch 2.11.0.33-beta",

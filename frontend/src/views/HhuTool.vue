@@ -26,7 +26,7 @@
           </div>
           <h1 class="hhu-title">HHU – Mathe für Informatik 1</h1>
           <p class="hhu-subtitle">
-            Offizieller Lernbegleiter zu Vorlesung (Dr. Nadja Valentin) &amp; Übungen (Dr. Nicole Hufnagel). Skript, Notations-Guide, 18-Fragen-Quiz, Relationen-Analyzer, Klausurzulassungs-Rechner &amp; Übungsblätter.
+            Offizieller Lernbegleiter zu Vorlesung (Dr. Nadja Valentin) &amp; Übungen (Dr. Nicole Hufnagel). Skript, Notations-Guide, 24-Fragen-Quiz, Relationen-Analyzer, Klausurzulassungs-Rechner, Relationale Algebra &amp; Beweis-Schablonen.
           </p>
         </div>
 
@@ -94,7 +94,7 @@
         <div class="pane-intro-banner">
           <div>
             <span class="intro-tag">Exakter Vorlesungsstoff • Dr. Nadja Valentin</span>
-            <h2>Kapitel 1: Grundlagen – Mengen, Aussagen &amp; Relationen</h2>
+            <h2>Kapitel 1: Grundlagen – Mengen, Aussagen, Relationen &amp; Abbildungen</h2>
             <p>
               Präzise aufbereitet nach dem Originalskript der Heinrich-Heine-Universität Düsseldorf: Exakte Definitionen (Def. 1.1.1 bis 1.3.12), handschriftliche Tafel-Beispiele, Besonderheiten der HHU-Notation und Beweismethoden.
             </p>
@@ -133,6 +133,50 @@
             </div>
           </article>
 
+          <!-- Card: Beweis-Schablonen (Span 2) -->
+          <article class="theorie-card card span-2 proof-templates-card">
+            <div class="tc-header">
+              <span class="tc-icon">📋</span>
+              <div>
+                <h3>Offizielle Beweis-Schablonen aus der Vorlesung</h3>
+                <span class="muted tiny">Exakte Gliederung für Hausaufgaben &amp; Klausur</span>
+              </div>
+            </div>
+            <div class="tc-subgrid">
+              <div class="sub-col">
+                <span class="hhu-pill pill-info">Schablone 1: Teilmenge $X \subset Y$</span>
+                <div class="template-steps">
+                  <div class="ts-step"><strong>1. Einleitung:</strong> Seien $X$ und $Y$ Mengen. Wir wollen zeigen, dass $X \subset Y$. Gemäß der Definition müssen wir zeigen, dass für jedes $x \in X$, auch $x \in Y$ gilt.</div>
+                  <div class="ts-step"><strong>2. Hauptteil:</strong> Sei $x \in X$ beliebig. [Zeige mit mathematischen Argumenten, dass $x \in Y$.]</div>
+                  <div class="ts-step"><strong>3. Schlussteil:</strong> Wir erhalten, dass $x \in Y$ und haben somit gezeigt, dass $X \subset Y$. $\square$</div>
+                </div>
+              </div>
+
+              <div class="sub-col">
+                <span class="hhu-pill pill-success">Schablone 2: Mengengleichheit $X = Y$</span>
+                <div class="template-steps">
+                  <div class="ts-step"><strong>Goldene Regel:</strong> <em>NICHT</em> $A = \dots = B$ als Kette rechnen! Sondern:</div>
+                  <div class="ts-step"><strong>Schritt 1:</strong> Zeige $X \subset Y$ (für jedes $x \in X$ folgt $x \in Y$).</div>
+                  <div class="ts-step"><strong>Schritt 2:</strong> Zeige $Y \subset X$ (für jedes $y \in Y$ folgt $y \in X$).</div>
+                  <div class="ts-step"><strong>Schritt 3:</strong> Da beide Inklusionen gelten, ist $X = Y$. $\square$</div>
+                </div>
+              </div>
+
+              <div class="sub-col">
+                <span class="hhu-pill pill-muted">Proposition 1.1.8: Transitive Inklusion</span>
+                <p class="tiny">
+                  Seien $X, Y, Z$ Mengen mit $X \subset Y$ und $Y \subset Z$. Dann ist $X \subset Z$.
+                </p>
+                <div class="code-box text-xs">
+                  Sei $x \in X$ beliebig.<br>
+                  Da $X \subset Y$, ist $x \in Y$.<br>
+                  Da $Y \subset Z$, ist $x \in Z$.<br>
+                  Somit $X \subset Z$. q.e.d. $\square$
+                </div>
+              </div>
+            </div>
+          </article>
+
           <!-- Card 1: Mengen & Der feine Unterschied -->
           <article class="theorie-card card">
             <div class="tc-header">
@@ -163,7 +207,7 @@
               </div>
 
               <p>
-                <strong>Potenzmenge $\mathcal{P}(X)$:</strong> Die Menge aller Teilmengen. $|\mathcal{P}(X)| = 2^{|X|}$. Es gilt stets $\emptyset \in \mathcal{P}(X)$ und $X \in \mathcal{P}(X)$.
+                <strong>Potenzmenge $\mathcal{P}(X)$:</strong> Die Menge aller Teilmengen. $|\mathcal{P}(X)| = 2^{|X|}$. Es gilt stets $\emptyset \in \mathcal{P}(X)$ und $X \in \mathcal{P}(X)$. $\mathcal{P}(\emptyset) = \{\emptyset\} \neq \emptyset$.
               </p>
             </div>
           </article>
@@ -226,101 +270,163 @@
             </div>
           </article>
 
-          <!-- Card: Relationen & Eigenschaften -->
+          <!-- Card: Relationen & Algebraische Kriterien (Bem. 1.2.8) -->
           <article class="theorie-card card">
             <div class="tc-header">
               <span class="tc-icon">↔️</span>
-              <h3>4. Relationen &amp; Eigenschaften (Def. 1.2.6)</h3>
+              <h3>4. Relationen &amp; Algebraische Kriterien (Bem. 1.2.8)</h3>
             </div>
             <div class="tc-body">
-              <p>Eine Relation $R$ auf $X$ ist $R \subset X \times X$. Eigenschaften für alle $x,y,z \in X$:</p>
+              <p>Eine Relation $R$ auf $X$ ist $R \subset X \times X$. Algebraische Kriterien:</p>
               <div class="props-mini-grid">
                 <div class="prop-chip">
                   <strong>Reflexiv:</strong>
-                  <span>$\forall x \in X: (x,x) \in R$</span>
+                  <span>$I_X \subset R$</span>
                 </div>
                 <div class="prop-chip">
                   <strong>Symmetrisch:</strong>
-                  <span>$(x,y) \in R \implies (y,x) \in R$</span>
+                  <span>$R^{-1} = R$</span>
                 </div>
                 <div class="prop-chip">
                   <strong>Antisymmetrisch:</strong>
-                  <span>$(x,y) \in R \land (y,x) \in R \implies x = y$</span>
+                  <span>$R^{-1} \cap R \subset I_X$</span>
                 </div>
                 <div class="prop-chip">
                   <strong>Asymmetrisch:</strong>
-                  <span>$(x,y) \in R \implies (y,x) \notin R$</span>
+                  <span>$R^{-1} \cap R = \emptyset$</span>
                 </div>
                 <div class="prop-chip full">
                   <strong>Transitiv:</strong>
-                  <span>$(x,y) \in R \land (y,z) \in R \implies (x,z) \in R$</span>
+                  <span>$R \circ R \subset R$</span>
                 </div>
               </div>
-              <p class="muted tiny italic">
-                Merkregel: Asymmetrisch = Antisymmetrisch + Irreflexiv ($R \cap R^{-1} = \emptyset$).
-              </p>
+              <div class="tc-callout note">
+                <strong>Tafel-Highlights von Frau Valentin:</strong>
+                <ul>
+                  <li><strong>Sonderfall leere Relation $R = \emptyset$:</strong> Ist <em>symmetrisch, antisymmetrisch, asymmetrisch und transitiv</em>! (Nur reflexiv ist sie nicht, falls $X \neq \emptyset$).</li>
+                  <li><strong>Nachfolgerrelation $R_{\mathbb{N}}$:</strong> $R_{\mathbb{N}} \circ R_{\mathbb{N}} = \{(n, n+2)\}$, und die unendliche Vereinigung $\bigcup_{m \ge 1} (R_{\mathbb{N}})^m = <$ ergibt die strikte Kleiner-Relation!</li>
+                </ul>
+              </div>
             </div>
           </article>
 
-          <!-- Card: Hüllen & Ordnungen -->
+          <!-- Card: Hüllen & Graphentheoretische Deutung -->
           <article class="theorie-card card">
             <div class="tc-header">
               <span class="tc-icon">🔀</span>
-              <h3>5. Hüllen, Äquivalenz &amp; Ordnungen</h3>
+              <h3>5. Hüllen &amp; Graphen-Interpretation</h3>
             </div>
             <div class="tc-body">
               <div class="section-sub">
-                <strong>Hüllen einer Relation:</strong>
+                <strong>Hüllen-Definitionen (Def. 1.2.16):</strong>
                 <ul>
-                  <li><strong>Reflexive Hülle:</strong> $R_{\text{refl}} = R \cup I_X$ mit $I_X = \{(x,x) : x \in X\}$</li>
-                  <li><strong>Symmetrische Hülle:</strong> $R_{\text{sym}} = R \cup R^{-1}$ mit $R^{-1} = \{(y,x) : (x,y) \in R\}$</li>
+                  <li><strong>Reflexive Hülle:</strong> $R_{\text{refl}} = R \cup I_X$</li>
+                  <li><strong>Symmetrische Hülle:</strong> $R_{\text{sym}} = R \cup R^{-1}$ (Pfeile in beide Richtungen)</li>
                   <li><strong>Transitive Hülle:</strong> $R_{\text{trans}} = \bigcup_{n \ge 1} R^n$ (alle Pfade beliebiger Länge)</li>
                 </ul>
               </div>
-              <div class="section-sub border-top">
-                <strong>Spezielle Relationen:</strong>
-                <ul>
-                  <li><strong>Äquivalenzrelation:</strong> reflexiv, symmetrisch, transitiv. Äquivalenzklassen $[x] = \{y \in X : (x,y) \in R\}$ bilden eine Partition von $X$.</li>
-                  <li><strong>Partielle Ordnung (Halbordnung):</strong> reflexiv, antisymmetrisch, transitiv (z. B. $\le$ oder $\subset$).</li>
-                  <li><strong>Totalordnung:</strong> Partielle Ordnung, bei der je zwei Elemente vergleichbar sind ($x \le y \lor y \le x$).</li>
-                </ul>
+              <div class="tc-callout info">
+                <strong>Veranschaulichung durch gerichtete Graphen:</strong>
+                <p>
+                  Knoten sind die Elemente von $X$, gerichtete Pfeile die Paare in $R$.
+                  Die Komposition $R \circ R$ findet alle Knoten, die über <strong>2 Kanten</strong> erreichbar sind.
+                  $R^3$ entspricht Pfaden der Länge 3. $R_{\text{trans}}$ fügt eine direkte Kante für jeden Pfad beliebiger Länge ein!
+                </p>
               </div>
             </div>
           </article>
 
-          <!-- Card: Abbildungen (Span 2) -->
-          <article class="theorie-card card span-2">
+          <!-- Card: Partitionen & Äquivalenzklassen -->
+          <article class="theorie-card card">
             <div class="tc-header">
-              <span class="tc-icon">🎯</span>
-              <h3>6. Abbildungen: Bild, Urbild, Injektiv, Surjektiv &amp; Bijektiv (Def. 1.3.2 – 1.3.8)</h3>
+              <span class="tc-icon">🧩</span>
+              <h3>6. Partitionen &amp; Vertretersystem (Def. 1.2.12)</h3>
+            </div>
+            <div class="tc-body">
+              <p>
+                <strong>Partition von $X$:</strong> Eine Menge $P \subset \mathcal{P}(X)$ von nicht-leeren Teilmengen mit:
+              </p>
+              <ul>
+                <li>Paarweise disjunkt: $Y \cap Z = \emptyset$ für $Y \neq Z \in P$.</li>
+                <li>Vollständige Überdeckung: $\bigcup_{Y \in P} Y = X$.</li>
+              </ul>
+              <div class="tc-callout note">
+                <strong>Vertretersystem:</strong>
+                <p>
+                  Wählt aus jeder Äquivalenzklasse $[x]$ genau einen Repräsentanten.
+                  <em>Beispiel aus der Vorlesung:</em> Bei der Parallelitätsrelation $\parallel$ für Geraden im $\mathbb{R}^2$ bilden alle <strong>Geraden durch den Ursprung $(0,0)$</strong> ein Vertretersystem!
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card: Relationale Algebra (Span 2) -->
+          <article class="theorie-card card span-2 highlight-card">
+            <div class="tc-header">
+              <span class="tc-icon">💾</span>
+              <div>
+                <h3>7. Anwendung Informatik: Relationales Datenmodell &amp; Relationale Algebra (1.2.4)</h3>
+                <span class="muted tiny">Die mathematische Grundlage relationaler Datenbanken (SQL)</span>
+              </div>
             </div>
             <div class="tc-subgrid">
               <div class="sub-col">
-                <strong>Bild &amp; Urbild</strong>
-                <p>Für $f: X \to Y$, $A \subseteq X$, $B \subseteq Y$:</p>
-                <ul>
-                  <li><strong>Bild:</strong> $f(A) = \{f(x) : x \in A\} \subseteq Y$</li>
-                  <li><strong>Urbild:</strong> $f^{-1}(B) = \{x \in X : f(x) \in B\} \subseteq X$</li>
-                </ul>
-                <p class="muted tiny">
-                  <em>Wichtig:</em> Das Urbild $f^{-1}(B)$ existiert für <strong>jede</strong> Abbildung, auch wenn $f$ nicht umkehrbar ist!
+                <strong>$n$-stellige Relationen als Tabellen</strong>
+                <p>
+                  Eine Tabelle mit $n$ Spalten ist mathematisch eine Teilmenge des kartesischen Produkts der Wertebereiche der Attribute: $R \subset X_1 \times \dots \times X_n$.
+                  Jede Zeile ist ein $n$-Tupel.
                 </p>
               </div>
-
               <div class="sub-col">
-                <strong>Injektiv &amp; Surjektiv</strong>
+                <strong>Die 3 Kern-Operationen</strong>
+                <ul>
+                  <li><strong>Selektion $\sigma_{\text{Bed.}}(R)$:</strong> Filtert Zeilen (WHERE-Klausel).</li>
+                  <li><strong>Projektion $\pi_{j_1, \dots}(R)$:</strong> Wählt Spalten aus (SELECT).</li>
+                  <li><strong>Join $R_1 [j_1, j_2] R_2$:</strong> Verknüpft Tabellen über Attribute.</li>
+                </ul>
+              </div>
+              <div class="sub-col">
+                <strong>Bemerkung 1.2.22: Automatische Duplikat-Eliminierung!</strong>
+                <p class="tiny">
+                  Da eine mathematische Relation eine <strong>Menge</strong> ist, kann kein Tupel doppelt vorkommen. Bei einer Projektion $\pi$ werden Duplikate automatisch vereinigt (entspricht SQL <code>SELECT DISTINCT</code>).
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card: Abbildungen & die 4 Varianten (Span 2) -->
+          <article class="theorie-card card span-2">
+            <div class="tc-header">
+              <span class="tc-icon">🎯</span>
+              <div>
+                <h3>8. Abbildungen: Injektiv, Surjektiv, Bijektiv &amp; Die 4 Varianten von $x \mapsto x^2$</h3>
+                <span class="muted tiny">Vorlesungsübersicht &amp; Beweisschablonen</span>
+              </div>
+            </div>
+            <div class="tc-subgrid">
+              <div class="sub-col">
+                <strong>Definitionen &amp; Schablonen</strong>
                 <ul>
                   <li><strong>Injektiv:</strong> $f(x_1) = f(x_2) \implies x_1 = x_2$. (Höchstens ein Urbild pro $y$).</li>
-                  <li><strong>Surjektiv:</strong> $\forall y \in Y \ \exists x \in X: f(x) = y$. (Mindestens ein Urbild pro $y$).</li>
+                  <li><strong>Surjektiv:</strong> Für jedes $y \in Y$ existiert ein $x \in X$ mit $f(x) = y$. (Mindestens ein Urbild).</li>
                   <li><strong>Bijektiv:</strong> Injektiv UND surjektiv (genau ein Urbild, umkehrbar).</li>
                 </ul>
               </div>
 
               <div class="sub-col">
-                <strong>Verkettung (Komposition)</strong>
-                <p>Für $f: X \to Y$ und $g: Y \to Z$ ist $(g \circ f): X \to Z$ definiert durch:</p>
-                <div class="code-box">$(g \circ f)(x) = g(f(x))$</div>
-                <p class="muted tiny">
+                <strong>Das berühmte Tafel-Quadrupel: $x \mapsto x^2$</strong>
+                <div class="math-list-box text-xs">
+                  <div>(a) $f: \mathbb{R} \to \mathbb{R}$: <strong>Weder</strong> injektiv (da $2 \mapsto 4, -2 \mapsto 4$) noch surjektiv ($-3$ hat kein Urbild).</div>
+                  <div>(b) $f: \mathbb{R}^{\ge 0} \to \mathbb{R}$: <strong>Injektiv</strong>, aber nicht surjektiv.</div>
+                  <div>(c) $f: \mathbb{R} \to \mathbb{R}^{\ge 0}$: Nicht injektiv, aber <strong>surjektiv</strong>!</div>
+                  <div>(d) $f: \mathbb{R}^{\ge 0} \to \mathbb{R}^{\ge 0}$: <strong>Bijektiv</strong>!</div>
+                </div>
+              </div>
+
+              <div class="sub-col">
+                <strong>Komposition $(g \circ f)(x) = g(f(x))$</strong>
+                <p class="tiny">
+                  Komposition ist im Allgemeinen <em>nicht kommutativ</em> ($g \circ f \neq f \circ g$).
                   <em>Satz 1.3.12:</em> Ist $g \circ f$ injektiv $\implies f$ injektiv. Ist $g \circ f$ surjektiv $\implies g$ surjektiv.
                 </p>
               </div>
@@ -330,7 +436,7 @@
       </section>
 
       <!-- ======================================================== -->
-      <!-- TAB 2: WISSENS-CHECK (QUIZ)                              -->
+      <!-- TAB 2: WISSENS-CHECK (QUIZ - 24 FRAGEN)                  -->
       <!-- ======================================================== -->
       <section v-show="currentTab === 'trainer'" class="tab-pane trainer-pane">
         <div class="quiz-panel card">
@@ -338,7 +444,7 @@
             <div>
               <h2>Interaktiver Wissens-Check</h2>
               <p class="muted small">
-                18 gezielte Fragen zu Vorlesung 1–4, Skriptdefinitionen, Notation von Frau Valentin &amp; HHU-Organisatorischem.
+                24 gezielte Fragen zu Vorlesung 1–4, Skriptdefinitionen, Notationen von Frau Valentin, Relationaler Algebra &amp; HHU-Organisatorischem.
               </p>
             </div>
             <div class="qp-actions">
@@ -507,6 +613,100 @@
           </div>
         </div>
 
+        <!-- Tool: Relationale Algebra Simulator (Computer-Händler RP & RH) -->
+        <div class="tool-box card">
+          <div class="tb-header">
+            <span class="tb-icon">💾</span>
+            <div>
+              <h2>Relationale Algebra Simulator ($R_P$ &amp; $R_H$)</h2>
+              <p class="muted small">
+                Teste Selektion $\sigma$, Projektion $\pi$ und Duplikat-Eliminierung an der Originaltabelle aus der Vorlesung.
+              </p>
+            </div>
+          </div>
+
+          <div class="ra-controls-row">
+            <div class="form-group">
+              <label>Selektion $\sigma_{\text{Produkttyp}}$:</label>
+              <select v-model="raSelectedType" class="hhu-input">
+                <option value="ALL">Alle Produkttypen</option>
+                <option value="Notebook">Notebook</option>
+                <option value="Tablet">Tablet</option>
+                <option value="Monitor">Monitor</option>
+                <option value="Drucker">Drucker</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Projektion $\pi$ auf Attribute:</label>
+              <select v-model="raSelectedProjection" class="hhu-input">
+                <option value="FULL">Alle Spalten (P.Nr., Name, Typ, Preis)</option>
+                <option value="NAME_PRICE">Name &amp; Preis</option>
+                <option value="TYPE_ONLY">Nur Produkttyp (Duplikat-Eliminierung!)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="ra-table-wrap">
+            <table class="groups-table">
+              <thead>
+                <tr>
+                  <th v-if="raSelectedProjection === 'FULL'">P.Nr.</th>
+                  <th v-if="raSelectedProjection !== 'TYPE_ONLY'">Produktname</th>
+                  <th v-if="raSelectedProjection === 'FULL' || raSelectedProjection === 'TYPE_ONLY'">Produkttyp</th>
+                  <th v-if="raSelectedProjection !== 'TYPE_ONLY'">Preis (€)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rIdx) in filteredRaProducts" :key="rIdx">
+                  <td v-if="raSelectedProjection === 'FULL'">{{ row.id }}</td>
+                  <td v-if="raSelectedProjection !== 'TYPE_ONLY'"><strong>{{ row.name }}</strong></td>
+                  <td v-if="raSelectedProjection === 'FULL' || raSelectedProjection === 'TYPE_ONLY'">{{ row.type }}</td>
+                  <td v-if="raSelectedProjection !== 'TYPE_ONLY'">{{ row.price }} €</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="tc-callout info tiny" v-if="raSelectedProjection === 'TYPE_ONLY'">
+            <strong>Bemerkung 1.2.22 Live-Effekt:</strong> Da Mengen keine Duplikate enthalten, schrumpfen 14 Zeilen auf genau <strong>{{ filteredRaProducts.length }} eindeutige Tupel</strong> zusammen: <code>{{ filteredRaProducts.map(r => `(${r.type})`).join(', ') }}</code>!
+          </div>
+        </div>
+
+        <!-- Tool: Interaktive Beweis-Schablonen (Click-to-Copy) -->
+        <div class="tool-box card">
+          <div class="tb-header">
+            <span class="tb-icon">📋</span>
+            <div>
+              <h2>Beweis-Schablonen Generator (Click-to-Copy)</h2>
+              <p class="muted small">
+                Wähle die gewünschte Beweisform, passe Mengen- und Variablennamen an und kopiere den formal perfekten HHU-Lösungsrahmen.
+              </p>
+            </div>
+          </div>
+
+          <div class="proof-gen-tabs">
+            <button
+              v-for="tmpl in proofTemplates"
+              :key="tmpl.id"
+              class="filter-chip"
+              :class="{ active: selectedProofTemplate === tmpl.id }"
+              @click="selectedProofTemplate = tmpl.id"
+            >
+              {{ tmpl.title }}
+            </button>
+          </div>
+
+          <div class="proof-code-card card">
+            <div class="pcc-head">
+              <span class="pcc-label">{{ currentProofTemplateObj.title }}</span>
+              <button class="btn btn-sm" @click="copyProofTemplateText">
+                📋 Schablone kopieren
+              </button>
+            </div>
+            <pre class="pcc-code"><code>{{ currentProofTemplateObj.code }}</code></pre>
+          </div>
+        </div>
+
         <!-- Tool 1: Relationen-Prüfer & Hüllen-Rechner -->
         <div class="tool-box card">
           <div class="tb-header">
@@ -589,15 +789,15 @@
 
                 <div
                   class="prop-row"
-                  :class="relationAnalysisResult.isAntisymmetric ? 'ok' : 'fail'"
+                  :class="relationAnalysisResult.isAntisymmetrisch ? 'ok' : 'fail'"
                 >
                   <div class="pr-info">
-                    <strong>Antisymmetrisch:</strong> {{ relationAnalysisResult.isAntisymmetric ? 'Ja' : 'Nein' }}
+                    <strong>Antisymmetrisch:</strong> {{ relationAnalysisResult.isAntisymmetrisch ? 'Ja' : 'Nein' }}
                     <small class="muted tiny">
-                      {{ relationAnalysisResult.isAntisymmetric ? 'Symmetrische Paare nur auf der Diagonale' : 'Gegenbeispiel: ' + relationAnalysisResult.antiCounter }}
+                      {{ relationAnalysisResult.isAntisymmetrisch ? 'Symmetrische Paare nur auf der Diagonale' : 'Gegenbeispiel: ' + relationAnalysisResult.antiCounter }}
                     </small>
                   </div>
-                  <span class="pr-mark">{{ relationAnalysisResult.isAntisymmetric ? '✓' : '✗' }}</span>
+                  <span class="pr-mark">{{ relationAnalysisResult.isAntisymmetrisch ? '✓' : '✗' }}</span>
                 </div>
 
                 <div
@@ -820,7 +1020,7 @@
       </section>
 
       <!-- ======================================================== -->
-      <!-- TAB 5: ORGANISATION, TERMINE & KLAUSUR-GUIDE (NEU)        -->
+      <!-- TAB 5: ORGANISATION, TERMINE & KLAUSUR-GUIDE             -->
       <!-- ======================================================== -->
       <section v-show="currentTab === 'orga'" class="tab-pane orga-pane">
         <!-- Klausurtermine Countdown Banner -->
@@ -1073,9 +1273,11 @@
 import { ref, computed, onMounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
+import { useToast } from "../composables/useToast";
 
 const router = useRouter();
 const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
+const { showToast } = useToast();
 
 // Tabs: 'theorie', 'trainer', 'sandbox', 'aufgaben', 'orga'
 const currentTab = ref("theorie");
@@ -1135,7 +1337,7 @@ function triggerMathJax() {
 }
 
 /* =========================================================================
-   QUIZ ENGINE & DATA (Erweitert auf 18 Fragen)
+   QUIZ ENGINE & DATA (Erweitert auf 24 Fragen)
    ========================================================================= */
 const quizData = [
   {
@@ -1257,15 +1459,16 @@ const quizData = [
   },
   {
     id: 10,
-    topic: "Relationen",
-    question: "Kann eine Relation gleichzeitig symmetrisch und antisymmetrisch sein?",
+    topic: "Sonderfälle Relationen",
+    question: "Welche Eigenschaften besitzt die leere Relation R = ∅ auf einer nicht-leeren Menge X?",
     options: [
-      { text: "Ja, z. B. die Gleichheitsrelation I_X = {(x,x) : x ∈ X} oder die leere Relation ∅.", correct: true },
-      { text: "Nein, Symmetrie und Antisymmetrie schließen sich logisch gegenseitig aus.", correct: false },
-      { text: "Nur wenn die Grundmenge unendlich viele Elemente hat.", correct: false },
+      { text: "Sie ist symmetrisch, antisymmetrisch, asymmetrisch und transitiv, aber NICHT reflexiv.", correct: true },
+      { text: "Sie besitzt überhaupt keine Eigenschaften.", correct: false },
+      { text: "Sie ist reflexiv und symmetrisch.", correct: false },
+      { text: "Sie ist eine Äquivalenzrelation.", correct: false },
     ],
     explanation:
-      "Gilt R ⊆ I_X (also nur Paare der Form (x,x)), so ist R sowohl symmetrisch (denn (x,x) ∈ R ⇒ (x,x) ∈ R) als auch antisymmetrisch!",
+      "Handschriftliche Tafelnotiz von Frau Valentin (Skript 1.2): Da für R = ∅ die Prämisse (x,y) ∈ R stets falsch ist, sind Symmetrie, Antisymmetrie, Asymmetrie und Transitivität 'leer' erfüllt! Nicht reflexiv, da (x,x) ∉ ∅ für x ∈ X.",
   },
   {
     id: 11,
@@ -1295,58 +1498,136 @@ const quizData = [
   },
   {
     id: 13,
-    topic: "Äquivalenz & Ordnung",
-    question: "Was ist der entscheidende Unterschied zwischen einer Äquivalenzrelation und einer partiellen Ordnung?",
+    topic: "Relationen-Potenzen",
+    question: "Was ergibt die unendliche Vereinigung aller Potenzen U_{m ∈ N} (R_N)^m der Nachfolgerrelation R_N auf N?",
     options: [
-      { text: "Eine Äquivalenzrelation ist symmetrisch, eine partielle Ordnung ist antisymmetrisch.", correct: true },
-      { text: "Eine Äquivalenzrelation ist transitiv, eine Ordnung nicht.", correct: false },
-      { text: "Eine partielle Ordnung ist stets total, eine Äquivalenzrelation nicht.", correct: false },
-      { text: "Es gibt keinen Unterschied, die Begriffe sind synonym.", correct: false },
+      { text: "Die strikte Kleiner-Relation < auf N.", correct: true },
+      { text: "Die Kleiner-Gleich-Relation ≤ auf N.", correct: true },
+      { text: "Die Gleichheitsrelation I_N.", correct: false },
+      { text: "Die leere Relation ∅.", correct: false },
     ],
     explanation:
-      "Beide sind reflexiv und transitiv. Der einzige definierende Unterschied ist: Äquivalenzrelation = symmetrisch; partielle Ordnung = antisymmetrisch!",
+      "Handschriftliche Tafelnotiz von Frau Valentin (Seite 2 des Relationen-PDFs): (R_N)^m = {(n, n+m) : n ∈ N}. Die Vereinigung über alle m ∈ N ergibt alle Paare (n, k) mit k = n+m > n, also genau die Relation < auf N!",
   },
   {
     id: 14,
-    topic: "Abbildungen",
-    question: "Sei f: Z → Z, n ↦ 2n + 1. Welche Eigenschaft hat f?",
+    topic: "Äquivalenz & Vertretersystem",
+    question: "Betrachte die Parallelitätsrelation || auf Geraden im R^2. Was bildet ein gültiges Vertretersystem?",
     options: [
-      { text: "Injektiv, aber nicht surjektiv", correct: true },
-      { text: "Surjektiv, aber nicht injektiv", correct: false },
-      { text: "Bijektiv", correct: false },
-      { text: "Weder injektiv noch surjektiv", correct: false },
+      { text: "Alle Geraden, die durch den Ursprung (0,0) gehen.", correct: true },
+      { text: "Alle zueinander parallelen Geraden.", correct: false },
+      { text: "Nur die x-Achse.", correct: false },
+      { text: "Jeder Punkt im R^2.", correct: false },
     ],
     explanation:
-      "Injektiv: 2n_1 + 1 = 2n_2 + 1 ⇒ 2n_1 = 2n_2 ⇒ n_1 = n_2. Nicht surjektiv, da die geraden Zahlen niemals als Funktionswert 2n + 1 für ein ganzes n angenommen werden.",
+      "Tafelnotiz von Frau Valentin (Seite 8): Jede Richtung bzw. Steigung hat genau eine Gerade, die durch (0,0) verläuft. Damit wählt man aus jeder Parallelitätsklasse genau einen Repräsentanten aus!",
   },
   {
     id: 15,
-    topic: "Abbildungen",
-    question: "Für f: Z → N_0, n ↦ n^2 und B = {0, 1, 4}: Was ist das Urbild f^{-1}(B)?",
+    topic: "Relationale Algebra",
+    question: "Warum entfernt die Projektion π_{Name}(R) in der relationalen Algebra Duplikate automatisch?",
     options: [
-      { text: "{-2, -1, 0, 1, 2}", correct: true },
-      { text: "{0, 1, 2}", correct: false },
-      { text: "{0, 1, 16}", correct: false },
-      { text: "∅", correct: false },
+      { text: "Weil eine mathematische Relation eine Menge von Tupeln ist, und Mengen keine Duplikate enthalten.", correct: true },
+      { text: "Weil SQL standardmäßig DISTINCT erzwingt.", correct: false },
+      { text: "Weil ein Primärschlüssel vorausgesetzt wird.", correct: false },
+      { text: "Es werden gar keine Duplikate entfernt.", correct: false },
     ],
     explanation:
-      "f^{-1}(B) = {n ∈ Z : n^2 ∈ {0, 1, 4}}. Da 0^2 = 0, (±1)^2 = 1 und (±2)^2 = 4, gehören alle 5 ganzen Zahlen {-2, -1, 0, 1, 2} zum Urbild!",
+      "Bemerkung 1.2.22 aus dem Skript: Eine Relation ist eine Menge von Tupeln und enthält daher keine Duplikate. Die mathematische Projektion entfernt Duplikate automatisch!",
   },
   {
     id: 16,
     topic: "Abbildungen",
-    question: "Seien f: X → Y und g: Y → Z. Welche Aussage aus Satz 1.3.12 ist korrekt?",
+    question: "Welche Eigenschaften besitzt die Abbildung f: R -> R^{≥ 0}, x ↦ x^2?",
     options: [
-      { text: "Wenn g ∘ f injektiv ist, dann ist f injektiv.", correct: true },
-      { text: "Wenn g ∘ f injektiv ist, dann ist g injektiv.", correct: false },
-      { text: "Wenn g ∘ f surjektiv ist, dann ist f surjektiv.", correct: false },
-      { text: "g ∘ f ist nur definiert, wenn X = Z.", correct: false },
+      { text: "Surjektiv, aber NICHT injektiv.", correct: true },
+      { text: "Injektiv, aber NICHT surjektiv.", correct: false },
+      { text: "Bijektiv.", correct: false },
+      { text: "Weder injektiv noch surjektiv.", correct: false },
     ],
     explanation:
-      "Wäre f nicht injektiv, so gäbe es x_1 ≠ x_2 mit f(x_1) = f(x_2), woraus g(f(x_1)) = g(f(x_2)) folgen würde – Widerspruch zur Injektivität von g ∘ f!",
+      "Tafelübersicht von Frau Valentin: Nicht injektiv, da f(2) = f(-2) = 4. Aber surjektiv, da jedes y ≥ 0 als Quadratwurzel √y ∈ R ein Urbild hat!",
   },
   {
     id: 17,
+    topic: "Abbildungen",
+    question: "Welche Abbildungsvariante von x ↦ x^2 ist BIJEKTIV?",
+    options: [
+      { text: "f: R^{≥ 0} -> R^{≥ 0}, x ↦ x^2", correct: true },
+      { text: "f: R -> R, x ↦ x^2", correct: false },
+      { text: "f: R^{≥ 0} -> R, x ↦ x^2", correct: false },
+      { text: "f: R -> R^{≥ 0}, x ↦ x^2", correct: false },
+    ],
+    explanation:
+      "Tafelbeispiel (d): Auf R^{≥ 0} als Definitions- und Wertebereich ist die Funktion streng monoton steigend (injektiv) und deckt ganz R^{≥ 0} ab (surjektiv) ⇒ bijektiv mit Umkehrfunktion √x!",
+  },
+  {
+    id: 18,
+    topic: "Beweis-Methodik",
+    question: "Wie beweist man nach Definition 1.1.9, dass zwei Mengen A und B gleich sind?",
+    options: [
+      { text: "Indem man separat zeigt: A ⊂ B und B ⊂ A.", correct: true },
+      { text: "Durch eine lange Gleichungskette A = ... = B.", correct: false },
+      { text: "Indem man zeigt, dass beide unendlich viele Elemente haben.", correct: false },
+      { text: "Man berechnet |A| - |B| = 0.", correct: false },
+    ],
+    explanation:
+      "Frau Valentin schreibt auf Seite 4 des Skripts mit Ausrufezeichen: 'NICHT A = ... = B, sondern a ∈ A ⇒ a ∈ B und b ∈ B ⇒ b ∈ A!'",
+  },
+  {
+    id: 19,
+    topic: "Kartesisches Produkt",
+    question: "Gilt für Mengen X und Y im Allgemeinen X × Y = Y × X?",
+    options: [
+      { text: "Nein, kartesische Produkte sind geordnet. Gleichheit gilt im Allgemeinen nur für X = Y.", correct: true },
+      { text: "Ja, nach dem Kommutativgesetz für Produkte.", correct: false },
+      { text: "Nur wenn X und Y endlich sind.", correct: false },
+      { text: "Ja, da (x,y) = {x, y} ist.", correct: false },
+    ],
+    explanation:
+      "Tafelnotiz Seite 9: (1, 2) ≠ (2, 1). Daher ist z. B. R × N ≠ N × R, da (π, 1) ∈ R × N liegt, aber nicht in N × R!",
+  },
+  {
+    id: 20,
+    topic: "Partitionen",
+    question: "Was muss für eine Partition P einer Menge X gelten?",
+    options: [
+      { text: "Die Elemente von P sind paarweise disjunkt (Y ∩ Z = ∅) und ihre Vereinigung ergibt ganz X.", correct: true },
+      { text: "Jede Teilmenge in P enthält genau ein einziges Element.", correct: false },
+      { text: "P muss gleich der Potenzmenge P(X) sein.", correct: false },
+      { text: "P enthält nur leere Mengen.", correct: false },
+    ],
+    explanation:
+      "Definition auf Seite 15: Eine Partition von X ist eine Teilmenge P ⊂ P(X), sodass für alle Y, Z ∈ P mit Y ≠ Z gilt Y ∩ Z = ∅ und U_{Y ∈ P} Y = X.",
+  },
+  {
+    id: 21,
+    topic: "Abbildungen",
+    question: "Seien f: X -> Y und g: Y -> Z. Was besagt Satz 1.3.12, wenn g ∘ f injektiv ist?",
+    options: [
+      { text: "f ist zwingend injektiv.", correct: true },
+      { text: "g ist zwingend injektiv.", correct: false },
+      { text: "f und g müssen beide surjektiv sein.", correct: false },
+      { text: "X = Z muss gelten.", correct: false },
+    ],
+    explanation:
+      "Wäre f nicht injektiv (f(x_1) = f(x_2)), dann wäre auch g(f(x_1)) = g(f(x_2)) ⇒ g ∘ f nicht injektiv. Widerspruch! Daher muss die 'innere' Funktion f stets injektiv sein.",
+  },
+  {
+    id: 22,
+    topic: "Potenzmenge",
+    question: "Gegeben sei Y = {1, {1}}. Welche Aussage ist hier WAHR?",
+    options: [
+      { text: "{1} ∈ Y und {1} ⊂ Y gelten BEIDE gleichzeitig.", correct: true },
+      { text: "Nur {1} ∈ Y gilt.", correct: false },
+      { text: "Nur {1} ⊂ Y gilt.", correct: false },
+      { text: "Y = {1}", correct: false },
+    ],
+    explanation:
+      "Tafelbeispiel 'Ausnahme' auf Seite 12: Da {1} als zweites Element in den Mengenklammern von Y steht, gilt {1} ∈ Y. Da das einzige Element von {1} die Zahl 1 ist und 1 ∈ Y liegt, gilt auch {1} ⊂ Y!",
+  },
+  {
+    id: 23,
     topic: "Modulprüfung HHU",
     question: "Wie viele Punkte werden für die Klausurzulassung in Mathe für Informatik 1 benötigt?",
     options: [
@@ -1359,7 +1640,7 @@ const quizData = [
       "Folie 25 (Modulprüfung): Klausurzulassung = 5 Punkte des Test-Übungsblatts + 50% der Punkte in Blättern 1–13. Dies entspricht 200 Punkten insgesamt. Wie man die Punkte erreicht, ist irrelevant!",
   },
   {
-    id: 18,
+    id: 24,
     topic: "Übungsbetrieb",
     question: "Wie viele Extrapunkte können pro Woche durch aktive Teilnahme in der Übung erworben werden?",
     options: [
@@ -1419,6 +1700,141 @@ const isZulassungErreicht = computed(() => {
     (trackerTestSheetPoints.value || 0) >= 5
   );
 });
+
+/* =========================================================================
+   TOOL: RELATIONAL ALGEBRA SIMULATOR
+   ========================================================================= */
+const raSelectedType = ref("ALL");
+const raSelectedProjection = ref("FULL");
+
+const rawRaProducts = [
+  { id: 1, name: '13" Macbook Pro', type: "Notebook", price: 1449 },
+  { id: 2, name: "ENVY LAPTOP 17-ch0784ng", type: "Notebook", price: 1799 },
+  { id: 3, name: "Elite x2 G8 Tablet", type: "Tablet", price: 2768 },
+  { id: 4, name: 'iPad Pro 12.9"', type: "Tablet", price: 1199 },
+  { id: 5, name: "iPad", type: "Tablet", price: 379 },
+  { id: 6, name: "Neu Inspiron 15 3000", type: "Notebook", price: 369 },
+  { id: 7, name: "27 4K UHD Monitor - S2721QS", type: "Monitor", price: 360 },
+  { id: 8, name: "iPad Mini", type: "Tablet", price: 549 },
+  { id: 9, name: "Laser 107w", type: "Drucker", price: 125 },
+  { id: 10, name: "27- Monitor S2721D", type: "Monitor", price: 250 },
+  { id: 11, name: "iPad Air", type: "Tablet", price: 649 },
+  { id: 12, name: "Pavilion Laptop 14-ec0735ng", type: "Notebook", price: 649 },
+  { id: 13, name: "Tango X", type: "Drucker", price: 170 },
+  { id: 14, name: "XPS 13", type: "Notebook", price: 1199 },
+];
+
+const filteredRaProducts = computed(() => {
+  let list = rawRaProducts;
+  if (raSelectedType.value !== "ALL") {
+    list = list.filter((p) => p.type === raSelectedType.value);
+  }
+  if (raSelectedProjection.value === "TYPE_ONLY") {
+    // Bemerkung 1.2.22: Duplikate entfernen da Menge!
+    const uniqueTypes = Array.from(new Set(list.map((p) => p.type)));
+    return uniqueTypes.map((t) => ({ type: t }));
+  }
+  return list;
+});
+
+/* =========================================================================
+   TOOL: BEWEIS-SCHABLONEN GENERATOR (CLICK-TO-COPY)
+   ========================================================================= */
+const selectedProofTemplate = ref("subset");
+
+const proofTemplates = [
+  {
+    id: "subset",
+    title: "Teilmenge X ⊂ Y",
+    code: `// Beweis: X ⊂ Y
+Seien X und Y Mengen.
+Wir wollen zeigen, dass X ⊂ Y.
+Gemäß der Definition müssen wir zeigen, dass für jedes x ∈ X, auch x ∈ Y gilt.
+
+Sei x ∈ X beliebig.
+[Zeige mit Hilfe mathematischer Argumente, dass x ∈ Y.]
+
+Wir erhalten, dass x ∈ Y und haben somit gezeigt, dass X ⊂ Y. q.e.d. ∎`,
+  },
+  {
+    id: "equality",
+    title: "Mengengleichheit X = Y",
+    code: `// Beweis: X = Y (nach Definition 1.1.9)
+Seien X und Y Mengen.
+Wir wollen zeigen, dass X = Y.
+Gemäß der Definition müssen wir zeigen, dass X ⊂ Y und Y ⊂ X gilt.
+
+Teil 1: Zeige X ⊂ Y
+Sei x ∈ X beliebig.
+[Argumente, die zeigen, dass x ∈ Y.]
+Folglich gilt X ⊂ Y.
+
+Teil 2: Zeige Y ⊂ X
+Sei y ∈ Y beliebig.
+[Argumente, die zeigen, dass y ∈ X.]
+Folglich gilt Y ⊂ X.
+
+Da beide Inklusionen gezeigt wurden, gilt X = Y. q.e.d. ∎`,
+  },
+  {
+    id: "injective",
+    title: "Injektivität f(x1) = f(x2)",
+    code: `// Beweis: f ist injektiv (nach Definition 1.3.8)
+Sei f: X -> Y eine Abbildung.
+Wir wollen zeigen, dass f injektiv ist.
+Gemäß der Definition müssen wir zeigen: Für alle x1, x2 ∈ X mit f(x1) = f(x2) folgt stets x1 = x2.
+
+Seien x1, x2 ∈ X mit f(x1) = f(x2).
+[Führe mathematische Äquivalenzumformungen durch, z.B. 2x1 + 1 = 2x2 + 1 => x1 = x2.]
+Wir erhalten x1 = x2.
+
+Somit haben wir gezeigt, dass f injektiv ist. q.e.d. ∎`,
+  },
+  {
+    id: "surjective",
+    title: "Surjektivität ∀y ∃x: f(x)=y",
+    code: `// Beweis: f ist surjektiv (nach Definition 1.3.8)
+Sei f: X -> Y eine Abbildung.
+Wir wollen zeigen, dass f surjektiv ist.
+Gemäß der Definition müssen wir zeigen: Für jedes y ∈ Y existiert ein x ∈ X mit f(x) = y.
+
+Sei y ∈ Y beliebig.
+[Finde explizit ein x ∈ X, z.B. durch Auflösen von f(x) = y nach x.]
+Setze x := [...]. Es gilt x ∈ X.
+
+Wir verifizieren:
+f(x) = f([...]) = y.
+
+Somit existiert für jedes y ∈ Y ein Urbild x ∈ X, d.h. f ist surjektiv. q.e.d. ∎`,
+  },
+  {
+    id: "bijective",
+    title: "Bijektivität (Injektiv + Surjektiv)",
+    code: `// Beweis: f ist bijektiv
+Sei f: X -> Y eine Abbildung.
+Wir wollen zeigen, dass f bijektiv ist.
+Gemäß der Definition müssen wir zeigen, dass f injektiv und surjektiv ist.
+
+1. Injektivität:
+[Füge Beweis für Injektivität ein]
+
+2. Surjektivität:
+[Füge Beweis für Surjektivität ein]
+
+Da f sowohl injektiv als auch surjektiv ist, ist f bijektiv. q.e.d. ∎`,
+  },
+];
+
+const currentProofTemplateObj = computed(() => {
+  return proofTemplates.find((t) => t.id === selectedProofTemplate.value) || proofTemplates[0];
+});
+
+function copyProofTemplateText() {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(currentProofTemplateObj.value.code);
+  }
+  showToast("Schablone in Zwischenablage kopiert! ✓", "success");
+}
 
 /* =========================================================================
    TOOL 1: RELATIONEN-ANALYZER & HÜLLEN-GENERATOR
@@ -1481,12 +1897,12 @@ function runRelationAnalysis() {
   }
 
   // 3. Antisymmetrisch
-  let isAntisymmetric = true;
+  let isAntisymmetrisch = true;
   let antiCounter = "";
   for (const item of pairSet) {
     const [a, b] = item.split("###");
     if (a !== b && hasPair(b, a)) {
-      isAntisymmetric = false;
+      isAntisymmetrisch = false;
       if (!antiCounter) antiCounter = `(${a},${b}) ∈ R und (${b},${a}) ∈ R mit ${a} ≠ ${b}`;
     }
   }
@@ -1517,7 +1933,7 @@ function runRelationAnalysis() {
   }
 
   const isEquiv = isReflexive && isSymmetric && isTransitive;
-  const isPartialOrder = isReflexive && isAntisymmetric && isTransitive;
+  const isPartialOrder = isReflexive && isAntisymmetrisch && isTransitive;
 
   // Closures
   // 1. Reflexive Hülle
@@ -1580,7 +1996,7 @@ function runRelationAnalysis() {
     reflMissing,
     isSymmetric,
     symCounter,
-    isAntisymmetric,
+    isAntisymmetrisch,
     antiCounter,
     isAsymmetric,
     asymCounter,
@@ -1651,7 +2067,7 @@ function runComposition() {
 /* =========================================================================
    TAB 4: ÜBUNGSBLATT-TRAINER (HHU CONTENT)
    ========================================================================= */
-const sheetFilter = ref(0); // 0 = all, 1 = sheet 1, 2 = sheet 2
+const sheetFilter = ref(0);
 const openTaskIds = ref(new Set([1]));
 
 function setSheetFilter(num) {
@@ -2085,6 +2501,25 @@ onMounted(async () => {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, var(--card) 100%);
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
+.theorie-card.proof-templates-card {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.08) 0%, var(--card) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+.template-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+.ts-step {
+  background: var(--card);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
 .tc-header {
   display: flex;
   align-items: center;
@@ -2401,6 +2836,56 @@ onMounted(async () => {
 .tb-header h2 {
   font-size: 1.15rem;
   margin: 0 0 2px;
+}
+
+/* Relational Algebra Simulator */
+.ra-controls-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ra-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* Proof Generator Card */
+.proof-gen-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.proof-code-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pcc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pcc-label {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--brand);
+}
+.pcc-code {
+  background: var(--card);
+  padding: 14px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-family: monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: #c7d2fe;
+  white-space: pre-wrap;
+  margin: 0;
 }
 
 /* Points Tracker Box */

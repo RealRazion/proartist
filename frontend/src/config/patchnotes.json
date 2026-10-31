@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.37-beta",
+        "date":  "2026-10-31",
+        "title":  "Patch 2.11.0.37-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Dynamic music tip, auto platform sync, jury discipline, applicant privacy, email alerts, tiered prize pool"
+                       ],
+        "changes":  [
+                        "feat(hub, platform-manager, arena): dynamic music tip, auto platform sync, jury discipline, applicant privacy, email alerts, tiered prize pool"
+                    ]
+    },
+    {
         "version":  "2.11.0.36-beta",
         "date":  "2026-10-26",
         "title":  "Patch 2.11.0.36-beta",

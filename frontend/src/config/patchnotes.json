@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.38-beta",
+        "date":  "2026-10-31",
+        "title":  "Patch 2.11.0.38-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Contest edit request workflow and manual platform management with strict access rules"
+                       ],
+        "changes":  [
+                        "feat: contest edit request workflow and manual platform management with strict access rules"
+                    ]
+    },
+    {
         "version":  "2.11.0.37-beta",
         "date":  "2026-10-31",
         "title":  "Patch 2.11.0.37-beta",

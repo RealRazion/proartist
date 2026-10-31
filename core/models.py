@@ -653,6 +653,9 @@ class TournamentApplication(models.Model):
         related_name="decided_tournament_applications",
     )
     decided_at = models.DateTimeField(null=True, blank=True)
+    edit_requested = models.BooleanField(default=False)
+    edit_request_message = models.TextField(blank=True)
+    edit_request_created_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

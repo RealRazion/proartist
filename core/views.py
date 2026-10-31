@@ -4082,10 +4082,122 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         if not is_team_profile(me) and instance.profile != me:
             raise PermissionDenied("Du kannst nur deine eigene Bewerbung bearbeiten.")
+        if not is_team_profile(me) and instance.status == "APPROVED":
+            raise PermissionDenied(
+                "Deine Bewerbung wurde bereits angenommen. Nachträgliche Änderungen sind nur auf Anfrage möglich, die vom Team freigegeben werden muss."
+            )
         if not is_team_profile(me) and instance.status == "REJECTED":
             serializer.save(status="PENDING")
         else:
             serializer.save()
+
+    @action(detail=True, methods=["POST"], url_path="request-edit")
+    def request_edit(self, request, pk=None):
+        application = self.get_object()
+        me = request.user.profile
+        if not is_team_profile(me) and application.profile != me:
+            raise PermissionDenied("Du kannst nur für deine eigene Bewerbung eine Änderung anfragen.")
+
+        if application.status != "APPROVED":
+            return Response(
+                {"detail": "Eine Änderungsanfrage ist nur für bereits angenommene Bewerbungen erforderlich. Nicht angenommene Bewerbungen können direkt bearbeitet werden."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        artist_name = (request.data.get("artist_name") or me.name or me.user.username).strip()
+        demo_link = (request.data.get("demo_link") or "").strip()
+        reason = (request.data.get("reason") or request.data.get("message") or "").strip()
+
+        request_summary = f"Artist: {artist_name} | Demo: {demo_link} | Begründung: {reason}"
+
+        if hasattr(application, "edit_requested"):
+            application.edit_requested = True
+            application.edit_request_message = request_summary
+            application.edit_request_created_at = timezone.now()
+
+        clean_msg = application.message or ""
+        if "[Änderungsanfrage:" in clean_msg:
+            clean_msg = clean_msg.split("[Änderungsanfrage:")[0].strip()
+        application.message = f"{clean_msg}\n\n[Änderungsanfrage: {request_summary}]"
+        application.save()
+
+        # Notify team
+        team_profiles = Profile.objects.filter(
+            Q(roles__key__in=["TEAM", "ADMIN", "JURY"]) | Q(user__is_staff=True) | Q(user__is_superuser=True)
+        ).distinct()
+        notify_profiles(
+            team_profiles,
+            "Neue Bewerbungs-Änderungsanfrage 📝",
+            f"{artist_name} bittet um Änderung der angenommenen Bewerbung für \"{application.tournament.title}\".",
+            notification_type="tournament_edit_request",
+            severity="INFO",
+        )
+
+        return Response(self.get_serializer(application).data)
+
+    @action(detail=True, methods=["POST"], url_path="decide-edit-request", permission_classes=[permissions.IsAuthenticated, IsTeam])
+    def decide_edit_request(self, request, pk=None):
+        application = self.get_object()
+        decision = (request.data.get("decision") or "").strip().upper()
+        if decision == "ACCEPTED":
+            decision = "APPROVED"
+        reason = (request.data.get("reason") or "").strip()
+
+        if decision not in {"APPROVED", "REJECTED"}:
+            return Response({"detail": "decision muss APPROVED oder REJECTED sein."}, status=status.HTTP_400_BAD_REQUEST)
+
+        edit_str = getattr(application, "edit_request_message", "") or ""
+        if not edit_str and "[Änderungsanfrage:" in (application.message or ""):
+            try:
+                edit_str = application.message.split("[Änderungsanfrage:")[1].split("]")[0].strip()
+            except Exception:
+                edit_str = ""
+
+        clean_msg = (application.message or "").split("[Änderungsanfrage:")[0].strip()
+
+        if decision == "APPROVED":
+            import re
+            artist_match = re.search(r"Artist:\s*([^|]+)", edit_str)
+            demo_match = re.search(r"Demo:\s*([^|]+)", edit_str)
+            reason_match = re.search(r"(?:Begründung|Grund):\s*(.*)", edit_str)
+
+            new_artist = artist_match.group(1).strip() if artist_match else (application.profile.name or "Artist")
+            new_demo = demo_match.group(1).strip() if demo_match else ""
+            new_notes = reason_match.group(1).strip() if reason_match else ""
+
+            application.message = f"Artist: {new_artist} | Demo: {new_demo} | {new_notes}"
+            if hasattr(application, "edit_requested"):
+                application.edit_requested = False
+                application.edit_request_message = ""
+                application.edit_request_created_at = None
+            application.save()
+
+            notify_profiles(
+                [application.profile],
+                "Änderungsanfrage angenommen! 🎉",
+                f"Deine angefragten Änderungen für das Turnier \"{application.tournament.title}\" wurden freigegeben.",
+                notification_type="tournament_edit_approved",
+                severity="SUCCESS",
+            )
+        else:
+            application.message = clean_msg
+            if reason:
+                application.message = f"{clean_msg}\n\n[Jury-Hinweis zu Änderungsanfrage: {reason}]"
+            if hasattr(application, "edit_requested"):
+                application.edit_requested = False
+                application.edit_request_message = ""
+                application.edit_request_created_at = None
+            application.save()
+
+            notify_profiles(
+                [application.profile],
+                "Änderungsanfrage abgelehnt",
+                f"Deine Änderungsanfrage für das Turnier \"{application.tournament.title}\" wurde abgelehnt.{f' Begründung: {reason}' if reason else ''}",
+                notification_type="tournament_edit_rejected",
+                severity="WARNING",
+            )
+
+        return Response(self.get_serializer(application).data)
 
     @action(detail=True, methods=["POST"], url_path="decision", permission_classes=[permissions.IsAuthenticated, IsTeam])
     def decision(self, request, pk=None):
@@ -4707,17 +4819,7 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                 )
                 created += 1
                 continue
-
-            changed_fields = []
-            if platform.name != entry["name"]:
-                platform.name = entry["name"]
-                changed_fields.append("name")
-            if platform.allow_non_team_users != entry["allow_non_team_users"]:
-                platform.allow_non_team_users = entry["allow_non_team_users"]
-                changed_fields.append("allow_non_team_users")
-            if changed_fields:
-                platform.save(update_fields=[*changed_fields, "updated_at"])
-                updated += 1
+            # Note: Do not overwrite custom status, version or allow_non_team_users set manually by the administrator
         return {"created": created, "updated": updated}
 
     def list(self, request, *args, **kwargs):
@@ -4806,7 +4908,14 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
         self._sync_platform_catalog()
         me = getattr(request.user, "profile", None)
         is_team_user = is_team_profile(me)
-        is_admin_user = bool(me and (me.roles.filter(key="ADMIN").exists() or getattr(request.user, "is_superuser", False)))
+        is_admin_user = bool(
+            me
+            and (
+                me.roles.filter(key="ADMIN").exists()
+                or getattr(request.user, "is_superuser", False)
+                or getattr(request.user, "is_staff", False)
+            )
+        )
         role_keys = set(me.roles.values_list("key", flat=True)) if me else set()
         if not role_keys:
             role_keys = {"MEMBER"}
@@ -4818,21 +4927,24 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
         }
         rows = []
         for platform in ManagedPlatform.objects.all().order_by("name"):
+            # Enforce strict access rules:
+            # 1. LOCKED is locked for everyone except admin
+            # 2. MAINTENANCE allows nobody in except team and admin
+            # 3. ACTIVE is available for team/admin, and for artists if allow_non_team_users is True
             if platform.status == "LOCKED":
-                accessible = False
+                accessible = is_admin_user
             elif platform.status == "MAINTENANCE":
-                accessible = is_team_user
+                accessible = is_admin_user or is_team_user
             else:
-                accessible = is_team_user or platform.allow_non_team_users
-
-            if not is_admin_user:
-                explicit_role_rules = []
-                for role_key in role_keys:
-                    rules = policy_map.get(role_key) or {}
-                    if platform.slug in rules:
-                        explicit_role_rules.append(bool(rules.get(platform.slug)))
-                if explicit_role_rules:
-                    accessible = any(explicit_role_rules)
+                accessible = is_admin_user or is_team_user or platform.allow_non_team_users
+                if not is_admin_user and not is_team_user:
+                    explicit_role_rules = []
+                    for role_key in role_keys:
+                        rules = policy_map.get(role_key) or {}
+                        if platform.slug in rules:
+                            explicit_role_rules.append(bool(rules.get(platform.slug)))
+                    if explicit_role_rules:
+                        accessible = any(explicit_role_rules)
 
             rows.append(
                 {

@@ -18,15 +18,14 @@
 
       <div class="header-actions">
         <button
-          class="btn ghost btn-sm"
+          class="btn btn-primary btn-sm"
           type="button"
-          @click="syncPlatforms"
-          :disabled="syncing || loading || !isTeam"
-          title="Erkennt automatisch alle aktiven Routen und Plattform-Dienste"
+          @click="showAddPlatformModal = true"
+          :disabled="!isTeam"
+          title="Neue Plattform manuell im System erfassen"
         >
-          <span v-if="syncing" class="spinner-micro"></span>
-          <span v-else>🔄</span>
-          <span>{{ syncing ? "Erkenne..." : "Plattformen scannen" }}</span>
+          <span>➕</span>
+          <span>Plattform manuell anlegen</span>
         </button>
         <button
           class="btn ghost btn-sm"
@@ -91,6 +90,34 @@
       <!-- TAB 1: PLATTFORM MANAGER -->
       <!-- ================================================================= -->
       <section v-if="activeTab === 'platforms'" class="platforms-view-grid">
+        <!-- Status Rules Explanation Banner -->
+        <div class="card platform-rules-banner">
+          <div class="prb-header">
+            <span class="prb-icon">⚖️</span>
+            <div>
+              <h3 class="prb-title">Systemweite Plattform-Zugriffsregeln</h3>
+              <p class="prb-subtitle">Exakte Durchsetzung im ProArtist Router und Backend Guard:</p>
+            </div>
+          </div>
+          <div class="prb-grid">
+            <div class="prb-card locked">
+              <div class="prb-badge">🔴 LOCKED</div>
+              <strong>Gesperrt für alle außer Admin</strong>
+              <p>Nur System-Administratoren haben Zutritt. Team-Mitglieder und reguläre Artists werden blockiert.</p>
+            </div>
+            <div class="prb-card maintenance">
+              <div class="prb-badge">🟡 MAINTENANCE</div>
+              <strong>Wartung (Nur Team &amp; Admin)</strong>
+              <p>Nur autorisiertes Team und Admins dürfen rein. Reguläre Artists sehen den Wartungshinweis.</p>
+            </div>
+            <div class="prb-card active">
+              <div class="prb-badge">🟢 ACTIVE</div>
+              <strong>Live &amp; Aktiv</strong>
+              <p>Team und Admin haben vollen Zugriff. Reguläre Artists dürfen rein, wenn Freigabe-Häkchen aktiv ist.</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Overview & Quick Stats Bar -->
         <div class="platform-stats-row">
           <div class="pstat-card">
@@ -102,12 +129,44 @@
             <strong class="pstat-val">{{ activePlatformsCount }}</strong>
           </div>
           <div class="pstat-card warn">
-            <span class="pstat-label">Wartung / Maintenance</span>
+            <span class="pstat-label">Wartung (Team &amp; Admin)</span>
             <strong class="pstat-val">{{ maintenancePlatformsCount }}</strong>
           </div>
           <div class="pstat-card danger">
-            <span class="pstat-label">Gesperrt / Locked</span>
+            <span class="pstat-label">Gesperrt (Nur Admin)</span>
             <strong class="pstat-val">{{ lockedPlatformsCount }}</strong>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="card platform-filter-bar">
+          <div class="pfb-search">
+            <span class="search-icon">🔍</span>
+            <input
+              v-model.trim="platformSearchQuery"
+              class="input input-sm"
+              placeholder="Plattformen durchsuchen (z. B. Contest, Music, Finanzen)..."
+            />
+          </div>
+          <div class="pfb-categories">
+            <button
+              v-for="cat in platformCategories"
+              :key="cat.key"
+              type="button"
+              class="category-btn"
+              :class="{ active: selectedPlatformCategory === cat.key }"
+              @click="selectedPlatformCategory = cat.key"
+            >
+              {{ cat.label }}
+            </button>
+          </div>
+          <div class="pfb-status">
+            <select v-model="platformStatusFilter" class="input input-sm">
+              <option value="ALL">Alle Status</option>
+              <option value="ACTIVE">🟢 Nur Live</option>
+              <option value="MAINTENANCE">🟡 Nur Wartung</option>
+              <option value="LOCKED">🔴 Nur Gesperrt</option>
+            </select>
           </div>
         </div>
 
@@ -117,9 +176,13 @@
           <p class="muted">Plattformen werden geladen...</p>
         </div>
 
+        <div v-else-if="!filteredPlatforms.length" class="card loading-state" style="padding: 36px; text-align: center;">
+          <p class="muted">Keine Plattformen für diesen Filter gefunden.</p>
+        </div>
+
         <div v-else class="platform-cards-grid">
           <article
-            v-for="item in platforms"
+            v-for="item in filteredPlatforms"
             :key="item.id"
             class="card platform-card"
             :class="`status-${item.status?.toLowerCase()}`"
@@ -128,7 +191,9 @@
             <div class="pcard-top">
               <div class="pcard-info">
                 <div class="pcard-name-row">
+                  <span class="pcard-icon">{{ item.icon || '🌐' }}</span>
                   <h3 class="pcard-title">{{ item.name }}</h3>
+                  <span v-if="item.category" class="badge-category">{{ item.category }}</span>
                   <span v-if="item.is_system_defined" class="badge-system">System</span>
                 </div>
                 <div class="pcard-meta">
@@ -139,23 +204,61 @@
 
               <!-- Current Status Pill -->
               <span class="pcard-status-pill" :class="item.status?.toLowerCase()">
-                {{ item.status }}
+                {{ item.status === 'LOCKED' ? '🔴 Nur Admin' : (item.status === 'MAINTENANCE' ? '🟡 Team & Admin' : '🟢 Live') }}
               </span>
             </div>
 
             <!-- Platform Description / Info -->
             <p class="pcard-desc">
-              {{ getPlatformDescription(item.slug) }}
+              {{ item.description || getPlatformDescription(item.slug) }}
             </p>
+
+            <!-- Quick 1-Click Status Toggles -->
+            <div class="quick-status-row">
+              <button
+                type="button"
+                class="btn-status-toggle active-toggle"
+                :class="{ selected: item.status === 'ACTIVE' }"
+                @click="setQuickStatus(item, 'ACTIVE')"
+                title="Sofort auf Live / Aktiv setzen"
+              >
+                🟢 Live
+              </button>
+              <button
+                type="button"
+                class="btn-status-toggle maintenance-toggle"
+                :class="{ selected: item.status === 'MAINTENANCE' }"
+                @click="setQuickStatus(item, 'MAINTENANCE')"
+                title="Wartungsmodus: Nur Team & Admin haben Zutritt"
+              >
+                🟡 Wartung
+              </button>
+              <button
+                type="button"
+                class="btn-status-toggle locked-toggle"
+                :class="{ selected: item.status === 'LOCKED' }"
+                @click="setQuickStatus(item, 'LOCKED')"
+                title="Gesperrt: Streng gesperrt für alle außer Admin"
+              >
+                🔴 Sperren
+              </button>
+            </div>
+
+            <!-- Descriptive Access Hint -->
+            <div class="status-access-hint" :class="item.status?.toLowerCase()">
+              <span v-if="item.status === 'LOCKED'">🔒 Gesperrt: Zutritt ausschließlich für Administratoren.</span>
+              <span v-else-if="item.status === 'MAINTENANCE'">🛠️ Wartungsmodus: Nur Team und Admins dürfen rein.</span>
+              <span v-else>✅ Live: Team &amp; Admin aktiv; reguläre Artists {{ item.allow_non_team_users ? 'freigegeben' : 'gesperrt' }}.</span>
+            </div>
 
             <!-- Inline Settings Controls -->
             <div class="pcard-settings-box">
               <div class="setting-row">
-                <label class="setting-label">Status:</label>
+                <label class="setting-label">Status-Wahl:</label>
                 <select v-model="item.status" class="input input-sm setting-select">
-                  <option value="ACTIVE">ACTIVE (Verfügbar)</option>
-                  <option value="MAINTENANCE">MAINTENANCE (Wartung)</option>
-                  <option value="LOCKED">LOCKED (Gesperrt)</option>
+                  <option value="ACTIVE">🟢 ACTIVE (Live / Aktiv)</option>
+                  <option value="MAINTENANCE">🟡 MAINTENANCE (Wartung - nur Team &amp; Admin)</option>
+                  <option value="LOCKED">🔴 LOCKED (Gesperrt - nur Admin)</option>
                 </select>
               </div>
 
@@ -173,7 +276,7 @@
                 <label class="check-container">
                   <input type="checkbox" v-model="item.allow_non_team_users" />
                   <span class="checkmark"></span>
-                  <span class="check-text">Für reguläre Artists freigegeben</span>
+                  <span class="check-text">Für reguläre Artists freigegeben (wenn ACTIVE)</span>
                 </label>
               </div>
 
@@ -182,7 +285,7 @@
                 <input
                   v-model.trim="item.status_note"
                   class="input input-sm setting-input"
-                  placeholder="Optionaler Hinweis für Nutzer"
+                  placeholder="Optionaler Hinweis für gesperrte Nutzer"
                 />
               </div>
             </div>
@@ -212,6 +315,7 @@
                   type="button"
                   @click="deletePlatform(item)"
                   :disabled="busyId === item.id"
+                  title="Plattform löschen"
                 >
                   🗑️
                 </button>
@@ -539,6 +643,82 @@
         </div>
       </div>
     </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL: MANUALLY ADD NEW PLATFORM -->
+    <!-- ================================================================= -->
+    <div v-if="showAddPlatformModal" class="modal-overlay" @click.self="showAddPlatformModal = false">
+      <div class="modal card add-platform-modal">
+        <div class="modal-header">
+          <h3>➕ Neue Plattform manuell anlegen</h3>
+          <button class="btn ghost tiny" @click="showAddPlatformModal = false">✕</button>
+        </div>
+        <form class="modal-form" @submit.prevent="createManualPlatform">
+          <label>
+            <span>Plattform Name *</span>
+            <input v-model.trim="newPlatformForm.name" class="input" placeholder="z. B. Mastering Suite" required />
+          </label>
+          <div class="form-grid-2">
+            <label>
+              <span>Slug (Kennung) *</span>
+              <input v-model.trim="newPlatformForm.slug" class="input" placeholder="mastering-suite" required />
+            </label>
+            <label>
+              <span>Route / URL-Pfad *</span>
+              <input v-model.trim="newPlatformForm.route" class="input" placeholder="/platforms/mastering-suite" required />
+            </label>
+          </div>
+          <div class="form-grid-3">
+            <label>
+              <span>Kategorie</span>
+              <select v-model="newPlatformForm.category" class="input">
+                <option value="Contest & Battles">🏆 Contest & Battles</option>
+                <option value="Creator Suite">🎵 Creator Suite</option>
+                <option value="Community">👥 Community</option>
+                <option value="Admin & Core">🛡️ Admin & Core</option>
+                <option value="Custom">✨ Eigene / Custom</option>
+              </select>
+            </label>
+            <label>
+              <span>Initialer Status</span>
+              <select v-model="newPlatformForm.status" class="input">
+                <option value="ACTIVE">🟢 ACTIVE (Live)</option>
+                <option value="MAINTENANCE">🟡 MAINTENANCE (Wartung)</option>
+                <option value="LOCKED">🔴 LOCKED (Gesperrt)</option>
+              </select>
+            </label>
+            <label>
+              <span>Version</span>
+              <input v-model.trim="newPlatformForm.version" class="input" placeholder="1.0" />
+            </label>
+          </div>
+          <label>
+            <span>Beschreibung</span>
+            <textarea
+              v-model.trim="newPlatformForm.description"
+              class="input"
+              rows="2"
+              placeholder="Zweck und Funktionen dieser Plattform..."
+            ></textarea>
+          </label>
+          <label class="check-container" style="margin: 6px 0;">
+            <input type="checkbox" v-model="newPlatformForm.allow_non_team_users" />
+            <span class="checkmark"></span>
+            <span class="check-text">Für reguläre Artists freigeben (wenn Status ACTIVE)</span>
+          </label>
+          <label>
+            <span>Wartungs- / Sperrhinweis (optional)</span>
+            <input v-model.trim="newPlatformForm.status_note" class="input" placeholder="Hinweistext für Nutzer im Sperrfall" />
+          </label>
+          <div class="modal-footer">
+            <button class="btn ghost btn-sm" type="button" @click="showAddPlatformModal = false">Abbrechen</button>
+            <button class="btn btn-primary btn-sm" type="submit" :disabled="creatingPlatform">
+              {{ creatingPlatform ? 'Erstelle...' : 'Plattform anlegen ✓' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -548,7 +728,7 @@ import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
-import { invalidateManagedPlatformAccessCache } from "../services/managedPlatforms";
+import { PLATFORMS_CATALOG, invalidateManagedPlatformAccessCache } from "../services/managedPlatforms";
 
 const router = useRouter();
 const { isTeam, fetchProfile } = useCurrentProfile();
@@ -556,12 +736,39 @@ const { showToast } = useToast();
 
 const activeTab = ref("platforms");
 const loading = ref(false);
-const syncing = ref(false);
 const historyLoading = ref(false);
 const busyId = ref(null);
 
 const platforms = ref([]);
 const historyEntries = ref([]);
+
+/* Manual Platform Addition Modal */
+const showAddPlatformModal = ref(false);
+const creatingPlatform = ref(false);
+const newPlatformForm = ref({
+  name: "",
+  slug: "",
+  route: "",
+  category: "Contest & Battles",
+  status: "ACTIVE",
+  version: "1.0",
+  description: "",
+  allow_non_team_users: false,
+  status_note: "",
+});
+
+/* Platform Search & Category Filters */
+const platformSearchQuery = ref("");
+const selectedPlatformCategory = ref("ALL");
+const platformStatusFilter = ref("ALL");
+
+const platformCategories = [
+  { key: "ALL", label: "Alle Module" },
+  { key: "Contest & Battles", label: "🏆 Contest & Battles" },
+  { key: "Creator Suite", label: "🎵 Creator Suite" },
+  { key: "Community", label: "👥 Community" },
+  { key: "Admin & Core", label: "🛡️ Admin & Core" },
+];
 
 /* Artist Roster & Visibility State */
 const artistsList = ref([]);
@@ -598,6 +805,27 @@ const unyqArtistCount = computed(() => {
   return artistsList.value.filter((a) => getArtistMode(a) === "UNYQ_ARTIST").length;
 });
 
+const filteredPlatforms = computed(() => {
+  let list = platforms.value;
+  if (selectedPlatformCategory.value !== "ALL") {
+    list = list.filter((p) => p.category === selectedPlatformCategory.value);
+  }
+  if (platformStatusFilter.value !== "ALL") {
+    list = list.filter((p) => p.status === platformStatusFilter.value);
+  }
+  if (platformSearchQuery.value) {
+    const q = platformSearchQuery.value.toLowerCase();
+    list = list.filter((p) => {
+      const name = (p.name || "").toLowerCase();
+      const slug = (p.slug || "").toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const cat = (p.category || "").toLowerCase();
+      return name.includes(q) || slug.includes(q) || desc.includes(q) || cat.includes(q);
+    });
+  }
+  return list;
+});
+
 const filteredArtists = computed(() => {
   let list = artistsList.value;
 
@@ -625,6 +853,8 @@ const filteredArtists = computed(() => {
 
 /* Helper Functions */
 function getPlatformDescription(slug) {
+  const match = PLATFORMS_CATALOG.find((p) => p.slug === slug);
+  if (match) return match.description;
   const map = {
     contests: "Contest & Battle Arena: Turniere, Runden-Einreichungen, Votings und Preispools.",
     music: "UNYQ Music Player: Streaming, offizielle Releases, Playlisten und Kataloge.",
@@ -634,20 +864,12 @@ function getPlatformDescription(slug) {
     "manage-platforms": "Platform Control: Zentrale Systemverwaltung für Administratoren.",
     "admin-hub": "Admin Control Hub: Überwachung aller Dienste und Berechtigungen.",
   };
-  return map[slug] || "Automatisch erkannter UNYQ System-Dienst.";
+  return map[slug] || "UNYQ System-Dienst.";
 }
 
 function openPlatformRoute(slug) {
-  const map = {
-    contests: "/platforms/contests",
-    music: "/platforms/music",
-    hub: "/platforms/hub",
-    "content-studio": "/platforms/content-studio",
-    finance: "/platforms/finance",
-    "manage-platforms": "/platforms/manage-platforms",
-    "admin-hub": "/platforms/admin",
-  };
-  const path = map[slug] || `/platforms/${slug}`;
+  const item = platforms.value.find((p) => p.slug === slug);
+  const path = item?.defaultRoute || item?.route || `/platforms/${slug}`;
   router.push(path);
 }
 
@@ -704,13 +926,73 @@ function setDefaultMode(mode) {
   showToast(`Standard-Modus für neue Artists geändert zu: ${mode === "CONTEST_ONLY" ? "Nur Turniere" : "UNYQ Artist"}`, "info");
 }
 
-/* API Calls */
+/* API Calls & Manual Platforms Management */
 async function loadPlatforms() {
   if (!isTeam.value) return;
   loading.value = true;
   try {
     const { data } = await api.get("manage-platforms/");
-    platforms.value = Array.isArray(data) ? data : data.results || [];
+    const dbPlatforms = Array.isArray(data) ? data : data.results || [];
+
+    const dbMap = new Map();
+    dbPlatforms.forEach((p) => {
+      if (p.slug) dbMap.set(p.slug.toLowerCase(), p);
+    });
+
+    const merged = [];
+    const usedSlugs = new Set();
+
+    // 1. Manually list all predefined system platform catalog items
+    PLATFORMS_CATALOG.forEach((catEntry) => {
+      const slugKey = catEntry.slug.toLowerCase();
+      usedSlugs.add(slugKey);
+      const existing = dbMap.get(slugKey);
+      if (existing) {
+        merged.push({
+          ...catEntry,
+          ...existing,
+          icon: catEntry.icon || existing.icon || "🌐",
+          category: catEntry.category || "General",
+          description: existing.description || catEntry.description || "",
+          defaultRoute: existing.route || catEntry.defaultRoute || `/platforms/${catEntry.slug}`,
+          is_catalog_item: false,
+        });
+      } else {
+        merged.push({
+          id: `catalog_${catEntry.slug}`,
+          slug: catEntry.slug,
+          name: catEntry.name,
+          route: catEntry.defaultRoute,
+          defaultRoute: catEntry.defaultRoute,
+          icon: catEntry.icon,
+          category: catEntry.category,
+          description: catEntry.description,
+          status: "ACTIVE",
+          version: "1.0",
+          allow_non_team_users: Boolean(catEntry.allow_non_team_users),
+          status_note: "",
+          is_system_defined: true,
+          is_catalog_item: true,
+        });
+      }
+    });
+
+    // 2. Append any custom platforms in the DB that aren't in the static catalog
+    dbPlatforms.forEach((p) => {
+      const slugKey = (p.slug || "").toLowerCase();
+      if (!usedSlugs.has(slugKey)) {
+        merged.push({
+          ...p,
+          icon: p.icon || "✨",
+          category: "Custom",
+          description: p.description || "Manuell angelegte Plattform.",
+          defaultRoute: p.route || `/platforms/${p.slug}`,
+          is_catalog_item: false,
+        });
+      }
+    });
+
+    platforms.value = merged;
   } catch {
     platforms.value = [];
     showToast("Plattformen konnten nicht geladen werden.", "error");
@@ -753,22 +1035,99 @@ async function loadArtists() {
 async function savePlatform(item) {
   busyId.value = item.id;
   try {
-    const payload = {
-      version: item.version,
-      status: item.status,
-      allow_non_team_users: item.allow_non_team_users,
-      status_note: item.status_note || "",
-    };
-    const { data } = await api.patch(`manage-platforms/${item.id}/`, payload);
+    const isNew = String(item.id).startsWith("catalog_");
+    let savedData;
+    if (isNew) {
+      const payload = {
+        name: item.name,
+        slug: item.slug,
+        route: item.route || item.defaultRoute || `/platforms/${item.slug}`,
+        version: item.version || "1.0",
+        status: item.status || "ACTIVE",
+        allow_non_team_users: Boolean(item.allow_non_team_users),
+        status_note: item.status_note || "",
+        is_system_defined: true,
+      };
+      const { data } = await api.post("manage-platforms/", payload);
+      savedData = data;
+    } else {
+      const payload = {
+        version: item.version,
+        status: item.status,
+        allow_non_team_users: Boolean(item.allow_non_team_users),
+        status_note: item.status_note || "",
+      };
+      const { data } = await api.patch(`manage-platforms/${item.id}/`, payload);
+      savedData = data;
+    }
+
     const idx = platforms.value.findIndex((row) => row.id === item.id);
-    if (idx >= 0) platforms.value[idx] = data;
+    if (idx >= 0) {
+      platforms.value[idx] = {
+        ...platforms.value[idx],
+        ...savedData,
+        is_catalog_item: false,
+      };
+    }
     invalidateManagedPlatformAccessCache();
     await loadHistory();
-    showToast(`Plattform "${item.name}" gespeichert.`, "success");
-  } catch {
-    showToast("Plattform konnte nicht gespeichert werden.", "error");
+    showToast(`Plattform "${item.name}" gespeichert (${item.status}).`, "success");
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Plattform konnte nicht gespeichert werden.", "error");
   } finally {
     busyId.value = null;
+  }
+}
+
+async function setQuickStatus(item, newStatus) {
+  if (item.status === newStatus) return;
+  item.status = newStatus;
+  await savePlatform(item);
+}
+
+async function createManualPlatform() {
+  if (!newPlatformForm.value.name || !newPlatformForm.value.slug) return;
+  creatingPlatform.value = true;
+  try {
+    const cleanSlug = newPlatformForm.value.slug.toLowerCase().trim().replace(/[^a-z0-9-_]/g, "");
+    const payload = {
+      name: newPlatformForm.value.name,
+      slug: cleanSlug,
+      route: newPlatformForm.value.route || `/platforms/${cleanSlug}`,
+      version: newPlatformForm.value.version || "1.0",
+      status: newPlatformForm.value.status || "ACTIVE",
+      allow_non_team_users: Boolean(newPlatformForm.value.allow_non_team_users),
+      status_note: newPlatformForm.value.status_note || "",
+      is_system_defined: false,
+    };
+    const { data } = await api.post("manage-platforms/", payload);
+    platforms.value.unshift({
+      ...data,
+      icon: "✨",
+      category: newPlatformForm.value.category || "Custom",
+      description: newPlatformForm.value.description || "Manuell hinzugefügte Plattform.",
+      defaultRoute: data.route,
+      is_catalog_item: false,
+    });
+    invalidateManagedPlatformAccessCache();
+    await loadHistory();
+    showToast(`Plattform "${data.name}" erfolgreich angelegt!`, "success");
+    showAddPlatformModal.value = false;
+    newPlatformForm.value = {
+      name: "",
+      slug: "",
+      route: "",
+      category: "Custom",
+      status: "ACTIVE",
+      version: "1.0",
+      description: "",
+      allow_non_team_users: false,
+      status_note: "",
+    };
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Plattform nicht erstellen.", "error");
+  } finally {
+    creatingPlatform.value = false;
   }
 }
 
@@ -786,80 +1145,6 @@ async function deletePlatform(item) {
     showToast("Plattform konnte nicht gelöscht werden.", "error");
   } finally {
     busyId.value = null;
-  }
-}
-
-function scanClientPlatforms() {
-  const routes = router.getRoutes();
-  const scanned = [];
-  const seenSlugs = new Set();
-
-  routes.forEach((r) => {
-    const path = r.path || "";
-    const name = String(r.name || "");
-    if (!path || path.includes("/:") || path === "/" || path.startsWith("/login") || path.startsWith("/register") || path.startsWith("/set-password")) {
-      return;
-    }
-
-    let slug = "";
-    let displayName = "";
-
-    if (path.startsWith("/platforms/")) {
-      const sub = path.replace("/platforms/", "").split("/")[0];
-      if (sub) {
-        slug = sub;
-        displayName = name.replace(/^platform-/, "").replace(/-/g, " ");
-      }
-    } else if (path === "/tournaments") {
-      slug = "tournaments";
-      displayName = "Arena & Turniere";
-    } else if (path === "/platforms") {
-      slug = "hub";
-      displayName = "Creator Hub";
-    } else if (path.startsWith("/app/")) {
-      const sub = path.replace("/app/", "").split("/")[0];
-      if (sub && !["me", "notifications", "search", "team/roles"].includes(sub)) {
-        slug = sub;
-        displayName = name.replace(/-/g, " ");
-      }
-    }
-
-    if (slug && !seenSlugs.has(slug)) {
-      seenSlugs.add(slug);
-      const prettyName = displayName
-        ? displayName
-            .split(" ")
-            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(" ")
-        : slug.charAt(0).toUpperCase() + slug.slice(1);
-
-      scanned.push({
-        slug,
-        name: prettyName,
-        path,
-        version: "1.0",
-      });
-    }
-  });
-
-  return scanned;
-}
-
-async function syncPlatforms() {
-  syncing.value = true;
-  try {
-    const scanned_platforms = scanClientPlatforms();
-    const { data } = await api.post("manage-platforms/sync/", { scanned_platforms });
-    platforms.value = Array.isArray(data?.results) ? data.results : data?.results || [];
-    invalidateManagedPlatformAccessCache();
-    await loadHistory();
-    const created = Number(data?.stats?.created || 0);
-    const updated = Number(data?.stats?.updated || 0);
-    showToast(`Plattform-Katalog synchronisiert (${created} neu erkannt, ${updated} aktualisiert).`, "success");
-  } catch {
-    showToast("Synchronisation fehlgeschlagen.", "error");
-  } finally {
-    syncing.value = false;
   }
 }
 
@@ -957,9 +1242,6 @@ async function reloadAll() {
 onMounted(async () => {
   await fetchProfile();
   await reloadAll();
-  if (isTeam.value && platforms.value.length === 0) {
-    await syncPlatforms();
-  }
 });
 </script>
 
@@ -1110,6 +1392,252 @@ onMounted(async () => {
   border-radius: 50%;
   background: #10b981;
   box-shadow: 0 0 10px #10b981;
+}
+
+/* Platform Rules Banner */
+.platform-rules-banner {
+  padding: 20px 24px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(18, 24, 38, 0.95), rgba(12, 17, 28, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prb-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.prb-icon {
+  font-size: 2rem;
+}
+
+.prb-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.prb-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.prb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.prb-card {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(10, 14, 23, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prb-card.locked {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.prb-card.maintenance {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.prb-card.active {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.prb-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.prb-card.locked .prb-badge { color: #f87171; }
+.prb-card.maintenance .prb-badge { color: #fbbf24; }
+.prb-card.active .prb-badge { color: #34d399; }
+
+.prb-card strong {
+  font-size: 0.92rem;
+  color: #f1f5f9;
+}
+
+.prb-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+/* Filter & Search Bar */
+.platform-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(15, 21, 33, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+}
+
+.pfb-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 260px;
+  flex: 1;
+}
+
+.pfb-categories {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.category-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.category-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.category-btn.active {
+  background: rgba(255, 170, 0, 0.15);
+  color: #ffaa00;
+  border-color: rgba(255, 170, 0, 0.35);
+}
+
+.badge-category {
+  font-size: 0.65rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255, 170, 0, 0.12);
+  color: #ffaa00;
+  border: 1px solid rgba(255, 170, 0, 0.25);
+  font-weight: 600;
+}
+
+.pcard-icon {
+  font-size: 1.25rem;
+}
+
+/* 1-Click Quick Status Row */
+.quick-status-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.btn-status-toggle {
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.04);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.btn-status-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.btn-status-toggle.active-toggle.selected {
+  background: rgba(16, 185, 129, 0.22);
+  color: #10b981;
+  border-color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+
+.btn-status-toggle.maintenance-toggle.selected {
+  background: rgba(245, 158, 11, 0.22);
+  color: #f59e0b;
+  border-color: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+
+.btn-status-toggle.locked-toggle.selected {
+  background: rgba(239, 68, 68, 0.22);
+  color: #ef4444;
+  border-color: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+}
+
+/* Status Access Hint */
+.status-access-hint {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  background: rgba(15, 21, 33, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+}
+
+.status-access-hint.locked {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
+.status-access-hint.maintenance {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+}
+
+.status-access-hint.active {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #a7f3d0;
+}
+
+/* Add Platform Modal Form Grids */
+.add-platform-modal {
+  max-width: 580px;
+  width: 100%;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
 }
 
 /* Stats Row */

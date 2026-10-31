@@ -357,6 +357,20 @@
             <div class="pillar-badges">
               <span class="badge-cat">{{ pillar.category }}</span>
               <span class="badge-accent" :class="`pill-${pillar.color}`">{{ pillar.badge }}</span>
+              <span
+                v-if="accessStateBySlug[pillar.key] && accessStateBySlug[pillar.key].status === 'LOCKED'"
+                class="badge-accent"
+                style="background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4);"
+              >
+                🔴 LOCKED
+              </span>
+              <span
+                v-else-if="accessStateBySlug[pillar.key] && accessStateBySlug[pillar.key].status === 'MAINTENANCE'"
+                class="badge-accent"
+                style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);"
+              >
+                🟡 WARTUNG
+              </span>
             </div>
           </div>
 
@@ -797,7 +811,13 @@ function openPlatformByKey(key) {
   // check access state
   const state = accessStateBySlug.value[key];
   if (state && state.is_accessible === false) {
-    showToast(state.status_note || "Diese Plattform ist aktuell gewartet.", "warning");
+    if (state.status === "LOCKED") {
+      showToast(state.status_note || "Plattform ist gesperrt (Zutritt nur für Admins).", "warning");
+    } else if (state.status === "MAINTENANCE") {
+      showToast(state.status_note || "Plattform befindet sich im Wartungsmodus (nur Team & Admin).", "warning");
+    } else {
+      showToast(state.status_note || "Zugriff auf diese Plattform ist aktuell nicht freigegeben.", "warning");
+    }
     return;
   }
 

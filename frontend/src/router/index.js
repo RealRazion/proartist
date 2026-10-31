@@ -185,7 +185,17 @@ router.beforeEach(async (to, from, next) => {
       const bySlug = mapAccessStateRows(rows);
       const state = bySlug[targetSlug];
       if (state && state.is_accessible === false) {
-        showToast(state.status_note || "Diese Plattform ist aktuell nicht verfuegbar.", "warning");
+        let msg = state.status_note;
+        if (!msg) {
+          if (state.status === "LOCKED") {
+            msg = `Die Plattform "${state.name || targetSlug}" ist aktuell gesperrt (Zugriff nur für Administratoren).`;
+          } else if (state.status === "MAINTENANCE") {
+            msg = `Die Plattform "${state.name || targetSlug}" befindet sich in Wartung (Zugriff nur für Team & Admin).`;
+          } else {
+            msg = `Kein Zugriff auf "${state.name || targetSlug}". Diese Plattform ist nur für autorisierte Team-Mitglieder freigegeben.`;
+          }
+        }
+        showToast(msg, "warning");
         next({ name: "platforms" });
         return;
       }

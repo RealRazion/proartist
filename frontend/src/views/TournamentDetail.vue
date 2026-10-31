@@ -255,10 +255,44 @@
               <p class="masc-message"><strong>Nachricht / Link:</strong> "{{ myApplication.message }}"</p>
             </div>
 
+            <!-- Edit Request Pending Banner if approved and requested changes -->
+            <div v-if="myApplication.edit_requested" class="card pending-edit-request-banner mb-2">
+              <div class="perb-head">
+                <span class="badge-status-pill warn tiny">⏳ Änderungsanfrage in Prüfung</span>
+                <span class="muted small">Wartet auf Bestätigung durch die Jury</span>
+              </div>
+              <p class="perb-text small" v-if="myApplication.edit_request_message">
+                Beantragt: <strong>"{{ myApplication.edit_request_message }}"</strong>
+              </p>
+            </div>
+
             <div class="masc-actions">
-              <button class="btn ghost btn-sm" @click="openApplyModal">
+              <!-- If NOT yet approved: direct edit allowed -->
+              <button
+                v-if="myApplication.status !== 'APPROVED'"
+                class="btn ghost btn-sm"
+                @click="openApplyModal"
+              >
                 ✏️ Bewerbung bearbeiten / überarbeiten
               </button>
+
+              <!-- If ALREADY APPROVED: edit only upon request! -->
+              <template v-else>
+                <button
+                  v-if="!myApplication.edit_requested"
+                  class="btn ghost btn-sm btn-request-edit"
+                  @click="openEditRequestModal"
+                >
+                  📝 Bewerbung bearbeiten (Änderungsanfrage stellen)
+                </button>
+                <button
+                  v-else
+                  class="btn ghost btn-sm btn-request-edit"
+                  @click="openEditRequestModal"
+                >
+                  📝 Änderungsanfrage anpassen
+                </button>
+              </template>
             </div>
           </div>
 
@@ -737,12 +771,15 @@
         <!-- Team View: Full management list -->
         <template v-if="isTeam">
           <div class="applications-list" v-if="applicationRows.length">
-            <div v-for="app in applicationRows" :key="app.id" class="app-item-card">
+            <div v-for="app in applicationRows" :key="app.id" class="app-item-card" :class="{ 'has-edit-request': app.edit_requested }">
               <div class="app-info">
                 <div class="app-head-line">
                   <strong>{{ app.profile_name }}</strong>
                   <span class="badge-status-pill" :class="app.status?.toLowerCase()">
                     {{ app.status === 'APPROVED' ? 'Zugelassen' : (app.status === 'REJECTED' ? 'Abgelehnt' : 'In Prüfung') }}
+                  </span>
+                  <span v-if="app.edit_requested" class="badge-status-pill warn tiny">
+                    ⚠️ Änderungsanfrage
                   </span>
                 </div>
                 <p class="muted small">{{ app.message || 'Bewerbung eingereicht.' }}</p>
@@ -751,6 +788,20 @@
                 <div v-if="app.rejection_reason" class="item-rejection-tag">
                   ❌ Begründung der Jury: "{{ app.rejection_reason }}"
                 </div>
+
+                <!-- Edit Request Pending Banner for Team -->
+                <div v-if="app.edit_requested" class="app-edit-request-box">
+                  <div class="aerb-title">📝 Artist bittet um Änderung der Bewerbung:</div>
+                  <p class="aerb-text">"{{ app.edit_request_message }}"</p>
+                  <div class="aerb-actions">
+                    <button class="btn btn-micro btn-accept" @click="decideEditRequest(app, 'APPROVED')" title="Änderung annehmen & übernehmen">
+                      ✓ Änderung annehmen
+                    </button>
+                    <button class="btn ghost btn-micro btn-reject" @click="promptRejectEditRequest(app)" title="Änderungsanfrage ablehnen">
+                      ✕ Ablehnen
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div class="app-actions">
@@ -758,11 +809,18 @@
                 <button class="btn ghost btn-micro btn-reject" @click="promptRejectApplication(app)" title="Mit Begründung ablehnen">✕</button>
                 <button class="btn ghost btn-micro btn-danger" @click="deleteApplication(app)" title="Bewerbung löschen">🗑️</button>
                 <button
-                  v-if="myApplication?.id === app.id"
+                  v-if="myApplication?.id === app.id && app.status !== 'APPROVED'"
                   class="btn ghost btn-micro"
                   @click="openApplyModal"
                 >
                   ✏️ Bearbeiten
+                </button>
+                <button
+                  v-if="myApplication?.id === app.id && app.status === 'APPROVED'"
+                  class="btn ghost btn-micro"
+                  @click="openEditRequestModal"
+                >
+                  📝 Änderung anfragen
                 </button>
               </div>
             </div>
@@ -915,6 +973,63 @@
           <div class="modal-actions">
             <button class="btn ghost" type="button" @click="showApplyModal = false">Abbrechen</button>
             <button class="btn" type="submit">{{ myApplication ? 'Bewerbung aktualisieren 💾' : 'Bewerbung abschicken 🎤' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- MODAL: ÄNDERUNGSANFRAGE FÜR BEREITS ANGENOMMENE BEWERBUNG -->
+    <!-- ================================================================= -->
+    <div v-if="showEditRequestModal" class="modal-overlay" @click.self="showEditRequestModal = false">
+      <div class="modal card edit-request-modal">
+        <div class="modal-header">
+          <div class="modal-title-with-badge">
+            <span class="badge-icon">📝</span>
+            <h3>Bewerbungs-Änderungsanfrage stellen</h3>
+          </div>
+          <button class="btn ghost tiny" @click="showEditRequestModal = false">✕</button>
+        </div>
+        <form class="modal-form" @submit.prevent="submitEditRequest">
+          <div class="card info-box-compact mb-3">
+            <span class="ibc-icon">ℹ️</span>
+            <p class="small">
+              Da deine Bewerbung für <strong>{{ tournament?.title }}</strong> bereits offiziell angenommen wurde, 
+              müssen Änderungen an Artist-Name oder Track-Link von der Jury / Turnierleitung bestätigt werden.
+            </p>
+          </div>
+
+          <div v-if="myApplication?.edit_requested" class="card warn-box-compact mb-3">
+            <span class="ibc-icon">⏳</span>
+            <p class="small">
+              <strong>Aktuell offene Änderungsanfrage:</strong><br />
+              "{{ myApplication.edit_request_message }}"
+            </p>
+          </div>
+
+          <label>
+            <span>Artist-Name *</span>
+            <input v-model.trim="editRequestArtistName" class="input" required />
+          </label>
+          <label>
+            <span>Neuer Demo- / Track-Link *</span>
+            <input v-model.trim="editRequestDemoLink" class="input" required placeholder="https://soundcloud.com/..." />
+          </label>
+          <label>
+            <span>Begründung / Nachricht für die Jury *</span>
+            <textarea
+              v-model.trim="editRequestReason"
+              class="input"
+              rows="3"
+              required
+              placeholder="Warum möchtest du deine Bewerbung nachträglich anpassen?"
+            ></textarea>
+          </label>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" @click="showEditRequestModal = false">Abbrechen</button>
+            <button class="btn btn-primary" type="submit" :disabled="submittingEditRequest">
+              {{ submittingEditRequest ? 'Wird übermittelt...' : 'Änderungsanfrage einreichen 📝' }}
+            </button>
           </div>
         </form>
       </div>
@@ -1301,6 +1416,12 @@ const showApplyModal = ref(false);
 const applyArtistName = ref("");
 const applyDemoLink = ref("");
 const applyMessage = ref("");
+
+const showEditRequestModal = ref(false);
+const submittingEditRequest = ref(false);
+const editRequestArtistName = ref("");
+const editRequestDemoLink = ref("");
+const editRequestReason = ref("");
 
 const showUploadModal = ref(false);
 const uploadRoundNumber = ref(1);
@@ -1808,6 +1929,10 @@ async function submitEditTournament() {
 
 /* Submitting Application & Round */
 function openApplyModal() {
+  if (myApplication.value && myApplication.value.status === "APPROVED") {
+    openEditRequestModal();
+    return;
+  }
   if (myApplication.value) {
     applyArtistName.value = myApplication.value.profile_name || me.value?.name || "";
     const demoMatch = myApplication.value.message?.match(/Demo:\s*([^|]+)/i);
@@ -1821,6 +1946,88 @@ function openApplyModal() {
     applyMessage.value = "";
   }
   showApplyModal.value = true;
+}
+
+function openEditRequestModal() {
+  if (myApplication.value) {
+    editRequestArtistName.value = myApplication.value.profile_name || me.value?.name || "";
+    const demoMatch = myApplication.value.message?.match(/Demo:\s*([^|]+)/i);
+    editRequestDemoLink.value = demoMatch ? demoMatch[1].trim() : "";
+    if (myApplication.value.edit_request_parsed) {
+      if (myApplication.value.edit_request_parsed.artist_name) {
+        editRequestArtistName.value = myApplication.value.edit_request_parsed.artist_name;
+      }
+      if (myApplication.value.edit_request_parsed.demo_link) {
+        editRequestDemoLink.value = myApplication.value.edit_request_parsed.demo_link;
+      }
+      editRequestReason.value = myApplication.value.edit_request_parsed.reason || "";
+    } else {
+      editRequestReason.value = "";
+    }
+  } else {
+    editRequestArtistName.value = me.value?.name || me.value?.username || "";
+    editRequestDemoLink.value = "";
+    editRequestReason.value = "";
+  }
+  showEditRequestModal.value = true;
+}
+
+async function submitEditRequest() {
+  if (!myApplication.value?.id) return;
+  submittingEditRequest.value = true;
+  try {
+    const { data } = await api.post(`tournament-applications/${myApplication.value.id}/request-edit/`, {
+      artist_name: editRequestArtistName.value,
+      demo_link: editRequestDemoLink.value,
+      reason: editRequestReason.value,
+    });
+    const idx = applicationRows.value.findIndex(a => a.id === myApplication.value.id);
+    if (idx !== -1) {
+      applicationRows.value[idx] = {
+        ...applicationRows.value[idx],
+        ...data,
+        edit_requested: true,
+        edit_request_message: data.edit_request_message || `Artist: ${editRequestArtistName.value} | Demo: ${editRequestDemoLink.value} | Begründung: ${editRequestReason.value}`,
+      };
+    }
+    showToast("Änderungsanfrage erfolgreich eingereicht! Die Jury wird informiert. 📝", "success");
+    showEditRequestModal.value = false;
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Fehler beim Einreichen der Änderungsanfrage.", "error");
+  } finally {
+    submittingEditRequest.value = false;
+  }
+}
+
+async function decideEditRequest(app, decision, reason = "") {
+  try {
+    const { data } = await api.post(`tournament-applications/${app.id}/decide-edit-request/`, {
+      decision,
+      reason,
+    });
+    const idx = applicationRows.value.findIndex(a => a.id === app.id);
+    if (idx !== -1) {
+      applicationRows.value[idx] = {
+        ...applicationRows.value[idx],
+        ...data,
+        edit_requested: false,
+        edit_request_message: "",
+      };
+    }
+    if (decision === "APPROVED") {
+      showToast(`Änderungsanfrage für ${app.profile_name} angenommen und übernommen! ✓`, "success");
+    } else {
+      showToast(`Änderungsanfrage für ${app.profile_name} abgelehnt.`, "info");
+    }
+  } catch (err) {
+    showToast(err?.response?.data?.detail || "Konnte Anfrage nicht bearbeiten.", "error");
+  }
+}
+
+function promptRejectEditRequest(app) {
+  const reason = window.prompt("Begründung für die Ablehnung der Änderungsanfrage (optional):", "");
+  if (reason === null) return;
+  decideEditRequest(app, "REJECTED", reason.trim());
 }
 
 async function submitApply() {
@@ -4047,6 +4254,76 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+.pending-edit-request-banner {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.perb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.perb-text {
+  margin: 0;
+  color: #e2e8f0;
+}
+.app-edit-request-box {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(245, 158, 11, 0.09);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  border-radius: 10px;
+}
+.aerb-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fbbf24;
+  margin-bottom: 4px;
+}
+.aerb-text {
+  font-size: 0.85rem;
+  color: #f1f5f9;
+  margin: 0 0 8px 0;
+}
+.aerb-actions {
+  display: flex;
+  gap: 8px;
+}
+.info-box-compact {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(0, 229, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 10px;
+}
+.warn-box-compact {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 10px;
+}
+.ibc-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.edit-request-modal {
+  max-width: 540px;
+}
+.modal-title-with-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 @media (max-width: 900px) {

@@ -1890,6 +1890,10 @@ class TournamentApplicationSerializer(serializers.ModelSerializer):
     tournament_title = serializers.CharField(source="tournament.title", read_only=True)
     rejection_reason = serializers.SerializerMethodField()
     artist_name = serializers.SerializerMethodField()
+    edit_requested = serializers.SerializerMethodField()
+    edit_request_message = serializers.SerializerMethodField()
+    edit_request_created_at = serializers.DateTimeField(required=False, allow_null=True)
+    edit_request_parsed = serializers.SerializerMethodField()
 
     class Meta:
         model = TournamentApplication
@@ -1902,11 +1906,27 @@ class TournamentApplicationSerializer(serializers.ModelSerializer):
             "message",
             "status",
             "rejection_reason",
+            "edit_requested",
+            "edit_request_message",
+            "edit_request_created_at",
+            "edit_request_parsed",
             "decided_by",
             "decided_at",
             "created_at",
         ]
-        read_only_fields = ["id", "profile", "status", "decided_by", "decided_at", "created_at", "tournament_title"]
+        read_only_fields = [
+            "id",
+            "profile",
+            "status",
+            "decided_by",
+            "decided_at",
+            "created_at",
+            "tournament_title",
+            "edit_requested",
+            "edit_request_message",
+            "edit_request_created_at",
+            "edit_request_parsed",
+        ]
 
     def get_rejection_reason(self, obj):
         if obj.message and "[Jury-Begründung:" in obj.message:
@@ -1918,6 +1938,38 @@ class TournamentApplicationSerializer(serializers.ModelSerializer):
         if obj.profile:
             return obj.profile.name or (obj.profile.user.username if obj.profile.user else f"Artist #{obj.profile.id}")
         return "Artist"
+
+    def get_edit_requested(self, obj):
+        if getattr(obj, "edit_requested", False):
+            return True
+        if obj.message and "[Änderungsanfrage:" in obj.message:
+            return True
+        return False
+
+    def get_edit_request_message(self, obj):
+        req = getattr(obj, "edit_request_message", "")
+        if req:
+            return req
+        if obj.message and "[Änderungsanfrage:" in obj.message:
+            try:
+                return obj.message.split("[Änderungsanfrage:")[1].split("]")[0].strip()
+            except Exception:
+                return ""
+        return ""
+
+    def get_edit_request_parsed(self, obj):
+        text = self.get_edit_request_message(obj)
+        if not text:
+            return None
+        import re
+        artist_match = re.search(r"Artist:\s*([^|]+)", text)
+        demo_match = re.search(r"Demo:\s*([^|]+)", text)
+        reason_match = re.search(r"(?:Begründung|Grund):\s*(.*)", text)
+        return {
+            "artist_name": artist_match.group(1).strip() if artist_match else "",
+            "demo_link": demo_match.group(1).strip() if demo_match else "",
+            "reason": reason_match.group(1).strip() if reason_match else text,
+        }
 
 
 class TournamentSubmissionSerializer(serializers.ModelSerializer):

@@ -284,22 +284,56 @@
           <div class="card panel-box">
             <div class="pb-header">
               <div>
-                <h3>Bewerber-Roster ({{ applicationRows.length }})</h3>
-                <p class="muted small">Teilnehmer im Auswahlprozess</p>
+                <h3>Bewerber-Roster ({{ isTeam ? applicationRows.length : totalApplicationsCount }})</h3>
+                <p class="muted small">{{ isTeam ? 'Teilnehmer im Auswahlprozess' : 'Aktueller Anmeldestand' }}</p>
               </div>
-              <button class="btn ghost btn-micro" @click="activeTab = 'participants'">Alle ansehen →</button>
+              <button class="btn ghost btn-micro" @click="activeTab = 'participants'">{{ isTeam ? 'Alle ansehen →' : 'Status ansehen →' }}</button>
             </div>
 
-            <div class="roster-preview-list" v-if="applicationRows.length">
-              <div v-for="app in applicationRows.slice(0, 6)" :key="app.id" class="roster-preview-item">
-                <div class="rp-avatar">{{ app.profile_name?.charAt(0) || 'A' }}</div>
-                <div class="rp-info">
-                  <strong>{{ app.profile_name }}</strong>
-                  <span class="badge-status-pill tiny" :class="app.status?.toLowerCase()">{{ app.status }}</span>
+            <!-- Team View: Names and Avatars -->
+            <template v-if="isTeam">
+              <div class="roster-preview-list" v-if="applicationRows.length">
+                <div v-for="app in applicationRows.slice(0, 6)" :key="app.id" class="roster-preview-item">
+                  <div class="rp-avatar">{{ app.profile_name?.charAt(0) || 'A' }}</div>
+                  <div class="rp-info">
+                    <strong>{{ app.profile_name }}</strong>
+                    <span class="badge-status-pill tiny" :class="app.status?.toLowerCase()">{{ app.status }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div v-else class="empty-muted-box muted">Noch keine Bewerbungen eingegangen.</div>
+              <div v-else class="empty-muted-box muted">Noch keine Bewerbungen eingegangen.</div>
+            </template>
+
+            <!-- Artist View: Anonymized counts & Privacy protection -->
+            <template v-else>
+              <div class="roster-privacy-overview">
+                <div class="rpo-stat-row">
+                  <div class="rpo-stat-item">
+                    <span class="rpo-val">{{ approvedCount }} / {{ tournament?.slots || 16 }}</span>
+                    <span class="rpo-lbl">Plätze belegt</span>
+                  </div>
+                  <div class="rpo-stat-item">
+                    <span class="rpo-val">{{ totalApplicationsCount }}</span>
+                    <span class="rpo-lbl">Bewerber gesamt</span>
+                  </div>
+                </div>
+
+                <!-- My Own Application if applied -->
+                <div v-if="myApplication" class="rpo-my-app-box">
+                  <span class="rpo-my-app-title">Dein Bewerbungs-Status:</span>
+                  <div class="app-head-line">
+                    <strong>{{ myApplication.profile_name || 'Du' }}</strong>
+                    <span class="badge-status-pill tiny" :class="myApplication.status?.toLowerCase()">
+                      {{ myApplication.status === 'APPROVED' ? '✓ Zugelassen' : (myApplication.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
+                    </span>
+                  </div>
+                </div>
+
+                <p class="rpo-privacy-note">
+                  🔒 Zum Schutz der Chancengleichheit bleiben die Namen der Mitbewerber bis zum Turnierstart geheim.
+                </p>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -689,8 +723,8 @@
       <div class="card panel-box">
         <div class="pb-header">
           <div>
-            <h3>Bewerbungen &amp; Roster ({{ applicationRows.length }})</h3>
-            <p class="muted small">Alle registrierten Artists für dieses Turnier inklusive Jury-Status und Begründungen</p>
+            <h3>Bewerbungen &amp; Roster ({{ isTeam ? applicationRows.length : totalApplicationsCount }})</h3>
+            <p class="muted small">{{ isTeam ? 'Alle registrierten Artists für dieses Turnier inklusive Jury-Status und Begründungen' : 'Aktueller Roster-Status und deine persönliche Bewerbung' }}</p>
           </div>
           <div class="pb-actions">
             <button v-if="isTeam && applicationRows.some(a => a.status === 'PENDING')" class="btn ghost btn-micro" @click="bulkApproveApplications">
@@ -700,40 +734,103 @@
           </div>
         </div>
 
-        <div class="applications-list" v-if="applicationRows.length">
-          <div v-for="app in applicationRows" :key="app.id" class="app-item-card">
-            <div class="app-info">
-              <div class="app-head-line">
-                <strong>{{ app.profile_name }}</strong>
-                <span class="badge-status-pill" :class="app.status?.toLowerCase()">
-                  {{ app.status === 'APPROVED' ? 'Zugelassen' : (app.status === 'REJECTED' ? 'Abgelehnt' : 'In Prüfung') }}
-                </span>
-              </div>
-              <p class="muted small">{{ app.message || 'Bewerbung eingereicht.' }}</p>
+        <!-- Team View: Full management list -->
+        <template v-if="isTeam">
+          <div class="applications-list" v-if="applicationRows.length">
+            <div v-for="app in applicationRows" :key="app.id" class="app-item-card">
+              <div class="app-info">
+                <div class="app-head-line">
+                  <strong>{{ app.profile_name }}</strong>
+                  <span class="badge-status-pill" :class="app.status?.toLowerCase()">
+                    {{ app.status === 'APPROVED' ? 'Zugelassen' : (app.status === 'REJECTED' ? 'Abgelehnt' : 'In Prüfung') }}
+                  </span>
+                </div>
+                <p class="muted small">{{ app.message || 'Bewerbung eingereicht.' }}</p>
 
-              <!-- Rejection Reason if rejected -->
-              <div v-if="app.rejection_reason" class="item-rejection-tag">
-                ❌ Begründung der Jury: "{{ app.rejection_reason }}"
+                <!-- Rejection Reason if rejected -->
+                <div v-if="app.rejection_reason" class="item-rejection-tag">
+                  ❌ Begründung der Jury: "{{ app.rejection_reason }}"
+                </div>
               </div>
-            </div>
 
-            <div class="app-actions">
-              <template v-if="isTeam">
+              <div class="app-actions">
                 <button v-if="app.status !== 'APPROVED'" class="btn btn-micro btn-accept" @click="decideApplication(app, 'APPROVED')" title="Zulassen">✓</button>
                 <button class="btn ghost btn-micro btn-reject" @click="promptRejectApplication(app)" title="Mit Begründung ablehnen">✕</button>
                 <button class="btn ghost btn-micro btn-danger" @click="deleteApplication(app)" title="Bewerbung löschen">🗑️</button>
-              </template>
-              <button
-                v-if="myApplication?.id === app.id"
-                class="btn ghost btn-micro"
-                @click="openApplyModal"
-              >
-                ✏️ Bearbeiten
-              </button>
+                <button
+                  v-if="myApplication?.id === app.id"
+                  class="btn ghost btn-micro"
+                  @click="openApplyModal"
+                >
+                  ✏️ Bearbeiten
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <div v-else class="empty-muted-box muted">Noch keine Bewerbungen vorhanden.</div>
+          <div v-else class="empty-muted-box muted">Noch keine Bewerbungen vorhanden.</div>
+        </template>
+
+        <!-- Artist View: Privacy Protection -->
+        <template v-else>
+          <div class="artist-roster-privacy-card">
+            <div class="arpc-stats-grid">
+              <div class="arpc-stat-box">
+                <span class="arpc-stat-icon">👥</span>
+                <div class="arpc-stat-info">
+                  <strong>{{ totalApplicationsCount }}</strong>
+                  <span>Bewerber eingegangen</span>
+                </div>
+              </div>
+              <div class="arpc-stat-box success">
+                <span class="arpc-stat-icon">✅</span>
+                <div class="arpc-stat-info">
+                  <strong>{{ approvedCount }} / {{ tournament?.slots || 16 }}</strong>
+                  <span>Plätze fest vergeben</span>
+                </div>
+              </div>
+              <div class="arpc-stat-box warn">
+                <span class="arpc-stat-icon">⏳</span>
+                <div class="arpc-stat-info">
+                  <strong>{{ Math.max(0, totalApplicationsCount - approvedCount) }}</strong>
+                  <span>In Jury-Prüfung</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- My Application Card -->
+            <div v-if="myApplication" class="my-application-detail-card card">
+              <div class="madc-header">
+                <div>
+                  <h4>Deine Bewerbung</h4>
+                  <p class="muted small">Eingereicht für dieses Turnier</p>
+                </div>
+                <span class="badge-status-pill" :class="myApplication.status?.toLowerCase()">
+                  {{ myApplication.status === 'APPROVED' ? '✓ Zugelassen' : (myApplication.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
+                </span>
+              </div>
+              <p class="madc-message">{{ myApplication.message || 'Keine Nachricht angegeben.' }}</p>
+              <div v-if="myApplication.rejection_reason" class="item-rejection-tag">
+                ❌ Begründung der Jury: "{{ myApplication.rejection_reason }}"
+              </div>
+              <div class="madc-footer">
+                <button class="btn ghost btn-sm" @click="openApplyModal">✏️ Bewerbung bearbeiten</button>
+              </div>
+            </div>
+
+            <div v-else class="empty-not-applied-banner">
+              <p>Du hast dich noch nicht für dieses Turnier beworben.</p>
+              <button class="btn btn-sm btn-primary" @click="openApplyModal">Jetzt bewerben</button>
+            </div>
+
+            <div class="roster-fairplay-notice">
+              <span class="rfn-icon">🛡️</span>
+              <p>
+                <strong>Fair-Play &amp; Artist-Privatsphäre:</strong>
+                Die Identitäten und Song-Einreichungen anderer Teilnehmer werden bis zum offiziellen Battle-Start geheim gehalten, um taktische Absprachen zu verhindern und faire Bewertung sicherzustellen.
+              </p>
+            </div>
+          </div>
+        </template>
       </div>
     </section>
 
@@ -773,15 +870,15 @@
           <div class="prize-tiers-list">
             <div class="pt-item gold">
               <span class="pt-rank">1. Platz (Champion)</span>
-              <strong class="pt-val">{{ tournament?.prize_pool || "1.500 € Cash + Studio Gear + VIP Pass" }}</strong>
+              <strong class="pt-val">{{ tournament?.prize_pool_1 || tournament?.meta_settings?.prize_pool_1 || tournament?.prize_pool || "1.000 € Cash + Champion Trophy" }}</strong>
             </div>
             <div class="pt-item silver">
               <span class="pt-rank">2. Platz (Runner-Up)</span>
-              <strong class="pt-val">600 € Cash + UNYQ Sample Pack Bundle</strong>
+              <strong class="pt-val">{{ tournament?.prize_pool_2 || tournament?.meta_settings?.prize_pool_2 || "500 € Cash + UNYQ Sample Pack Bundle" }}</strong>
             </div>
             <div class="pt-item bronze">
               <span class="pt-rank">3. Platz</span>
-              <strong class="pt-val">400 € Cash + VIP Producer Pass</strong>
+              <strong class="pt-val">{{ tournament?.prize_pool_3 || tournament?.meta_settings?.prize_pool_3 || "250 € Cash + VIP Producer Pass" }}</strong>
             </div>
           </div>
         </div>
@@ -968,11 +1065,44 @@
             </div>
           </div>
 
+          <div class="prize-pool-designer-box">
+            <span class="ppd-title">💰 Preispool Staffelung (1. / 2. / 3. Platz):</span>
+            <div class="split-form-row">
+              <label>
+                <span>1. Platz (Champion) *</span>
+                <input v-model.trim="editForm.prize_pool_1" class="input" required placeholder="1.000 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_1 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_1 = '250 € Cash'">250 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_1 = '500 € Cash'">500 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_1 = '1.000 € Cash'">1.000 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_1 = '2.000 € Cash'">2.000 €</button>
+                </div>
+              </label>
+              <label>
+                <span>2. Platz (Runner-Up)</span>
+                <input v-model.trim="editForm.prize_pool_2" class="input" placeholder="500 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_2 = '50 € Cash'">50 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_2 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_2 = '250 € Cash'">250 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_2 = '500 € Cash'">500 €</button>
+                </div>
+              </label>
+              <label>
+                <span>3. Platz</span>
+                <input v-model.trim="editForm.prize_pool_3" class="input" placeholder="250 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_3 = '25 € Cash'">25 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_3 = '50 € Cash'">50 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_3 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="editForm.prize_pool_3 = '250 € Cash'">250 €</button>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div class="split-form-row">
-            <label>
-              <span>Preispool</span>
-              <input v-model.trim="editForm.prize_pool" class="input" />
-            </label>
             <label>
               <span>Genre / Sparte</span>
               <input v-model.trim="editForm.genre" class="input" />
@@ -1076,9 +1206,22 @@ const battleRows = ref([]);
 const submissionRows = ref([]);
 const applicationRows = ref([]);
 
+const approvedCount = computed(() => {
+  if (isTeam.value && applicationRows.value.length > 0) {
+    return applicationRows.value.filter((a) => a.status === "APPROVED").length;
+  }
+  return tournament.value?.approved_applications_count || 0;
+});
+
+const totalApplicationsCount = computed(() => {
+  if (isTeam.value && applicationRows.value.length > 0) {
+    return applicationRows.value.length;
+  }
+  return tournament.value?.applications_count || (myApplication.value ? 1 : 0);
+});
+
 const participantsCount = computed(() => {
-  if (applicationRows.value.length > 0) return applicationRows.value.length;
-  return tournament.value?.applications_count || 0;
+  return approvedCount.value || tournament.value?.approved_applications_count || (tournament.value?.slots ? 0 : 0);
 });
 
 const battlesCount = computed(() => {
@@ -1170,6 +1313,9 @@ const showEditModal = ref(false);
 const editForm = ref({
   title: "",
   prize_pool: "",
+  prize_pool_1: "1.000 € Cash",
+  prize_pool_2: "500 € Cash",
+  prize_pool_3: "250 € Cash",
   genre: "",
   format: "SINGLE_ELIMINATION",
   slots: 16,
@@ -1251,7 +1397,7 @@ function formatDescription(fmt) {
 function cleanDescription(desc) {
   if (!desc) return "";
   return desc
-    .replace(/\[Preispool:[^\]]+\]/gi, "")
+    .replace(/\[Preispool[^\]]*\]/gi, "")
     .replace(/\[Genre:[^\]]+\]/gi, "")
     .replace(/\[Slots:[^\]]+\]/gi, "")
     .replace(/\[Format:[^\]]+\]/gi, "")
@@ -1558,9 +1704,24 @@ async function confirmDeleteTournament() {
 
 function openEditModal() {
   if (!tournament.value) return;
+  let prize1 = tournament.value.prize_pool_1 || tournament.value.meta_settings?.prize_pool_1 || tournament.value.prize_pool || "1.000 € Cash";
+  let prize2 = tournament.value.prize_pool_2 || tournament.value.meta_settings?.prize_pool_2 || "500 € Cash";
+  let prize3 = tournament.value.prize_pool_3 || tournament.value.meta_settings?.prize_pool_3 || "250 € Cash";
+  if (tournament.value.description) {
+    const p1 = tournament.value.description.match(/\[Preispool:\s*([^\]]+)\]/i);
+    if (p1) prize1 = p1[1];
+    const p2 = tournament.value.description.match(/\[Preispool2:\s*([^\]]+)\]/i);
+    if (p2) prize2 = p2[1];
+    const p3 = tournament.value.description.match(/\[Preispool3:\s*([^\]]+)\]/i);
+    if (p3) prize3 = p3[1];
+  }
+
   editForm.value = {
     title: tournament.value.title || "",
-    prize_pool: tournament.value.prize_pool || "1.500 € Cash",
+    prize_pool: prize1,
+    prize_pool_1: prize1,
+    prize_pool_2: prize2,
+    prize_pool_3: prize3,
     genre: tournament.value.genre || "Trap & 808",
     format: tournament.value.format || "SINGLE_ELIMINATION",
     slots: tournament.value.slots || 16,
@@ -1577,26 +1738,46 @@ async function submitEditTournament() {
   const id = tournament.value?.id;
   if (!id) return;
 
-  const prizeText = editForm.value.prize_pool || "1.500 € Cash";
+  const prize1 = editForm.value.prize_pool_1 || editForm.value.prize_pool || "1.000 € Cash";
+  const prize2 = editForm.value.prize_pool_2 || "500 € Cash";
+  const prize3 = editForm.value.prize_pool_3 || "250 € Cash";
   const genreText = editForm.value.genre || "Trap & 808";
   const formatText = editForm.value.format || "SINGLE_ELIMINATION";
   const slotsNum = editForm.value.slots || 16;
   const totalRoundsNum = editForm.value.total_rounds || 4;
   const groupsCountNum = editForm.value.groups_count || 4;
   const groupSizeNum = editForm.value.group_size || 4;
+  const cleanDesc = cleanDescription(editForm.value.description);
 
-  const metaDesc = `[Preispool: ${prizeText}] [Genre: ${genreText}] [Format: ${formatText}] [Slots: ${slotsNum}] [TotalRounds: ${totalRoundsNum}] [GroupsCount: ${groupsCountNum}] [GroupSize: ${groupSizeNum}]\n\n${editForm.value.description}`;
+  const metaDesc = `[Preispool: ${prize1}] [Preispool2: ${prize2}] [Preispool3: ${prize3}] [Genre: ${genreText}] [Format: ${formatText}] [Slots: ${slotsNum}] [TotalRounds: ${totalRoundsNum}] [GroupsCount: ${groupsCountNum}] [GroupSize: ${groupSizeNum}]\n\n${cleanDesc}`;
+
+  const payload = {
+    title: editForm.value.title,
+    description: metaDesc,
+    is_no_loss: formatText === "DOUBLE_ELIMINATION",
+    meta_settings: {
+      prize_pool: prize1,
+      prize_pool_1: prize1,
+      prize_pool_2: prize2,
+      prize_pool_3: prize3,
+      genre: genreText,
+      format: formatText,
+      slots: slotsNum,
+      total_rounds: totalRoundsNum,
+      groups_count: groupsCountNum,
+      group_size: groupSizeNum,
+    },
+  };
 
   try {
-    const { data } = await api.patch(`tournaments/${id}/`, {
-      title: editForm.value.title,
-      description: metaDesc,
-      is_no_loss: formatText === "DOUBLE_ELIMINATION",
-    });
+    const { data } = await api.patch(`tournaments/${id}/`, payload);
     tournament.value = {
       ...tournament.value,
       ...data,
-      prize_pool: prizeText,
+      prize_pool: prize1,
+      prize_pool_1: prize1,
+      prize_pool_2: prize2,
+      prize_pool_3: prize3,
       genre: genreText,
       format: formatText,
       slots: slotsNum,
@@ -1608,7 +1789,10 @@ async function submitEditTournament() {
     showToast("Turnierdaten erfolgreich aktualisiert! 💾", "success");
   } catch {
     tournament.value.title = editForm.value.title;
-    tournament.value.prize_pool = prizeText;
+    tournament.value.prize_pool = prize1;
+    tournament.value.prize_pool_1 = prize1;
+    tournament.value.prize_pool_2 = prize2;
+    tournament.value.prize_pool_3 = prize3;
     tournament.value.genre = genreText;
     tournament.value.format = formatText;
     tournament.value.slots = slotsNum;
@@ -1832,7 +2016,9 @@ async function loadTournament() {
   const id = route.params.tournamentId;
   try {
     const { data } = await api.get(`tournaments/${id}/`);
-    let prize = "Noch kein Preispool festgelegt";
+    let prize1 = data.meta_settings?.prize_pool_1 || data.meta_settings?.prize_pool || "1.000 € Cash";
+    let prize2 = data.meta_settings?.prize_pool_2 || "500 € Cash";
+    let prize3 = data.meta_settings?.prize_pool_3 || "250 € Cash";
     let genre = "Allround";
     let format = "SINGLE_ELIMINATION";
     let slots = 16;
@@ -1841,16 +2027,23 @@ async function loadTournament() {
     let groupSize = 4;
 
     if (data.meta_settings) {
-      prize = data.meta_settings.prize_pool || prize;
+      prize1 = data.meta_settings.prize_pool_1 || data.meta_settings.prize_pool || prize1;
+      prize2 = data.meta_settings.prize_pool_2 || prize2;
+      prize3 = data.meta_settings.prize_pool_3 || prize3;
       genre = data.meta_settings.genre || genre;
       format = data.meta_settings.format || format;
       slots = data.meta_settings.slots || slots;
       totalRounds = data.meta_settings.total_rounds || totalRounds;
       groupsCount = data.meta_settings.groups_count || groupsCount;
       groupSize = data.meta_settings.group_size || groupSize;
-    } else if (data.description) {
+    }
+    if (data.description) {
       const pMatch = data.description.match(/\[Preispool:\s*([^\]]+)\]/i);
-      if (pMatch) prize = pMatch[1];
+      if (pMatch) prize1 = pMatch[1];
+      const p2Match = data.description.match(/\[Preispool2:\s*([^\]]+)\]/i);
+      if (p2Match) prize2 = p2Match[1];
+      const p3Match = data.description.match(/\[Preispool3:\s*([^\]]+)\]/i);
+      if (p3Match) prize3 = p3Match[1];
       const gMatch = data.description.match(/\[Genre:\s*([^\]]+)\]/i);
       if (gMatch) genre = gMatch[1];
       const fMatch = data.description.match(/\[Format:\s*([^\]]+)\]/i);
@@ -1867,7 +2060,10 @@ async function loadTournament() {
 
     tournament.value = {
       ...data,
-      prize_pool: prize,
+      prize_pool: prize1,
+      prize_pool_1: prize1,
+      prize_pool_2: prize2,
+      prize_pool_3: prize3,
       genre,
       format,
       slots,
@@ -3429,6 +3625,245 @@ onBeforeUnmount(() => {
   gap: 8px;
   flex: 1;
   justify-content: space-between;
+}
+
+/* Roster Privacy for Artists */
+.roster-privacy-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rpo-stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.rpo-stat-item {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+
+.rpo-val {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.rpo-lbl {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rpo-my-app-box {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rpo-my-app-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #93c5fd;
+  font-weight: 700;
+}
+
+.rpo-privacy-note {
+  font-size: 11.5px;
+  color: #94a3b8;
+  line-height: 1.45;
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border-left: 3px solid #ffaa00;
+}
+
+.artist-roster-privacy-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 8px 0;
+}
+
+.arpc-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.arpc-stat-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.arpc-stat-box.success {
+  background: rgba(16, 185, 129, 0.06);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.arpc-stat-box.warn {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.arpc-stat-icon {
+  font-size: 24px;
+}
+
+.arpc-stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.arpc-stat-info strong {
+  font-size: 1.25rem;
+  color: #fff;
+  font-weight: 800;
+}
+
+.arpc-stat-info span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.my-application-detail-card {
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.madc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.madc-header h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.madc-message {
+  margin: 0;
+  font-size: 13.5px;
+  color: #cbd5e1;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+
+.madc-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.empty-not-applied-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  color: var(--muted);
+}
+
+.empty-not-applied-banner p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.roster-fairplay-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 170, 0, 0.05);
+  border: 1px solid rgba(255, 170, 0, 0.15);
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rfn-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.roster-fairplay-notice strong {
+  color: #ffaa00;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.roster-fairplay-notice p {
+  margin: 0;
+}
+
+/* Prize Pool Designer inside Modals */
+.prize-pool-designer-box {
+  background: rgba(255, 170, 0, 0.04);
+  border: 1px solid rgba(255, 170, 0, 0.18);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ppd-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffaa00;
+}
+
+.preset-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.preset-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  border-radius: 6px;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+  background: rgba(255, 170, 0, 0.2);
+  border-color: #ffaa00;
+  color: #fff;
 }
 
 /* TAB: Submissions */

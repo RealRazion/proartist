@@ -210,14 +210,21 @@
           </div>
 
           <h2 class="spotlight-heading">{{ spotlightTournament.title }}</h2>
-          <p class="spotlight-description">{{ spotlightTournament.description }}</p>
+          <p class="spotlight-description">{{ cleanDescription(spotlightTournament.description) || 'Offizielles UNYQ Battle Turnier. Tritt im 1v1 an, sammle RP und kämpfe um den Sieg.' }}</p>
 
           <div class="spotlight-features-row">
             <div class="sf-feature">
               <span class="sf-icon">🏆</span>
               <div class="sf-body">
-                <strong class="sf-val">{{ spotlightTournament.prize_pool || '2.000 € Cash' }}</strong>
-                <span class="sf-lbl">Preisgeld &amp; Gear</span>
+                <strong class="sf-val">{{ spotlightTournament.prize_pool_1 || spotlightTournament.prize_pool || '2.000 € Cash' }}</strong>
+                <span class="sf-lbl">1. Platz Prämie</span>
+              </div>
+            </div>
+            <div class="sf-feature" v-if="spotlightTournament.prize_pool_2">
+              <span class="sf-icon">🥈</span>
+              <div class="sf-body">
+                <strong class="sf-val">{{ spotlightTournament.prize_pool_2 }}</strong>
+                <span class="sf-lbl">2. Platz Prämie</span>
               </div>
             </div>
             <div class="sf-feature">
@@ -335,7 +342,14 @@
 
           <div class="tic-body">
             <h3 class="tic-title">{{ t.title }}</h3>
-            <p class="tic-desc">{{ t.description || 'Spannender Battle-Wettbewerb im UNYQ Circuit.' }}</p>
+            <p class="tic-desc">{{ cleanDescription(t.description) || 'Spannender Battle-Wettbewerb im UNYQ Circuit.' }}</p>
+            <div class="tic-chips-row">
+              <span class="tic-chip">🏆 1. Platz: {{ t.prize_pool_1 || t.prize_pool || '1.000 €' }}</span>
+              <span v-if="t.prize_pool_2" class="tic-chip">🥈 2. Platz: {{ t.prize_pool_2 }}</span>
+              <span v-if="t.prize_pool_3" class="tic-chip">🥉 3. Platz: {{ t.prize_pool_3 }}</span>
+              <span class="tic-chip">👥 {{ t.slots || 16 }} Slots</span>
+              <span class="tic-chip">⚔️ {{ formatLabel(t.format) }}</span>
+            </div>
           </div>
 
           <!-- Roster Slots Visualizer -->
@@ -958,6 +972,7 @@
                 <option value="RAP">Rap &amp; Lyrics</option>
                 <option value="VOCAL">Melodic Vocals &amp; R&amp;B</option>
                 <option value="ALLROUND">Allrounder / Singer-Songwriter</option>
+                <option value="JURY">⚖️ Jury &amp; Wertungsrichter</option>
               </select>
             </label>
 
@@ -1593,11 +1608,44 @@
             </div>
           </div>
 
+          <div class="prize-pool-designer-box">
+            <span class="ppd-title">💰 Preispool Staffelung (1. / 2. / 3. Platz):</span>
+            <div class="split-form-row">
+              <label>
+                <span>1. Platz (Champion) *</span>
+                <input v-model.trim="newTournament.prize_pool_1" class="input" required placeholder="1.000 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_1 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_1 = '250 € Cash'">250 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_1 = '500 € Cash'">500 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_1 = '1.000 € Cash'">1.000 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_1 = '2.000 € Cash'">2.000 €</button>
+                </div>
+              </label>
+              <label>
+                <span>2. Platz (Runner-Up)</span>
+                <input v-model.trim="newTournament.prize_pool_2" class="input" placeholder="500 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_2 = '50 € Cash'">50 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_2 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_2 = '250 € Cash'">250 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_2 = '500 € Cash'">500 €</button>
+                </div>
+              </label>
+              <label>
+                <span>3. Platz</span>
+                <input v-model.trim="newTournament.prize_pool_3" class="input" placeholder="250 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_3 = '25 € Cash'">25 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_3 = '50 € Cash'">50 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_3 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="newTournament.prize_pool_3 = '250 € Cash'">250 €</button>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div class="split-form-row">
-            <label>
-              <span>Preispool *</span>
-              <input v-model.trim="newTournament.prize_pool" class="input" required placeholder="1.500 € Cash + Vinyl Edition" />
-            </label>
             <label>
               <span>Genre / Kategorie</span>
               <input v-model.trim="newTournament.genre" class="input" placeholder="Trap / Drill / Lo-Fi" />
@@ -1895,11 +1943,44 @@
             <span>Beschreibung &amp; Vorgaben</span>
             <textarea v-model.trim="editTournamentForm.description" class="input" rows="3"></textarea>
           </label>
+          <div class="prize-pool-designer-box">
+            <span class="ppd-title">💰 Preispool Staffelung (1. / 2. / 3. Platz):</span>
+            <div class="split-form-row">
+              <label>
+                <span>1. Platz (Champion) *</span>
+                <input v-model.trim="editTournamentForm.prize_pool_1" class="input" required placeholder="1.000 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_1 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_1 = '250 € Cash'">250 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_1 = '500 € Cash'">500 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_1 = '1.000 € Cash'">1.000 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_1 = '2.000 € Cash'">2.000 €</button>
+                </div>
+              </label>
+              <label>
+                <span>2. Platz (Runner-Up)</span>
+                <input v-model.trim="editTournamentForm.prize_pool_2" class="input" placeholder="500 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_2 = '50 € Cash'">50 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_2 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_2 = '250 € Cash'">250 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_2 = '500 € Cash'">500 €</button>
+                </div>
+              </label>
+              <label>
+                <span>3. Platz</span>
+                <input v-model.trim="editTournamentForm.prize_pool_3" class="input" placeholder="250 € Cash" />
+                <div class="preset-pill-row">
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_3 = '25 € Cash'">25 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_3 = '50 € Cash'">50 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_3 = '100 € Cash'">100 €</button>
+                  <button type="button" class="preset-btn" @click="editTournamentForm.prize_pool_3 = '250 € Cash'">250 €</button>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div class="split-form-row">
-            <label>
-              <span>Preispool Text</span>
-              <input v-model.trim="editTournamentForm.prize_pool" class="input" placeholder="z. B. 2.000 € Cash" />
-            </label>
             <label>
               <span>Genre / Sparte</span>
               <input v-model.trim="editTournamentForm.genre" class="input" placeholder="z. B. Trap &amp; 808" />
@@ -2131,6 +2212,7 @@
                   <option value="RAP">Rap &amp; Lyrics</option>
                   <option value="VOCAL">Melodic Vocals &amp; R&amp;B</option>
                   <option value="ALLROUND">Allrounder</option>
+                  <option value="JURY">⚖️ Jury &amp; Wertungsrichter</option>
                 </select>
               </label>
               <label>
@@ -2536,6 +2618,9 @@ const editTournamentForm = ref({
   title: "",
   description: "",
   prize_pool: "",
+  prize_pool_1: "1.000 € Cash",
+  prize_pool_2: "500 € Cash",
+  prize_pool_3: "250 € Cash",
   genre: "",
   status: "APPLICATION_OPEN",
   is_no_loss: false,
@@ -2658,6 +2743,30 @@ function getWinRate(artist) {
   const total = (artist.wins || 0) + (artist.losses || 0);
   if (!total) return 100;
   return Math.round(((artist.wins || 0) / total) * 100);
+}
+
+function cleanDescription(desc) {
+  if (!desc) return "";
+  return desc
+    .replace(/\[Preispool[^\]]*\]/gi, "")
+    .replace(/\[Genre:[^\]]+\]/gi, "")
+    .replace(/\[Slots:[^\]]+\]/gi, "")
+    .replace(/\[Format:[^\]]+\]/gi, "")
+    .replace(/\[GroupsCount:[^\]]+\]/gi, "")
+    .replace(/\[GroupSize:[^\]]+\]/gi, "")
+    .replace(/\[TotalRounds:[^\]]+\]/gi, "")
+    .replace(/\[EntryRules:[^\]]+\]/gi, "")
+    .trim();
+}
+
+function formatLabel(fmt) {
+  const map = {
+    SINGLE_ELIMINATION: "K.O.-System",
+    DOUBLE_ELIMINATION: "No-Loss (Double)",
+    GROUP_STAGE: "Gruppenphase + K.O.",
+    ROUND_ROBIN: "Liga-Modus",
+  };
+  return map[fmt] || fmt || "Turnier";
 }
 
 function statusLabel(status) {
@@ -2912,7 +3021,10 @@ async function adminDeleteTournament(tournament) {
 const newTournament = ref({
   title: "",
   description: "",
-  prize_pool: "1.500 € Cash + Studio Gear",
+  prize_pool: "1.000 € Cash",
+  prize_pool_1: "1.000 € Cash",
+  prize_pool_2: "500 € Cash",
+  prize_pool_3: "250 € Cash",
   genre: "Trap & 808",
   status: "APPLICATION_OPEN",
   format: "SINGLE_ELIMINATION",
@@ -2946,15 +3058,18 @@ async function submitCreateTournament() {
 
   const startsAt = new Date().toISOString();
   const endsAt = new Date(Date.now() + 14 * 86400000).toISOString();
-  const prizeText = newTournament.value.prize_pool || "1.000 € Cash";
+  const prize1 = newTournament.value.prize_pool_1 || newTournament.value.prize_pool || "1.000 € Cash";
+  const prize2 = newTournament.value.prize_pool_2 || "500 € Cash";
+  const prize3 = newTournament.value.prize_pool_3 || "250 € Cash";
   const genreText = newTournament.value.genre || "Trap & 808";
   const formatText = newTournament.value.format || "SINGLE_ELIMINATION";
   const slotsNum = newTournament.value.slots || 16;
   const roundsNum = newTournament.value.total_rounds || 4;
   const groupsCount = newTournament.value.groups_count || 4;
   const groupSize = newTournament.value.group_size || 4;
+  const cleanDesc = cleanDescription(newTournament.value.description);
 
-  const metaDesc = `[Preispool: ${prizeText}] [Genre: ${genreText}] [Format: ${formatText}] [Slots: ${slotsNum}] [TotalRounds: ${roundsNum}] [GroupsCount: ${groupsCount}] [GroupSize: ${groupSize}]\n\n${newTournament.value.description || ""}`;
+  const metaDesc = `[Preispool: ${prize1}] [Preispool2: ${prize2}] [Preispool3: ${prize3}] [Genre: ${genreText}] [Format: ${formatText}] [Slots: ${slotsNum}] [TotalRounds: ${roundsNum}] [GroupsCount: ${groupsCount}] [GroupSize: ${groupSize}]\n\n${cleanDesc}`;
 
   const payload = {
     title,
@@ -2964,13 +3079,29 @@ async function submitCreateTournament() {
     voting_mode: "COMMUNITY",
     starts_at: startsAt,
     ends_at: endsAt,
+    meta_settings: {
+      prize_pool: prize1,
+      prize_pool_1: prize1,
+      prize_pool_2: prize2,
+      prize_pool_3: prize3,
+      genre: genreText,
+      format: formatText,
+      slots: slotsNum,
+      total_rounds: roundsNum,
+      groups_count: groupsCount,
+      group_size: groupSize,
+    },
   };
 
   try {
     const { data } = await api.post("tournaments/", payload);
     tournamentsList.value.unshift({
       ...data,
-      prize_pool: prizeText,
+      prize_pool: prize1,
+      prize_pool_1: prize1,
+      prize_pool_2: prize2,
+      prize_pool_3: prize3,
+      clean_description: cleanDesc,
       genre: genreText,
       format: formatText,
       slots: slotsNum,
@@ -3208,6 +3339,21 @@ function openMyDossier() {
 
 async function saveArenaSettings() {
   localStorage.setItem("unyq_arena_settings", JSON.stringify(arenaSettings.value));
+  if (me.value?.id) {
+    try {
+      await api.patch(`profiles/${me.value.id}/`, {
+        socials: {
+          ...(me.value.socials || {}),
+          primary_discipline: arenaSettings.value.primaryDiscipline,
+          discipline: arenaSettings.value.primaryDiscipline,
+          stage_name: arenaSettings.value.stageName,
+          tagline: arenaSettings.value.tagline,
+        },
+      });
+    } catch {
+      // ignore
+    }
+  }
   if (isTeam.value) {
     try {
       await api.patch("tournaments/ranked-config/", {
@@ -3309,15 +3455,30 @@ async function saveTierConfig() {
 
 /* Tournament Editing & Reset */
 function openEditTournament(t) {
+  let prize1 = t.meta_settings?.prize_pool_1 || t.prize_pool_1 || t.prize_pool || "1.000 € Cash";
+  let prize2 = t.meta_settings?.prize_pool_2 || t.prize_pool_2 || "500 € Cash";
+  let prize3 = t.meta_settings?.prize_pool_3 || t.prize_pool_3 || "250 € Cash";
+  if (t.description) {
+    const p1 = t.description.match(/\[Preispool:\s*([^\]]+)\]/i);
+    if (p1) prize1 = p1[1];
+    const p2 = t.description.match(/\[Preispool2:\s*([^\]]+)\]/i);
+    if (p2) prize2 = p2[1];
+    const p3 = t.description.match(/\[Preispool3:\s*([^\]]+)\]/i);
+    if (p3) prize3 = p3[1];
+  }
+
   editTournamentForm.value = {
     id: t.id,
     title: t.title,
-    description: t.description || "",
-    prize_pool: t.prize_pool || "1.000 €",
+    description: cleanDescription(t.description) || "",
+    prize_pool: prize1,
+    prize_pool_1: prize1,
+    prize_pool_2: prize2,
+    prize_pool_3: prize3,
     genre: t.genre || "Trap & 808",
     status: t.status || "APPLICATION_OPEN",
     is_no_loss: Boolean(t.is_no_loss),
-    slots: t.participants_count || 16,
+    slots: t.slots || t.participants_count || 16,
     ends_at: t.ends_at ? t.ends_at.slice(0, 16) : "",
   };
   showEditModal.value = true;
@@ -3326,12 +3487,25 @@ function openEditTournament(t) {
 async function submitEditTournament() {
   const tId = editTournamentForm.value.id;
   if (!tId) return;
-  const metaDesc = `[Preispool: ${editTournamentForm.value.prize_pool || "1.000 €"}] [Genre: ${editTournamentForm.value.genre || "Beat Battle"}] [Slots: ${editTournamentForm.value.slots || 16}]\n\n${editTournamentForm.value.description || ""}`;
+  const prize1 = editTournamentForm.value.prize_pool_1 || editTournamentForm.value.prize_pool || "1.000 € Cash";
+  const prize2 = editTournamentForm.value.prize_pool_2 || "500 € Cash";
+  const prize3 = editTournamentForm.value.prize_pool_3 || "250 € Cash";
+  const cleanDesc = cleanDescription(editTournamentForm.value.description);
+  const metaDesc = `[Preispool: ${prize1}] [Preispool2: ${prize2}] [Preispool3: ${prize3}] [Genre: ${editTournamentForm.value.genre || "Beat Battle"}] [Slots: ${editTournamentForm.value.slots || 16}]\n\n${cleanDesc}`;
+
   const payload = {
     title: editTournamentForm.value.title,
     description: metaDesc,
     status: editTournamentForm.value.status,
     is_no_loss: editTournamentForm.value.is_no_loss,
+    meta_settings: {
+      prize_pool: prize1,
+      prize_pool_1: prize1,
+      prize_pool_2: prize2,
+      prize_pool_3: prize3,
+      genre: editTournamentForm.value.genre,
+      slots: editTournamentForm.value.slots,
+    },
   };
   if (editTournamentForm.value.ends_at) {
     payload.ends_at = new Date(editTournamentForm.value.ends_at).toISOString();
@@ -3478,7 +3652,9 @@ async function loadData() {
     const { data } = await api.get("tournaments/");
     const list = Array.isArray(data) ? data : data?.results || [];
     tournamentsList.value = list.map((t) => {
-      let prize = t.meta_settings?.prize_pool || "1.000 € Cash";
+      let prize1 = t.meta_settings?.prize_pool_1 || t.meta_settings?.prize_pool || "1.000 € Cash";
+      let prize2 = t.meta_settings?.prize_pool_2 || "500 € Cash";
+      let prize3 = t.meta_settings?.prize_pool_3 || "250 € Cash";
       let genre = t.meta_settings?.genre || "Trap & 808";
       let format = t.meta_settings?.format || "SINGLE_ELIMINATION";
       let slots = t.meta_settings?.slots || 16;
@@ -3487,7 +3663,11 @@ async function loadData() {
       let group_size = t.meta_settings?.group_size || 4;
       if (t.description) {
         const pMatch = t.description.match(/\[Preispool:\s*([^\]]+)\]/i);
-        if (pMatch) prize = pMatch[1];
+        if (pMatch) prize1 = pMatch[1];
+        const p2Match = t.description.match(/\[Preispool2:\s*([^\]]+)\]/i);
+        if (p2Match) prize2 = p2Match[1];
+        const p3Match = t.description.match(/\[Preispool3:\s*([^\]]+)\]/i);
+        if (p3Match) prize3 = p3Match[1];
         const gMatch = t.description.match(/\[Genre:\s*([^\]]+)\]/i);
         if (gMatch) genre = gMatch[1];
         const fMatch = t.description.match(/\[Format:\s*([^\]]+)\]/i);
@@ -3503,7 +3683,11 @@ async function loadData() {
       }
       return {
         ...t,
-        prize_pool: prize,
+        prize_pool: prize1,
+        prize_pool_1: prize1,
+        prize_pool_2: prize2,
+        prize_pool_3: prize3,
+        clean_description: cleanDescription(t.description),
         genre: genre,
         format: format,
         slots: slots,
@@ -4505,6 +4689,65 @@ onMounted(async () => {
   color: var(--muted);
   line-height: 1.5;
   margin: 0;
+}
+
+.tic-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tic-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+.prize-pool-designer-box {
+  background: rgba(255, 170, 0, 0.04);
+  border: 1px solid rgba(255, 170, 0, 0.18);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ppd-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffaa00;
+}
+
+.preset-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.preset-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  border-radius: 6px;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.preset-btn:hover {
+  background: rgba(255, 170, 0, 0.2);
+  border-color: #ffaa00;
+  color: #fff;
 }
 
 .roster-slots-bar {

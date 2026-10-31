@@ -4,15 +4,14 @@
     <header class="hub-hero">
       <div class="hero-inner">
         <div class="hero-left">
-          <!-- View Mode Toggle (Available for Admin/Team or preview) -->
-          <div class="mode-switcher-bar">
+          <!-- View Mode Toggle (Available for Admin/Team only) -->
+          <div class="mode-switcher-bar" v-if="isTeam">
             <div class="mode-pill-toggle">
               <button
                 type="button"
                 class="mode-btn"
                 :class="{ active: viewMode === 'admin' }"
                 @click="setViewMode('admin')"
-                v-if="isTeam"
               >
                 <span class="mode-icon">👑</span>
                 <span>Admin Ansicht</span>
@@ -51,17 +50,26 @@
           <div v-if="viewMode === 'user'" class="card user-spotlight-card">
             <div class="sc-head">
               <span class="sc-icon">🎵</span>
-              <div>
-                <strong>UNYQ Music Tipp</strong>
-                <p class="muted small">Neuer exklusiver VIP-Drop verfügbar</p>
+              <div class="sc-head-info">
+                <strong>{{ musicTip.badge || 'UNYQ Music Tipp' }}</strong>
+                <p class="muted small">{{ musicTip.subtitle || 'Neuer exklusiver VIP-Drop verfügbar' }}</p>
               </div>
+              <button
+                v-if="isTeam"
+                type="button"
+                class="btn ghost tiny sc-edit-btn"
+                @click="openEditMusicTip"
+                title="Tipp als Team-Mitglied bearbeiten"
+              >
+                ✏️ Tipp bearbeiten
+              </button>
             </div>
             <div class="sc-track-preview">
-              <span class="sc-title">Midnight Drive in Berlin</span>
-              <span class="sc-artist">KAZA &amp; UNYQ</span>
+              <span class="sc-title">{{ musicTip.title || 'Midnight Drive in Berlin' }}</span>
+              <span class="sc-artist">{{ musicTip.artist || 'KAZA & UNYQ' }}</span>
             </div>
-            <button class="btn btn-sm" @click="openPlatformByKey('music')">
-              ▶ Jetzt reinhören
+            <button class="btn btn-sm" @click="handleMusicTipAction">
+              {{ musicTip.button_text || '▶ Jetzt reinhören' }}
             </button>
           </div>
 
@@ -161,10 +169,6 @@
           <span class="dock-icon">👑</span>
           <span>Admin Hub</span>
         </button>
-        <button class="dock-btn team-tool-btn" @click="showQuickShareModal = true">
-          <span class="dock-icon">🔗</span>
-          <span>Quick-Share</span>
-        </button>
         <button v-if="isTeam" class="dock-btn team-tool-btn" @click="router.push('/platforms/hhu')">
           <span class="dock-icon">🎓</span>
           <span>HHU</span>
@@ -176,28 +180,15 @@
     <section v-if="isTeam && viewMode === 'admin'" class="team-exclusive-tools card">
       <div class="tet-header">
         <div class="tet-title-group">
-          <span class="tet-badge">🔒 EXKLUSIVES TEAM-WERKZEUG</span>
-          <h3>Studio Quick-Share Link Generator</h3>
+          <span class="tet-badge">🔒 EXKLUSIVE TEAM-WERKZEUGE</span>
+          <h3>Team Control &amp; Exklusive Werkzeuge</h3>
           <p class="muted small">
-            Erstelle passwortgeschützte oder zeitlich begrenzte Direkt-Freigabelinks für externe A&amp;Rs, Labels oder Gastmusiker – ohne Login-Zwang.
+            Interaktive Arbeitsbereiche und Werkzeuge exklusiv für Teammitglieder und Admins.
           </p>
         </div>
-        <button class="btn btn-sm" @click="showQuickShareModal = true">
-          🔗 Neuer Quick-Share Link
+        <button class="btn btn-sm" @click="router.push('/platforms/hhu')">
+          🎓 HHU Companion öffnen →
         </button>
-      </div>
-
-      <!-- Quick stats of active links -->
-      <div class="tet-active-links" v-if="quickShareLinks.length">
-        <div v-for="link in quickShareLinks.slice(0, 3)" :key="link.id" class="tet-link-chip">
-          <span class="tl-icon">⚡</span>
-          <div class="tl-info">
-            <strong>{{ link.title }}</strong>
-            <small class="muted tiny">Gültig bis: {{ link.expiresLabel }} · {{ link.views }} Views</small>
-          </div>
-          <button class="btn ghost tiny" type="button" @click="copyQuickShareLink(link)">Kopieren</button>
-          <button class="btn ghost tiny danger-text" type="button" @click="deleteQuickShareLink(link.id)">✕</button>
-        </div>
       </div>
 
       <!-- HHU Companion Teaser -->
@@ -413,59 +404,51 @@
       </div>
     </section>
 
-    <!-- Quick-Share Modal -->
-    <div v-if="showQuickShareModal" class="modal-overlay" @click.self="showQuickShareModal = false">
-      <article class="modal-card qs-modal">
+    <!-- Edit Music Tip Modal (Team only) -->
+    <div v-if="showEditMusicTipModal" class="modal-overlay" @click.self="showEditMusicTipModal = false">
+      <article class="modal-card tip-modal">
         <header class="modal-header">
           <div>
-            <span class="tet-badge">TEAM TOOL</span>
-            <h2>🔗 Studio Quick-Share Link erstellen</h2>
-            <p class="muted small">Generiere einen sicheren Vorschau-Link für externe Partner.</p>
+            <span class="tet-badge">TEAM EDITOR</span>
+            <h2>🎵 UNYQ Music Tipp bearbeiten</h2>
+            <p class="muted small">Passe Empfehlungen, Tracks und Links für alle Nutzer variabel an.</p>
           </div>
-          <button class="btn ghost small" @click="showQuickShareModal = false" type="button">✕</button>
+          <button class="btn ghost small" @click="showEditMusicTipModal = false" type="button">✕</button>
         </header>
 
-        <form class="modal-content qs-content" @submit.prevent="createQuickShareLink">
+        <form class="modal-content" @submit.prevent="saveMusicTip">
           <div class="form-grid">
-            <label class="full">
+            <label>
+              Kicker / Badge
+              <input class="input" v-model.trim="tipDraft.badge" placeholder="z. B. UNYQ Music Tipp" required />
+            </label>
+            <label>
+              Untertitel
+              <input class="input" v-model.trim="tipDraft.subtitle" placeholder="z. B. Neuer exklusiver VIP-Drop" />
+            </label>
+            <label>
               Titel / Track-Name *
-              <input class="input" v-model.trim="newShareForm.title" placeholder="z. B. Midnight Drive v2 Master Preview" required />
+              <input class="input" v-model.trim="tipDraft.title" placeholder="z. B. Midnight Drive in Berlin" required />
             </label>
             <label>
-              Gültigkeitsdauer
-              <select class="input" v-model="newShareForm.duration">
-                <option value="24h">24 Stunden</option>
-                <option value="7d">7 Tage</option>
-                <option value="30d">30 Tage</option>
-                <option value="never">Unbegrenzt</option>
-              </select>
+              Artist / Details *
+              <input class="input" v-model.trim="tipDraft.artist" placeholder="z. B. KAZA & UNYQ" required />
             </label>
             <label>
-              Passwort-Schutz (optional)
-              <input class="input" v-model.trim="newShareForm.password" placeholder="PIN z. B. 4829" />
+              Button-Text
+              <input class="input" v-model.trim="tipDraft.button_text" placeholder="z. B. ▶ Jetzt reinhören" />
             </label>
-          </div>
-
-          <div class="permissions-box">
-            <span class="muted tiny">Freigabe-Berechtigungen:</span>
-            <div class="perm-checkboxes">
-              <label><input type="checkbox" v-model="newShareForm.allowStream" disabled checked /> Audio-Stream / Anhören</label>
-              <label><input type="checkbox" v-model="newShareForm.allowDownload" /> Download erlauben</label>
-              <label><input type="checkbox" v-model="newShareForm.allowFeedback" /> Gast-Feedback erlauben</label>
-            </div>
-          </div>
-
-          <div v-if="lastCreatedLink" class="created-link-box">
-            <span class="tiny muted">Generierter Freigabe-Link:</span>
-            <div class="cl-row">
-              <input class="input" readonly :value="lastCreatedLink" />
-              <button class="btn" type="button" @click="copyText(lastCreatedLink)">Kopieren</button>
-            </div>
+            <label>
+              Ziel-Link / Plattform-Route
+              <input class="input" v-model.trim="tipDraft.link_url" placeholder="z. B. /platforms/music oder https://..." />
+            </label>
           </div>
 
           <div class="modal-actions" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
-            <button class="btn ghost" type="button" @click="showQuickShareModal = false">Schließen</button>
-            <button class="btn" type="submit">Link generieren</button>
+            <button class="btn ghost" type="button" @click="showEditMusicTipModal = false">Abbrechen</button>
+            <button class="btn" type="submit" :disabled="savingTip">
+              {{ savingTip ? "Speichere..." : "Tipp speichern 💾" }}
+            </button>
           </div>
         </form>
       </article>
@@ -514,83 +497,70 @@ function setViewMode(mode) {
   }
 }
 
-// Quick-Share Studio Link (Exclusive Team Tool)
-const showQuickShareModal = ref(false);
-const quickShareLinks = ref([]);
-const lastCreatedLink = ref("");
-const newShareForm = ref({
-  title: "",
-  duration: "7d",
-  password: "",
-  allowStream: true,
-  allowDownload: false,
-  allowFeedback: true,
-});
+// Dynamic UNYQ Music Tip State (Editable by Team)
+const showEditMusicTipModal = ref(false);
+const savingTip = ref(false);
+const defaultMusicTip = {
+  badge: "UNYQ Music Tipp",
+  subtitle: "Neuer exklusiver VIP-Drop verfügbar",
+  title: "Midnight Drive in Berlin",
+  artist: "KAZA & UNYQ",
+  button_text: "▶ Jetzt reinhören",
+  link_url: "/platforms/music",
+};
+const musicTip = ref({ ...defaultMusicTip });
+const tipDraft = ref({ ...defaultMusicTip });
 
-function loadQuickShareLinks() {
+async function loadMusicTip() {
   try {
-    const raw = localStorage.getItem("unyq_quick_share_links");
-    if (raw) {
-      quickShareLinks.value = JSON.parse(raw);
-    } else {
-      quickShareLinks.value = [
-        {
-          id: "qs-1",
-          title: "Midnight Drive v2 Mix Preview",
-          token: "md2_mix_78a1",
-          expiresLabel: "In 6 Tagen",
-          views: 4,
-          url: (typeof window !== "undefined" ? window.location.origin : "https://unyq.app") + "/share/md2_mix_78a1",
-        },
-      ];
+    const { data } = await api.get("hub-music-tip/");
+    if (data && data.title) {
+      musicTip.value = { ...defaultMusicTip, ...data };
     }
-  } catch {}
-}
-
-function saveQuickShareLinks() {
-  try {
-    localStorage.setItem("unyq_quick_share_links", JSON.stringify(quickShareLinks.value));
-  } catch {}
-}
-
-function createQuickShareLink() {
-  if (!newShareForm.value.title) return;
-  const token = "st_" + Math.random().toString(36).substring(2, 10);
-  const durMap = { "24h": "In 24 Stunden", "7d": "In 7 Tagen", "30d": "In 30 Tagen", "never": "Unbegrenzt" };
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://unyq.app";
-  const fullUrl = origin + "/share/" + token;
-  const item = {
-    id: `qs-${Date.now()}`,
-    title: newShareForm.value.title,
-    token,
-    expiresLabel: durMap[newShareForm.value.duration] || "In 7 Tagen",
-    views: 0,
-    url: fullUrl,
-    hasPassword: Boolean(newShareForm.value.password),
-    allowDownload: newShareForm.value.allowDownload,
-    allowFeedback: newShareForm.value.allowFeedback,
-  };
-  quickShareLinks.value.unshift(item);
-  saveQuickShareLinks();
-  lastCreatedLink.value = fullUrl;
-  showToast("Quick-Share Link erfolgreich generiert!", "success");
-}
-
-function copyQuickShareLink(link) {
-  copyText(link.url);
-}
-
-function copyText(text) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text);
+  } catch {
+    try {
+      const saved = localStorage.getItem("unyq_hub_music_tip");
+      if (saved) {
+        musicTip.value = { ...defaultMusicTip, ...JSON.parse(saved) };
+      }
+    } catch {}
   }
-  showToast("Link in Zwischenablage kopiert!", "info");
 }
 
-function deleteQuickShareLink(id) {
-  quickShareLinks.value = quickShareLinks.value.filter((l) => l.id !== id);
-  saveQuickShareLinks();
-  showToast("Link gelöscht", "info");
+function openEditMusicTip() {
+  tipDraft.value = { ...musicTip.value };
+  showEditMusicTipModal.value = true;
+}
+
+async function saveMusicTip() {
+  savingTip.value = true;
+  try {
+    const { data } = await api.post("hub-music-tip/", tipDraft.value);
+    musicTip.value = { ...defaultMusicTip, ...(data || tipDraft.value) };
+    try {
+      localStorage.setItem("unyq_hub_music_tip", JSON.stringify(musicTip.value));
+    } catch {}
+    showToast("UNYQ Music Tipp erfolgreich aktualisiert! 🎵", "success");
+    showEditMusicTipModal.value = false;
+  } catch {
+    musicTip.value = { ...tipDraft.value };
+    try {
+      localStorage.setItem("unyq_hub_music_tip", JSON.stringify(musicTip.value));
+    } catch {}
+    showToast("Tipp gespeichert! 🎵", "success");
+    showEditMusicTipModal.value = false;
+  } finally {
+    savingTip.value = false;
+  }
+}
+
+function handleMusicTipAction() {
+  const url = musicTip.value.link_url || "/platforms/music";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    window.open(url, "_blank");
+  } else {
+    router.push(url);
+  }
 }
 
 // Hub Team & Tool Tasks State
@@ -940,7 +910,7 @@ onMounted(async () => {
   } catch {
     viewMode.value = isTeam.value ? "admin" : "user";
   }
-  loadQuickShareLinks();
+  loadMusicTip();
   await Promise.all([loadAccessState(), loadNotificationCount(), loadHubBadges(), isTeam.value ? loadHubTeamTasks() : Promise.resolve()]);
 });
 </script>
@@ -1068,6 +1038,35 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.sc-head-info {
+  flex: 1;
+}
+
+.sc-edit-btn {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.08);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sc-edit-btn:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: #a855f7;
+}
+
+.tip-modal {
+  width: min(600px, 95vw);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
 }
 
 .sc-icon {

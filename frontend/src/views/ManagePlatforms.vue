@@ -789,16 +789,73 @@ async function deletePlatform(item) {
   }
 }
 
+function scanClientPlatforms() {
+  const routes = router.getRoutes();
+  const scanned = [];
+  const seenSlugs = new Set();
+
+  routes.forEach((r) => {
+    const path = r.path || "";
+    const name = String(r.name || "");
+    if (!path || path.includes("/:") || path === "/" || path.startsWith("/login") || path.startsWith("/register") || path.startsWith("/set-password")) {
+      return;
+    }
+
+    let slug = "";
+    let displayName = "";
+
+    if (path.startsWith("/platforms/")) {
+      const sub = path.replace("/platforms/", "").split("/")[0];
+      if (sub) {
+        slug = sub;
+        displayName = name.replace(/^platform-/, "").replace(/-/g, " ");
+      }
+    } else if (path === "/tournaments") {
+      slug = "tournaments";
+      displayName = "Arena & Turniere";
+    } else if (path === "/platforms") {
+      slug = "hub";
+      displayName = "Creator Hub";
+    } else if (path.startsWith("/app/")) {
+      const sub = path.replace("/app/", "").split("/")[0];
+      if (sub && !["me", "notifications", "search", "team/roles"].includes(sub)) {
+        slug = sub;
+        displayName = name.replace(/-/g, " ");
+      }
+    }
+
+    if (slug && !seenSlugs.has(slug)) {
+      seenSlugs.add(slug);
+      const prettyName = displayName
+        ? displayName
+            .split(" ")
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(" ")
+        : slug.charAt(0).toUpperCase() + slug.slice(1);
+
+      scanned.push({
+        slug,
+        name: prettyName,
+        path,
+        version: "1.0",
+      });
+    }
+  });
+
+  return scanned;
+}
+
 async function syncPlatforms() {
   syncing.value = true;
   try {
-    const { data } = await api.post("manage-platforms/sync/");
+    const scanned_platforms = scanClientPlatforms();
+    const { data } = await api.post("manage-platforms/sync/", { scanned_platforms });
     platforms.value = Array.isArray(data?.results) ? data.results : data?.results || [];
     invalidateManagedPlatformAccessCache();
     await loadHistory();
     const created = Number(data?.stats?.created || 0);
     const updated = Number(data?.stats?.updated || 0);
-    showToast(`Plattform-Katalog aktualisiert (${created} neu, ${updated} aktualisiert).`, "success");
+    showToast(`Plattform-Katalog synchronisiert (${created} neu erkannt, ${updated} aktualisiert).`, "success");
   } catch {
     showToast("Synchronisation fehlgeschlagen.", "error");
   } finally {
@@ -900,6 +957,9 @@ async function reloadAll() {
 onMounted(async () => {
   await fetchProfile();
   await reloadAll();
+  if (isTeam.value && platforms.value.length === 0) {
+    await syncPlatforms();
+  }
 });
 </script>
 

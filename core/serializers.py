@@ -1700,8 +1700,10 @@ class BookingSerializer(serializers.ModelSerializer):
 class TournamentSerializer(serializers.ModelSerializer):
     created_by = ProfileMiniSerializer(read_only=True)
     applications_count = serializers.IntegerField(read_only=True)
+    approved_applications_count = serializers.SerializerMethodField()
     submissions_count = serializers.IntegerField(read_only=True)
     battles_count = serializers.IntegerField(read_only=True)
+    clean_description = serializers.SerializerMethodField()
     meta_settings = serializers.SerializerMethodField()
 
     class Meta:
@@ -1711,6 +1713,7 @@ class TournamentSerializer(serializers.ModelSerializer):
             "created_by",
             "title",
             "description",
+            "clean_description",
             "has_application_phase",
             "application_deadline",
             "submission_deadline",
@@ -1728,6 +1731,7 @@ class TournamentSerializer(serializers.ModelSerializer):
             "recurrence_interval",
             "next_starts_at",
             "applications_count",
+            "approved_applications_count",
             "submissions_count",
             "battles_count",
             "meta_settings",
@@ -1736,10 +1740,22 @@ class TournamentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
 
+    def get_approved_applications_count(self, obj):
+        return obj.applications.filter(status="APPROVED").count()
+
+    def get_clean_description(self, obj):
+        if not obj.description:
+            return ""
+        import re
+        return re.sub(r"\[[A-Za-z0-9_-]+:[^\]]*\]", "", obj.description).strip()
+
     def get_meta_settings(self, obj):
         import re
         meta = {
             "prize_pool": "1.000 € Cash",
+            "prize_pool_1": "1.000 € Cash",
+            "prize_pool_2": "",
+            "prize_pool_3": "",
             "genre": "Trap & 808",
             "format": "SINGLE_ELIMINATION",
             "slots": 16,
@@ -1754,6 +1770,18 @@ class TournamentSerializer(serializers.ModelSerializer):
         p = re.search(r"\[Preispool:\s*([^\]]+)\]", desc, re.I)
         if p:
             meta["prize_pool"] = p.group(1).strip()
+            meta["prize_pool_1"] = meta["prize_pool"]
+        p1 = re.search(r"\[Preispool-P1:\s*([^\]]+)\]", desc, re.I)
+        if p1:
+            meta["prize_pool_1"] = p1.group(1).strip()
+            if not p:
+                meta["prize_pool"] = meta["prize_pool_1"]
+        p2 = re.search(r"\[Preispool-P2:\s*([^\]]+)\]", desc, re.I)
+        if p2:
+            meta["prize_pool_2"] = p2.group(1).strip()
+        p3 = re.search(r"\[Preispool-P3:\s*([^\]]+)\]", desc, re.I)
+        if p3:
+            meta["prize_pool_3"] = p3.group(1).strip()
         g = re.search(r"\[Genre:\s*([^\]]+)\]", desc, re.I)
         if g:
             meta["genre"] = g.group(1).strip()
@@ -1776,6 +1804,7 @@ class TournamentSerializer(serializers.ModelSerializer):
         if er:
             meta["entry_rules"] = er.group(1).strip()
         return meta
+
 
     def validate_min_account_age_hours(self, value):
         if value < 0:

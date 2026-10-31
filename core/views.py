@@ -84,6 +84,7 @@ from .models import (
     Song,
     SongVersion,
     Album,
+    HubMusicTip,
 )
 from .serializers import _monthly_amount, _debt_monthly_amount
 from .permissions import (
@@ -94,6 +95,7 @@ from .permissions import (
     can_manage_project_tasks,
     can_view_project,
     is_team_profile,
+    is_jury_profile,
 )
 from .serializers import (
     AchievementSerializer,
@@ -3140,6 +3142,56 @@ class TournamentViewSet(viewsets.ModelViewSet):
     serializer_class = TournamentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def perform_create(self, serializer):
+        me = getattr(self.request.user, "profile", None)
+        if not me or not is_team_profile(me):
+            raise PermissionDenied("Nur Team-Mitglieder können Turniere erstellen.")
+        serializer.save(created_by=me)
+
+    def perform_update(self, serializer):
+        me = getattr(self.request.user, "profile", None)
+        if not me or not is_team_profile(me):
+            raise PermissionDenied("Nur Team-Mitglieder können Turniere bearbeiten.")
+        instance = serializer.save()
+        self._notify_participants_of_tournament_change(instance)
+
+    def _notify_participants_of_tournament_change(self, tournament):
+        try:
+            applications = list(
+                TournamentApplication.objects.filter(
+                    tournament=tournament,
+                    status__in=["APPROVED", "PENDING"],
+                ).select_related("profile__user")
+            )
+            for app in applications:
+                user = getattr(app.profile, "user", None)
+                if not user or not user.email:
+                    continue
+                status_txt = "Zugelassen / Bestätigt" if app.status == "APPROVED" else "Bewerbung in Prüfung"
+                subject = f"[UNYQ Arena] Update zum Turnier: {tournament.title}"
+                body = (
+                    f"Hallo {app.profile.name or user.username},\n\n"
+                    f"das UNYQ Arena Team hat Details zum Turnier \"{tournament.title}\" aktualisiert "
+                    f"(z. B. Teilnehmer-Slots, Zeitplan oder Format).\n\n"
+                    f"Aktueller Status deiner Teilnahme: {status_txt}\n\n"
+                    f"Prüfe die aktuellen Turnierdetails jetzt direkt in der Arena:\n"
+                    f"https://unyq.app/tournaments/{tournament.id}\n\n"
+                    f"Viel Erfolg!\nDein UNYQ Arena Team"
+                )
+                send_notification_email(subject, body, [user.email])
+
+            profiles = [app.profile for app in applications if app.profile]
+            if profiles:
+                notify_profiles(
+                    profiles,
+                    f"Turnier-Update: {tournament.title}",
+                    "Das Team hat die Turnierdetails (z. B. Slots oder Ablauf) aktualisiert.",
+                    notification_type="tournament_update",
+                    severity="INFO",
+                )
+        except Exception:
+            logger.exception("Failed to send tournament update notifications")
+
     DEFAULT_RANK_TIERS = [
         {
             "tier_key": "BRONZE",
@@ -3792,10 +3844,42 @@ class TournamentViewSet(viewsets.ModelViewSet):
     )
     def accept_all_applications(self, request, pk=None):
         tournament = self.get_object()
-        pending = TournamentApplication.objects.filter(tournament=tournament, status="PENDING")
-        count = pending.count()
+        pending = list(
+            TournamentApplication.objects.filter(
+                tournament=tournament,
+                status="PENDING",
+            ).select_related("profile__user")
+        )
+        count = len(pending)
         if count:
-            pending.update(status="APPROVED", decided_by=request.user.profile, decided_at=timezone.now())
+            TournamentApplication.objects.filter(id__in=[a.id for a in pending]).update(
+                status="APPROVED",
+                decided_by=request.user.profile,
+                decided_at=timezone.now(),
+            )
+            for app in pending:
+                user_email = getattr(app.profile.user, "email", None)
+                if user_email:
+                    subject = f"[UNYQ Arena] Deine Bewerbung wurde angenommen! 🎉 ({tournament.title})"
+                    body = (
+                        f"Hallo {app.profile.name or app.profile.user.username},\n\n"
+                        f"Glückwunsch! Deine Bewerbung für das Turnier \"{tournament.title}\" wurde offiziell angenommen. "
+                        f"Du bist nun im offiziellen Teilnehmerfeld als Artist dabei!\n\n"
+                        f"Halte dich für die Einreichungsphase bereit und bereite deinen Track vor.\n\n"
+                        f"Turnierseite öffnen:\nhttps://unyq.app/tournaments/{tournament.id}\n\n"
+                        f"Viel Erfolg!\nDein UNYQ Arena Team"
+                    )
+                    send_notification_email(subject, body, [user_email])
+
+            profiles = [a.profile for a in pending if a.profile]
+            if profiles:
+                notify_profiles(
+                    profiles,
+                    "Bewerbung angenommen! 🎉",
+                    f"Du wurdest für das Turnier \"{tournament.title}\" offiziell zugelassen.",
+                    notification_type="tournament_approved",
+                    severity="SUCCESS",
+                )
         return Response({"tournament": tournament.id, "approved_count": count})
 
     @action(
@@ -3956,8 +4040,6 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
             qs = qs.filter(tournament_id=tournament_id)
         if is_team_profile(me):
             return qs
-        if tournament_id:
-            return qs.filter(Q(profile=me) | Q(status="APPROVED"))
         return qs.filter(profile=me)
 
     def perform_create(self, serializer):
@@ -4028,6 +4110,48 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
             application.message = f"{clean_msg}\n\n[Jury-Begründung: {reason}]"
 
         application.save(update_fields=["status", "decided_by", "decided_at", "message"])
+
+        user_email = getattr(application.profile.user, "email", None)
+        if decision == "APPROVED":
+            if user_email:
+                subject = f"[UNYQ Arena] Deine Bewerbung wurde angenommen! 🎉 ({application.tournament.title})"
+                body = (
+                    f"Hallo {application.profile.name or application.profile.user.username},\n\n"
+                    f"Glückwunsch! Deine Bewerbung für das Turnier \"{application.tournament.title}\" "
+                    f"wurde offiziell angenommen. Du bist nun im offiziellen Teilnehmerfeld als Artist dabei!\n\n"
+                    f"Halte dich für die Einreichungsphase bereit und bereite deinen Track vor.\n\n"
+                    f"Turnierseite öffnen:\nhttps://unyq.app/tournaments/{application.tournament.id}\n\n"
+                    f"Viel Erfolg!\nDein UNYQ Arena Team"
+                )
+                send_notification_email(subject, body, [user_email])
+            notify_profiles(
+                [application.profile],
+                "Bewerbung angenommen! 🎉",
+                f"Du wurdest für das Turnier \"{application.tournament.title}\" offiziell zugelassen.",
+                notification_type="tournament_approved",
+                severity="SUCCESS",
+            )
+        elif decision == "REJECTED":
+            if user_email:
+                subject = f"[UNYQ Arena] Status deiner Bewerbung ({application.tournament.title})"
+                reason_line = f"\n\nBegründung der Jury:\n\"{reason}\"" if reason else ""
+                body = (
+                    f"Hallo {application.profile.name or application.profile.user.username},\n\n"
+                    f"vielen Dank für deine Bewerbung beim Turnier \"{application.tournament.title}\".\n"
+                    f"Leider konnte deine Einreichung für die aktuelle Runde nicht zugelassen werden.{reason_line}\n\n"
+                    f"Du kannst deine Bewerbung jederzeit bearbeiten, einen neuen Demo-Link hinterlegen und erneut einreichen.\n\n"
+                    f"Turnierseite öffnen:\nhttps://unyq.app/tournaments/{application.tournament.id}\n\n"
+                    f"Beste Grüße,\nDein UNYQ Arena Team"
+                )
+                send_notification_email(subject, body, [user_email])
+            notify_profiles(
+                [application.profile],
+                "Bewerbung nicht zugelassen",
+                f"Deine Bewerbung für \"{application.tournament.title}\" wurde abgelehnt.{f' Begründung: {reason}' if reason else ''}",
+                notification_type="tournament_rejected",
+                severity="WARNING",
+            )
+
         return Response(self.get_serializer(application).data)
 
 
@@ -4323,7 +4447,7 @@ class TournamentVoteViewSet(viewsets.ModelViewSet):
         if selected_submission.id not in {battle.left_submission_id, battle.right_submission_id}:
             return Response({"detail": "Ungültige Auswahl für diese Battle."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if tournament.voting_mode == "JURY_ONLY" and not is_team_profile(me):
+        if tournament.voting_mode == "JURY_ONLY" and not (is_team_profile(me) or is_jury_profile(me)):
             return Response({"detail": "Dieses Turnier erlaubt nur Jury-Votes."}, status=status.HTTP_403_FORBIDDEN)
 
         if tournament.status != "BATTLES":
@@ -4551,11 +4675,29 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
     serializer_class = ManagedPlatformSerializer
     permission_classes = [permissions.IsAuthenticated, IsTeam]
 
-    def _sync_platform_catalog(self):
+    def _sync_platform_catalog(self, scanned_platforms=None):
         created = 0
         updated = 0
         existing = {row.slug: row for row in ManagedPlatform.objects.all()}
-        for entry in PLATFORM_REGISTRY:
+        all_entries = list(PLATFORM_REGISTRY)
+
+        if scanned_platforms and isinstance(scanned_platforms, list):
+            known_slugs = {entry["slug"] for entry in all_entries}
+            for p in scanned_platforms:
+                slug = (p.get("slug") or "").strip().lower()
+                if not slug:
+                    continue
+                name = (p.get("name") or slug.replace("-", " ").title()).strip()
+                allow_non_team = bool(p.get("allow_non_team_users", True))
+                if slug not in known_slugs:
+                    all_entries.append({
+                        "slug": slug,
+                        "name": name,
+                        "allow_non_team_users": allow_non_team,
+                    })
+                    known_slugs.add(slug)
+
+        for entry in all_entries:
             platform = existing.get(entry["slug"])
             if not platform:
                 ManagedPlatform.objects.create(
@@ -4712,7 +4854,8 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["POST"], url_path="sync", permission_classes=[permissions.IsAuthenticated, IsTeam])
     def sync_catalog(self, request):
-        stats = self._sync_platform_catalog()
+        scanned = request.data.get("scanned_platforms")
+        stats = self._sync_platform_catalog(scanned_platforms=scanned)
         rows = self.get_serializer(self.get_queryset(), many=True).data
         return Response({"stats": stats, "results": rows})
 
@@ -5568,3 +5711,95 @@ def run_task_reminders(request):
             "growpro": growpro_summary,
         }
     )
+
+
+@api_view(["GET", "POST", "PUT"])
+@permission_classes([permissions.IsAuthenticated])
+def hub_music_tip(request):
+    default_payload = {
+        "badge": "UNYQ Music Tipp",
+        "subtitle": "Neuer exklusiver VIP-Drop verfügbar",
+        "title": "Midnight Drive in Berlin",
+        "artist": "KAZA & UNYQ",
+        "button_text": "▶ Jetzt reinhören",
+        "link_url": "/platforms/music",
+        "is_active": True,
+    }
+
+    if request.method == "GET":
+        try:
+            tip = HubMusicTip.objects.filter(is_active=True).first()
+            if tip:
+                return Response({
+                    "id": tip.id,
+                    "badge": tip.badge,
+                    "subtitle": tip.subtitle,
+                    "title": tip.title,
+                    "artist": tip.artist,
+                    "button_text": tip.button_text,
+                    "link_url": tip.link_url,
+                    "is_active": tip.is_active,
+                    "updated_at": tip.updated_at,
+                })
+        except Exception:
+            pass
+        return Response(default_payload)
+
+    # POST or PUT -> Team/Admin only
+    profile = getattr(request.user, "profile", None)
+    if not profile or not is_team_profile(profile):
+        raise PermissionDenied("Nur Team-Mitglieder können den UNYQ Music Tipp bearbeiten.")
+
+    badge = (request.data.get("badge") or default_payload["badge"]).strip()
+    subtitle = (request.data.get("subtitle") or default_payload["subtitle"]).strip()
+    title = (request.data.get("title") or default_payload["title"]).strip()
+    artist = (request.data.get("artist") or default_payload["artist"]).strip()
+    button_text = (request.data.get("button_text") or default_payload["button_text"]).strip()
+    link_url = (request.data.get("link_url") or default_payload["link_url"]).strip()
+    is_active = bool(request.data.get("is_active", True))
+
+    try:
+        tip = HubMusicTip.objects.filter(is_active=True).first()
+        if not tip:
+            tip = HubMusicTip.objects.create(
+                badge=badge,
+                subtitle=subtitle,
+                title=title,
+                artist=artist,
+                button_text=button_text,
+                link_url=link_url,
+                is_active=is_active,
+                updated_by=profile,
+            )
+        else:
+            tip.badge = badge
+            tip.subtitle = subtitle
+            tip.title = title
+            tip.artist = artist
+            tip.button_text = button_text
+            tip.link_url = link_url
+            tip.is_active = is_active
+            tip.updated_by = profile
+            tip.save()
+        return Response({
+            "id": tip.id,
+            "badge": tip.badge,
+            "subtitle": tip.subtitle,
+            "title": tip.title,
+            "artist": tip.artist,
+            "button_text": tip.button_text,
+            "link_url": tip.link_url,
+            "is_active": tip.is_active,
+            "updated_at": tip.updated_at,
+        })
+    except Exception as exc:
+        logger.exception("Error saving HubMusicTip: %s", exc)
+        return Response({
+            "badge": badge,
+            "subtitle": subtitle,
+            "title": title,
+            "artist": artist,
+            "button_text": button_text,
+            "link_url": link_url,
+            "is_active": is_active,
+        })

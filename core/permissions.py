@@ -17,6 +17,19 @@ def is_team_profile(profile):
     return has_role(profile, "TEAM", "ADMIN")
 
 
+def is_jury_profile(profile):
+    if not profile:
+        return False
+    if is_team_profile(profile):
+        return True
+    if has_role(profile, "JURY"):
+        return True
+    socials = getattr(profile, "socials", {}) or {}
+    if socials.get("primary_discipline") == "JURY" or socials.get("is_jury") is True:
+        return True
+    return False
+
+
 def can_view_project(profile, project):
     if not profile or not project:
         return False

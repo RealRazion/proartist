@@ -68,6 +68,7 @@ from core.views import (
     api_center_status,
     send_test_email,
     dashboard_layouts,
+    hub_music_tip,
 )
 
 router = routers.DefaultRouter()
@@ -131,6 +132,7 @@ urlpatterns = [
     path("api/analytics/summary/", analytics_summary),
     path("api/api-center/status/", api_center_status),
     path("api/dashboard/layouts/", dashboard_layouts),
+    path("api/hub-music-tip/", hub_music_tip),
     path("api/automation/task-reminders/", run_task_reminders),
     path("api/testing/send-email/", send_test_email),
     path("api/search/", SearchView.as_view(), name="search"),

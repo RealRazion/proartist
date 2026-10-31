@@ -16,6 +16,17 @@ PLATFORM_REGISTRY = [
     {"slug": "songs", "name": "Song-Bibliothek", "allow_non_team_users": True},
     {"slug": "team-tasks", "name": "Team Tasks", "allow_non_team_users": False},
     {"slug": "promo-queue", "name": "Release & Promo Queue", "allow_non_team_users": True},
+    {"slug": "hub", "name": "Creator Hub", "allow_non_team_users": True},
+    {"slug": "tournaments", "name": "Turnier & Battle Arena", "allow_non_team_users": True},
+    {"slug": "earn", "name": "Earn & Bounties", "allow_non_team_users": True},
+    {"slug": "designs", "name": "Cover- & Grafik-Studio", "allow_non_team_users": True},
+    {"slug": "library", "name": "ProArtist Library", "allow_non_team_users": True},
+    {"slug": "forum", "name": "Community Forum", "allow_non_team_users": True},
+    {"slug": "extra", "name": "Extra Tools & Module", "allow_non_team_users": True},
+    {"slug": "hhu", "name": "HHU Uni-Tool", "allow_non_team_users": False},
+    {"slug": "admin-stats-manager", "name": "Admin Stats Manager", "allow_non_team_users": False},
+    {"slug": "admin-user-role-management", "name": "Nutzer- & Rollenverwaltung", "allow_non_team_users": False},
+    {"slug": "admin-tournament-animations", "name": "Turnier Animation Lab", "allow_non_team_users": False},
 ]
 
 

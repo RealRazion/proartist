@@ -1162,3 +1162,28 @@ class ProfileAchievement(models.Model):
     def __str__(self):
         return f"{self.profile} → {self.achievement}"
 
+
+class HubMusicTip(models.Model):
+    badge = models.CharField(max_length=100, default="UNYQ Music Tipp")
+    subtitle = models.CharField(max_length=250, default="Neuer exklusiver VIP-Drop verfügbar")
+    title = models.CharField(max_length=200, default="Midnight Drive in Berlin")
+    artist = models.CharField(max_length=200, default="KAZA & UNYQ")
+    button_text = models.CharField(max_length=100, default="▶ Jetzt reinhören")
+    link_url = models.CharField(max_length=500, default="/platforms/music")
+    is_active = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        Profile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="hub_music_tip_updates",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.title} - {self.artist}"
+

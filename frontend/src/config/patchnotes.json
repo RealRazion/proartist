@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.44-beta",
+        "date":  "2026-11-02",
+        "title":  "Patch 2.11.0.44-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Fix tournament creation, public permissions and detail caching"
+                       ],
+        "changes":  [
+                        "fix(arena): Fix tournament creation, public permissions and detail caching"
+                    ]
+    },
+    {
         "version":  "2.11.0.43-beta",
         "date":  "2026-11-02",
         "title":  "Patch 2.11.0.43-beta",

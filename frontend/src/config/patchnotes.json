@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.40-beta",
+        "date":  "2026-11-02",
+        "title":  "Patch 2.11.0.40-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Ensure exact tournament routing \u0026 add Admin All-Pages directory"
+                       ],
+        "changes":  [
+                        "fix(arena): ensure exact tournament routing \u0026 add Admin All-Pages directory"
+                    ]
+    },
+    {
         "version":  "2.11.0.39-beta",
         "date":  "2026-11-02",
         "title":  "Patch 2.11.0.39-beta",

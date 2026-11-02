@@ -24,9 +24,27 @@
     <header class="detail-header card compact-tourney-header">
       <!-- Top Navigation & Badges Line -->
       <div class="header-top-row">
-        <button class="btn ghost btn-sm btn-back-arena" @click="goBack">
-          ← Zurück zur Contest-Arena
-        </button>
+        <div class="header-nav-group">
+          <button class="btn ghost btn-sm btn-back-arena" @click="goBack">
+            ← Zurück zur Contest-Arena
+          </button>
+          <div v-if="allTournamentsList.length > 1" class="tourney-quick-switcher" title="Schnell zu einem anderen Turnier wechseln">
+            <span class="switcher-label">Turnier:</span>
+            <select
+              :value="String(route.params.tournamentId)"
+              @change="switchTournament($event.target.value)"
+              class="input input-sm tourney-select"
+            >
+              <option
+                v-for="item in allTournamentsList"
+                :key="item.id"
+                :value="String(item.id)"
+              >
+                {{ item.title }} ({{ statusLabel(item.status) }})
+              </option>
+            </select>
+          </div>
+        </div>
         <div class="top-status-pills">
           <span class="badge-status-pill" :class="`status-${(tournament?.status || 'draft').toLowerCase()}`">
             {{ statusLabel(tournament?.status) }}
@@ -1298,7 +1316,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
@@ -1311,6 +1329,7 @@ const { profile: me, isTeam, fetchProfile } = useCurrentProfile();
 const { showToast } = useToast();
 
 const tournament = ref(null);
+const allTournamentsList = ref([]);
 const activeTab = ref("overview");
 const currentPlayingTrack = ref(null);
 const activeParticles = ref([]);
@@ -1530,18 +1549,18 @@ function cleanDescription(desc) {
 }
 
 function displayTitle(title) {
-  if (!title || title.trim() === "1" || title.trim() === "Turnier #1") {
+  if (!title || !title.trim()) {
     return "UNYQ Beat Battle Arena";
   }
-  return title;
+  return title.trim();
 }
 
 function displayDescription(desc) {
   const cleaned = cleanDescription(desc);
-  if (!cleaned || cleaned.trim() === "1" || cleaned.trim().length < 3) {
+  if (!cleaned || !cleaned.trim()) {
     return "Offizielles UNYQ Battle Turnier. Tritt im 1v1 an, sammle RP und kämpfe um den Sieg.";
   }
-  return cleaned;
+  return cleaned.trim();
 }
 
 function displayPrizePool(t) {
@@ -1554,11 +1573,14 @@ function displayPrizePool(t) {
 function goBack() {
   battleAudio.stopPlayback();
   currentPlayingTrack.value = null;
-  if (route.path.includes("platforms")) {
-    router.push({ name: "platform-contests" });
-  } else {
-    router.push({ name: "tournaments" });
-  }
+  router.push({ name: "tournaments" });
+}
+
+function switchTournament(targetId) {
+  if (!targetId || targetId === route.params.tournamentId) return;
+  battleAudio.stopPlayback();
+  currentPlayingTrack.value = null;
+  router.push({ name: "tournament-detail", params: { tournamentId: String(targetId) } });
 }
 
 /* Audio Player Synthesizer / Player Engine */
@@ -2444,6 +2466,31 @@ async function loadBracket() {
   }
 }
 
+async function loadAllTournaments() {
+  try {
+    const { data } = await api.get("tournaments/");
+    const list = Array.isArray(data) ? data : data?.results || [];
+    allTournamentsList.value = list.map(t => ({
+      id: t.id,
+      title: t.title || `Turnier #${t.id}`,
+      status: t.status || "DRAFT",
+    }));
+  } catch {
+    allTournamentsList.value = [];
+  }
+}
+
+async function refreshTournamentData() {
+  await loadTournament();
+  await Promise.all([
+    loadBattles(),
+    loadSubmissions(),
+    loadApplications(),
+    loadBracket(),
+    loadAllTournaments(),
+  ]);
+}
+
 onMounted(async () => {
   await fetchProfile();
   applyArtistName.value = me.value?.name || me.value?.username || "";
@@ -2455,14 +2502,19 @@ onMounted(async () => {
     // ignore
   }
 
-  await loadTournament();
-  await Promise.all([
-    loadBattles(),
-    loadSubmissions(),
-    loadApplications(),
-    loadBracket(),
-  ]);
+  await refreshTournamentData();
 });
+
+watch(
+  () => route.params.tournamentId,
+  async (newId, oldId) => {
+    if (newId && String(newId) !== String(oldId)) {
+      battleAudio.stopPlayback();
+      currentPlayingTrack.value = null;
+      await refreshTournamentData();
+    }
+  }
+);
 
 onBeforeUnmount(() => {
   battleAudio.stopPlayback();
@@ -2531,7 +2583,45 @@ onBeforeUnmount(() => {
   align-items: center;
   margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+}
+
+.header-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tourney-quick-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 4px 10px;
+  backdrop-filter: blur(8px);
+}
+
+.tourney-quick-switcher .switcher-label {
+  font-size: 11px;
+  color: var(--text-muted, #94a3b8);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tourney-quick-switcher .tourney-select {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  max-width: 220px;
 }
 
 .btn-back-arena {

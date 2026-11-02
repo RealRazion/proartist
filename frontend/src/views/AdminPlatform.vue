@@ -8,6 +8,14 @@
           <p class="hero-subtitle">
             Zentrales Verwaltungszentrum für alle UNYQ-Plattformen. Verwalte Nutzer, überwache Systeme und steuere Zugriffe.
           </p>
+          <div class="hero-actions-row">
+            <router-link to="/platforms/admin/all-pages" class="btn btn-sm btn-hero-explore">
+              🗺️ Alle Seiten &amp; Subseiten einsehen (Plattform-Explorer) →
+            </router-link>
+            <router-link to="/platforms/manage-platforms" class="btn ghost btn-sm">
+              ⚙️ Plattform-Rechte
+            </router-link>
+          </div>
         </div>
         <div class="hero-visual">
           <div class="floating-icons">
@@ -140,6 +148,15 @@ const systemStats = ref({
 
 const adminTools = [
   {
+    key: "all-pages",
+    title: "Gesamt-Plattform & Seiten-Verzeichnis",
+    category: "Plattform-Übersicht",
+    description: "Vollständige Einsicht in alle 45+ UNYQ-Plattformen, Hauptseiten und deren Subseiten mit Live-Routen, Rollenrechten und Sofortzugriff.",
+    buttonLabel: "Verzeichnis öffnen",
+    icon: "🗺️",
+    features: ["45+ Seiten & Plattformen", "Subseiten & Werkzeuge", "Direkt-Navigation"],
+  },
+  {
     key: "stats-manager",
     title: "Nutzer-Daten & Stats-Zentrale",
     category: "Daten & Reset",
@@ -251,6 +268,7 @@ const adminTools = [
 
 function openTool(tool) {
   const mapping = {
+    "all-pages": "/platforms/admin/all-pages",
     "stats-manager": "/platforms/admin/stats-manager",
     "tournament-director": "/tournaments?tab=admin",
     "arena-animations": "/platforms/admin/tournament-animations",
@@ -349,6 +367,29 @@ onMounted(async () => {
   line-height: 1.6;
   opacity: 0.9;
   margin: 0;
+}
+
+.hero-actions-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.btn-hero-explore {
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  color: #fff;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.35);
+  transition: all 0.2s ease;
+}
+
+.btn-hero-explore:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
+  color: #fff;
 }
 
 .hero-visual {

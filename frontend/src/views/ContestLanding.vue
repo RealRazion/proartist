@@ -2927,14 +2927,11 @@ function setRoleMode(mode) {
 }
 
 function openTournamentDetail(tournament) {
-  if (!tournament?.id) return;
+  const targetId = tournament?.id || tournament?.tournament_id || tournament?.tournament;
+  if (!targetId) return;
   battleAudio.stopPlayback();
   currentPlayingTrack.value = null;
-  if (route.path.includes("platforms")) {
-    router.push({ name: "platform-contest-detail", params: { tournamentId: tournament.id } });
-  } else {
-    router.push({ name: "tournament-detail", params: { tournamentId: tournament.id } });
-  }
+  router.push({ name: "tournament-detail", params: { tournamentId: String(targetId) } });
 }
 
 /* Audio Player Synthesizer / Player Engine */
@@ -4041,12 +4038,15 @@ async function loadData() {
         const m = s.notes.match(/\[Jury-Begründung:\s*([^\]]+)\]/i);
         if (m) reason = m[1].trim();
       }
+      const tId = s.tournament || s.tournament_id;
       return {
         ...s,
+        tournament_id: tId,
+        tournament: tId,
         rejection_reason: reason,
         tournament_title:
           s.tournament_title ||
-          (tournamentsList.value.find((t) => t.id === (s.tournament || s.tournament_id))?.title) ||
+          (tournamentsList.value.find((t) => t.id === tId)?.title) ||
           "Turnier",
       };
     });

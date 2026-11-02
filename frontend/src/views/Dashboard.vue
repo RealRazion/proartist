@@ -268,7 +268,7 @@
               v-for="tournament in activeTournaments.slice(0, 3)"
               :key="tournament.id"
               class="arena-mini-card"
-              @click="router.push('/tournaments')"
+              @click="router.push({ name: 'tournament-detail', params: { tournamentId: tournament.id } })"
             >
               <div class="am-left">
                 <div class="am-title-row">

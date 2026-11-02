@@ -32,6 +32,7 @@ const ApiCenter = () => import("../views/ApiCenter.vue");
 const PlatformLanding = () => import("../views/PlatformLanding.vue");
 const AdminPlatform = () => import("../views/AdminPlatform.vue");
 const AdminStatsManager = () => import("../views/AdminStatsManager.vue");
+const AdminAllPages = () => import("../views/AdminAllPages.vue");
 const UserRoleManagement = () => import("../views/UserRoleManagement.vue");
 const TournamentAnimationLab = () => import("../views/TournamentAnimationLab.vue");
 const ContestLanding = () => import("../views/ContestLanding.vue");
@@ -130,6 +131,7 @@ const routes = [
       { path: "todo", name: "platform-todo", component: TodoLanding, meta: { requiresAuth: true } },
       { path: "admin", name: "admin-platform", component: AdminPlatform, meta: { requiresAuth: true } },
       { path: "admin/stats-manager", name: "admin-stats-manager", component: AdminStatsManager, meta: { requiresAuth: true } },
+      { path: "admin/all-pages", name: "admin-all-pages", component: AdminAllPages, meta: { requiresAuth: true } },
       { path: "admin/user-role-management", name: "admin-user-role-management", component: UserRoleManagement, meta: { requiresAuth: true } },
       { path: "admin/tournament-animations", name: "admin-tournament-animations", component: TournamentAnimationLab, meta: { requiresAuth: true } },
       { path: "manage-platforms", name: "manage-platforms", component: ManagePlatforms, meta: { requiresAuth: true } },
@@ -156,8 +158,8 @@ const routes = [
   { path: "/app/hhu", redirect: "/platforms/hhu" },
   { path: "/app/tournaments", redirect: "/tournaments" },
   { path: "/app/tournaments/:tournamentId", redirect: (to) => `/tournaments/${to.params.tournamentId}` },
-  { path: "/platforms/contests", redirect: "/tournaments" },
-  { path: "/platforms/contests/:tournamentId", redirect: (to) => `/tournaments/${to.params.tournamentId}` },
+  { path: "/platforms/contests", name: "platform-contests", redirect: "/tournaments" },
+  { path: "/platforms/contests/:tournamentId", name: "platform-contest-detail", redirect: (to) => `/tournaments/${to.params.tournamentId}` },
   { path: "/:pathMatch(.*)*", redirect: "/" },
 ];
 

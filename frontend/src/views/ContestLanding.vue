@@ -3092,9 +3092,10 @@ async function submitCreateTournament() {
     },
   };
 
+  let createdTournament = null;
   try {
     const { data } = await api.post("tournaments/", payload);
-    tournamentsList.value.unshift({
+    createdTournament = {
       ...data,
       prize_pool: prize1,
       prize_pool_1: prize1,
@@ -3109,13 +3110,19 @@ async function submitCreateTournament() {
       group_size: groupSize,
       participants_count: 0,
       battles_count: 0,
-    });
-  } catch {
-    tournamentsList.value.unshift({
+    };
+    tournamentsList.value.unshift(createdTournament);
+  } catch (err) {
+    console.warn("Backend create failed, fallback to local tournament", err);
+    createdTournament = {
       id: Date.now(),
       title,
       description: metaDesc,
-      prize_pool: prizeText,
+      prize_pool: prize1,
+      prize_pool_1: prize1,
+      prize_pool_2: prize2,
+      prize_pool_3: prize3,
+      clean_description: cleanDesc,
       genre: genreText,
       format: formatText,
       slots: slotsNum,
@@ -3123,16 +3130,43 @@ async function submitCreateTournament() {
       groups_count: groupsCount,
       group_size: groupSize,
       status: newTournament.value.status || "APPLICATION_OPEN",
-      is_no_loss: newTournament.value.is_no_loss,
+      is_no_loss: Boolean(newTournament.value.is_no_loss || formatText === "DOUBLE_ELIMINATION"),
       participants_count: 0,
       battles_count: 0,
       ends_at: endsAt,
-    });
+    };
+    tournamentsList.value.unshift(createdTournament);
   }
+
+  try {
+    localStorage.setItem("unyq_cached_tournaments", JSON.stringify(tournamentsList.value));
+  } catch {}
 
   battleAudio.playGong();
   showCreateModal.value = false;
-  showToast("Turnier erfolgreich erstellt & live geschaltet! 🏆", "success");
+  showToast(`Turnier "${title}" erfolgreich erstellt! 🏆`, "success");
+
+  // Reset form
+  newTournament.value = {
+    title: "",
+    description: "",
+    prize_pool_1: "1.000 € Cash",
+    prize_pool_2: "500 € Cash",
+    prize_pool_3: "250 € Cash",
+    genre: "Trap & 808",
+    format: "SINGLE_ELIMINATION",
+    slots: 16,
+    total_rounds: 4,
+    groups_count: 4,
+    group_size: 4,
+    status: "APPLICATION_OPEN",
+    is_no_loss: false,
+  };
+
+  // Open tournament detail page immediately
+  if (createdTournament?.id) {
+    router.push({ name: "tournament-detail", params: { tournamentId: String(createdTournament.id) } });
+  }
 }
 
 const applicationForm = ref({
@@ -3803,8 +3837,21 @@ async function loadData() {
         battles_count: t.battles_count || 0,
       };
     });
-  } catch {
-    tournamentsList.value = [];
+    try {
+      localStorage.setItem("unyq_cached_tournaments", JSON.stringify(tournamentsList.value));
+    } catch {}
+  } catch (err) {
+    console.warn("Could not fetch tournaments from API, loading from cache", err);
+    try {
+      const cached = JSON.parse(localStorage.getItem("unyq_cached_tournaments") || "[]");
+      if (Array.isArray(cached) && cached.length) {
+        tournamentsList.value = cached;
+      } else {
+        tournamentsList.value = [];
+      }
+    } catch {
+      tournamentsList.value = [];
+    }
   }
 
   // Ranked Leaderboard

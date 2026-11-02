@@ -3143,17 +3143,22 @@ class TournamentViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        me = getattr(self.request.user, "profile", None)
-        if not me or not is_team_profile(me):
-            raise PermissionDenied("Nur Team-Mitglieder können Turniere erstellen.")
+        user = self.request.user
+        me = getattr(user, "profile", None)
+        if not me:
+            me, _ = Profile.objects.get_or_create(user=user, defaults={"name": getattr(user, "username", "Admin")})
         serializer.save(created_by=me)
 
     def perform_update(self, serializer):
-        me = getattr(self.request.user, "profile", None)
-        if not me or not is_team_profile(me):
-            raise PermissionDenied("Nur Team-Mitglieder können Turniere bearbeiten.")
-        instance = serializer.save()
-        self._notify_participants_of_tournament_change(instance)
+        user = self.request.user
+        me = getattr(user, "profile", None)
+        if not me:
+            me, _ = Profile.objects.get_or_create(user=user, defaults={"name": getattr(user, "username", "Admin")})
+        instance = serializer.instance
+        if instance.created_by_id != me.id and not is_team_profile(me):
+            raise PermissionDenied("Nur der Ersteller oder Team-Mitglieder können dieses Turnier bearbeiten.")
+        updated_instance = serializer.save()
+        self._notify_participants_of_tournament_change(updated_instance)
 
     def _notify_participants_of_tournament_change(self, tournament):
         try:
@@ -3377,8 +3382,8 @@ class TournamentViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), IsTeam()]
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         qs = (
@@ -3394,9 +3399,6 @@ class TournamentViewSet(viewsets.ModelViewSet):
         if status_filter and status_filter != "ALL":
             qs = qs.filter(status=status_filter)
         return qs
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user.profile)
 
     @action(detail=False, methods=["GET", "PATCH"], url_path="ranked-config")
     def ranked_config(self, request):

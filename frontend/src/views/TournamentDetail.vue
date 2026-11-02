@@ -2082,6 +2082,18 @@ async function resetTournamentData() {
 /* Data Loading */
 async function loadTournament() {
   const id = route.params.tournamentId;
+  // 1. Check local cache first so user immediately sees their tournament
+  try {
+    const cachedTourneys = JSON.parse(localStorage.getItem("unyq_cached_tournaments") || "[]");
+    const localMatch = cachedTourneys.find(t => String(t.id) === String(id));
+    if (localMatch) {
+      tournament.value = {
+        ...localMatch,
+        id,
+      };
+    }
+  } catch {}
+
   try {
     const { data } = await api.get(`tournaments/${id}/`);
     let prize1 = data.meta_settings?.prize_pool_1 || data.meta_settings?.prize_pool || "1.000 € Cash";
@@ -2140,6 +2152,15 @@ async function loadTournament() {
       group_size: groupSize,
     };
 
+    // Update cache with fresh data
+    try {
+      const cachedTourneys = JSON.parse(localStorage.getItem("unyq_cached_tournaments") || "[]");
+      const idx = cachedTourneys.findIndex(t => String(t.id) === String(id));
+      if (idx >= 0) cachedTourneys[idx] = { ...tournament.value };
+      else cachedTourneys.push({ ...tournament.value });
+      localStorage.setItem("unyq_cached_tournaments", JSON.stringify(cachedTourneys));
+    } catch {}
+
     // Set default tab based on tournament status if not explicitly requested in query
     if (route.query.tab && tabs.value.some(t => t.key === route.query.tab)) {
       activeTab.value = route.query.tab;
@@ -2150,21 +2171,24 @@ async function loadTournament() {
       else if (tournament.value?.status === "CLOSED") activeTab.value = "bracket";
       else activeTab.value = tabs.value[0]?.key || "overview";
     }
-  } catch {
-    tournament.value = {
-      id,
-      title: "Turnier #" + id,
-      description: "Turnier-Informationen werden geladen.",
-      status: "DRAFT",
-      genre: "Allround",
-      prize_pool: "Kein Preispool festgelegt",
-      format: "SINGLE_ELIMINATION",
-      slots: 16,
-      total_rounds: 4,
-      groups_count: 4,
-      group_size: 4,
-      is_no_loss: false,
-    };
+  } catch (err) {
+    console.warn("Could not load tournament details from API:", err);
+    if (!tournament.value?.title || tournament.value.title.startsWith("Turnier #")) {
+      tournament.value = {
+        id,
+        title: tournament.value?.title && !tournament.value.title.startsWith("Turnier #") ? tournament.value.title : `Turnier #${id}`,
+        description: tournament.value?.description || "Turnier-Informationen werden geladen.",
+        status: tournament.value?.status || "DRAFT",
+        genre: tournament.value?.genre || "Allround",
+        prize_pool: tournament.value?.prize_pool || "Kein Preispool festgelegt",
+        format: tournament.value?.format || "SINGLE_ELIMINATION",
+        slots: tournament.value?.slots || 16,
+        total_rounds: tournament.value?.total_rounds || 4,
+        groups_count: tournament.value?.groups_count || 4,
+        group_size: tournament.value?.group_size || 4,
+        is_no_loss: Boolean(tournament.value?.is_no_loss),
+      };
+    }
   }
 }
 
@@ -2302,6 +2326,19 @@ async function loadAllTournaments() {
       title: t.title || `Turnier #${t.id}`,
       status: t.status || "DRAFT",
     }));
+
+    // If current tournament has generic title, match from allTournamentsList
+    const currentId = route.params.tournamentId;
+    if (currentId && (!tournament.value?.title || tournament.value.title.startsWith("Turnier #"))) {
+      const match = list.find(t => String(t.id) === String(currentId));
+      if (match && match.title) {
+        tournament.value = {
+          ...tournament.value,
+          ...match,
+          clean_description: cleanDescription(match.description),
+        };
+      }
+    }
   } catch {
     allTournamentsList.value = [];
   }

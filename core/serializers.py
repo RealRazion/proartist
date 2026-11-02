@@ -1702,10 +1702,10 @@ class BookingSerializer(serializers.ModelSerializer):
 
 class TournamentSerializer(serializers.ModelSerializer):
     created_by = ProfileMiniSerializer(read_only=True)
-    applications_count = serializers.IntegerField(read_only=True)
+    applications_count = serializers.SerializerMethodField()
     approved_applications_count = serializers.SerializerMethodField()
-    submissions_count = serializers.IntegerField(read_only=True)
-    battles_count = serializers.IntegerField(read_only=True)
+    submissions_count = serializers.SerializerMethodField()
+    battles_count = serializers.SerializerMethodField()
     clean_description = serializers.SerializerMethodField()
     meta_settings = serializers.SerializerMethodField()
 
@@ -1743,8 +1743,43 @@ class TournamentSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_by", "created_at", "updated_at"]
 
+    def get_applications_count(self, obj):
+        if hasattr(obj, "applications_count"):
+            return obj.applications_count
+        if hasattr(obj, "applications"):
+            try:
+                return obj.applications.count()
+            except Exception:
+                pass
+        return 0
+
     def get_approved_applications_count(self, obj):
-        return obj.applications.filter(status="APPROVED").count()
+        if hasattr(obj, "applications"):
+            try:
+                return obj.applications.filter(status="APPROVED").count()
+            except Exception:
+                pass
+        return 0
+
+    def get_submissions_count(self, obj):
+        if hasattr(obj, "submissions_count"):
+            return obj.submissions_count
+        if hasattr(obj, "submissions"):
+            try:
+                return obj.submissions.count()
+            except Exception:
+                pass
+        return 0
+
+    def get_battles_count(self, obj):
+        if hasattr(obj, "battles_count"):
+            return obj.battles_count
+        if hasattr(obj, "battles"):
+            try:
+                return obj.battles.count()
+            except Exception:
+                pass
+        return 0
 
     def get_clean_description(self, obj):
         if not obj.description:

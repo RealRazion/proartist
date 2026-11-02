@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.42-beta",
+        "date":  "2026-11-02",
+        "title":  "Patch 2.11.0.42-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Fix missing closing div tags in ContestLanding.vue and TournamentDetail.vue"
+                       ],
+        "changes":  [
+                        "fix(views): Fix missing closing div tags in ContestLanding.vue and TournamentDetail.vue"
+                    ]
+    },
+    {
         "version":  "2.11.0.41-beta",
         "date":  "2026-11-02",
         "title":  "Patch 2.11.0.41-beta",

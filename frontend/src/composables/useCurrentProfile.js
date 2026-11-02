@@ -42,11 +42,24 @@ async function fetchProfile(force = false) {
 }
 
 const isTeam = computed(() =>
-  (profile.value?.roles || []).some((role) => ["TEAM", "ADMIN"].includes(role.key))
+  Boolean(
+    profile.value?.is_team_member ||
+    profile.value?.user?.is_superuser ||
+    profile.value?.user?.is_staff ||
+    profile.value?.is_staff ||
+    profile.value?.is_superuser ||
+    (profile.value?.roles || []).some((role) => ["TEAM", "ADMIN"].includes(role.key))
+  )
 );
 
 const isAdmin = computed(() =>
-  (profile.value?.roles || []).some((role) => role.key === "ADMIN")
+  Boolean(
+    profile.value?.user?.is_superuser ||
+    profile.value?.user?.is_staff ||
+    profile.value?.is_staff ||
+    profile.value?.is_superuser ||
+    (profile.value?.roles || []).some((role) => role.key === "ADMIN")
+  )
 );
 
 const isContestOnly = computed(() => {

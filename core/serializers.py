@@ -354,6 +354,9 @@ class ProfileSerializer(serializers.ModelSerializer):
         return not user.is_active
 
     def get_is_team_member(self, obj):
+        user = getattr(obj, "user", None)
+        if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+            return True
         return obj.roles.filter(key__in=["TEAM", "ADMIN"]).exists()
 
     def get_avatar_url(self, obj):
@@ -1927,6 +1930,24 @@ class TournamentApplicationSerializer(serializers.ModelSerializer):
             "edit_request_created_at",
             "edit_request_parsed",
         ]
+
+    def validate_message(self, value):
+        if not value:
+            return value
+        import re
+        from .api_validators import is_valid_web_url, normalize_web_url
+        demo_match = re.search(r"Demo:\s*([^|]+)", value, re.IGNORECASE)
+        if demo_match:
+            raw_demo = demo_match.group(1).strip()
+            if raw_demo:
+                if not is_valid_web_url(raw_demo):
+                    raise serializers.ValidationError(
+                        "Der angegebene Demo-Link ist keine gültige Web-URL (z. B. https://soundcloud.com/...). Bitte trage einen echten Link ein."
+                    )
+                normalized = normalize_web_url(raw_demo)
+                if normalized != raw_demo:
+                    value = value[:demo_match.start(1)] + normalized + value[demo_match.end(1):]
+        return value
 
     def get_rejection_reason(self, obj):
         if obj.message and "[Jury-Begründung:" in obj.message:

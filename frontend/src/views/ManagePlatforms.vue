@@ -255,7 +255,7 @@
             <div class="pcard-settings-box">
               <div class="setting-row">
                 <label class="setting-label">Status-Wahl:</label>
-                <select v-model="item.status" class="input input-sm setting-select">
+                <select v-model="item.status" class="input input-sm setting-select" @change="savePlatform(item)">
                   <option value="ACTIVE">🟢 ACTIVE (Live / Aktiv)</option>
                   <option value="MAINTENANCE">🟡 MAINTENANCE (Wartung - nur Team &amp; Admin)</option>
                   <option value="LOCKED">🔴 LOCKED (Gesperrt - nur Admin)</option>
@@ -274,7 +274,7 @@
 
               <div class="setting-row checkbox-row">
                 <label class="check-container">
-                  <input type="checkbox" v-model="item.allow_non_team_users" />
+                  <input type="checkbox" v-model="item.allow_non_team_users" @change="savePlatform(item)" />
                   <span class="checkmark"></span>
                   <span class="check-text">Für reguläre Artists freigegeben (wenn ACTIVE)</span>
                 </label>
@@ -286,6 +286,7 @@
                   v-model.trim="item.status_note"
                   class="input input-sm setting-input"
                   placeholder="Optionaler Hinweis für gesperrte Nutzer"
+                  @change="savePlatform(item)"
                 />
               </div>
             </div>
@@ -728,7 +729,7 @@ import { useRouter } from "vue-router";
 import api from "../api";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
-import { PLATFORMS_CATALOG, invalidateManagedPlatformAccessCache } from "../services/managedPlatforms";
+import { PLATFORMS_CATALOG, invalidateManagedPlatformAccessCache, fetchManagedPlatformAccessState } from "../services/managedPlatforms";
 
 const router = useRouter();
 const { isTeam, fetchProfile } = useCurrentProfile();
@@ -867,7 +868,13 @@ function getPlatformDescription(slug) {
   return map[slug] || "UNYQ System-Dienst.";
 }
 
-function openPlatformRoute(slug) {
+async function openPlatformRoute(slug) {
+  invalidateManagedPlatformAccessCache();
+  try {
+    await fetchManagedPlatformAccessState({ force: true });
+  } catch {
+    // ignore
+  }
   const item = platforms.value.find((p) => p.slug === slug);
   const path = item?.defaultRoute || item?.route || `/platforms/${slug}`;
   router.push(path);
@@ -955,6 +962,7 @@ async function loadPlatforms() {
           category: catEntry.category || "General",
           description: existing.description || catEntry.description || "",
           defaultRoute: existing.route || catEntry.defaultRoute || `/platforms/${catEntry.slug}`,
+          allow_non_team_users: catEntry.slug === "dashboard" ? true : Boolean(existing.allow_non_team_users),
           is_catalog_item: false,
         });
       } else {
@@ -1035,6 +1043,9 @@ async function loadArtists() {
 async function savePlatform(item) {
   busyId.value = item.id;
   try {
+    if (item.slug === "dashboard" && item.status === "ACTIVE") {
+      item.allow_non_team_users = true;
+    }
     const isNew = String(item.id).startsWith("catalog_");
     let savedData;
     if (isNew) {
@@ -1080,8 +1091,10 @@ async function savePlatform(item) {
 }
 
 async function setQuickStatus(item, newStatus) {
-  if (item.status === newStatus) return;
   item.status = newStatus;
+  if (newStatus === "ACTIVE" && item.slug === "dashboard") {
+    item.allow_non_team_users = true;
+  }
   await savePlatform(item);
 }
 

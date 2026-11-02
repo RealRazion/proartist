@@ -4108,6 +4108,15 @@ class TournamentApplicationViewSet(viewsets.ModelViewSet):
         demo_link = (request.data.get("demo_link") or "").strip()
         reason = (request.data.get("reason") or request.data.get("message") or "").strip()
 
+        if demo_link:
+            from .api_validators import is_valid_web_url, normalize_web_url
+            if not is_valid_web_url(demo_link):
+                return Response(
+                    {"detail": "Der angegebene Demo-Link ist keine gültige Web-URL (z. B. https://soundcloud.com/...). Bitte prüfe den Link."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            demo_link = normalize_web_url(demo_link)
+
         request_summary = f"Artist: {artist_name} | Demo: {demo_link} | Begründung: {reason}"
 
         if hasattr(application, "edit_requested"):
@@ -4819,7 +4828,10 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
                 )
                 created += 1
                 continue
-            # Note: Do not overwrite custom status, version or allow_non_team_users set manually by the administrator
+            if entry["slug"] == "dashboard" and not platform.allow_non_team_users:
+                platform.allow_non_team_users = True
+                platform.save(update_fields=["allow_non_team_users"])
+                updated += 1
         return {"created": created, "updated": updated}
 
     def list(self, request, *args, **kwargs):
@@ -4907,15 +4919,12 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
     def access_state(self, request):
         self._sync_platform_catalog()
         me = getattr(request.user, "profile", None)
-        is_team_user = is_team_profile(me)
         is_admin_user = bool(
-            me
-            and (
-                me.roles.filter(key="ADMIN").exists()
-                or getattr(request.user, "is_superuser", False)
-                or getattr(request.user, "is_staff", False)
-            )
+            getattr(request.user, "is_superuser", False)
+            or getattr(request.user, "is_staff", False)
+            or (me and me.roles.filter(key="ADMIN").exists())
         )
+        is_team_user = is_admin_user or is_team_profile(me)
         role_keys = set(me.roles.values_list("key", flat=True)) if me else set()
         if not role_keys:
             role_keys = {"MEMBER"}
@@ -4930,21 +4939,27 @@ class ManagedPlatformViewSet(viewsets.ModelViewSet):
             # Enforce strict access rules:
             # 1. LOCKED is locked for everyone except admin
             # 2. MAINTENANCE allows nobody in except team and admin
-            # 3. ACTIVE is available for team/admin, and for artists if allow_non_team_users is True
+            # 3. ACTIVE:
+            #    - dashboard is the core artist workspace: when ACTIVE, all authenticated users have access
+            #    - team/admin have access to all ACTIVE platforms
+            #    - non-team artists have access if allow_non_team_users is True or explicit policy allows it
             if platform.status == "LOCKED":
                 accessible = is_admin_user
             elif platform.status == "MAINTENANCE":
                 accessible = is_admin_user or is_team_user
             else:
-                accessible = is_admin_user or is_team_user or platform.allow_non_team_users
-                if not is_admin_user and not is_team_user:
-                    explicit_role_rules = []
-                    for role_key in role_keys:
-                        rules = policy_map.get(role_key) or {}
-                        if platform.slug in rules:
-                            explicit_role_rules.append(bool(rules.get(platform.slug)))
-                    if explicit_role_rules:
-                        accessible = any(explicit_role_rules)
+                if platform.slug == "dashboard":
+                    accessible = True
+                else:
+                    accessible = is_admin_user or is_team_user or platform.allow_non_team_users
+                    if not is_admin_user and not is_team_user:
+                        explicit_role_rules = []
+                        for role_key in role_keys:
+                            rules = policy_map.get(role_key) or {}
+                            if platform.slug in rules:
+                                explicit_role_rules.append(bool(rules.get(platform.slug)))
+                        if explicit_role_rules:
+                            accessible = any(explicit_role_rules)
 
             rows.append(
                 {

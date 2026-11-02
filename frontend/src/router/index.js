@@ -181,9 +181,21 @@ router.beforeEach(async (to, from, next) => {
   const targetSlug = routeNameToPlatformSlug(to.name);
   if (token && targetSlug) {
     try {
-      const rows = await fetchManagedPlatformAccessState();
-      const bySlug = mapAccessStateRows(rows);
-      const state = bySlug[targetSlug];
+      let rows = await fetchManagedPlatformAccessState();
+      let bySlug = mapAccessStateRows(rows);
+      let state = bySlug[targetSlug];
+
+      // If cached state says inaccessible, re-check fresh state immediately to avoid stale lockout
+      if (state && state.is_accessible === false) {
+        try {
+          rows = await fetchManagedPlatformAccessState({ force: true });
+          bySlug = mapAccessStateRows(rows);
+          state = bySlug[targetSlug];
+        } catch {
+          // ignore
+        }
+      }
+
       if (state && state.is_accessible === false) {
         let msg = state.status_note;
         if (!msg) {

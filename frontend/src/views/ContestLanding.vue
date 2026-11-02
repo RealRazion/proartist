@@ -1793,7 +1793,7 @@
           </label>
           <label>
             <span>Hörprobe / Demo-Link (SoundCloud, Spotify, Dropbox) *</span>
-            <input v-model.trim="applicationForm.demo_link" class="input" required placeholder="https://..." />
+            <input v-model.trim="applicationForm.demo_link" type="url" class="input" required placeholder="https://..." />
           </label>
           <label>
             <span>Nachricht an die Jury (optional)</span>
@@ -1824,7 +1824,7 @@
           </label>
           <label>
             <span>Audio- / Video-URL (SoundCloud, YouTube, Drive) *</span>
-            <input v-model.trim="roundUploadForm.file_url" class="input" required placeholder="https://..." />
+            <input v-model.trim="roundUploadForm.file_url" type="url" class="input" required placeholder="https://..." />
           </label>
           <div class="split-form-row">
             <label>
@@ -1869,7 +1869,7 @@
           </label>
           <label>
             <span>Hörprobe / Demo-Link *</span>
-            <input v-model.trim="editAppForm.demo_link" class="input" required placeholder="https://..." />
+            <input v-model.trim="editAppForm.demo_link" type="url" class="input" required placeholder="https://..." />
           </label>
           <label>
             <span>Nachricht / Überarbeitung an die Jury</span>
@@ -1902,7 +1902,7 @@
           </label>
           <label>
             <span>Neue Hörprobe / Demo-Link (optional)</span>
-            <input v-model.trim="editRequestForm.demo_link" class="input" placeholder="https://..." />
+            <input v-model.trim="editRequestForm.demo_link" type="url" class="input" placeholder="https://..." />
           </label>
           <label>
             <span>Begründung / Was möchtest du ändern? *</span>
@@ -1944,7 +1944,7 @@
           </label>
           <label>
             <span>Audio- / Video-URL (SoundCloud, YouTube, Drive) *</span>
-            <input v-model.trim="editSubForm.file_url" class="input" required />
+            <input v-model.trim="editSubForm.file_url" type="url" class="input" required />
           </label>
           <label>
             <span>Producer Notes / Lyrics / Feedback-Änderungen</span>
@@ -2459,6 +2459,7 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 import api from "../api";
 import { battleAudio } from "../utils/battleAudioEngine";
+import { isValidWebUrl, normalizeWebUrl } from "../utils/urlValidator";
 
 /* High-res Vector Rank Badges */
 import bronzeRank from "../assets/ranks/bronze-icon.svg";
@@ -3265,6 +3266,12 @@ function openApplicationModal(tournament) {
 }
 
 async function submitArtistApplication() {
+  const rawDemo = (applicationForm.value.demo_link || "").trim();
+  if (!isValidWebUrl(rawDemo)) {
+    showToast("Bitte gib einen gültigen Demo-Link ein (z. B. https://soundcloud.com/...)", "warning");
+    return;
+  }
+  applicationForm.value.demo_link = normalizeWebUrl(rawDemo);
   const tId = applyingTournament.value?.id;
   const artistName = applicationForm.value.artist_name || me.value?.name || "Artist";
   const msg = `Artist: ${artistName} | Demo: ${applicationForm.value.demo_link} | ${applicationForm.value.message || ""}`;
@@ -3308,6 +3315,12 @@ function openUploadRoundModal(app) {
 }
 
 async function submitRoundFile() {
+  const rawUrl = (roundUploadForm.value.file_url || "").trim();
+  if (!isValidWebUrl(rawUrl)) {
+    showToast("Bitte gib einen gültigen Audio- oder Video-Link ein (z. B. https://...)", "warning");
+    return;
+  }
+  roundUploadForm.value.file_url = normalizeWebUrl(rawUrl);
   const tId = roundUploadForm.value.tournament_id || (tournamentsList.value[0]?.id);
   const notes = `BPM: ${roundUploadForm.value.bpm} | Key: ${roundUploadForm.value.key} | ${roundUploadForm.value.notes || ""}`;
 
@@ -3386,6 +3399,12 @@ function openEditApplicationModal(app) {
 
 async function submitEditApplication() {
   if (!editingAppTarget.value) return;
+  const rawDemo = (editAppForm.value.demo_link || "").trim();
+  if (!isValidWebUrl(rawDemo)) {
+    showToast("Bitte gib einen gültigen Demo-Link ein (z. B. https://soundcloud.com/...)", "warning");
+    return;
+  }
+  editAppForm.value.demo_link = normalizeWebUrl(rawDemo);
   const app = editingAppTarget.value;
   const artist = editAppForm.value.artist_name || me.value?.name || "Artist";
   const msg = `Artist: ${artist} | Demo: ${editAppForm.value.demo_link} | ${editAppForm.value.message || ""}`;
@@ -3427,6 +3446,14 @@ function openEditRequestModal(app) {
 
 async function submitEditRequest() {
   if (!editRequestTarget.value) return;
+  if (editRequestForm.value.demo_link) {
+    const rawDemo = editRequestForm.value.demo_link.trim();
+    if (rawDemo && !isValidWebUrl(rawDemo)) {
+      showToast("Bitte gib einen gültigen Demo-Link ein (z. B. https://soundcloud.com/...)", "warning");
+      return;
+    }
+    editRequestForm.value.demo_link = normalizeWebUrl(rawDemo);
+  }
   const app = editRequestTarget.value;
   submittingEditRequest.value = true;
   try {
@@ -3485,6 +3512,12 @@ function openEditRoundModal(sub) {
 
 async function submitEditRound() {
   if (!editingSubTarget.value) return;
+  const rawUrl = (editSubForm.value.file_url || "").trim();
+  if (rawUrl && !isValidWebUrl(rawUrl)) {
+    showToast("Bitte gib einen gültigen Audio- oder Video-Link ein (z. B. https://...)", "warning");
+    return;
+  }
+  editSubForm.value.file_url = normalizeWebUrl(rawUrl);
   const sub = editingSubTarget.value;
   try {
     await api.patch(`tournament-submissions/${sub.id}/`, {

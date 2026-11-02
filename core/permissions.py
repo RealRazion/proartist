@@ -8,12 +8,18 @@ def has_role(profile, *role_keys):
 def is_admin_profile(profile):
     if not profile:
         return False
-    if getattr(getattr(profile, "user", None), "is_superuser", False):
+    user = getattr(profile, "user", None)
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
         return True
     return has_role(profile, "ADMIN")
 
 
 def is_team_profile(profile):
+    if not profile:
+        return False
+    user = getattr(profile, "user", None)
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return True
     return has_role(profile, "TEAM", "ADMIN")
 
 

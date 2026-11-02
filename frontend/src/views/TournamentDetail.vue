@@ -964,7 +964,7 @@
           </label>
           <label>
             <span>Demo- / Track-Link *</span>
-            <input v-model.trim="applyDemoLink" class="input" required placeholder="https://soundcloud.com/..." />
+            <input v-model.trim="applyDemoLink" type="url" class="input" required placeholder="https://soundcloud.com/..." />
           </label>
           <label>
             <span>Nachricht an die Jury</span>
@@ -1013,7 +1013,7 @@
           </label>
           <label>
             <span>Neuer Demo- / Track-Link *</span>
-            <input v-model.trim="editRequestDemoLink" class="input" required placeholder="https://soundcloud.com/..." />
+            <input v-model.trim="editRequestDemoLink" type="url" class="input" required placeholder="https://soundcloud.com/..." />
           </label>
           <label>
             <span>Begründung / Nachricht für die Jury *</span>
@@ -1055,7 +1055,7 @@
           </label>
           <label>
             <span>Audio- oder Video-Link (SoundCloud, Drive, YouTube) *</span>
-            <input v-model.trim="uploadMediaUrl" class="input" required placeholder="https://..." />
+            <input v-model.trim="uploadMediaUrl" type="url" class="input" required placeholder="https://..." />
           </label>
           <div class="grid-2-inputs">
             <label>
@@ -1302,8 +1302,8 @@ import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
-import api from "../api";
 import { battleAudio } from "../utils/battleAudioEngine";
+import { isValidWebUrl, normalizeWebUrl } from "../utils/urlValidator";
 
 const route = useRoute();
 const router = useRouter();
@@ -1974,6 +1974,12 @@ function openEditRequestModal() {
 
 async function submitEditRequest() {
   if (!myApplication.value?.id) return;
+  const rawDemo = (editRequestDemoLink.value || "").trim();
+  if (!isValidWebUrl(rawDemo)) {
+    showToast("Bitte gib einen gültigen Demo-Link ein (z. B. https://soundcloud.com/...)", "warning");
+    return;
+  }
+  editRequestDemoLink.value = normalizeWebUrl(rawDemo);
   submittingEditRequest.value = true;
   try {
     const { data } = await api.post(`tournament-applications/${myApplication.value.id}/request-edit/`, {
@@ -2031,6 +2037,12 @@ function promptRejectEditRequest(app) {
 }
 
 async function submitApply() {
+  const rawDemo = (applyDemoLink.value || "").trim();
+  if (!isValidWebUrl(rawDemo)) {
+    showToast("Bitte gib einen gültigen Demo-Link ein (z. B. https://soundcloud.com/...)", "warning");
+    return;
+  }
+  applyDemoLink.value = normalizeWebUrl(rawDemo);
   const tId = tournament.value?.id;
   const msg = `Artist: ${applyArtistName.value} | Demo: ${applyDemoLink.value} | ${applyMessage.value}`;
 
@@ -2096,6 +2108,14 @@ function openUploadRoundModal(round = 1) {
 }
 
 async function submitRound() {
+  if (uploadMediaUrl.value) {
+    const rawUrl = uploadMediaUrl.value.trim();
+    if (!isValidWebUrl(rawUrl)) {
+      showToast("Bitte gib einen gültigen Audio- oder Video-Link ein (z. B. https://soundcloud.com/...)", "warning");
+      return;
+    }
+    uploadMediaUrl.value = normalizeWebUrl(rawUrl);
+  }
   const tId = tournament.value?.id;
   const roundNum = uploadRoundNumber.value || 1;
   const notes = `BPM: ${uploadBpm.value} | Key: ${uploadKey.value}`;

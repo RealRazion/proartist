@@ -343,12 +343,21 @@ function toList(payload) {
   return payload?.results || [];
 }
 
+const BUST_KEY = "unyq_manage_platform_access_bust";
+
 function readCache() {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !parsed.ts || !Array.isArray(parsed.rows)) return null;
+
+    const bust = localStorage.getItem(BUST_KEY);
+    if (bust && Number(bust) > parsed.ts) {
+      sessionStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+
     if (Date.now() - parsed.ts > CACHE_TTL_MS) return null;
     return parsed.rows;
   } catch {
@@ -389,6 +398,8 @@ export function mapAccessStateRows(rows) {
 export function invalidateManagedPlatformAccessCache() {
   try {
     sessionStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(CACHE_KEY);
+    localStorage.setItem(BUST_KEY, String(Date.now()));
   } catch {
     // ignore
   }

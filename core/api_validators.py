@@ -154,3 +154,54 @@ class ProjectCreateUpdateValidator(ValidatorMixin):
                 })
         
         return data
+
+
+def is_valid_web_url(url_string):
+    """
+    Validiert, ob ein gegebener String eine echte Web-URL (SoundCloud, Spotify, YouTube, etc.)
+    und nicht nur willkürlicher Freitext ist.
+    """
+    if not url_string or not isinstance(url_string, str):
+        return False
+    val = url_string.strip()
+    if not val or " " in val:
+        return False
+
+    import re
+    from urllib.parse import urlparse
+
+    if not re.match(r"^https?://", val, re.IGNORECASE):
+        val = f"https://{val}"
+
+    try:
+        parsed = urlparse(val)
+        if parsed.scheme.lower() not in {"http", "https"}:
+            return False
+        netloc = parsed.netloc.split(":")[0]
+        if not netloc or netloc.startswith(".") or netloc.endswith("."):
+            return False
+        parts = netloc.split(".")
+        if len(parts) < 2:
+            return False
+        tld = parts[-1]
+        if not tld or len(tld) < 2 or not tld.isalpha():
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def normalize_web_url(url_string):
+    """
+    Normalisiert eine Web-URL und stellt sicher, dass https:// vorangestellt wird,
+    falls kein Protokoll angegeben wurde.
+    """
+    if not url_string or not isinstance(url_string, str):
+        return ""
+    val = url_string.strip()
+    if not val:
+        return ""
+    import re
+    if not re.match(r"^https?://", val, re.IGNORECASE):
+        return f"https://{val}"
+    return val

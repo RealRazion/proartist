@@ -1055,6 +1055,8 @@
           <button class="btn btn-danger" type="button" @click="confirmReject">Ablehnen &amp; Begründung senden ✕</button>
         </div>
       </div>
+    </div>
+
     <!-- Jury Scorecard Modal -->
     <JuryScorecardModal
       v-if="activeJuryBattle"

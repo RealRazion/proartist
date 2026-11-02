@@ -2274,6 +2274,8 @@
           </div>
         </div>
       </div>
+    </div>
+
     <!-- Jury Scorecard Modal -->
     <JuryScorecardModal
       v-if="activeJuryBattle"

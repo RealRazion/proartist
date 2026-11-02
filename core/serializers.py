@@ -2032,6 +2032,11 @@ class TournamentSubmissionSerializer(serializers.ModelSerializer):
 class TournamentBattleSerializer(serializers.ModelSerializer):
     left_submission_title = serializers.CharField(source="left_submission.title", read_only=True)
     right_submission_title = serializers.CharField(source="right_submission.title", read_only=True)
+    left_media_url = serializers.CharField(source="left_submission.media_url", read_only=True)
+    right_media_url = serializers.CharField(source="right_submission.media_url", read_only=True)
+    left_notes = serializers.CharField(source="left_submission.notes", read_only=True)
+    right_notes = serializers.CharField(source="right_submission.notes", read_only=True)
+    tournament_title = serializers.CharField(source="tournament.title", read_only=True)
     left_profile_name = serializers.SerializerMethodField()
     right_profile_name = serializers.SerializerMethodField()
     votes_left = serializers.SerializerMethodField()
@@ -2043,12 +2048,17 @@ class TournamentBattleSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "tournament",
+            "tournament_title",
             "round_number",
             "left_submission",
             "right_submission",
             "winner_submission",
             "left_submission_title",
             "right_submission_title",
+            "left_media_url",
+            "right_media_url",
+            "left_notes",
+            "right_notes",
             "left_profile_name",
             "right_profile_name",
             "winner_profile_name",
@@ -2072,6 +2082,11 @@ class TournamentBattleSerializer(serializers.ModelSerializer):
             "right_profile_name",
             "left_submission_title",
             "right_submission_title",
+            "left_media_url",
+            "right_media_url",
+            "left_notes",
+            "right_notes",
+            "tournament_title",
         ]
 
     def get_left_profile_name(self, obj):

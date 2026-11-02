@@ -426,194 +426,20 @@
       </div>
 
       <div v-if="liveBattlesList.length" class="battles-showdown-grid">
-        <div
+        <BattleCard
           v-for="b in liveBattlesList"
           :key="b.id"
-          class="card battle-duel-card"
-          :class="{ 'battle-resolved': b.status === 'CLOSED' }"
-        >
-          <!-- Battle Top Bar -->
-          <div class="bd-top-bar">
-            <div class="bd-round-tag">
-              <span class="live-dot" v-if="b.status === 'OPEN'"></span>
-              <span>RUNDE {{ b.round_number || 1 }}</span>
-            </div>
-            <span class="bd-tourney-name">{{ b.tournament_title }}</span>
-            <span class="bd-status-badge" :class="b.status.toLowerCase()">
-              {{ b.status === 'OPEN' ? '🔥 Voting Live' : 'Beendet' }}
-            </span>
-          </div>
-
-          <!-- THE FIGHTER SHOWDOWN (LEFT VS RIGHT) -->
-          <div class="duel-arena-ring">
-            <!-- Left Fighter Box -->
-            <div
-              class="fighter-card left-fighter"
-              :class="{
-                winner: b.winner === 'left' || (b.status === 'CLOSED' && b.votes_left > b.votes_right),
-                voted: hasVotedSide(b, 'left'),
-              }"
-            >
-              <div class="fighter-avatar-wrap">
-                <div class="fighter-avatar">
-                  {{ (b.left_profile_name || 'A').charAt(0).toUpperCase() }}
-                </div>
-                <img :src="getTierBadge(b.left_tier || 'Gold')" class="fighter-tier-icon" alt="Tier" />
-              </div>
-
-              <div class="fighter-info">
-                <strong class="fighter-name">{{ b.left_profile_name }}</strong>
-                <span class="fighter-tier-label">{{ b.left_tier || 'Gold' }} Tier • {{ b.left_rp || '1.820' }} RP</span>
-              </div>
-
-              <!-- Audio Player Box Left -->
-              <div class="fighter-audio-deck">
-                <button
-                  class="audio-play-trigger-btn"
-                  :class="{ playing: currentPlayingTrack === `battle-${b.id}-left` }"
-                  @click="toggleAudio(`battle-${b.id}-left`, b.left_profile_name)"
-                >
-                  <span v-if="currentPlayingTrack === `battle-${b.id}-left`">⏸ Pause</span>
-                  <span v-else>▶ Runde anhören</span>
-                </button>
-
-                <!-- Animated Waveform Bars -->
-                <div class="audio-wave-bars" :class="{ active: currentPlayingTrack === `battle-${b.id}-left` }">
-                  <span v-for="i in 16" :key="i" class="wave-bar" :style="{ animationDelay: `${(i % 5) * 0.12}s` }"></span>
-                </div>
-              </div>
-
-              <div class="fighter-votes-badge">
-                <span class="votes-count">{{ b.votes_left }}</span>
-                <span class="votes-lbl">Votes</span>
-              </div>
-            </div>
-
-            <!-- Central VS Badge & A/B Switcher -->
-            <div class="duel-center-divider">
-              <div class="vs-emblem">VS</div>
-              <button
-                class="btn-ab-switch"
-                @click="quickSwitchAB(b)"
-                title="Zwischen beiden Runden nahtlos umschalten"
-              >
-                ⇄ A/B Wechsel
-              </button>
-            </div>
-
-            <!-- Right Fighter Box -->
-            <div
-              class="fighter-card right-fighter"
-              :class="{
-                winner: b.winner === 'right' || (b.status === 'CLOSED' && b.votes_right > b.votes_left),
-                voted: hasVotedSide(b, 'right'),
-              }"
-            >
-              <div class="fighter-avatar-wrap">
-                <div class="fighter-avatar right-avatar">
-                  {{ (b.right_profile_name || 'B').charAt(0).toUpperCase() }}
-                </div>
-                <img :src="getTierBadge(b.right_tier || 'Platin')" class="fighter-tier-icon" alt="Tier" />
-              </div>
-
-              <div class="fighter-info">
-                <strong class="fighter-name">{{ b.right_profile_name }}</strong>
-                <span class="fighter-tier-label">{{ b.right_tier || 'Platin' }} Tier • {{ b.right_rp || '2.940' }} RP</span>
-              </div>
-
-              <!-- Audio Player Box Right -->
-              <div class="fighter-audio-deck">
-                <button
-                  class="audio-play-trigger-btn"
-                  :class="{ playing: currentPlayingTrack === `battle-${b.id}-right` }"
-                  @click="toggleAudio(`battle-${b.id}-right`, b.right_profile_name)"
-                >
-                  <span v-if="currentPlayingTrack === `battle-${b.id}-right`">⏸ Pause</span>
-                  <span v-else>▶ Runde anhören</span>
-                </button>
-
-                <div class="audio-wave-bars" :class="{ active: currentPlayingTrack === `battle-${b.id}-right` }">
-                  <span v-for="i in 16" :key="i" class="wave-bar" :style="{ animationDelay: `${(i % 5) * 0.12}s` }"></span>
-                </div>
-              </div>
-
-              <div class="fighter-votes-badge">
-                <span class="votes-count">{{ b.votes_right }}</span>
-                <span class="votes-lbl">Votes</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Dynamic Live Vote Meter -->
-          <div class="live-vote-meter-container">
-            <div class="lvm-bar-left" :style="{ width: getVotePct(b, 'left') + '%' }">
-              <span>{{ getVotePct(b, 'left') }}%</span>
-            </div>
-            <div class="lvm-bar-right" :style="{ width: getVotePct(b, 'right') + '%' }">
-              <span>{{ getVotePct(b, 'right') }}%</span>
-            </div>
-          </div>
-
-          <!-- Voting Action Buttons -->
-          <div class="battle-vote-action-bar" v-if="b.status !== 'CLOSED'">
-            <button
-              class="btn-vote-fighter left-vote-btn"
-              :class="{ 'has-voted': hasVotedSide(b, 'left') }"
-              :disabled="hasVoted(b)"
-              @click="castVote(b, 'left', $event)"
-            >
-              <span class="vote-icon">👍</span>
-              <span>Vote für {{ b.left_profile_name }}</span>
-            </button>
-
-            <button
-              class="btn-vote-fighter right-vote-btn"
-              :class="{ 'has-voted': hasVotedSide(b, 'right') }"
-              :disabled="hasVoted(b)"
-              @click="castVote(b, 'right', $event)"
-            >
-              <span class="vote-icon">👍</span>
-              <span>Vote für {{ b.right_profile_name }}</span>
-            </button>
-          </div>
-
-          <div v-else class="battle-resolved-banner">
-            🏆 Sieger: 
-            <strong>{{ b.votes_left >= b.votes_right ? b.left_profile_name : b.right_profile_name }}</strong>
-            nach Community-Voting bestätigt!
-          </div>
-
-          <!-- Crowd Hype Reaction Floating Bar -->
-          <div class="crowd-hype-toolbar">
-            <span class="hype-title">Crowd Hype:</span>
-            <div class="hype-buttons-group">
-              <button
-                v-for="emoji in ['🔥', '💥', '🤯', '👑', '👏']"
-                :key="emoji"
-                class="hype-react-btn"
-                @click="spawnReactionParticle(emoji, $event)"
-              >
-                {{ emoji }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Admin Decision Controls (Team Only) -->
-          <div class="admin-decision-bar" v-if="currentRoleMode === 'TEAM' && b.status !== 'CLOSED'">
-            <span class="admin-verdict-label">👑 Admin Urteil:</span>
-            <div class="admin-verdict-buttons">
-              <button class="btn ghost btn-sm" @click="adminResolveBattle(b, 'left')">
-                🏆 {{ b.left_profile_name }} Sieg
-              </button>
-              <button class="btn ghost btn-sm" @click="adminResolveBattle(b, 'right')">
-                🏆 {{ b.right_profile_name }} Sieg
-              </button>
-              <button class="btn ghost btn-sm" @click="adminResolveBattle(b, 'auto')">
-                ⚡ Nach Votes schließen
-              </button>
-            </div>
-          </div>
-        </div>
+          :battle="b"
+          :currentPlayingTrack="currentPlayingTrack"
+          :userVotes="userVotes"
+          :isTeam="currentRoleMode === 'TEAM'"
+          @playAudio="handleBattleAudio"
+          @quickSwitch="quickSwitchAB"
+          @vote="handleCardVote"
+          @reaction="handleCardReaction"
+          @openJuryScorecard="openJuryScorecard"
+          @adminResolve="handleAdminResolve"
+        />
       </div>
       <div v-else class="card empty-tournaments-state">
         <div class="ets-icon">⚔️</div>
@@ -2448,7 +2274,14 @@
           </div>
         </div>
       </div>
-    </div>
+    <!-- Jury Scorecard Modal -->
+    <JuryScorecardModal
+      v-if="activeJuryBattle"
+      :show="showJuryModal"
+      :battle="activeJuryBattle"
+      @close="closeJuryScorecard"
+      @submitScorecard="submitJuryScorecard"
+    />
   </div>
 </template>
 
@@ -2460,6 +2293,9 @@ import { useToast } from "../composables/useToast";
 import api from "../api";
 import { battleAudio } from "../utils/battleAudioEngine";
 import { isValidWebUrl, normalizeWebUrl } from "../utils/urlValidator";
+
+import BattleCard from "../components/arena/BattleCard.vue";
+import JuryScorecardModal from "../components/arena/JuryScorecardModal.vue";
 
 /* High-res Vector Rank Badges */
 import bronzeRank from "../assets/ranks/bronze-icon.svg";
@@ -2748,6 +2584,8 @@ const manualEnrollForm = ref({
 const tournamentsList = ref([]);
 const liveBattlesList = ref([]);
 const allBattlesList = ref([]);
+const activeJuryBattle = ref(null);
+const showJuryModal = ref(false);
 const leaderboardRows = ref([]);
 const myApplications = ref([]);
 const pendingApplications = ref([]);
@@ -2934,17 +2772,29 @@ function openTournamentDetail(tournament) {
   router.push({ name: "tournament-detail", params: { tournamentId: String(targetId) } });
 }
 
-/* Audio Player Synthesizer / Player Engine */
-function toggleAudio(trackKey, artistName) {
+/* Audio Player Synthesizer / Real Stream Engine */
+function toggleAudio(trackKey, artistName, mediaUrl = null) {
   if (currentPlayingTrack.value === trackKey) {
     currentPlayingTrack.value = null;
     battleAudio.stopPlayback();
     showToast(`Wiedergabe pausiert`, "info");
   } else {
     currentPlayingTrack.value = trackKey;
-    battleAudio.startBeatLoop(trackKey);
-    showToast(`▶ Spiele Runde von ${artistName} ab (320 kbps Studio Stream)`, "info");
+    const isDirect = battleAudio.playBattleTrack(trackKey, mediaUrl, (state) => {
+      if (state === "ended" || state === "stopped" || state === "error") {
+        if (currentPlayingTrack.value === trackKey) currentPlayingTrack.value = null;
+      }
+    });
+    if (mediaUrl) {
+      showToast(`▶ Spiele Runde von ${artistName} ab (${isDirect ? 'Echter Audio-Stream' : 'Audio-Player'})`, "info");
+    } else {
+      showToast(`▶ Spiele Vorschau von ${artistName} ab (320 kbps Studio Stream)`, "info");
+    }
   }
+}
+
+function handleBattleAudio({ trackKey, artistName, mediaUrl }) {
+  toggleAudio(trackKey, artistName, mediaUrl);
 }
 
 function quickSwitchAB(battle) {
@@ -2954,13 +2804,53 @@ function quickSwitchAB(battle) {
 
   if (current === leftKey) {
     currentPlayingTrack.value = rightKey;
-    battleAudio.startBeatLoop(rightKey);
+    battleAudio.playBattleTrack(rightKey, battle.right_media_url, (state) => {
+      if (state === "ended" || state === "stopped" || state === "error") {
+        if (currentPlayingTrack.value === rightKey) currentPlayingTrack.value = null;
+      }
+    });
     showToast(`⇄ Umschalten auf ${battle.right_profile_name} Runde`, "info");
   } else {
     currentPlayingTrack.value = leftKey;
-    battleAudio.startBeatLoop(leftKey);
+    battleAudio.playBattleTrack(leftKey, battle.left_media_url, (state) => {
+      if (state === "ended" || state === "stopped" || state === "error") {
+        if (currentPlayingTrack.value === leftKey) currentPlayingTrack.value = null;
+      }
+    });
     showToast(`⇄ Umschalten auf ${battle.left_profile_name} Runde`, "info");
   }
+}
+
+function handleCardVote({ battle, side }) {
+  castVote(battle, side);
+}
+
+function handleCardReaction({ emoji, event }) {
+  battleAudio.playCrowdHype(emoji);
+  spawnReactionParticle(emoji, event);
+}
+
+function handleAdminResolve({ battle, decision }) {
+  adminResolveBattle(battle, decision);
+}
+
+function openJuryScorecard(battle) {
+  activeJuryBattle.value = battle;
+  showJuryModal.value = true;
+}
+
+function closeJuryScorecard() {
+  showJuryModal.value = false;
+  activeJuryBattle.value = null;
+}
+
+async function submitJuryScorecard({ battle, decision, leftTotal, rightTotal, juryNotes }) {
+  closeJuryScorecard();
+  await adminResolveBattle(battle, decision);
+  showToast(
+    `Jury-Urteil erfolgreich erfasst (${leftTotal} Pkt vs ${rightTotal} Pkt)! Sieger gekürt ⚖️`,
+    "success"
+  );
 }
 
 /* Voting Mechanics */
@@ -3974,6 +3864,12 @@ async function loadData() {
       left_submission: b.left_submission,
       right_submission: b.right_submission,
       left_profile_name: b.left_profile_name || "Artist A",
+      left_submission_title: b.left_submission_title || `Runde ${b.round_number || 1}`,
+      right_submission_title: b.right_submission_title || `Runde ${b.round_number || 1}`,
+      left_media_url: b.left_media_url || "",
+      right_media_url: b.right_media_url || "",
+      left_notes: b.left_notes || "",
+      right_notes: b.right_notes || "",
       left_tier: "Gold",
       left_rp: 1600,
       votes_left: b.votes_left || 0,

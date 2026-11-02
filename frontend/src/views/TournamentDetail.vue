@@ -21,169 +21,83 @@
     <!-- ================================================================= -->
     <!-- COMPACT, HIGH-END TOURNAMENT HEADER -->
     <!-- ================================================================= -->
-    <header class="detail-header card compact-tourney-header">
-      <!-- Top Navigation & Badges Line -->
-      <div class="header-top-row">
-        <div class="header-nav-group">
-          <button class="btn ghost btn-sm btn-back-arena" @click="goBack">
-            ← Zurück zur Contest-Arena
+    <TournamentHeader
+      :tournament="tournament"
+      :allTournaments="allTournamentsList"
+      :participantsCount="participantsCount"
+      :isTeam="isTeam"
+      @goBack="goBack"
+      @switchTournament="switchTournament"
+      @updateStatus="updateTournamentStatus"
+      @generateBattles="generateBattles"
+      @bulkApproveApplications="bulkApproveApplications"
+      @resetTournamentData="resetTournamentData"
+      @deleteTournament="confirmDeleteTournament"
+      @openEditModal="openEditModal"
+    >
+      <template #action-button>
+        <!-- Phase: APPLICATION_OPEN -->
+        <template v-if="tournament?.status === 'APPLICATION_OPEN'">
+          <div v-if="myApplication" class="user-inline-status" :class="`status-${myApplication.status?.toLowerCase()}`">
+            <span class="badge-status-pill" :class="myApplication.status?.toLowerCase()">
+              {{ myApplication.status === 'APPROVED' ? '✓ Zugelassen' : (myApplication.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
+            </span>
+            <button class="btn ghost btn-sm" @click="openApplyModal">
+              ✏️ Bewerbung bearbeiten
+            </button>
+          </div>
+          <button v-else class="btn btn-primary btn-cta-pulse" @click="openApplyModal">
+            ✍️ Als Artist bewerben
           </button>
-          <div v-if="allTournamentsList.length > 1" class="tourney-quick-switcher" title="Schnell zu einem anderen Turnier wechseln">
-            <span class="switcher-label">Turnier:</span>
-            <select
-              :value="String(route.params.tournamentId)"
-              @change="switchTournament($event.target.value)"
-              class="input input-sm tourney-select"
+        </template>
+
+        <!-- Phase: SUBMISSION_OPEN -->
+        <template v-else-if="tournament?.status === 'SUBMISSION_OPEN'">
+          <div v-if="myCurrentSubmission" class="user-inline-status" :class="`status-${myCurrentSubmission.status?.toLowerCase()}`">
+            <button
+              class="btn ghost btn-micro btn-play-mini"
+              @click="toggleAudio(`sub-${myCurrentSubmission.id}`, myCurrentSubmission.profile_name, myCurrentSubmission.media_url)"
             >
-              <option
-                v-for="item in allTournamentsList"
-                :key="item.id"
-                :value="String(item.id)"
-              >
-                {{ item.title }} ({{ statusLabel(item.status) }})
-              </option>
-            </select>
-          </div>
-        </div>
-        <div class="top-status-pills">
-          <span class="badge-status-pill" :class="`status-${(tournament?.status || 'draft').toLowerCase()}`">
-            {{ statusLabel(tournament?.status) }}
-          </span>
-          <span class="badge-format-tag">
-            {{ formatLabel(tournament?.format) }}
-          </span>
-          <span v-if="tournament?.is_no_loss" class="badge-no-loss">
-            🛡️ No Loss
-          </span>
-          <span class="badge-genre-tag">{{ tournament?.genre || 'Allround' }}</span>
-        </div>
-      </div>
-
-      <!-- Admin Micro-Toolbar (Only for Team/Admin, ultra-clean and discreet) -->
-      <div v-if="isTeam" class="admin-compact-toolbar">
-        <div class="act-phase-picker">
-          <span class="act-label">👑 Admin Phase:</span>
-          <select
-            :value="tournament?.status"
-            @change="updateTournamentStatus($event.target.value)"
-            class="input input-sm act-select"
-          >
-            <option v-for="st in statusSteps" :key="st.value" :value="st.value">
-              {{ st.label }}
-            </option>
-          </select>
-        </div>
-        <div class="act-actions">
-          <button class="btn btn-micro btn-accent" @click="generateBattles" title="Paarungen aus Einreichungen generieren">
-            ⚔️ Battles generieren
-          </button>
-          <button class="btn ghost btn-micro" @click="bulkApproveApplications" title="Alle offenen Bewerber sofort freischalten">
-            ✓ Alle annehmen
-          </button>
-          <button class="btn ghost btn-micro btn-warn" @click="resetTournamentData" title="Battles leeren & zurücksetzen">
-            ⚡ Reset
-          </button>
-          <button class="btn ghost btn-micro btn-danger-link" @click="confirmDeleteTournament" title="Turnier löschen">
-            🗑️ Löschen
-          </button>
-        </div>
-      </div>
-
-      <!-- Main Title & Primary Action Strip -->
-      <div class="header-center-strip">
-        <div class="hcs-title-col">
-          <div class="title-line">
-            <h1 class="tournament-title">{{ displayTitle(tournament?.title) }}</h1>
-            <button v-if="isTeam" class="btn ghost btn-micro btn-edit-meta" @click="openEditModal" title="Turnierdaten anpassen">
-              ✏️ Bearbeiten
+              {{ currentPlayingTrack === `sub-${myCurrentSubmission.id}` ? '⏸' : '▶' }} {{ myCurrentSubmission.title || 'Mein Track' }}
+            </button>
+            <button class="btn ghost btn-sm" @click="openUploadRoundModal(myCurrentSubmission.round_number || 1)">
+              ✏️ Track bearbeiten
             </button>
           </div>
-          <p class="tournament-desc">{{ displayDescription(tournament?.description) }}</p>
-        </div>
+          <button v-else class="btn btn-primary btn-cta-pulse" @click="openUploadRoundModal(1)">
+            📤 Runde 1 einreichen (Audio/Video)
+          </button>
+        </template>
 
-        <!-- Single Contextual Action Button (Only what is needed right now!) -->
-        <div class="hcs-action-col">
-          <!-- Phase: APPLICATION_OPEN -->
-          <template v-if="tournament?.status === 'APPLICATION_OPEN'">
-            <div v-if="myApplication" class="user-inline-status" :class="`status-${myApplication.status?.toLowerCase()}`">
-              <span class="badge-status-pill" :class="myApplication.status?.toLowerCase()">
-                {{ myApplication.status === 'APPROVED' ? '✓ Zugelassen' : (myApplication.status === 'REJECTED' ? '✕ Abgelehnt' : '⏳ In Prüfung') }}
-              </span>
-              <button class="btn ghost btn-sm" @click="openApplyModal">
-                ✏️ Bewerbung bearbeiten
-              </button>
-            </div>
-            <button v-else class="btn btn-primary btn-cta-pulse" @click="openApplyModal">
-              ✍️ Als Artist bewerben
-            </button>
-          </template>
+        <!-- Phase: BATTLES -->
+        <template v-else-if="tournament?.status === 'BATTLES'">
+          <button class="btn btn-accent" @click="activeTab = 'battles'">
+            ⚔️ Zu den Live Battles ({{ battleRows.length }})
+          </button>
+        </template>
 
-          <!-- Phase: SUBMISSION_OPEN -->
-          <template v-else-if="tournament?.status === 'SUBMISSION_OPEN'">
-            <div v-if="myCurrentSubmission" class="user-inline-status" :class="`status-${myCurrentSubmission.status?.toLowerCase()}`">
-              <button
-                class="btn ghost btn-micro btn-play-mini"
-                @click="toggleAudio(`sub-${myCurrentSubmission.id}`, myCurrentSubmission.profile_name)"
-              >
-                {{ currentPlayingTrack === `sub-${myCurrentSubmission.id}` ? '⏸' : '▶' }} {{ myCurrentSubmission.title || 'Mein Track' }}
-              </button>
-              <button class="btn ghost btn-sm" @click="openUploadRoundModal(myCurrentSubmission.round_number || 1)">
-                ✏️ Track bearbeiten
-              </button>
-            </div>
-            <button v-else class="btn btn-primary btn-cta-pulse" @click="openUploadRoundModal(1)">
-              📤 Runde 1 einreichen (Audio/Video)
-            </button>
-          </template>
+        <!-- Phase: CLOSED -->
+        <template v-else>
+          <button class="btn ghost" @click="activeTab = 'bracket'">
+            🏆 Turnierbaum &amp; Champion
+          </button>
+        </template>
+      </template>
 
-          <!-- Phase: BATTLES -->
-          <template v-else-if="tournament?.status === 'BATTLES'">
-            <button class="btn btn-accent" @click="activeTab = 'battles'">
-              ⚔️ Zu den Live Battles ({{ battleRows.length }})
-            </button>
-          </template>
-
-          <!-- Phase: CLOSED -->
-          <template v-else>
-            <button class="btn ghost" @click="activeTab = 'bracket'">
-              🏆 Turnierbaum &amp; Champion
-            </button>
-          </template>
+      <template #rejection-banner>
+        <!-- Prominent Rejection Banner if rejected -->
+        <div v-if="tournament?.status === 'APPLICATION_OPEN' && myApplication?.status === 'REJECTED'" class="hero-rejection-banner">
+          <strong>❌ Jury-Begründung für Ablehnung:</strong>
+          <p>"{{ myApplication.rejection_reason || 'Die Bewerbung hat die Kriterien der aktuellen Runde leider nicht erfüllt.' }}"</p>
+          <button class="btn ghost btn-micro" @click="openApplyModal">✏️ Bewerbung überarbeiten &amp; neu einreichen</button>
         </div>
-      </div>
-
-      <!-- Prominent Rejection Banner if rejected -->
-      <div v-if="tournament?.status === 'APPLICATION_OPEN' && myApplication?.status === 'REJECTED'" class="hero-rejection-banner">
-        <strong>❌ Jury-Begründung für Ablehnung:</strong>
-        <p>"{{ myApplication.rejection_reason || 'Die Bewerbung hat die Kriterien der aktuellen Runde leider nicht erfüllt.' }}"</p>
-        <button class="btn ghost btn-micro" @click="openApplyModal">✏️ Bewerbung überarbeiten &amp; neu einreichen</button>
-      </div>
-      <div v-if="tournament?.status === 'SUBMISSION_OPEN' && myCurrentSubmission?.status === 'REJECTED'" class="hero-rejection-banner">
-        <strong>❌ Jury-Begründung für Track-Ablehnung:</strong>
-        <p>"{{ myCurrentSubmission.rejection_reason || 'Kriterien nicht erfüllt.' }}"</p>
-        <button class="btn ghost btn-micro" @click="openUploadRoundModal(myCurrentSubmission.round_number || 1)">✏️ Track überarbeiten &amp; neu hochladen</button>
-      </div>
-
-      <!-- Horizontal Compact Metadata Ribbon -->
-      <div class="metadata-chips-strip">
-        <div class="meta-chip">
-          <span class="mc-icon">💰</span>
-          <span class="mc-val">{{ displayPrizePool(tournament) }}</span>
+        <div v-if="tournament?.status === 'SUBMISSION_OPEN' && myCurrentSubmission?.status === 'REJECTED'" class="hero-rejection-banner">
+          <strong>❌ Jury-Begründung für Track-Ablehnung:</strong>
+          <p>"{{ myCurrentSubmission.rejection_reason || 'Kriterien nicht erfüllt.' }}"</p>
+          <button class="btn ghost btn-micro" @click="openUploadRoundModal(myCurrentSubmission.round_number || 1)">✏️ Track überarbeiten &amp; neu hochladen</button>
         </div>
-        <div class="meta-chip">
-          <span class="mc-icon">👥</span>
-          <span class="mc-val">{{ participantsCount }} / {{ tournament?.slots || 16 }} {{ participantsCount === 1 ? 'Artist' : 'Artists' }}</span>
-        </div>
-        <div class="meta-chip">
-          <span class="mc-icon">🎯</span>
-          <span class="mc-val">{{ tournament?.total_rounds || 4 }} {{ (tournament?.total_rounds || 4) === 1 ? 'Runde' : 'Runden' }}</span>
-        </div>
-        <div class="meta-chip" v-if="battlesCount > 0 || tournament?.status === 'BATTLES'">
-          <span class="mc-icon">⚔️</span>
-          <span class="mc-val">{{ battlesCount }} {{ battlesCount === 1 ? 'Duell' : 'Duelle' }}</span>
-        </div>
-      </div>
-    </header>
+      </template>
+    </TournamentHeader>
 
     <!-- DETAIL NAVIGATION TABS (PROGRESSIVE DISCLOSURE) -->
     <nav class="detail-navigation-bar card">
@@ -538,7 +452,7 @@
       <div class="section-heading-bar">
         <div>
           <h2>⚔️ Aktive Duelle &amp; Voting ({{ battleRows.length }})</h2>
-          <p class="muted">Höre beide Runden an, schalte nahtlos mit A/B um und stimme für deinen Favoriten ab.</p>
+          <p class="muted">Höre beide Runden an, streame echten Studio-Sound, schalte nahtlos mit A/B um und stimme ab.</p>
         </div>
         <div v-if="isTeam" class="heading-actions">
           <button class="btn btn-sm" @click="generateBattles">
@@ -548,115 +462,20 @@
       </div>
 
       <div class="battles-deck-grid" v-if="battleRows.length">
-        <div v-for="b in battleRows" :key="b.id" class="card duel-card" :class="{ 'duel-closed': b.status === 'CLOSED' }">
-          <div class="dc-top">
-            <span class="dc-round">RUNDE {{ b.round_number || 1 }}</span>
-            <span class="dc-status" :class="b.status === 'CLOSED' ? 'closed' : 'live'">
-              {{ b.status === 'CLOSED' ? '🏁 Beendet' : '🔥 Voting Live' }}
-            </span>
-          </div>
-
-          <div class="dc-showdown">
-            <!-- Left Side -->
-            <div class="dc-side left" :class="{ winner: b.winner === 'left' || b.winner_submission === b.left_submission }">
-              <div class="dc-avatar" :class="{ playing: currentPlayingTrack === `battle-${b.id}-left` }">
-                {{ (b.left_profile_name || 'A').charAt(0) }}
-              </div>
-              <strong class="dc-name">{{ b.left_profile_name }}</strong>
-              <span class="dc-track-title muted small">{{ b.left_submission_title || 'Runde 1' }}</span>
-              
-              <button
-                class="btn btn-sm btn-play-audio"
-                :class="{ active: currentPlayingTrack === `battle-${b.id}-left` }"
-                @click="toggleAudio(`battle-${b.id}-left`, b.left_profile_name)"
-              >
-                <span class="audio-wave-anim" v-if="currentPlayingTrack === `battle-${b.id}-left`">
-                  <span></span><span></span><span></span>
-                </span>
-                <span>{{ currentPlayingTrack === `battle-${b.id}-left` ? '⏸ Pause' : '▶ Anhören' }}</span>
-              </button>
-              <div class="dc-votes">{{ b.votes_left || 0 }} Votes</div>
-            </div>
-
-            <!-- VS & Direct A/B Switch -->
-            <div class="dc-center">
-              <div class="dc-vs">VS</div>
-              <button
-                class="btn ghost btn-micro btn-ab-switch"
-                @click="quickSwitchAB(b)"
-                title="Zwischen beiden Artists nahtlos hin- und herschalten"
-              >
-                ⇄ A/B Switch
-              </button>
-            </div>
-
-            <!-- Right Side -->
-            <div class="dc-side right" :class="{ winner: b.winner === 'right' || b.winner_submission === b.right_submission }">
-              <div class="dc-avatar right-av" :class="{ playing: currentPlayingTrack === `battle-${b.id}-right` }">
-                {{ (b.right_profile_name || 'B').charAt(0) }}
-              </div>
-              <strong class="dc-name">{{ b.right_profile_name }}</strong>
-              <span class="dc-track-title muted small">{{ b.right_submission_title || 'Runde 1' }}</span>
-
-              <button
-                class="btn btn-sm btn-play-audio"
-                :class="{ active: currentPlayingTrack === `battle-${b.id}-right` }"
-                @click="toggleAudio(`battle-${b.id}-right`, b.right_profile_name)"
-              >
-                <span class="audio-wave-anim" v-if="currentPlayingTrack === `battle-${b.id}-right`">
-                  <span></span><span></span><span></span>
-                </span>
-                <span>{{ currentPlayingTrack === `battle-${b.id}-right` ? '⏸ Pause' : '▶ Anhören' }}</span>
-              </button>
-              <div class="dc-votes">{{ b.votes_right || 0 }} Votes</div>
-            </div>
-          </div>
-
-          <!-- Vote Bar -->
-          <div class="dc-meter">
-            <div class="dc-bar-left" :style="{ width: getVotePct(b, 'left') + '%' }">
-              {{ getVotePct(b, 'left') }}%
-            </div>
-            <div class="dc-bar-right" :style="{ width: getVotePct(b, 'right') + '%' }">
-              {{ getVotePct(b, 'right') }}%
-            </div>
-          </div>
-
-          <!-- Vote Actions -->
-          <div class="dc-actions" v-if="b.status !== 'CLOSED'">
-            <button
-              class="btn btn-sm btn-vote-l"
-              :class="{ voted: hasVotedSide(b, 'left') }"
-              @click="castVote(b, 'left', $event)"
-              :disabled="hasVoted(b)"
-            >
-              {{ hasVotedSide(b, 'left') ? '✓ Dein Vote' : `Vote ${b.left_profile_name}` }}
-            </button>
-            <button
-              class="btn btn-sm btn-vote-r"
-              :class="{ voted: hasVotedSide(b, 'right') }"
-              @click="castVote(b, 'right', $event)"
-              :disabled="hasVoted(b)"
-            >
-              {{ hasVotedSide(b, 'right') ? '✓ Dein Vote' : `Vote ${b.right_profile_name}` }}
-            </button>
-          </div>
-          <div v-else class="dc-winner-banner">
-            🏆 Sieger: <strong>{{ getWinnerName(b) }}</strong>
-          </div>
-
-          <!-- Admin Resolution Controls -->
-          <div class="dc-admin-row" v-if="isTeam">
-            <span class="admin-lbl">👑 Admin:</span>
-            <template v-if="b.status !== 'CLOSED'">
-              <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'left')">Left Win</button>
-              <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'right')">Right Win</button>
-              <button class="btn ghost btn-micro" @click="adminResolveBattle(b, 'auto')">Auto Close</button>
-            </template>
-            <button v-else class="btn ghost btn-micro" @click="reopenBattle(b)">🔄 Wieder öffnen</button>
-            <button class="btn ghost btn-micro btn-danger" @click="deleteBattle(b)" title="Battle löschen">🗑️</button>
-          </div>
-        </div>
+        <BattleCard
+          v-for="b in battleRows"
+          :key="b.id"
+          :battle="b"
+          :currentPlayingTrack="currentPlayingTrack"
+          :userVotes="userVotes"
+          :isTeam="isTeam"
+          @playAudio="handleBattleAudio"
+          @quickSwitch="quickSwitchAB"
+          @vote="handleCardVote"
+          @reaction="handleCardReaction"
+          @openJuryScorecard="openJuryScorecard"
+          @adminResolve="handleAdminResolve"
+        />
       </div>
       <div v-else class="card empty-state-box">
         <span class="empty-icon">⚔️</span>
@@ -675,97 +494,22 @@
       <div class="section-heading-bar">
         <div>
           <h2>🌳 Interaktiver Turnierbaum (Bracket)</h2>
-          <p class="muted">Klicke auf ein Match, um die Runden anzuhören und Match-Details zu öffnen.</p>
-        </div>
-        <div v-if="isTeam" class="heading-actions">
-          <button class="btn ghost btn-sm" @click="loadBracket">↻ Bracket neu laden</button>
+          <p class="muted">Dynamischer Turnierbaum mit Match-Navigation, Sieger-Podium und Audio-Direktvorschau.</p>
         </div>
       </div>
 
-      <div v-if="bracketData.quarterFinals?.length || bracketData.semiFinals?.length || bracketData.grandFinal?.artistA" class="card bracket-visual-board">
-        <div class="bracket-rounds-container">
-          <!-- Column 1: Viertelfinale / Runde 1 -->
-          <div class="bracket-column">
-            <h3 class="b-col-title">Viertelfinale / R1</h3>
-            <div class="bracket-matches-list">
-              <div
-                v-for="m in bracketData.quarterFinals"
-                :key="m.id"
-                class="bracket-match-node"
-                :class="{ completed: m.winner }"
-                @click="inspectMatch(m)"
-              >
-                <div class="b-slot" :class="{ winner: m.winner === m.artistA }">
-                  <span class="b-name">{{ m.artistA }}</span>
-                  <span class="b-score">{{ m.scoreA }}</span>
-                </div>
-                <div class="b-slot" :class="{ winner: m.winner === m.artistB }">
-                  <span class="b-name">{{ m.artistB }}</span>
-                  <span class="b-score">{{ m.scoreB }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Column 2: Halbfinale / Runde 2 -->
-          <div class="bracket-column">
-            <h3 class="b-col-title">Halbfinale / R2</h3>
-            <div class="bracket-matches-list semi-list">
-              <div
-                v-for="m in bracketData.semiFinals"
-                :key="m.id"
-                class="bracket-match-node"
-                :class="{ completed: m.winner }"
-                @click="inspectMatch(m)"
-              >
-                <div class="b-slot" :class="{ winner: m.winner === m.artistA }">
-                  <span class="b-name">{{ m.artistA }}</span>
-                  <span class="b-score">{{ m.scoreA }}</span>
-                </div>
-                <div class="b-slot" :class="{ winner: m.winner === m.artistB }">
-                  <span class="b-name">{{ m.artistB }}</span>
-                  <span class="b-score">{{ m.scoreB }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Column 3: Grand Final -->
-          <div class="bracket-column">
-            <h3 class="b-col-title final-title">👑 Grand Final</h3>
-            <div class="bracket-matches-list final-list">
-              <div
-                class="bracket-match-node grand-final-node"
-                @click="inspectMatch(bracketData.grandFinal)"
-              >
-                <div class="b-slot" :class="{ winner: bracketData.grandFinal?.winner === bracketData.grandFinal?.artistA }">
-                  <span class="b-name">{{ bracketData.grandFinal?.artistA || 'Finalist 1' }}</span>
-                  <span class="b-score">{{ bracketData.grandFinal?.scoreA || '0' }}</span>
-                </div>
-                <div class="b-slot" :class="{ winner: bracketData.grandFinal?.winner === bracketData.grandFinal?.artistB }">
-                  <span class="b-name">{{ bracketData.grandFinal?.artistB || 'Finalist 2' }}</span>
-                  <span class="b-score">{{ bracketData.grandFinal?.scoreB || '0' }}</span>
-                </div>
-              </div>
-
-              <!-- Champion Trophy Box -->
-              <div class="champion-crown-podium card">
-                <span class="trophy-symbol">🏆</span>
-                <strong>{{ bracketData.grandFinal?.winner || 'Finale läuft' }}</strong>
-                <small class="champ-sub">UNYQ Circuit Champion</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="card empty-state-box">
-        <span class="empty-icon">🌳</span>
-        <h3>Noch kein Turnierbaum generiert</h3>
-        <p class="muted">Der Turnierbaum wird automatisch sichtbar, sobald Duelle generiert wurden.</p>
-        <div v-if="isTeam" class="empty-actions">
-          <button class="btn" @click="generateBattles">⚔️ Jetzt Battles für Runde 1 generieren</button>
-        </div>
-      </div>
+      <DynamicBracketTree
+        :rounds="bracketRounds"
+        :battles="battleRows"
+        :totalRounds="tournament?.total_rounds || 4"
+        :currentPlayingTrack="currentPlayingTrack"
+        :selectedMatchId="selectedMatch?.id"
+        :isTeam="isTeam"
+        @selectMatch="inspectMatch"
+        @toggleAudio="handleTreeAudio"
+        @refresh="loadBracket"
+        @generateBattles="generateBattles"
+      />
     </section>
 
     <!-- ================================================================= -->
@@ -1311,7 +1055,14 @@
           <button class="btn btn-danger" type="button" @click="confirmReject">Ablehnen &amp; Begründung senden ✕</button>
         </div>
       </div>
-    </div>
+    <!-- Jury Scorecard Modal -->
+    <JuryScorecardModal
+      v-if="activeJuryBattle"
+      :show="showJuryModal"
+      :battle="activeJuryBattle"
+      @close="closeJuryScorecard"
+      @submitScorecard="submitJuryScorecard"
+    />
   </div>
 </template>
 
@@ -1322,6 +1073,11 @@ import { useCurrentProfile } from "../composables/useCurrentProfile";
 import { useToast } from "../composables/useToast";
 import { battleAudio } from "../utils/battleAudioEngine";
 import { isValidWebUrl, normalizeWebUrl } from "../utils/urlValidator";
+
+import BattleCard from "../components/arena/BattleCard.vue";
+import DynamicBracketTree from "../components/arena/DynamicBracketTree.vue";
+import TournamentHeader from "../components/arena/TournamentHeader.vue";
+import JuryScorecardModal from "../components/arena/JuryScorecardModal.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -1335,6 +1091,10 @@ const currentPlayingTrack = ref(null);
 const activeParticles = ref([]);
 const userVotes = ref({});
 const selectedMatch = ref(null);
+
+const bracketRounds = ref([]);
+const activeJuryBattle = ref(null);
+const showJuryModal = ref(false);
 
 const battleRows = ref([]);
 const submissionRows = ref([]);
@@ -1583,17 +1343,33 @@ function switchTournament(targetId) {
   router.push({ name: "tournament-detail", params: { tournamentId: String(targetId) } });
 }
 
-/* Audio Player Synthesizer / Player Engine */
-function toggleAudio(trackKey, artistName) {
+/* Audio Player Synthesizer / Real Stream Engine */
+function toggleAudio(trackKey, artistName, mediaUrl = null) {
   if (currentPlayingTrack.value === trackKey) {
     currentPlayingTrack.value = null;
     battleAudio.stopPlayback();
     showToast("Wiedergabe pausiert", "info");
   } else {
     currentPlayingTrack.value = trackKey;
-    battleAudio.startBeatLoop(trackKey);
-    showToast(`▶ Spiele Runde von ${artistName} ab (320 kbps Studio Stream)`, "info");
+    const isDirect = battleAudio.playBattleTrack(trackKey, mediaUrl, (state) => {
+      if (state === "ended" || state === "stopped" || state === "error") {
+        if (currentPlayingTrack.value === trackKey) currentPlayingTrack.value = null;
+      }
+    });
+    if (mediaUrl) {
+      showToast(`▶ Spiele Runde von ${artistName} ab (${isDirect ? 'Echter Audio-Stream' : 'Audio-Player'})`, "info");
+    } else {
+      showToast(`▶ Spiele Vorschau von ${artistName} ab (320 kbps Studio Stream)`, "info");
+    }
   }
+}
+
+function handleBattleAudio({ trackKey, artistName, mediaUrl }) {
+  toggleAudio(trackKey, artistName, mediaUrl);
+}
+
+function handleTreeAudio({ trackKey, artistName, mediaUrl }) {
+  toggleAudio(trackKey, artistName, mediaUrl);
 }
 
 function quickSwitchAB(battle) {
@@ -1603,13 +1379,54 @@ function quickSwitchAB(battle) {
 
   if (current === leftKey) {
     currentPlayingTrack.value = rightKey;
-    battleAudio.startBeatLoop(rightKey);
+    battleAudio.playBattleTrack(rightKey, battle.right_media_url, (state) => {
+      if (state === "ended" || state === "stopped" || state === "error") {
+        if (currentPlayingTrack.value === rightKey) currentPlayingTrack.value = null;
+      }
+    });
     showToast(`⇄ Umschalten auf ${battle.right_profile_name} Runde`, "info");
   } else {
     currentPlayingTrack.value = leftKey;
-    battleAudio.startBeatLoop(leftKey);
+    battleAudio.playBattleTrack(leftKey, battle.left_media_url, (state) => {
+      if (state === "ended" || state === "stopped" || state === "error") {
+        if (currentPlayingTrack.value === leftKey) currentPlayingTrack.value = null;
+      }
+    });
     showToast(`⇄ Umschalten auf ${battle.left_profile_name} Runde`, "info");
   }
+}
+
+function handleCardVote({ battle, side }) {
+  castVote(battle, side);
+}
+
+function handleCardReaction({ emoji, event }) {
+  battleAudio.playCrowdHype(emoji);
+  spawnReactionParticle(emoji, event);
+}
+
+function handleAdminResolve({ battle, decision }) {
+  adminResolveBattle(battle, decision);
+}
+
+/* Jury Scorecard Management */
+function openJuryScorecard(battle) {
+  activeJuryBattle.value = battle;
+  showJuryModal.value = true;
+}
+
+function closeJuryScorecard() {
+  showJuryModal.value = false;
+  activeJuryBattle.value = null;
+}
+
+async function submitJuryScorecard({ battle, decision, leftTotal, rightTotal, juryNotes }) {
+  closeJuryScorecard();
+  await adminResolveBattle(battle, decision);
+  showToast(
+    `Jury-Urteil erfolgreich erfasst (${leftTotal} Pkt vs ${rightTotal} Pkt)! Sieger gekürt ⚖️`,
+    "success"
+  );
 }
 
 /* Voting Mechanics */
@@ -2356,14 +2173,19 @@ async function loadBattles() {
     const list = Array.isArray(data) ? data : data?.results || [];
     battleRows.value = list.map(b => ({
       id: b.id,
+      tournament_title: b.tournament_title || tournament.value?.title || "UNYQ Arena",
       round_number: b.round_number || 1,
       status: b.status || "OPEN",
       left_submission: b.left_submission,
       right_submission: b.right_submission,
       left_profile_name: b.left_profile_name || "Artist A",
       right_profile_name: b.right_profile_name || "Artist B",
-      left_submission_title: b.left_submission_title || "Runde 1",
-      right_submission_title: b.right_submission_title || "Runde 1",
+      left_submission_title: b.left_submission_title || `Runde ${b.round_number || 1}`,
+      right_submission_title: b.right_submission_title || `Runde ${b.round_number || 1}`,
+      left_media_url: b.left_media_url || "",
+      right_media_url: b.right_media_url || "",
+      left_notes: b.left_notes || "",
+      right_notes: b.right_notes || "",
       votes_left: b.votes_left || 0,
       votes_right: b.votes_right || 0,
       winner_submission: b.winner_submission,
@@ -2420,9 +2242,12 @@ async function loadBracket() {
     semiFinals: [],
     grandFinal: null,
   };
+  bracketRounds.value = [];
   try {
     const { data } = await api.get(`tournaments/${id}/bracket/`);
     if (data?.rounds?.length) {
+      bracketRounds.value = data.rounds;
+
       const r1 = data.rounds.find(r => r.round === 1)?.battles || [];
       const r2 = data.rounds.find(r => r.round === 2)?.battles || [];
       const r3 = data.rounds.find(r => r.round === 3)?.battles || [];

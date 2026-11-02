@@ -3750,6 +3750,8 @@ class TournamentViewSet(viewsets.ModelViewSet):
                 "right_submission": battle.right_submission_id,
                 "left_name": battle.left_submission.profile.name or battle.left_submission.profile.user.username,
                 "right_name": battle.right_submission.profile.name or battle.right_submission.profile.user.username,
+                "left_media_url": battle.left_submission.media_url if battle.left_submission else "",
+                "right_media_url": battle.right_submission.media_url if battle.right_submission else "",
                 "votes_left": left_votes,
                 "votes_right": right_votes,
                 "winner_submission": battle.winner_submission_id,
@@ -3918,6 +3920,12 @@ class TournamentViewSet(viewsets.ModelViewSet):
             ).exclude(id__in=used_sub_ids).order_by("created_at", "id")
         )
 
+        # Fair draw / Randomize pairing if requested (default: True)
+        should_shuffle = request.data.get("shuffle", True)
+        if should_shuffle and len(available_subs) > 2:
+            import random
+            random.shuffle(available_subs)
+
         created_battles = []
         while len(available_subs) >= 2:
             left = available_subs.pop(0)
@@ -3931,7 +3939,31 @@ class TournamentViewSet(viewsets.ModelViewSet):
             )
             created_battles.append(battle.id)
 
-        if created_battles and tournament.status in {"DRAFT", "APPLICATION_OPEN", "SUBMISSION_OPEN"}:
+        # Freilos (Bye) Handling: If an odd number of contenders exists, advance lucky contender to next round
+        bye_advances = []
+        if len(available_subs) == 1:
+            lucky_bye = available_subs.pop(0)
+            next_round = round_number + 1
+            next_sub, created = TournamentSubmission.objects.get_or_create(
+                tournament=tournament,
+                profile=lucky_bye.profile,
+                round_number=next_round,
+                defaults={
+                    "title": f"{lucky_bye.title} (Freilos Runde {next_round})",
+                    "media_url": lucky_bye.media_url,
+                    "notes": f"[Freilos/Bye von Runde {round_number}] " + (lucky_bye.notes or ""),
+                    "status": "APPROVED",
+                },
+            )
+            prof_name = getattr(lucky_bye.profile, "name", "") or getattr(getattr(lucky_bye.profile, "user", None), "username", "Artist")
+            bye_advances.append({
+                "submission_id": lucky_bye.id,
+                "profile_id": lucky_bye.profile_id,
+                "profile_name": prof_name,
+                "advanced_to_round": next_round,
+            })
+
+        if (created_battles or bye_advances) and tournament.status in {"DRAFT", "APPLICATION_OPEN", "SUBMISSION_OPEN"}:
             tournament.status = "BATTLES"
             tournament.save(update_fields=["status", "updated_at"])
 
@@ -3941,6 +3973,7 @@ class TournamentViewSet(viewsets.ModelViewSet):
                 "round_number": round_number,
                 "created_battles_count": len(created_battles),
                 "created_battle_ids": created_battles,
+                "bye_advances": bye_advances,
                 "remaining_unpaired": len(available_subs),
                 "tournament_status": tournament.status,
             }

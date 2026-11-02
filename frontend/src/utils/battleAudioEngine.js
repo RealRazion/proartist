@@ -1,6 +1,7 @@
 /**
  * UNYQ Arena Battle Audio Engine
  * Handles procedural audio synthesis, sound FX, and media playback for battle showdowns.
+ * Supports direct audio streaming (MP3, WAV, stream URLs) with procedural synth loop fallback.
  */
 
 class BattleAudioEngine {
@@ -9,7 +10,12 @@ class BattleAudioEngine {
     this.activeLoopInterval = null;
     this.isPlaying = false;
     this.currentTrackKey = null;
+    this.currentMediaUrl = null;
+    this.currentMode = null; // 'audio' or 'synth'
+    this.audioElement = null;
     this.step = 0;
+    this.volume = 0.85;
+    this.onStateChange = null;
   }
 
   initContext() {
@@ -70,6 +76,55 @@ class BattleAudioEngine {
   }
 
   /**
+   * Main Playback Method: Streams real media_url if valid audio link,
+   * otherwise falls back to procedural synth beat.
+   */
+  async playBattleTrack(trackKey, mediaUrl = null, stateCallback = null) {
+    this.stopPlayback();
+    this.onStateChange = stateCallback;
+
+    const trimmedUrl = (mediaUrl || "").trim();
+    const isDirectAudio = /\.(mp3|wav|ogg|m4a|aac)(\?.*)?$/i.test(trimmedUrl) ||
+      trimmedUrl.includes("/media/") ||
+      trimmedUrl.includes("blob:") ||
+      trimmedUrl.includes("audio/");
+
+    if (trimmedUrl && isDirectAudio) {
+      try {
+        this.audioElement = new Audio(trimmedUrl);
+        this.audioElement.volume = this.volume;
+        this.currentTrackKey = trackKey;
+        this.currentMediaUrl = trimmedUrl;
+        this.currentMode = "audio";
+        this.isPlaying = true;
+
+        this.audioElement.addEventListener("ended", () => {
+          this.stopPlayback();
+          if (this.onStateChange) this.onStateChange({ status: "ended", trackKey });
+        });
+
+        this.audioElement.addEventListener("error", () => {
+          // If direct audio fails (e.g. CORS), fallback to procedural synth beat
+          this.audioElement = null;
+          this.startBeatLoop(trackKey);
+        });
+
+        await this.audioElement.play();
+        if (this.onStateChange) {
+          this.onStateChange({ status: "playing", mode: "audio", trackKey, mediaUrl: trimmedUrl });
+        }
+        return { mode: "audio", url: trimmedUrl };
+      } catch {
+        // Fallback to synth if playback was blocked
+        return this.startBeatLoop(trackKey);
+      }
+    } else {
+      // Fallback: Start procedural synth beat loop
+      return this.startBeatLoop(trackKey);
+    }
+  }
+
+  /**
    * Procedural Beat Generator for Demo Battle Rounds
    * Style: 140 BPM Trap Beat (Kick, 808 glide, Crisp Hat, Snare, Dark Synth)
    */
@@ -80,6 +135,7 @@ class BattleAudioEngine {
 
     this.isPlaying = true;
     this.currentTrackKey = trackKey;
+    this.currentMode = "synth";
     this.step = 0;
 
     const bpm = 140;
@@ -98,45 +154,66 @@ class BattleAudioEngine {
     this.activeLoopInterval = setInterval(() => {
       if (!this.isPlaying) return;
       const now = ctx.currentTime;
-      const currentStep = this.step % 16;
+      const s = this.step % 16;
 
-      // 1. Kick on steps 0, 6, 10
-      if (currentStep === 0 || currentStep === 6 || currentStep === 10) {
+      // 1. Kick on steps 0, 8 (standard) + step 10 (syncopated)
+      if (s === 0 || s === 8 || s === 10) {
         this._triggerKick(ctx, now);
       }
 
       // 2. Snare / Clap on step 4 and 12
-      if (currentStep === 4 || currentStep === 12) {
+      if (s === 4 || s === 12) {
         this._triggerSnare(ctx, now);
       }
 
-      // 3. Hi-hats on every 2nd step + roll on 14, 15
-      if (currentStep % 2 === 0 || currentStep >= 14) {
-        this._triggerHiHat(ctx, now, currentStep >= 14);
+      // 3. Hi-Hats: 8th notes + rapid 32nd roll on step 14-15
+      if (s % 2 === 0 || s >= 14) {
+        this._triggerHiHat(ctx, now, s >= 14);
       }
 
-      // 4. 808 Sub-Bass
-      const bassFreq = bassFreqs[currentStep];
-      if (bassFreq > 0) {
-        this._trigger808(ctx, now, bassFreq);
+      // 4. 808 Bass Line
+      if (bassFreqs[s] > 0) {
+        this._trigger808(ctx, now, bassFreqs[s]);
       }
 
-      // 5. Ambient Melodic Pluck
-      if (currentStep % 4 === 0) {
-        const pitch = synthPitches[(currentStep / 4) % synthPitches.length];
+      // 5. Synth Pluck Melody (4 bar pattern)
+      if (s % 4 === 0) {
+        const pitch = synthPitches[(s / 4) % synthPitches.length];
         this._triggerPluck(ctx, now, pitch);
       }
 
       this.step++;
     }, stepTime * 1000);
+
+    if (this.onStateChange) {
+      this.onStateChange({ status: "playing", mode: "synth", trackKey });
+    }
+    return { mode: "synth" };
   }
 
   stopPlayback() {
     this.isPlaying = false;
     this.currentTrackKey = null;
+    this.currentMediaUrl = null;
+    this.currentMode = null;
+
+    if (this.audioElement) {
+      try {
+        this.audioElement.pause();
+        this.audioElement.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      this.audioElement = null;
+    }
+
     if (this.activeLoopInterval) {
       clearInterval(this.activeLoopInterval);
       this.activeLoopInterval = null;
+    }
+
+    if (this.onStateChange) {
+      this.onStateChange({ status: "stopped" });
     }
   }
 
@@ -145,7 +222,7 @@ class BattleAudioEngine {
     const gain = ctx.createGain();
     osc.frequency.setValueAtTime(140, now);
     osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.setValueAtTime(0.4 * this.volume, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -154,7 +231,6 @@ class BattleAudioEngine {
   }
 
   _triggerSnare(ctx, now) {
-    // Noise buffer for snap
     const bufferSize = ctx.sampleRate * 0.1;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = buffer.getChannelData(0);
@@ -169,7 +245,7 @@ class BattleAudioEngine {
     filter.frequency.value = 1000;
 
     const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.setValueAtTime(0.2 * this.volume, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
 
     whiteNoise.connect(filter);
@@ -184,7 +260,7 @@ class BattleAudioEngine {
     const gain = ctx.createGain();
     osc.type = "square";
     osc.frequency.setValueAtTime(8000, now);
-    gain.gain.setValueAtTime(isRoll ? 0.04 : 0.07, now);
+    gain.gain.setValueAtTime((isRoll ? 0.04 : 0.07) * this.volume, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + (isRoll ? 0.03 : 0.05));
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -198,7 +274,7 @@ class BattleAudioEngine {
     osc.type = "sine";
     osc.frequency.setValueAtTime(freq * 1.5, now);
     osc.frequency.exponentialRampToValueAtTime(freq, now + 0.04);
-    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.setValueAtTime(0.35 * this.volume, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -211,7 +287,7 @@ class BattleAudioEngine {
     const gain = ctx.createGain();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(freq, now);
-    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.setValueAtTime(0.12 * this.volume, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
     osc.connect(gain);
     gain.connect(ctx.destination);

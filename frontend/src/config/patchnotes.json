@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.41-beta",
+        "date":  "2026-11-02",
+        "title":  "Patch 2.11.0.41-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Implement dynamic bracket tree, real audio streaming, bye matchmaking, jury scorecard and modular components"
+                       ],
+        "changes":  [
+                        "feat(arena): Implement dynamic bracket tree, real audio streaming, bye matchmaking, jury scorecard and modular components"
+                    ]
+    },
+    {
         "version":  "2.11.0.40-beta",
         "date":  "2026-11-02",
         "title":  "Patch 2.11.0.40-beta",

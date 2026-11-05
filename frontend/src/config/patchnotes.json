@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.45-beta",
+        "date":  "2026-11-05",
+        "title":  "Patch 2.11.0.45-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Finance 2.0 mit Tag-fuer-Tag Besitzplan, Zeitraum-Simulator und Langzeit-Analyse"
+                       ],
+        "changes":  [
+                        "feat(finance): Finance 2.0 mit Tag-fuer-Tag Besitzplan, Zeitraum-Simulator und Langzeit-Analyse"
+                    ]
+    },
+    {
         "version":  "2.11.0.44-beta",
         "date":  "2026-11-02",
         "title":  "Patch 2.11.0.44-beta",

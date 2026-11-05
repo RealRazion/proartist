@@ -2254,7 +2254,7 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
 
         # Calculate for the specified month
         active_entries = list(project.entries.filter(is_active=True).select_related("member"))
-        debts = list(project.debts.filter(status="ACTIVE").exclude(is_fully_paid=True))
+        debts = [d for d in project.debts.filter(status="ACTIVE") if not d.is_fully_paid]
 
         income = Decimal("0.00")
         expenses = Decimal("0.00")
@@ -2424,6 +2424,162 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
         response = HttpResponse(output.getvalue(), content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="finance_overview_{project.title}_{overview["snapshot_month"]}.csv"'
         return response
+
+    @staticmethod
+    def _entry_hits_day(entry, current_day):
+        if not getattr(entry, "is_active", True):
+            return False
+        freq = entry.frequency
+        due_date = getattr(entry, "due_date", None)
+        due_day = getattr(entry, "due_day", None)
+
+        if freq == "ONCE":
+            return bool(due_date and due_date == current_day)
+        if due_date and current_day < due_date:
+            return False
+        if freq == "MONTHLY":
+            raw_day = due_day or (due_date.day if due_date else 1)
+            last_day = monthrange(current_day.year, current_day.month)[1]
+            return current_day.day == min(max(1, int(raw_day)), last_day)
+        if freq == "WEEKLY":
+            if due_date:
+                return current_day.weekday() == due_date.weekday()
+            return current_day.weekday() == 0
+        if freq == "YEARLY":
+            if not due_date:
+                return current_day.month == 1 and current_day.day == 1
+            last_day = monthrange(current_day.year, due_date.month)[1]
+            return current_day.month == due_date.month and current_day.day == min(due_date.day, last_day)
+        return False
+
+    @action(detail=True, methods=["GET"], url_path="daily-forecast")
+    def daily_forecast(self, request, pk=None):
+        from .serializers import _add_months, _debt_next_due_date, _safe_date
+
+        project = self.get_object()
+        try:
+            days = int(request.query_params.get("days", 90))
+        except (TypeError, ValueError):
+            days = 90
+        days = max(1, min(days, 730))
+
+        start_raw = request.query_params.get("start_date")
+        start_day = parse_date(start_raw) if start_raw else timezone.now().date()
+        if not start_day:
+            start_day = timezone.now().date()
+
+        include_daily_budget = _bool_param(request.query_params.get("include_daily_budget"), False)
+        custom_daily = request.query_params.get("daily_budget")
+        if custom_daily not in (None, ""):
+            try:
+                daily_budget = max(Decimal("0.00"), Decimal(str(custom_daily)))
+            except Exception:
+                daily_budget = Decimal(project.daily_living_budget or 0)
+        else:
+            daily_budget = Decimal(project.daily_living_budget or 0)
+
+        active_entries = list(project.entries.filter(is_active=True))
+        raw_debts = [d for d in project.debts.filter(status="ACTIVE") if not d.is_fully_paid]
+
+        debt_states = []
+        overdue_total = Decimal("0.00")
+        for debt in raw_debts:
+            rem = Decimal(debt.remaining_amount or 0)
+            if rem <= 0:
+                continue
+            rate = Decimal(debt.monthly_payment or 0) if debt.payment_type == "INSTALLMENT" else rem
+            next_due = _debt_next_due_date(debt, start_day)
+            if next_due and next_due < start_day:
+                overdue_total += min(rem, rate if rate > 0 else rem)
+                if debt.payment_type == "INSTALLMENT" and debt.due_day:
+                    cand = _safe_date(start_day.year, start_day.month, debt.due_day)
+                    if cand < start_day:
+                        nm = _add_months(cand, 1)
+                        cand = _safe_date(nm.year, nm.month, debt.due_day)
+                    next_due = cand
+                else:
+                    next_due = None
+            debt_states.append({
+                "id": debt.id,
+                "name": debt.name,
+                "payment_type": debt.payment_type,
+                "due_day": debt.due_day or (next_due.day if next_due else 1),
+                "remaining": rem,
+                "rate": rate,
+                "next_due": next_due,
+            })
+
+        running_balance = Decimal(project.current_balance or 0)
+        min_balance = running_balance
+        min_balance_date = start_day.isoformat()
+        timeline = []
+
+        for offset in range(days):
+            cur_day = start_day + timedelta(days=offset)
+            day_start_balance = running_balance
+            day_events = []
+            day_delta = Decimal("0.00")
+
+            for entry in active_entries:
+                if self._entry_hits_day(entry, cur_day):
+                    amt = Decimal(entry.amount or 0)
+                    signed = amt if entry.entry_type == "INCOME" else -amt
+                    day_delta += signed
+                    day_events.append({
+                        "kind": entry.entry_type,
+                        "title": entry.title,
+                        "amount": float(signed),
+                    })
+
+            for ds in debt_states:
+                if ds["remaining"] > 0 and ds["next_due"] == cur_day:
+                    pay_amt = ds["remaining"] if ds["payment_type"] == "FIXED_AMOUNT" else min(ds["remaining"], ds["rate"])
+                    if pay_amt > 0:
+                        ds["remaining"] -= pay_amt
+                        day_delta -= pay_amt
+                        paid_off = ds["remaining"] <= Decimal("0.00")
+                        day_events.append({
+                            "kind": "DEBT",
+                            "title": ds["name"],
+                            "amount": float(-pay_amt),
+                            "paid_off": paid_off,
+                        })
+                    if ds["remaining"] > 0 and ds["payment_type"] == "INSTALLMENT":
+                        nm = _add_months(cur_day, 1)
+                        ds["next_due"] = _safe_date(nm.year, nm.month, ds["due_day"])
+                    else:
+                        ds["next_due"] = None
+
+            if include_daily_budget and daily_budget > 0:
+                day_delta -= daily_budget
+
+            running_balance += day_delta
+            if running_balance < min_balance:
+                min_balance = running_balance
+                min_balance_date = cur_day.isoformat()
+
+            rem_debt_sum = sum((ds["remaining"] for ds in debt_states), Decimal("0.00"))
+            timeline.append({
+                "date": cur_day.isoformat(),
+                "start_balance": float(day_start_balance),
+                "delta": float(day_delta),
+                "end_balance": float(running_balance),
+                "remaining_debt": float(rem_debt_sum),
+                "events": day_events,
+            })
+
+        return Response({
+            "start_date": start_day.isoformat(),
+            "days": days,
+            "include_daily_budget": include_daily_budget,
+            "daily_budget": float(daily_budget),
+            "starting_balance": float(project.current_balance or 0),
+            "ending_balance": float(running_balance),
+            "min_balance": float(min_balance),
+            "min_balance_date": min_balance_date,
+            "overdue_unpaid_total": float(overdue_total),
+            "timeline": timeline,
+        })
 
 
 class FinanceMemberViewSet(viewsets.ModelViewSet):

@@ -1131,6 +1131,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "monthly_savings_target",
             "emergency_buffer_target",
             "savings_percentage",
+            "daily_living_budget",
             "members",
             "initial_members",
             "overview",
@@ -1168,10 +1169,13 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
         instance = getattr(self, "instance", None)
         dispo_limit = _money(attrs.get("dispo_limit", getattr(instance, "dispo_limit", 0)))
         dispo_used = _money(attrs.get("dispo_used", getattr(instance, "dispo_used", 0)))
+        daily_living_budget = _money(attrs.get("daily_living_budget", getattr(instance, "daily_living_budget", 0)))
         if dispo_used < Decimal("0.00"):
             raise serializers.ValidationError({"dispo_used": "Dispo genutzt darf nicht negativ sein."})
         if dispo_used > dispo_limit:
             raise serializers.ValidationError({"dispo_used": "Dispo genutzt darf nicht groesser als Dispo verfuegbar sein."})
+        if daily_living_budget < Decimal("0.00"):
+            raise serializers.ValidationError({"daily_living_budget": "Alltags-Tagesbudget darf nicht negativ sein."})
         return attrs
 
     def get_overview(self, obj):
@@ -1402,6 +1406,7 @@ class FinanceProjectListSerializer(serializers.ModelSerializer):
             "projected_balance_with_dispo_actual": _to_float(projected_balance_with_dispo_actual),
             "monthly_savings_target": _to_float(obj.monthly_savings_target),
             "emergency_buffer_target": _to_float(obj.emergency_buffer_target),
+            "daily_living_budget": _to_float(getattr(obj, "daily_living_budget", 0)),
             "buffer_gap": _to_float(buffer_gap),
             "savings_goal_target_total": _to_float(savings_goal_target_total),
             "savings_goal_current_total": _to_float(savings_goal_current_total),

@@ -1,351 +1,488 @@
 <template>
-  <div class="finance-tool">
-    <!-- Loading state -->
-    <section v-if="loading && !project" class="status-card">
-      <p class="muted">Lade Finanzplaner...</p>
+  <div class="finance-platform">
+    <!-- Loading State -->
+    <section v-if="loading && !project && !initialLoaded" class="card empty-hero">
+      <p class="muted">Lade UNYQ Finance...</p>
     </section>
 
-    <!-- No project state -->
-    <section v-else-if="!projects.length" class="status-card">
-      <h2>Kein Finanzprojekt vorhanden</h2>
-      <p class="muted">Lege zuerst ein Finanzprojekt an.</p>
-      <button class="btn" type="button" @click="router.push({ name: 'platform-finance' })">Zum Einstieg</button>
-    </section>
-
-    <!-- Main interface -->
-    <template v-else>
-      <header class="topbar">
-        <div class="topbar-left">
-          <p class="eyebrow">Finanzplaner</p>
-          <h1>{{ project?.title || "Finanzprojekt" }}</h1>
+    <!-- Onboarding / First-Time Project Setup -->
+    <section v-else-if="initialLoaded && !projects.length" class="card onboarding-card">
+      <div class="onb-left">
+        <span class="eyebrow">UNYQ Finance 2.0</span>
+        <h1>Dein persönliches Finanz- &amp; Entschuldungs-Cockpit</h1>
+        <p class="muted">
+          Plane deinen Besitz Tag für Tag im Voraus, berechne dein echtes sicheres Tagesbudget zwischen zwei Daten und verfolge deinen exakten Weg auf 0,00 € Schulden.
+        </p>
+        <div class="feature-pills">
+          <span>📅 Tag-für-Tag Soll-Besitz</span>
+          <span>🧮 Zeitraum- &amp; Spar-Simulator</span>
+          <span>📈 12–36 Monate Schuldenfrei-Plan</span>
+          <span>🚦 90-Tage Kauf-Check</span>
         </div>
-        <button class="btn ghost sm" type="button" @click="router.push({ name: 'platform-finance' })">← Übersicht</button>
+      </div>
+
+      <form class="onb-form" @submit.prevent="createFirstProject">
+        <h3>In 30 Sekunden starten</h3>
+        <label>
+          Name deines Plans
+          <input v-model.trim="createForm.title" class="input" placeholder="Meine Finanzen" required />
+        </label>
+        <div class="two-col">
+          <label>
+            Aktueller Kontostand (€)
+            <input v-model="createForm.current_balance" type="number" step="0.01" class="input" placeholder="z. B. 350.00" />
+          </label>
+          <label>
+            Währung
+            <select v-model="createForm.currency" class="input">
+              <option value="EUR">EUR (€)</option>
+              <option value="CHF">CHF</option>
+              <option value="USD">USD ($)</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          Geplantes Alltags-Tagesbudget (€ / Tag, optional)
+          <input v-model="createForm.daily_living_budget" type="number" step="0.50" min="0" class="input" placeholder="z. B. 15.00 für Essen & Alltag" />
+        </label>
+        <button type="submit" class="btn" :disabled="saving">
+          {{ saving ? "Erstelle Plan..." : "Finanz-Cockpit starten →" }}
+        </button>
+      </form>
+    </section>
+
+    <!-- Main Finance Cockpit -->
+    <template v-else-if="project">
+      <!-- Top Command Header -->
+      <header class="card finance-header">
+        <div class="fh-left">
+          <span class="eyebrow">UNYQ Finance</span>
+          <div class="project-title-row">
+            <select
+              v-if="projects.length > 1"
+              :value="project.id"
+              class="input project-switcher"
+              @change="onSwitchProject($event.target.value)"
+            >
+              <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
+            </select>
+            <h1 v-else>{{ project.title }}</h1>
+
+            <button type="button" class="btn ghost tiny" title="Projekt-Einstellungen & Dispo" @click="openBalanceModal">
+              ⚙ Rahmen &amp; Dispo
+            </button>
+            <button type="button" class="btn ghost tiny" @click="showNewProjectModal = true">
+              + Neues Projekt
+            </button>
+          </div>
+        </div>
+
+        <div class="fh-right">
+          <button type="button" class="balance-pill-btn" @click="openBalanceModal" title="Aktuellen Kontostand anpassen">
+            <span class="bp-lbl">Aktueller Besitz</span>
+            <strong :class="currentBalance < 0 ? 'neg-txt' : 'pos-txt'">{{ fmt(currentBalance) }}</strong>
+            <span class="bp-edit">✎</span>
+          </button>
+
+          <button type="button" class="btn ghost sm" @click="exportCsv" title="Monatsübersicht als CSV exportieren">
+            ↓ CSV
+          </button>
+        </div>
       </header>
 
-      <!-- Feedback -->
-      <section v-if="errorMessage || successMessage" class="feedback-bar">
-        <div v-if="errorMessage" class="feedback-pill error">{{ errorMessage }}</div>
-        <div v-if="successMessage" class="feedback-pill success">{{ successMessage }}</div>
-      </section>
+      <!-- Feedback Toast Banner -->
+      <div v-if="bannerMessage.text" class="toast-banner" :class="bannerMessage.type">
+        <span>{{ bannerMessage.text }}</span>
+        <button type="button" class="banner-close" @click="bannerMessage.text = ''">&times;</button>
+      </div>
 
-      <!-- Tab navigation -->
-      <nav class="tab-nav">
+      <!-- Primary 6-Tab Navigation -->
+      <nav class="finance-tabs" aria-label="Finance Bereiche">
         <button
-          v-for="tab in tabs"
+          v-for="tab in navTabs"
           :key="tab.id"
-          class="tab-pill"
+          type="button"
+          class="fin-tab-btn"
           :class="{ active: activeTab === tab.id }"
-          @click="activeTab = tab.id"
+          @click="setTab(tab.id)"
         >
-          {{ tab.label }}
+          <span class="tab-ico">{{ tab.icon }}</span>
+          <span>{{ tab.label }}</span>
+          <span v-if="tab.badge" class="tab-badge">{{ tab.badge }}</span>
         </button>
       </nav>
 
-      <!-- ===== ÜBERSICHT ===== -->
-      <section v-show="activeTab === 'overview'" class="tab-content">
-        <!-- Summary banner -->
-        <article class="summary-banner">
-          <div class="summary-row">
-            <span class="summary-label">Einnahmen</span>
-            <span class="summary-amount income">{{ fmt(totalIncome) }}</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">− Schulden</span>
-            <span class="summary-amount">{{ fmt(totalDebtPayments) }}</span>
-          </div>
-          <div class="summary-row">
-            <span class="summary-label">− Abos</span>
-            <span class="summary-amount">{{ fmt(totalSubscriptions) }}</span>
-          </div>
-          <div class="summary-divider"></div>
-          <div class="summary-row highlight">
-            <span class="summary-label">Verbleibend</span>
-            <span class="summary-amount" :class="remaining >= 0 ? 'income' : 'danger'">{{ fmt(remaining) }}</span>
-          </div>
-        </article>
-
-        <!-- Income entries -->
-        <article class="panel">
-          <div class="panel-head">
+      <!-- ===================================================================
+           TAB 1: COCKPIT (ÜBERSICHT)
+           =================================================================== -->
+      <section v-if="activeTab === 'overview'" class="cockpit-view">
+        <!-- Smart Urgent Alerts -->
+        <div v-if="urgentDebtsCount > 0 || preview14d.firstNegativeDate" class="alerts-stack">
+          <div v-if="urgentDebtsCount > 0" class="smart-alert warn">
             <div>
-              <h2>Einnahmen</h2>
-              <p class="muted small">Monatliche Einkommensquellen</p>
+              <strong>⚡ {{ urgentDebtsCount }} Rate{{ urgentDebtsCount === 1 ? " ist" : "n sind" }} heute fällig oder überfällig</strong>
+              <span>Prüfe kurz deine offenen Fälligkeiten, damit Restschuld und Tagesplan aktuell bleiben.</span>
             </div>
-            <button class="btn ghost sm" type="button" @click="openIncomeModal()">+ Hinzufügen</button>
+            <button type="button" class="btn sm" @click="setTab('debts')">Jetzt klären →</button>
           </div>
 
-          <div v-if="incomeEntries.length" class="entry-list">
-            <div v-for="entry in incomeEntries" :key="entry.id" class="entry-row">
-              <div class="entry-info">
-                <strong>{{ entry.title }}</strong>
+          <div v-if="preview14d.firstNegativeDate" class="smart-alert danger">
+            <div>
+              <strong>🚨 Konto-Engpass in den nächsten 14 Tagen erkannt!</strong>
+              <span>
+                Laut Plan fällt dein Besitz am <strong>{{ formatDateDe(preview14d.minBalanceDate) }}</strong> auf
+                <strong>{{ fmt(preview14d.minBalance) }}</strong>. Prüfe den Tag-für-Tag-Plan!
+              </span>
+            </div>
+            <button type="button" class="btn sm ghost" @click="setTab('daily')">Zum Tagesplan →</button>
+          </div>
+        </div>
+
+        <!-- 4 Hero KPIs -->
+        <div class="cockpit-kpi-grid">
+          <article class="kpi-hero-card">
+            <div class="kh-top">
+              <span class="kh-lbl">Aktueller Kontostand (Besitz)</span>
+              <button type="button" class="tiny-action" @click="openBalanceModal">Abgleichen</button>
+            </div>
+            <strong class="kh-val" :class="currentBalance < 0 ? 'neg-txt' : 'pos-txt'">
+              {{ fmt(currentBalance) }}
+            </strong>
+            <span class="muted tiny">
+              Netto-Vermögen (abzgl. Schulden):
+              <strong :class="netWorthToday >= 0 ? 'pos-txt' : 'neg-txt'">{{ fmt(netWorthToday) }}</strong>
+            </span>
+          </article>
+
+          <article class="kpi-hero-card">
+            <div class="kh-top">
+              <span class="kh-lbl">Täglich frei bis Monatsende</span>
+              <button type="button" class="tiny-action" @click="setTab('simulator')">Simulator →</button>
+            </div>
+            <strong
+              class="kh-val"
+              :class="monthEndDailySim.safeDailyBudget >= 0 ? 'pos-txt' : 'neg-txt'"
+            >
+              {{ fmt(monthEndDailySim.hasMidPeriodBottleneck ? monthEndDailySim.safeDailyBudget : monthEndDailySim.theoreticalDailyBudget) }}
+              <small>/ Tag</small>
+            </strong>
+            <span class="muted tiny">
+              Für die nächsten {{ monthEndDailySim.totalDays }} Tage (inkl. aller offenen Abbuchungen)
+            </span>
+          </article>
+
+          <article class="kpi-hero-card">
+            <div class="kh-top">
+              <span class="kh-lbl">Monatlich nach Fixkosten &amp; Raten</span>
+              <button type="button" class="tiny-action" @click="setTab('entries')">Posten →</button>
+            </div>
+            <strong class="kh-val" :class="monthlyFreeAfterFixed >= 0 ? 'pos-txt' : 'neg-txt'">
+              {{ monthlyFreeAfterFixed >= 0 ? "+" : "" }}{{ fmt(monthlyFreeAfterFixed) }}
+            </strong>
+            <span class="muted tiny">
+              {{ fmt(monthlyIncomeTotal) }} Einnahmen − {{ fmt(monthlyFixedAndSubs + monthlyDebtRateTotal) }} Fix &amp; Raten
+            </span>
+          </article>
+
+          <article class="kpi-hero-card">
+            <div class="kh-top">
+              <span class="kh-lbl">Offene Gesamtschulden</span>
+              <button type="button" class="tiny-action" @click="setTab('longterm')">Langzeit →</button>
+            </div>
+            <strong class="kh-val" :class="totalOpenDebt > 0 ? 'neg-txt' : 'pos-txt'">
+              {{ fmt(totalOpenDebt) }}
+            </strong>
+            <span class="muted tiny">
+              <template v-if="totalOpenDebt <= 0">100 % schuldenfrei 🎉</template>
+              <template v-else>Schuldenfrei-Ziel: <strong>{{ quickRoadmap.debtFreeLabel }}</strong></template>
+            </span>
+          </article>
+        </div>
+
+        <!-- 2-Column Cockpit Body -->
+        <div class="cockpit-columns">
+          <!-- Left: 14-Day Soll-Besitz Preview -->
+          <article class="card cockpit-panel">
+            <div class="cp-head">
+              <div>
+                <span class="section-kicker">Nächste 14 Tage</span>
+                <h3>Vorschau: Dein geplanter Besitz</h3>
               </div>
-              <div class="entry-right">
-                <span class="amount">{{ fmt(entry.monthly_amount || entry.amount) }}</span>
-                <button class="icon-btn" title="Bearbeiten" @click="openIncomeModal(entry)">✎</button>
-                <button class="icon-btn danger" title="Löschen" @click="deleteIncome(entry)">✕</button>
+              <button type="button" class="btn ghost sm" @click="setTab('daily')">
+                Alle 365 Tage →
+              </button>
+            </div>
+
+            <div class="mini-timeline">
+              <div
+                v-for="day in preview14Rows"
+                :key="day.date"
+                class="mini-day-row"
+                :class="{ 'is-neg': day.endBalance < 0, 'is-today': day.isToday }"
+              >
+                <div class="md-left">
+                  <span class="md-wd">{{ day.weekday }}</span>
+                  <strong>{{ formatDateShortDe(day.date) }}</strong>
+                  <span v-if="day.isToday" class="md-tag">Heute</span>
+                </div>
+
+                <div class="md-events">
+                  <template v-if="day.events.length">
+                    <span
+                      v-for="ev in day.events.slice(0, 2)"
+                      :key="ev.id"
+                      class="md-ev"
+                      :class="ev.amount > 0 ? 'pos-txt' : ''"
+                    >
+                      {{ ev.title }} ({{ ev.amount > 0 ? "+" : "" }}{{ fmt(ev.amount) }})
+                    </span>
+                    <span v-if="day.events.length > 2" class="muted tiny">+{{ day.events.length - 2 }} weitere</span>
+                  </template>
+                  <span v-else class="muted tiny">Keine feste Buchung</span>
+                </div>
+
+                <strong class="md-bal" :class="day.endBalance < 0 ? 'neg-txt' : ''">
+                  {{ fmt(day.endBalance) }}
+                </strong>
               </div>
             </div>
+          </article>
+
+          <!-- Right: Monthly Cashflow Structure & Quick Actions -->
+          <div class="cockpit-side-stack">
+            <article class="card cockpit-panel">
+              <div class="cp-head">
+                <div>
+                  <span class="section-kicker">Monats-Struktur</span>
+                  <h3>Wohin fließt dein Einkommen?</h3>
+                </div>
+              </div>
+
+              <div class="cashflow-rows">
+                <div class="cf-row">
+                  <span>💰 Monatliche Einnahmen</span>
+                  <strong class="pos-txt">+{{ fmt(monthlyIncomeTotal) }}</strong>
+                </div>
+                <div class="cf-row">
+                  <span>🏠 Fixkosten &amp; Verträge</span>
+                  <strong>−{{ fmt(monthlyFixedOnly) }}</strong>
+                </div>
+                <div class="cf-row">
+                  <span>🔄 Abonnements</span>
+                  <strong>−{{ fmt(monthlySubsOnly) }}</strong>
+                </div>
+                <div class="cf-row">
+                  <span>💳 Schulden- &amp; Kreditraten</span>
+                  <strong class="debt-txt">−{{ fmt(monthlyDebtRateTotal) }}</strong>
+                </div>
+                <div v-if="projectDailyBudget > 0" class="cf-row">
+                  <span>🛒 Geplantes Alltagsbudget (30 T.)</span>
+                  <strong class="muted">−{{ fmt(projectDailyBudget * 30) }}</strong>
+                </div>
+                <div class="cf-divider"></div>
+                <div class="cf-row total">
+                  <span>Geplanter Monats-Überschuss</span>
+                  <strong :class="monthlyNetAfterAll >= 0 ? 'pos-txt' : 'neg-txt'">
+                    {{ monthlyNetAfterAll >= 0 ? "+" : "" }}{{ fmt(monthlyNetAfterAll) }}
+                  </strong>
+                </div>
+              </div>
+
+              <div class="quick-nav-grid">
+                <button type="button" class="btn ghost sm" @click="setTab('simulator')">
+                  🧮 Zeitraum-Budget berechnen
+                </button>
+                <button type="button" class="btn ghost sm" @click="openQuickEntryFromCockpit">
+                  + Buchung anlegen
+                </button>
+              </div>
+            </article>
+
+            <!-- Savings Goals Snapshot -->
+            <article v-if="savingsGoals.length" class="card cockpit-panel">
+              <div class="cp-head">
+                <div>
+                  <span class="section-kicker">Rücklagen</span>
+                  <h3>Aktive Sparziele</h3>
+                </div>
+                <button type="button" class="btn ghost tiny" @click="setTab('simulator')">Öffnen →</button>
+              </div>
+              <div class="mini-goals">
+                <div v-for="g in savingsGoals.slice(0, 3)" :key="g.id" class="mg-row">
+                  <div class="mg-top">
+                    <strong>{{ g.title }}</strong>
+                    <span class="muted tiny">{{ fmt(g.current_amount) }} / {{ fmt(g.target_amount) }}</span>
+                  </div>
+                  <div class="mg-bar">
+                    <span :style="{ width: `${Math.min(100, Number(g.progress_percent || 0))}%` }"></span>
+                  </div>
+                </div>
+              </div>
+            </article>
           </div>
-          <p v-else class="muted small empty-hint">Noch keine Einnahmen eingetragen.</p>
-        </article>
+        </div>
       </section>
 
-      <!-- ===== SCHULDEN ===== -->
-      <section v-show="activeTab === 'debts'" class="tab-content">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Schulden</h2>
-              <p class="muted small">Aktive Schulden und Ratenzahlungen</p>
-            </div>
-            <button class="btn ghost sm" type="button" @click="openDebtModal()">+ Schuld hinzufügen</button>
-          </div>
+      <!-- ===================================================================
+           TAB 2: TAG-FÜR-TAG PLAN
+           =================================================================== -->
+      <FinanceDailyPlanTab
+        v-else-if="activeTab === 'daily'"
+        :project="project"
+        :entries="entries"
+        :debts="debts"
+        :currency="currency"
+        :saving-budget="saving"
+        @open-balance-modal="openBalanceModal"
+        @save-daily-budget="saveDailyLivingBudget"
+        @quick-add-on-date="handleQuickAddOnDate"
+        @jump-to-debts="setTab('debts')"
+      />
 
-          <div v-if="debts.length" class="entry-list">
-            <div v-for="debt in debts" :key="debt.id" class="debt-row" :class="{ 'paid-off': debt.is_fully_paid }">
-              <div class="debt-main">
-                <div class="debt-title-line">
-                  <strong>{{ debt.name }}</strong>
-                  <span class="badge" :class="debt.status === 'PAID_OFF' ? 'badge-done' : debt.status === 'PAUSED' ? 'badge-paused' : 'badge-active'">
-                    {{ debtStatusLabel(debt.status) }}
-                  </span>
-                </div>
-                <div class="debt-meta">
-                  <span>Gesamt: {{ fmt(debt.total_amount) }}</span>
-                  <span>Bezahlt: {{ fmt(debt.amount_paid) }}</span>
-                  <span>Restschuld: {{ fmt(debt.remaining_amount) }}</span>
-                </div>
-                <div class="progress-bar-wrap">
-                  <div class="progress-bar" :style="{ width: debtProgress(debt) + '%' }"></div>
-                </div>
-              </div>
-              <div class="debt-right">
-                <div class="debt-rate">
-                  <span class="muted small">Monatlich</span>
-                  <strong>{{ fmt(debt.monthly_payment) }}</strong>
-                </div>
-                <div class="debt-actions">
-                  <button
-                    v-if="debt.status === 'ACTIVE' && !debt.is_fully_paid && debt.payment_type === 'INSTALLMENT'"
-                    class="icon-btn"
-                    title="Geplante Rate zahlen"
-                    @click="payPlannedInstallment(debt)"
-                  >
-                    €
-                  </button>
-                  <button class="icon-btn" title="Bearbeiten" @click="openDebtModal(debt)">✎</button>
-                  <button class="icon-btn danger" title="Löschen" @click="deleteDebt(debt)">✕</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p v-else class="muted small empty-hint">Noch keine Schulden eingetragen.</p>
+      <!-- ===================================================================
+           TAB 3: SIMULATOR & SMART TOOLS
+           =================================================================== -->
+      <FinanceSimulatorTab
+        v-else-if="activeTab === 'simulator'"
+        :project="project"
+        :entries="entries"
+        :debts="debts"
+        :savings-goals="savingsGoals"
+        :currency="currency"
+        @adopt-daily-budget="adoptBudgetFromSimulator"
+        @create-planned-from-sim="handleCreatePlannedFromSim"
+        @save-goal="saveSavingsGoal"
+        @delete-goal="deleteSavingsGoal"
+      />
 
-          <!-- Debt total -->
-          <div v-if="debts.length" class="section-total">
-            <span>Monatliche Schuldenrate gesamt</span>
-            <strong>{{ fmt(totalDebtPayments) }}</strong>
-          </div>
-        </article>
-      </section>
+      <!-- ===================================================================
+           TAB 4: LANGZEIT-ANALYSE (12–36 MONATE)
+           =================================================================== -->
+      <FinanceLongTermTab
+        v-else-if="activeTab === 'longterm'"
+        :project="project"
+        :entries="entries"
+        :debts="debts"
+        :savings-goals="savingsGoals"
+        :currency="currency"
+      />
 
-      <!-- ===== ABOS ===== -->
-      <section v-show="activeTab === 'subscriptions'" class="tab-content">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Abos</h2>
-              <p class="muted small">Laufende monatliche Abonnements</p>
-            </div>
-            <button class="btn ghost sm" type="button" @click="openSubModal()">+ Abo hinzufügen</button>
-          </div>
+      <!-- ===================================================================
+           TAB 5: SCHULDEN & RATEN
+           =================================================================== -->
+      <FinanceDebtsTab
+        v-else-if="activeTab === 'debts'"
+        :project="project"
+        :debts="debts"
+        :currency="currency"
+        @refresh="reloadProjectData"
+        @adjust-balance="adjustBalanceByDelta"
+        @notify="showBanner"
+      />
 
-          <div v-if="subscriptions.length" class="entry-list">
-            <div v-for="sub in subscriptions" :key="sub.id" class="entry-row">
-              <div class="entry-info">
-                <strong>{{ sub.title }}</strong>
-                <span v-if="sub.notes" class="muted small">{{ sub.notes }}</span>
-              </div>
-              <div class="entry-right">
-                <span class="amount">{{ fmt(sub.monthly_amount || sub.amount) }}</span>
-                <button class="icon-btn" title="Bearbeiten" @click="openSubModal(sub)">✎</button>
-                <button class="icon-btn danger" title="Löschen" @click="deleteSub(sub)">✕</button>
-              </div>
-            </div>
-          </div>
-          <p v-else class="muted small empty-hint">Noch keine Abos eingetragen.</p>
-
-          <!-- Subscription total -->
-          <div v-if="subscriptions.length" class="section-total">
-            <span>Abos gesamt pro Monat</span>
-            <strong>{{ fmt(totalSubscriptions) }}</strong>
-          </div>
-        </article>
-      </section>
-
-      <!-- ===== GEPLANTE ZAHLUNGEN ===== -->
-      <section v-show="activeTab === 'planned'" class="tab-content">
-        <article class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Geplante Zahlungen</h2>
-              <p class="muted small">Einmalige zukünftige Zahlungen im Überblick</p>
-            </div>
-            <button class="btn ghost sm" type="button" @click="openPlannedModal()">+ Zahlung planen</button>
-          </div>
-
-          <div v-if="plannedPayments.length" class="entry-list">
-            <div v-for="entry in plannedPayments" :key="entry.id" class="entry-row planned-row">
-              <div class="entry-info">
-                <strong>{{ entry.title }}</strong>
-                <span v-if="entry.due_date" class="muted small">Fällig: {{ entry.due_date }}</span>
-                <span v-if="entry.notes" class="muted small">{{ entry.notes }}</span>
-              </div>
-              <div class="entry-right">
-                <!-- Planned payments are expenses, so always shown in danger/red -->
-                <span class="amount danger">{{ fmt(entry.amount) }}</span>
-                <button class="icon-btn" title="Bearbeiten" @click="openPlannedModal(entry)">✎</button>
-                <button class="icon-btn danger" title="Löschen" @click="deletePlanned(entry)">✕</button>
-              </div>
-            </div>
-          </div>
-          <p v-else class="muted small empty-hint">Noch keine Zahlungen geplant.</p>
-
-          <div v-if="plannedPayments.length" class="section-total">
-            <span>Geplante Zahlungen gesamt</span>
-            <strong>{{ fmt(plannedPayments.reduce((s, e) => s + Number(e.amount || 0), 0)) }}</strong>
-          </div>
-        </article>
-      </section>
+      <!-- ===================================================================
+           TAB 6: BUCHUNGEN & ALLTAG
+           =================================================================== -->
+      <FinanceEntriesTab
+        v-show="activeTab === 'entries'"
+        ref="entriesTabRef"
+        :project="project"
+        :entries="entries"
+        :daily-expenses="dailyExpenses"
+        :currency="currency"
+        @refresh="reloadProjectData"
+        @adjust-balance="adjustBalanceByDelta"
+        @notify="showBanner"
+      />
     </template>
 
-    <!-- ===== INCOME MODAL ===== -->
-    <div v-if="showIncomeModal" class="modal-overlay" @click.self="showIncomeModal = false">
+    <!-- ===== BALANCE & PROJECT SETTINGS MODAL ===== -->
+    <div v-if="showBalanceModal" class="modal-overlay" @click.self="showBalanceModal = false">
       <div class="modal-box">
         <div class="modal-header">
-          <h3>{{ incomeForm.id ? 'Einnahme bearbeiten' : 'Einnahme hinzufügen' }}</h3>
-          <button class="modal-close" @click="showIncomeModal = false">&times;</button>
+          <h3>Kontostand, Rahmen &amp; Puffer abgleichen</h3>
+          <button type="button" class="modal-close" @click="showBalanceModal = false">&times;</button>
         </div>
-        <form class="modal-form" @submit.prevent="saveIncome">
+
+        <form class="modal-form" @submit.prevent="saveBalanceSettings">
           <label>
-            Bezeichnung
-            <input v-model.trim="incomeForm.title" class="input" placeholder="z. B. Gehalt, Freelance" required />
+            Projektname
+            <input v-model.trim="balanceForm.title" class="input" required />
           </label>
-          <label>
-            Monatlicher Betrag (€)
-            <input v-model="incomeForm.amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
-          </label>
+
+          <div class="two-col">
+            <label>
+              Aktueller Kontostand / Besitz (€)
+              <input v-model="balanceForm.current_balance" type="number" step="0.01" class="input" required />
+              <span class="muted tiny">Darf bei Kontoüberziehung auch negativ sein (z. B. -120)</span>
+            </label>
+            <label>
+              Geplantes Alltags-Tagesbudget (€ / Tag)
+              <input v-model="balanceForm.daily_living_budget" type="number" step="0.50" min="0" class="input" />
+              <span class="muted tiny">Für Essen, Einkauf &amp; Freizeit</span>
+            </label>
+          </div>
+
+          <div class="two-col">
+            <label>
+              Dispo-Rahmen verfügbar (€)
+              <input v-model="balanceForm.dispo_limit" type="number" step="10" min="0" class="input" />
+            </label>
+            <label>
+              Davon aktuell genutzt (€)
+              <input v-model="balanceForm.dispo_used" type="number" step="10" min="0" class="input" />
+            </label>
+          </div>
+
+          <div class="two-col">
+            <label>
+              Gewünschter Sicherheits-Puffer (€)
+              <input v-model="balanceForm.emergency_buffer_target" type="number" step="10" min="0" class="input" />
+            </label>
+            <label>
+              Feste Monats-Sparrate (€)
+              <input v-model="balanceForm.monthly_savings_target" type="number" step="10" min="0" class="input" />
+            </label>
+          </div>
+
           <div class="modal-actions">
-            <button class="btn ghost" type="button" @click="showIncomeModal = false">Abbrechen</button>
-            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
+            <button type="button" class="btn ghost" @click="showBalanceModal = false">Abbrechen</button>
+            <button type="submit" class="btn" :disabled="saving">{{ saving ? "Speichere..." : "Übernehmen" }}</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- ===== DEBT MODAL ===== -->
-    <div v-if="showDebtModal" class="modal-overlay" @click.self="showDebtModal = false">
+    <!-- ===== CREATE ADDITIONAL PROJECT MODAL ===== -->
+    <div v-if="showNewProjectModal" class="modal-overlay" @click.self="showNewProjectModal = false">
       <div class="modal-box">
         <div class="modal-header">
-          <h3>{{ debtForm.id ? 'Schuld bearbeiten' : 'Schuld hinzufügen' }}</h3>
-          <button class="modal-close" @click="showDebtModal = false">&times;</button>
+          <h3>Weiteres Finanzprojekt erstellen</h3>
+          <button type="button" class="modal-close" @click="showNewProjectModal = false">&times;</button>
         </div>
-        <form class="modal-form" @submit.prevent="saveDebt">
-          <label>
-            Bezeichnung
-            <input v-model.trim="debtForm.name" class="input" placeholder="z. B. Klarna, Darlehen" required />
-          </label>
-          <div class="form-grid">
-            <label>
-              Gesamtbetrag (€)
-              <input v-model="debtForm.total_amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
-            </label>
-            <label>
-              Bereits bezahlt (€)
-              <input v-model="debtForm.amount_paid" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
-            </label>
-          </div>
-          <label>
-            Monatliche Rate (€)
-            <input v-model="debtForm.monthly_payment" class="input" type="number" step="0.01" min="0" placeholder="0.00" />
-          </label>
-          <label>
-            Status
-            <select v-model="debtForm.status" class="input">
-              <option value="ACTIVE">Aktiv</option>
-              <option value="PAUSED">Pausiert</option>
-              <option value="PAID_OFF">Abbezahlt</option>
-            </select>
-          </label>
-          <label>
-            Notiz
-            <textarea v-model="debtForm.notes" class="input textarea" rows="2" placeholder="Optional"></textarea>
-          </label>
-          <div class="modal-actions">
-            <button class="btn ghost" type="button" @click="showDebtModal = false">Abbrechen</button>
-            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
-          </div>
-        </form>
-      </div>
-    </div>
 
-    <!-- ===== SUBSCRIPTION MODAL ===== -->
-    <div v-if="showSubModal" class="modal-overlay" @click.self="showSubModal = false">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h3>{{ subForm.id ? 'Abo bearbeiten' : 'Abo hinzufügen' }}</h3>
-          <button class="modal-close" @click="showSubModal = false">&times;</button>
-        </div>
-        <form class="modal-form" @submit.prevent="saveSub">
+        <form class="modal-form" @submit.prevent="createAdditionalProject">
           <label>
-            Bezeichnung
-            <input v-model.trim="subForm.title" class="input" placeholder="z. B. Netflix, Spotify" required />
+            Name (z. B. Privat, Musik/Studio, Haushalt)
+            <input v-model.trim="newProjForm.title" class="input" required />
           </label>
-          <label>
-            Monatlicher Betrag (€)
-            <input v-model="subForm.amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
-          </label>
-          <label>
-            Notiz
-            <textarea v-model="subForm.notes" class="input textarea" rows="2" placeholder="Optional"></textarea>
-          </label>
-          <div class="modal-actions">
-            <button class="btn ghost" type="button" @click="showSubModal = false">Abbrechen</button>
-            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ===== PLANNED PAYMENT MODAL ===== -->
-    <div v-if="showPlannedModal" class="modal-overlay" @click.self="showPlannedModal = false">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h3>{{ plannedForm.id ? 'Zahlung bearbeiten' : 'Zahlung planen' }}</h3>
-          <button class="modal-close" @click="showPlannedModal = false">&times;</button>
-        </div>
-        <form class="modal-form" @submit.prevent="savePlanned">
-          <label>
-            Bezeichnung
-            <input v-model.trim="plannedForm.title" class="input" placeholder="z. B. Jahresversicherung, Steuer" required />
-          </label>
-          <div class="form-grid">
+          <div class="two-col">
             <label>
-              Betrag (€)
-              <input v-model="plannedForm.amount" class="input" type="number" step="0.01" min="0" placeholder="0.00" required />
+              Start-Kontostand (€)
+              <input v-model="newProjForm.current_balance" type="number" step="0.01" class="input" />
             </label>
             <label>
-              Fälligkeitsdatum
-              <input v-model="plannedForm.due_date" class="input" type="date" required />
+              Währung
+              <select v-model="newProjForm.currency" class="input">
+                <option value="EUR">EUR (€)</option>
+                <option value="CHF">CHF</option>
+                <option value="USD">USD ($)</option>
+              </select>
             </label>
           </div>
-          <label>
-            Notiz
-            <textarea v-model="plannedForm.notes" class="input textarea" rows="2" placeholder="Optional"></textarea>
-          </label>
           <div class="modal-actions">
-            <button class="btn ghost" type="button" @click="showPlannedModal = false">Abbrechen</button>
-            <button class="btn" type="submit" :disabled="saving">{{ saving ? 'Speichern...' : 'Speichern' }}</button>
+            <button type="button" class="btn ghost" @click="showNewProjectModal = false">Abbrechen</button>
+            <button type="submit" class="btn" :disabled="saving">Projekt anlegen</button>
           </div>
         </form>
       </div>
@@ -354,803 +491,1009 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../api";
+import FinanceDailyPlanTab from "../components/finance/FinanceDailyPlanTab.vue";
+import FinanceDebtsTab from "../components/finance/FinanceDebtsTab.vue";
+import FinanceEntriesTab from "../components/finance/FinanceEntriesTab.vue";
+import FinanceLongTermTab from "../components/finance/FinanceLongTermTab.vue";
+import FinanceSimulatorTab from "../components/finance/FinanceSimulatorTab.vue";
+import {
+  calculatePeriodSimulator,
+  daysInMonth,
+  formatDateDe,
+  formatDateShortDe,
+  formatMoney,
+  parseIsoParts,
+  resolveDebtNextDueDate,
+  round2,
+  safeIsoDate,
+  simulateDailyTimeline,
+  simulateLongTermRoadmap,
+  toNum,
+  todayIso,
+} from "../utils/financeEngine";
 
 const route = useRoute();
 const router = useRouter();
 
-// ── State ──────────────────────────────────────────────────────────────────
 const loading = ref(false);
+const initialLoaded = ref(false);
 const saving = ref(false);
+
 const projects = ref([]);
 const project = ref(null);
-const incomeEntries = ref([]);
-const subscriptions = ref([]);
+const entries = ref([]);
 const debts = ref([]);
-const plannedPayments = ref([]);
-const errorMessage = ref("");
-const successMessage = ref("");
+const savingsGoals = ref([]);
+const dailyExpenses = ref([]);
+const entriesTabRef = ref(null);
 
-const activeTab = ref("overview");
-const tabs = [
-  { id: "overview", label: "Übersicht" },
-  { id: "debts", label: "Schulden" },
-  { id: "subscriptions", label: "Abos" },
-  { id: "planned", label: "Geplante Zahlungen" },
-];
+const bannerMessage = ref({ type: "success", text: "" });
 
-// ── Modal state ────────────────────────────────────────────────────────────
-const showIncomeModal = ref(false);
-const incomeForm = ref({ id: null, title: "", amount: "" });
+const VALID_TABS = ["overview", "daily", "simulator", "longterm", "debts", "entries"];
+const TAB_ALIASES = {
+  savings: "simulator",
+  expenses: "entries",
+  planned: "entries",
+  subscriptions: "entries",
+  projects: "overview",
+};
 
-const showDebtModal = ref(false);
-const debtForm = ref({ id: null, name: "", total_amount: "", amount_paid: "", monthly_payment: "", status: "ACTIVE", notes: "", start_date: "", debt_kind: "DEBT", payment_type: "INSTALLMENT" });
-
-const showSubModal = ref(false);
-const subForm = ref({ id: null, title: "", amount: "", notes: "" });
-
-const showPlannedModal = ref(false);
-const plannedForm = ref({ id: null, title: "", amount: "", due_date: "", notes: "" });
-
-// ── Computed ───────────────────────────────────────────────────────────────
-const totalIncome = computed(() =>
-  incomeEntries.value.reduce((sum, e) => sum + Number(e.monthly_amount || e.amount || 0), 0)
-);
-
-const totalDebtPayments = computed(() =>
-  debts.value
-    .filter((d) => d.status === "ACTIVE" && !d.is_fully_paid)
-    .reduce((sum, d) => sum + Number(d.monthly_payment || 0), 0)
-);
-
-const totalSubscriptions = computed(() =>
-  subscriptions.value.reduce((sum, s) => sum + Number(s.monthly_amount || s.amount || 0), 0)
-);
-
-const remaining = computed(() => totalIncome.value - totalDebtPayments.value - totalSubscriptions.value);
-
-const currency = computed(() => project.value?.currency || "EUR");
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-function fmt(value) {
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: currency.value,
-    maximumFractionDigits: 2,
-  }).format(Number(value || 0));
+function resolveQueryTab(rawTab) {
+  if (!rawTab) return "overview";
+  const key = String(rawTab).toLowerCase();
+  if (VALID_TABS.includes(key)) return key;
+  return TAB_ALIASES[key] || "overview";
 }
 
-function toAmount(value) {
-  const n = Number.parseFloat(value);
-  return Number.isFinite(n) ? n : 0;
-}
+const activeTab = ref(resolveQueryTab(route.query.tab));
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function debtProgress(debt) {
-  const total = Number(debt.total_amount || 0);
-  if (total <= 0) return 0;
-  return Math.min(100, Math.round((Number(debt.amount_paid || 0) / total) * 100));
-}
-
-function debtStatusLabel(status) {
-  return { ACTIVE: "Aktiv", PAID_OFF: "Abbezahlt", PAUSED: "Pausiert" }[status] || status;
-}
-
-function setError(msg) {
-  errorMessage.value = msg;
-  successMessage.value = "";
-}
-
-function setSuccess(msg) {
-  successMessage.value = msg;
-  errorMessage.value = "";
-  setTimeout(() => { successMessage.value = ""; }, 3000);
-}
-
-function apiError(err, fallback) {
-  const d = err?.response?.data;
-  if (typeof d === "string" && d.trim()) return d;
-  if (d?.detail) return d.detail;
-  if (d && typeof d === "object") {
-    const msg = Object.entries(d).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`).join(" | ");
-    if (msg) return msg;
+watch(
+  () => route.query.tab,
+  (qTab) => {
+    activeTab.value = resolveQueryTab(qTab);
   }
-  return fallback;
+);
+
+function setTab(tabId) {
+  activeTab.value = tabId;
+  router.replace({
+    query: { ...route.query, tab: tabId === "overview" ? undefined : tabId },
+  }).catch(() => {});
 }
 
-function normalise(data) {
+function showBanner({ type = "success", text = "" }) {
+  bannerMessage.value = { type, text };
+  if (type === "success") {
+    setTimeout(() => {
+      if (bannerMessage.value.text === text) bannerMessage.value.text = "";
+    }, 3800);
+  }
+}
+
+function normaliseList(data) {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.results)) return data.results;
   return [];
 }
 
-// ── Data loading ───────────────────────────────────────────────────────────
-async function loadProjects() {
-  try {
-    const { data } = await api.get("finance-projects/");
-    projects.value = normalise(data);
-  } catch {
-    projects.value = [];
-  }
+const today = todayIso();
+const currency = computed(() => project.value?.currency || "EUR");
+const currentBalance = computed(() => toNum(project.value?.current_balance, 0));
+const projectDailyBudget = computed(() => toNum(project.value?.daily_living_budget, 0));
+
+function fmt(val) {
+  return formatMoney(val, currency.value);
 }
 
-async function loadProject(id) {
-  try {
-    const { data } = await api.get(`finance-projects/${id}/`);
-    project.value = data;
-  } catch (err) {
-    setError(apiError(err, "Projekt konnte nicht geladen werden."));
-  }
+// ── Urgent & Summary Metrics ───────────────────────────────────────────────
+const urgentDebtsCount = computed(() =>
+  debts.value.filter((d) => {
+    if (d.status !== "ACTIVE" || d.is_fully_paid) return false;
+    const nd = d.next_due_date || resolveDebtNextDueDate(d, today);
+    return Boolean(nd && nd <= today);
+  }).length
+);
+
+const navTabs = computed(() => [
+  { id: "overview", icon: "🏠", label: "Cockpit" },
+  { id: "daily", icon: "📅", label: "Tag-für-Tag Plan" },
+  { id: "simulator", icon: "🧮", label: "Simulator & Tools" },
+  { id: "longterm", icon: "📈", label: "Langzeit-Analyse" },
+  { id: "debts", icon: "💳", label: "Schulden & Raten", badge: urgentDebtsCount.value || null },
+  { id: "entries", icon: "🧾", label: "Buchungen & Alltag" },
+]);
+
+const activeEntries = computed(() => entries.value.filter((e) => e.is_active !== false));
+
+const monthlyIncomeTotal = computed(() =>
+  round2(
+    activeEntries.value
+      .filter((e) => e.entry_type === "INCOME" && e.frequency !== "ONCE")
+      .reduce((s, e) => s + toNum(e.monthly_amount ?? e.amount), 0)
+  )
+);
+
+const monthlyFixedOnly = computed(() =>
+  round2(
+    activeEntries.value
+      .filter((e) => ["FIXED", "VARIABLE", "SAVING"].includes(e.entry_type) && e.frequency !== "ONCE")
+      .reduce((s, e) => s + toNum(e.monthly_amount ?? e.amount), 0)
+  )
+);
+
+const monthlySubsOnly = computed(() =>
+  round2(
+    activeEntries.value
+      .filter((e) => e.entry_type === "SUBSCRIPTION" && e.frequency !== "ONCE")
+      .reduce((s, e) => s + toNum(e.monthly_amount ?? e.amount), 0)
+  )
+);
+
+const monthlyFixedAndSubs = computed(() => round2(monthlyFixedOnly.value + monthlySubsOnly.value));
+
+const monthlyDebtRateTotal = computed(() =>
+  round2(
+    debts.value
+      .filter((d) => d.status === "ACTIVE" && !d.is_fully_paid)
+      .reduce((s, d) => s + toNum(d.scheduled_payment_amount || d.monthly_payment), 0)
+  )
+);
+
+const monthlyFreeAfterFixed = computed(() =>
+  round2(monthlyIncomeTotal.value - monthlyFixedAndSubs.value - monthlyDebtRateTotal.value)
+);
+
+const monthlyNetAfterAll = computed(() =>
+  round2(monthlyFreeAfterFixed.value - projectDailyBudget.value * 30)
+);
+
+const totalOpenDebt = computed(() =>
+  round2(
+    debts.value
+      .filter((d) => d.status === "ACTIVE" && !d.is_fully_paid)
+      .reduce((s, d) => s + toNum(d.remaining_amount), 0)
+  )
+);
+
+const totalSavedGoals = computed(() =>
+  round2(savingsGoals.value.reduce((s, g) => s + toNum(g.current_amount), 0))
+);
+
+const netWorthToday = computed(() =>
+  round2(currentBalance.value + totalSavedGoals.value - totalOpenDebt.value - toNum(project.value?.dispo_used, 0))
+);
+
+// End-of-month daily safe budget for Cockpit Hero KPI
+const monthEndDailySim = computed(() => {
+  const p = parseIsoParts(today);
+  const endIso = p ? safeIsoDate(p.year, p.month, daysInMonth(p.year, p.month)) : today;
+  return calculatePeriodSimulator({
+    startDateIso: today,
+    endDateIso: endIso,
+    startingMoney: currentBalance.value,
+    entries: entries.value,
+    debts: debts.value,
+    includeScheduled: true,
+    safetyFloor: toNum(project.value?.emergency_buffer_target, 0),
+  });
+});
+
+// 14-Day Preview
+const preview14d = computed(() =>
+  simulateDailyTimeline({
+    startDateIso: today,
+    days: 14,
+    startingBalance: currentBalance.value,
+    dispoLimit: toNum(project.value?.dispo_limit, 0),
+    dispoUsed: toNum(project.value?.dispo_used, 0),
+    emergencyBuffer: toNum(project.value?.emergency_buffer_target, 0),
+    entries: entries.value,
+    debts: debts.value,
+    includeDailyBudget: projectDailyBudget.value > 0,
+    dailyLivingBudget: projectDailyBudget.value,
+  })
+);
+
+const preview14Rows = computed(() => {
+  const all = preview14d.value.timeline;
+  const picked = all.filter((d, idx) => idx === 0 || idx === all.length - 1 || d.events.length > 0 || d.endBalance < 0);
+  return picked.length >= 4 ? picked.slice(0, 9) : all.slice(0, 7);
+});
+
+const quickRoadmap = computed(() =>
+  simulateLongTermRoadmap({
+    horizonMonths: 24,
+    startingBalance: currentBalance.value,
+    entries: entries.value,
+    debts: debts.value,
+    strategy: "CURRENT",
+  })
+);
+
+// ── Data Loading ───────────────────────────────────────────────────────────
+async function fetchProjectsList() {
+  const { data } = await api.get("finance-projects/");
+  projects.value = normaliseList(data);
 }
 
-async function loadEntries(projectId) {
-  try {
-    const { data } = await api.get(`finance-entries/?project=${projectId}&active=false`);
-    const all = normalise(data);
-    incomeEntries.value = all.filter((e) => e.entry_type === "INCOME" && e.is_active);
-    subscriptions.value = all.filter((e) => e.entry_type === "SUBSCRIPTION" && e.is_active);
-    plannedPayments.value = all
-      .filter((e) => e.frequency === "ONCE" && ["FIXED", "VARIABLE"].includes(e.entry_type) && e.is_active)
-      .sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
-  } catch {
-    incomeEntries.value = [];
-    subscriptions.value = [];
-    plannedPayments.value = [];
-  }
-}
-
-async function loadDebts(projectId) {
-  try {
-    const { data } = await api.get(`debts/?project=${projectId}`);
-    debts.value = normalise(data);
-  } catch {
-    debts.value = [];
-  }
-}
-
-async function loadAll(projectId) {
+async function loadProjectBundle(projectId) {
   loading.value = true;
   try {
-    await Promise.all([loadProject(projectId), loadEntries(projectId), loadDebts(projectId)]);
+    const [projRes, entriesRes, debtsRes, goalsRes, expRes] = await Promise.all([
+      api.get(`finance-projects/${projectId}/`),
+      api.get(`finance-entries/?project=${projectId}&active=false`),
+      api.get(`debts/?project=${projectId}`),
+      api.get(`finance-savings-goals/?project=${projectId}`),
+      api.get(`daily-expenses/?project=${projectId}`),
+    ]);
+    project.value = projRes.data;
+    entries.value = normaliseList(entriesRes.data);
+    debts.value = normaliseList(debtsRes.data);
+    savingsGoals.value = normaliseList(goalsRes.data);
+    dailyExpenses.value = normaliseList(expRes.data);
+  } catch {
+    showBanner({ type: "error", text: "Finanzdaten konnten nicht vollständig geladen werden." });
   } finally {
     loading.value = false;
   }
 }
 
-// ── Income CRUD ────────────────────────────────────────────────────────────
-function openIncomeModal(entry = null) {
-  if (entry) {
-    incomeForm.value = { id: entry.id, title: entry.title, amount: entry.amount };
-  } else {
-    incomeForm.value = { id: null, title: "", amount: "" };
-  }
-  errorMessage.value = "";
-  showIncomeModal.value = true;
+async function reloadProjectData() {
+  if (!project.value) return;
+  await loadProjectBundle(project.value.id);
 }
 
-async function saveIncome() {
-  if (!project.value) return;
+async function onSwitchProject(newId) {
+  const id = Number(newId);
+  if (!id) return;
+  localStorage.setItem("unyq_last_finance_project_id", String(id));
+  if (route.name === "finance") {
+    router.replace({ name: "finance", params: { projectId: id }, query: route.query }).catch(() => {});
+  }
+  await loadProjectBundle(id);
+}
+
+// ── Project Creation ───────────────────────────────────────────────────────
+const createForm = ref({
+  title: "Meine Finanzen",
+  currency: "EUR",
+  current_balance: "0",
+  daily_living_budget: "15",
+});
+
+async function createFirstProject() {
   saving.value = true;
   try {
-    const payload = {
-      project: project.value.id,
-      title: incomeForm.value.title,
-      entry_type: "INCOME",
-      amount: toAmount(incomeForm.value.amount),
-      frequency: "MONTHLY",
-    };
-    if (incomeForm.value.id) {
-      await api.patch(`finance-entries/${incomeForm.value.id}/`, payload);
-    } else {
-      await api.post("finance-entries/", payload);
-    }
-    showIncomeModal.value = false;
-    setSuccess("Einnahme gespeichert.");
-    await loadEntries(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Einnahme konnte nicht gespeichert werden."));
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function deleteIncome(entry) {
-  if (!confirm(`Einnahme "${entry.title}" löschen?`)) return;
-  try {
-    await api.delete(`finance-entries/${entry.id}/`);
-    setSuccess("Einnahme gelöscht.");
-    await loadEntries(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Einnahme konnte nicht gelöscht werden."));
-  }
-}
-
-// ── Debt CRUD ──────────────────────────────────────────────────────────────
-function openDebtModal(debt = null) {
-  if (debt) {
-    debtForm.value = {
-      id: debt.id,
-      name: debt.name,
-      total_amount: debt.total_amount,
-      amount_paid: debt.amount_paid,
-      monthly_payment: debt.monthly_payment || "",
-      status: debt.status,
-      notes: debt.notes || "",
-      start_date: debt.start_date || todayStr(),
-      debt_kind: debt.debt_kind || "DEBT",
-      payment_type: debt.payment_type || "INSTALLMENT",
-    };
-  } else {
-    debtForm.value = { id: null, name: "", total_amount: "", amount_paid: "", monthly_payment: "", status: "ACTIVE", notes: "", start_date: todayStr(), debt_kind: "DEBT", payment_type: "INSTALLMENT" };
-  }
-  errorMessage.value = "";
-  showDebtModal.value = true;
-}
-
-async function saveDebt() {
-  if (!project.value) return;
-  saving.value = true;
-  try {
-    const payload = {
-      project: project.value.id,
-      name: debtForm.value.name,
-      total_amount: toAmount(debtForm.value.total_amount),
-      amount_paid: toAmount(debtForm.value.amount_paid),
-      monthly_payment: debtForm.value.monthly_payment !== "" ? toAmount(debtForm.value.monthly_payment) : null,
-      status: debtForm.value.status,
-      notes: debtForm.value.notes,
-      start_date: debtForm.value.start_date || todayStr(),
-      debt_kind: debtForm.value.debt_kind,
-      payment_type: debtForm.value.payment_type,
-    };
-    if (debtForm.value.id) {
-      await api.patch(`debts/${debtForm.value.id}/`, payload);
-    } else {
-      await api.post("debts/", payload);
-    }
-    showDebtModal.value = false;
-    setSuccess("Schuld gespeichert.");
-    await loadDebts(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Schuld konnte nicht gespeichert werden."));
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function deleteDebt(debt) {
-  if (!confirm(`Schuld "${debt.name}" löschen?`)) return;
-  try {
-    await api.delete(`debts/${debt.id}/`);
-    setSuccess("Schuld gelöscht.");
-    await loadDebts(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Schuld konnte nicht gelöscht werden."));
-  }
-}
-
-async function payPlannedInstallment(debt) {
-  if (!project.value || !debt) return;
-  const plannedAmount = Number(debt.scheduled_payment_amount ?? debt.monthly_payment ?? 0);
-  if (plannedAmount <= 0) {
-    setError("Für diese Schuld ist keine geplante Rate verfügbar.");
-    return;
-  }
-  if (!confirm(`Geplante Rate für "${debt.name}" jetzt als bezahlt markieren?`)) return;
-
-  try {
-    await api.post(`debts/${debt.id}/record-payment/`, {
-      decision: "paid",
-      amount: plannedAmount,
-      date: todayStr(),
-      notes: "Geplante Rate im Finanzplaner bezahlt",
+    const { data } = await api.post("finance-projects/", {
+      title: createForm.value.title || "Meine Finanzen",
+      currency: createForm.value.currency,
+      current_balance: round2(toNum(createForm.value.current_balance, 0)),
+      daily_living_budget: Math.max(0, round2(toNum(createForm.value.daily_living_budget, 0))),
+      initial_members: [],
     });
-    setSuccess("Geplante Rate als bezahlt markiert.");
-    await loadDebts(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Geplante Rate konnte nicht verbucht werden."));
-  }
-}
-
-// ── Subscription CRUD ──────────────────────────────────────────────────────
-function openSubModal(sub = null) {
-  if (sub) {
-    subForm.value = { id: sub.id, title: sub.title, amount: sub.amount, notes: sub.notes || "" };
-  } else {
-    subForm.value = { id: null, title: "", amount: "", notes: "" };
-  }
-  errorMessage.value = "";
-  showSubModal.value = true;
-}
-
-async function saveSub() {
-  if (!project.value) return;
-  saving.value = true;
-  try {
-    const payload = {
-      project: project.value.id,
-      title: subForm.value.title,
-      entry_type: "SUBSCRIPTION",
-      amount: toAmount(subForm.value.amount),
-      frequency: "MONTHLY",
-      notes: subForm.value.notes,
-    };
-    if (subForm.value.id) {
-      await api.patch(`finance-entries/${subForm.value.id}/`, payload);
-    } else {
-      await api.post("finance-entries/", payload);
-    }
-    showSubModal.value = false;
-    setSuccess("Abo gespeichert.");
-    await loadEntries(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Abo konnte nicht gespeichert werden."));
+    await fetchProjectsList();
+    localStorage.setItem("unyq_last_finance_project_id", String(data.id));
+    await loadProjectBundle(data.id);
+    showBanner({ type: "success", text: "Dein Finanz-Cockpit ist bereit!" });
+  } catch {
+    showBanner({ type: "error", text: "Projekt konnte nicht angelegt werden." });
   } finally {
     saving.value = false;
   }
 }
 
-async function deleteSub(sub) {
-  if (!confirm(`Abo "${sub.title}" löschen?`)) return;
-  try {
-    await api.delete(`finance-entries/${sub.id}/`);
-    setSuccess("Abo gelöscht.");
-    await loadEntries(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Abo konnte nicht gelöscht werden."));
-  }
-}
+const showNewProjectModal = ref(false);
+const newProjForm = ref({ title: "", currency: "EUR", current_balance: "0" });
 
-// ── Planned Payment CRUD ───────────────────────────────────────────────────
-function openPlannedModal(entry = null) {
-  if (entry) {
-    plannedForm.value = { id: entry.id, title: entry.title, amount: entry.amount, due_date: entry.due_date || "", notes: entry.notes || "" };
-  } else {
-    plannedForm.value = { id: null, title: "", amount: "", due_date: "", notes: "" };
-  }
-  errorMessage.value = "";
-  showPlannedModal.value = true;
-}
-
-async function savePlanned() {
-  if (!project.value) return;
+async function createAdditionalProject() {
+  if (!newProjForm.value.title) return;
   saving.value = true;
   try {
-    const payload = {
-      project: project.value.id,
-      title: plannedForm.value.title,
-      entry_type: "FIXED",
-      amount: toAmount(plannedForm.value.amount),
-      frequency: "ONCE",
-      due_date: plannedForm.value.due_date,
-      notes: plannedForm.value.notes,
-    };
-    if (plannedForm.value.id) {
-      await api.patch(`finance-entries/${plannedForm.value.id}/`, payload);
-    } else {
-      await api.post("finance-entries/", payload);
-    }
-    showPlannedModal.value = false;
-    setSuccess("Zahlung gespeichert.");
-    await loadEntries(project.value.id);
-  } catch (err) {
-    setError(apiError(err, "Zahlung konnte nicht gespeichert werden."));
+    const { data } = await api.post("finance-projects/", {
+      title: newProjForm.value.title,
+      currency: newProjForm.value.currency,
+      current_balance: round2(toNum(newProjForm.value.current_balance, 0)),
+      initial_members: [],
+    });
+    showNewProjectModal.value = false;
+    newProjForm.value = { title: "", currency: "EUR", current_balance: "0" };
+    await fetchProjectsList();
+    await onSwitchProject(data.id);
+    showBanner({ type: "success", text: "Projekt erstellt." });
+  } catch {
+    showBanner({ type: "error", text: "Projekt konnte nicht erstellt werden." });
   } finally {
     saving.value = false;
   }
 }
 
-async function deletePlanned(entry) {
-  if (!confirm(`Geplante Zahlung "${entry.title}" löschen?`)) return;
+// ── Balance & Settings Modal ───────────────────────────────────────────────
+const showBalanceModal = ref(false);
+const balanceForm = ref({
+  title: "",
+  current_balance: "0",
+  daily_living_budget: "0",
+  dispo_limit: "0",
+  dispo_used: "0",
+  emergency_buffer_target: "0",
+  monthly_savings_target: "0",
+});
+
+function openBalanceModal() {
+  if (!project.value) return;
+  balanceForm.value = {
+    title: project.value.title || "Meine Finanzen",
+    current_balance: String(project.value.current_balance ?? 0),
+    daily_living_budget: String(project.value.daily_living_budget ?? 0),
+    dispo_limit: String(project.value.dispo_limit ?? 0),
+    dispo_used: String(project.value.dispo_used ?? 0),
+    emergency_buffer_target: String(project.value.emergency_buffer_target ?? 0),
+    monthly_savings_target: String(project.value.monthly_savings_target ?? 0),
+  };
+  showBalanceModal.value = true;
+}
+
+async function saveBalanceSettings() {
+  if (!project.value) return;
+  saving.value = true;
   try {
-    await api.delete(`finance-entries/${entry.id}/`);
-    setSuccess("Zahlung gelöscht.");
-    await loadEntries(project.value.id);
+    const dispoLim = Math.max(0, round2(toNum(balanceForm.value.dispo_limit, 0)));
+    const dispoUsed = Math.min(dispoLim, Math.max(0, round2(toNum(balanceForm.value.dispo_used, 0))));
+    const { data } = await api.patch(`finance-projects/${project.value.id}/`, {
+      title: balanceForm.value.title,
+      current_balance: round2(toNum(balanceForm.value.current_balance, 0)),
+      daily_living_budget: Math.max(0, round2(toNum(balanceForm.value.daily_living_budget, 0))),
+      dispo_limit: dispoLim,
+      dispo_used: dispoUsed,
+      emergency_buffer_target: Math.max(0, round2(toNum(balanceForm.value.emergency_buffer_target, 0))),
+      monthly_savings_target: Math.max(0, round2(toNum(balanceForm.value.monthly_savings_target, 0))),
+    });
+    project.value = { ...project.value, ...data };
+    await fetchProjectsList();
+    showBalanceModal.value = false;
+    showBanner({ type: "success", text: "Kontostand & Rahmen aktualisiert." });
   } catch (err) {
-    setError(apiError(err, "Zahlung konnte nicht gelöscht werden."));
+    showBanner({ type: "error", text: err?.response?.data?.detail || "Einstellungen konnten nicht gespeichert werden." });
+  } finally {
+    saving.value = false;
   }
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
+async function saveDailyLivingBudget(newBudget) {
+  if (!project.value) return;
+  saving.value = true;
+  try {
+    const { data } = await api.patch(`finance-projects/${project.value.id}/`, {
+      daily_living_budget: round2(Math.max(0, toNum(newBudget, 0))),
+    });
+    project.value = { ...project.value, ...data };
+    showBanner({ type: "success", text: `Alltags-Tagesbudget (${fmt(newBudget)}/Tag) gespeichert.` });
+  } catch {
+    showBanner({ type: "error", text: "Tagesbudget konnte nicht gespeichert werden." });
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function adoptBudgetFromSimulator(budgetVal) {
+  await saveDailyLivingBudget(budgetVal);
+}
+
+async function adjustBalanceByDelta(deltaAmount) {
+  if (!project.value) return;
+  const nextBal = round2(toNum(project.value.current_balance, 0) + toNum(deltaAmount, 0));
+  try {
+    const { data } = await api.patch(`finance-projects/${project.value.id}/`, {
+      current_balance: nextBal,
+    });
+    project.value = { ...project.value, ...data };
+  } catch {
+    // non-fatal
+  }
+}
+
+// ── Cross-Tab Actions ──────────────────────────────────────────────────────
+async function handleQuickAddOnDate(dateIso) {
+  setTab("entries");
+  await nextTick();
+  entriesTabRef.value?.openEntryModalWithPreset({
+    date: dateIso,
+    frequency: "ONCE",
+    entry_type: "FIXED",
+  });
+}
+
+async function handleCreatePlannedFromSim({ title, amount, due_date }) {
+  setTab("entries");
+  await nextTick();
+  entriesTabRef.value?.openEntryModalWithPreset({
+    date: due_date || today,
+    title,
+    amount,
+    frequency: "ONCE",
+    entry_type: "FIXED",
+  });
+}
+
+async function openQuickEntryFromCockpit() {
+  setTab("entries");
+  await nextTick();
+  entriesTabRef.value?.openEntryModalWithPreset({
+    date: today,
+    frequency: "MONTHLY",
+    entry_type: "FIXED",
+  });
+}
+
+// ── Savings Goals CRUD ─────────────────────────────────────────────────────
+async function saveSavingsGoal(goalPayload) {
+  if (!project.value) return;
+  try {
+    const body = {
+      project: project.value.id,
+      title: goalPayload.title,
+      target_amount: round2(toNum(goalPayload.target_amount, 0)),
+      current_amount: round2(toNum(goalPayload.current_amount, 0)),
+      target_date: goalPayload.target_date || null,
+      is_completed: Boolean(goalPayload.is_completed),
+    };
+    if (goalPayload.id) {
+      await api.patch(`finance-savings-goals/${goalPayload.id}/`, body);
+    } else {
+      await api.post("finance-savings-goals/", body);
+    }
+    const { data } = await api.get(`finance-savings-goals/?project=${project.value.id}`);
+    savingsGoals.value = normaliseList(data);
+    showBanner({ type: "success", text: "Sparziel gespeichert." });
+  } catch {
+    showBanner({ type: "error", text: "Sparziel konnte nicht gespeichert werden." });
+  }
+}
+
+async function deleteSavingsGoal(goal) {
+  if (!confirm(`Sparziel „${goal.title}“ löschen?`)) return;
+  try {
+    await api.delete(`finance-savings-goals/${goal.id}/`);
+    savingsGoals.value = savingsGoals.value.filter((g) => g.id !== goal.id);
+    showBanner({ type: "success", text: "Sparziel gelöscht." });
+  } catch {
+    showBanner({ type: "error", text: "Sparziel konnte nicht gelöscht werden." });
+  }
+}
+
+// ── CSV Export ─────────────────────────────────────────────────────────────
+async function exportCsv() {
+  if (!project.value) return;
+  try {
+    const res = await api.get(`finance-projects/${project.value.id}/export-overview/`, {
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `unyq_finance_${project.value.title}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch {
+    showBanner({ type: "error", text: "CSV-Export fehlgeschlagen." });
+  }
+}
+
+// ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
-  await loadProjects();
-  if (!projects.value.length) return;
-
-  const routeId = Number(route.params.projectId || 0);
-  const targetId =
-    projects.value.some((p) => p.id === routeId)
-      ? routeId
-      : projects.value[0].id;
-
-  if (!routeId || routeId !== targetId) {
-    await router.replace({ name: "finance", params: { projectId: targetId } });
+  loading.value = true;
+  try {
+    await fetchProjectsList();
+    if (projects.value.length) {
+      const routeProjId = Number(route.params.projectId || 0);
+      const savedProjId = Number(localStorage.getItem("unyq_last_finance_project_id") || 0);
+      const target =
+        projects.value.find((p) => p.id === routeProjId) ||
+        projects.value.find((p) => p.id === savedProjId) ||
+        projects.value[0];
+      await loadProjectBundle(target.id);
+    }
+  } finally {
+    initialLoaded.value = true;
+    loading.value = false;
   }
-
-  await loadAll(targetId);
 });
 </script>
 
 <style scoped>
-.finance-tool {
+.finance-platform {
   display: grid;
   gap: 16px;
-  --clr-income: #22c55e;
-  --clr-danger: #ef4444;
-  --clr-progress: var(--brand, #2f63ff);
+  width: 100%;
+  padding-bottom: 48px;
 }
 
-/* ── Status card ── */
-.status-card {
+.eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--brand);
+}
+
+.section-kicker {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--brand);
+  margin-bottom: 3px;
+}
+
+/* Onboarding */
+.empty-hero {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.onboarding-card {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 28px;
+  padding: 28px;
+  align-items: center;
+}
+
+.onb-left {
   display: grid;
   gap: 12px;
-  justify-items: center;
-  text-align: center;
-  padding: 48px 24px;
-  background: var(--card);
-  border-radius: 18px;
-  border: 1px solid var(--border);
 }
 
-/* ── Topbar ── */
-.topbar {
+.onb-left h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.8vw, 2.2rem);
+  line-height: 1.2;
+}
+
+.onb-left p { margin: 0; }
+
+.feature-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.feature-pills span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.onb-form {
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 14px;
+}
+
+.onb-form h3 { margin: 0; }
+
+/* Header */
+.finance-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 12px;
-  padding: 18px 20px;
-  background: var(--card);
-  border-radius: 18px;
-  border: 1px solid var(--border);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px 20px;
 }
 
-.topbar-left {
-  display: grid;
-  gap: 4px;
+.project-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 2px;
 }
 
-.topbar-left h1 {
+.project-title-row h1 {
   margin: 0;
   font-size: 1.4rem;
 }
 
-.eyebrow {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--brand, #2f63ff);
+.project-switcher {
+  width: auto;
+  min-width: 200px;
   font-weight: 700;
+  padding: 7px 36px 7px 12px;
 }
 
-/* ── Feedback ── */
-.feedback-bar {
+.fh-right {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
-.feedback-pill {
+.balance-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.balance-pill-btn:hover {
+  border-color: var(--brand);
+}
+
+.bp-lbl {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.bp-edit {
+  color: var(--brand);
+  font-size: 13px;
+}
+
+/* Toast Banner */
+.toast-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 10px 16px;
   border-radius: 12px;
-  font-weight: 500;
-  font-size: 14px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.feedback-pill.error {
-  background: color-mix(in srgb, var(--clr-danger) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--clr-danger) 24%, var(--border));
-  color: color-mix(in srgb, var(--clr-danger) 70%, var(--text));
-}
-
-.feedback-pill.success {
-  background: color-mix(in srgb, var(--clr-income) 12%, var(--surface));
-  border-color: color-mix(in srgb, var(--clr-income) 24%, var(--border));
-  color: color-mix(in srgb, var(--clr-income) 70%, var(--text));
-}
-
-/* ── Tabs ── */
-.tab-nav {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tab-pill {
-  padding: 10px 20px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
+  font-size: 13.5px;
   font-weight: 600;
-  font-size: 14px;
-  color: var(--text);
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.tab-pill:hover {
-  background: var(--card);
-}
-
-.tab-pill.active {
-  background: var(--brand, #2f63ff);
-  border-color: var(--brand, #2f63ff);
-  color: #fff;
-}
-
-/* ── Tab content ── */
-.tab-content {
-  display: grid;
-  gap: 16px;
-}
-
-/* ── Summary banner ── */
-.summary-banner {
-  display: grid;
-  gap: 12px;
-  padding: 22px 24px;
-  border-radius: 18px;
   border: 1px solid var(--border);
-  background: var(--card);
+  background: var(--surface);
 }
 
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+.toast-banner.success {
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #22c55e;
 }
 
-.summary-label {
-  font-size: 15px;
-  color: var(--muted);
+.toast-banner.error {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444;
 }
 
-.summary-amount {
+.banner-close {
+  border: none;
+  background: transparent;
+  color: inherit;
   font-size: 18px;
-  font-weight: 700;
+  cursor: pointer;
 }
 
-.summary-amount.income {
-  color: var(--clr-income);
+/* Navigation Tabs */
+.finance-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 5px;
+  border-radius: 15px;
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
-.summary-amount.danger {
-  color: var(--clr-danger);
-}
-
-.summary-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-.summary-row.highlight .summary-label {
-  font-size: 16px;
+.fin-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-radius: 11px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13.5px;
   font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.fin-tab-btn:hover {
   color: var(--text);
+  background: var(--surface);
 }
 
-.summary-row.highlight .summary-amount {
-  font-size: 22px;
+.fin-tab-btn.active {
+  background: linear-gradient(135deg, var(--brand), var(--brand-2, #35d0ff));
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(47, 99, 255, 0.25);
 }
 
-/* ── Panel ── */
-.panel {
+.tab-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* Cockpit */
+.cockpit-view {
   display: grid;
   gap: 16px;
-  padding: 20px;
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  background: var(--card);
 }
 
-.panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.panel-head h2 {
-  margin: 0;
-}
-
-/* ── Entry list ── */
-.entry-list {
+.alerts-stack {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
-.entry-row {
+.smart-alert {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--surface);
+  padding: 13px 18px;
+  border-radius: 14px;
   border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 13.5px;
 }
 
-.entry-info {
+.smart-alert > div {
   display: grid;
   gap: 2px;
 }
 
-.entry-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+.smart-alert.warn {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: color-mix(in srgb, #f59e0b 8%, var(--card));
 }
 
-.amount {
-  font-weight: 700;
-  font-size: 15px;
+.smart-alert.danger {
+  border-color: rgba(239, 68, 68, 0.48);
+  background: color-mix(in srgb, #ef4444 8%, var(--card));
 }
 
-.amount.danger {
-  color: var(--clr-danger);
-}
-
-/* ── Debt row ── */
-.debt-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+.cockpit-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(225px, 1fr));
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--surface);
+}
+
+.kpi-hero-card {
+  background: var(--card);
   border: 1px solid var(--border);
-}
-
-.debt-row.paid-off {
-  opacity: 0.6;
-}
-
-.debt-main {
-  flex: 1;
+  border-radius: 16px;
+  padding: 16px 18px;
   display: grid;
   gap: 6px;
-  min-width: 0;
 }
 
-.debt-title-line {
+.kh-top {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
-.debt-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 13px;
+.kh-lbl {
+  font-size: 12.5px;
+  font-weight: 600;
   color: var(--muted);
 }
 
-.progress-bar-wrap {
-  height: 6px;
+.tiny-action {
+  padding: 2px 8px;
   border-radius: 999px;
-  background: var(--border);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.kh-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.kh-val small {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.cockpit-columns {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.cockpit-side-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.cockpit-panel {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.cp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.cp-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+/* Mini Timeline */
+.mini-timeline {
+  display: grid;
+  gap: 7px;
+}
+
+.mini-day-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.mini-day-row.is-today {
+  border-color: var(--brand);
+}
+
+.mini-day-row.is-neg {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.md-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.md-wd {
+  color: var(--muted);
+  font-size: 12px;
+  width: 22px;
+}
+
+.md-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.md-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   overflow: hidden;
 }
 
-.progress-bar {
-  height: 100%;
+.md-ev {
+  font-size: 12px;
+  padding: 2px 8px;
   border-radius: 999px;
-  background: var(--clr-progress);
-  transition: width 0.3s ease;
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
-.debt-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  flex-shrink: 0;
+.md-bal {
+  font-variant-numeric: tabular-nums;
 }
 
-.debt-rate {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+/* Cashflow Breakdown */
+.cashflow-rows {
+  display: grid;
+  gap: 8px;
+  font-size: 13.5px;
 }
 
-.debt-actions {
-  display: flex;
-  gap: 4px;
-}
-
-/* ── Section total ── */
-.section-total {
+.cf-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: 14px;
-  font-weight: 600;
+  gap: 10px;
 }
 
-/* ── Badges ── */
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
+.cf-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 0;
 }
 
-.badge-active {
-  background: color-mix(in srgb, var(--brand, #2f63ff) 14%, var(--surface));
-  color: var(--brand, #2f63ff);
+.cf-row.total {
+  font-size: 14.5px;
+  font-weight: 700;
 }
 
-.badge-done {
-  background: color-mix(in srgb, var(--clr-income) 14%, var(--surface));
-  color: var(--clr-income);
+.quick-nav-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
-.badge-paused {
-  background: color-mix(in srgb, #f59e0b 14%, var(--surface));
-  color: #f59e0b;
+/* Mini Goals */
+.mini-goals {
+  display: grid;
+  gap: 10px;
 }
 
-/* ── Icon buttons ── */
-.icon-btn {
-  padding: 5px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  cursor: pointer;
+.mg-row {
+  display: grid;
+  gap: 5px;
+}
+
+.mg-top {
+  display: flex;
+  justify-content: space-between;
   font-size: 13px;
-  color: var(--muted);
-  line-height: 1;
-  transition: background 0.15s, color 0.15s;
 }
 
-.icon-btn:hover {
-  background: var(--card);
-  color: var(--text);
+.mg-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
 }
 
-.icon-btn.danger:hover {
-  background: color-mix(in srgb, var(--clr-danger) 12%, var(--surface));
-  color: var(--clr-danger);
-  border-color: color-mix(in srgb, var(--clr-danger) 26%, var(--border));
+.mg-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), #22c55e);
 }
 
-/* ── Modals ── */
+/* Modals */
 .modal-overlay {
   position: fixed;
   inset: 0;
+  background: var(--modal-overlay, rgba(2, 6, 23, 0.78));
   display: grid;
   place-items: center;
-  background: rgba(15, 23, 42, 0.5);
-  z-index: 50;
+  z-index: 100;
   padding: 16px;
 }
 
 .modal-box {
-  width: min(480px, 100%);
-  max-height: 90vh;
-  overflow: auto;
-  border-radius: 20px;
-  border: 1px solid var(--border);
+  width: min(500px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
   background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
 }
 
 .modal-header {
@@ -1161,18 +1504,14 @@ onMounted(async () => {
   border-bottom: 1px solid var(--border);
 }
 
-.modal-header h3 {
-  margin: 0;
-}
+.modal-header h3 { margin: 0; }
 
 .modal-close {
   border: none;
   background: transparent;
+  color: var(--muted);
   font-size: 22px;
   cursor: pointer;
-  color: var(--muted);
-  line-height: 1;
-  padding: 2px 6px;
 }
 
 .modal-form {
@@ -1181,61 +1520,41 @@ onMounted(async () => {
   padding: 20px;
 }
 
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
+.pos-txt { color: #22c55e; }
+.neg-txt { color: #ef4444; }
+.debt-txt { color: #c084fc; }
+.tiny { font-size: 12px; }
+.small { font-size: 13.5px; }
 
-.textarea {
-  min-height: 70px;
-  resize: vertical;
-}
-
-.empty-hint {
-  padding: 8px 0;
-}
-
-/* ── Misc ── */
-.small { font-size: 13px; }
-
-.sm {
-  padding: 8px 14px;
-  font-size: 14px;
-}
-
-@media (max-width: 600px) {
-  .topbar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .debt-row {
-    flex-direction: column;
-  }
-
-  .debt-right {
-    align-items: flex-start;
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .form-grid {
+@media (max-width: 960px) {
+  .onboarding-card,
+  .cockpit-columns {
     grid-template-columns: 1fr;
   }
+}
 
-  .summary-amount {
-    font-size: 16px;
+@media (max-width: 640px) {
+  .two-col,
+  .quick-nav-grid {
+    grid-template-columns: 1fr;
   }
-
-  .summary-row.highlight .summary-amount {
-    font-size: 20px;
+  .mini-day-row {
+    grid-template-columns: 1fr auto;
+  }
+  .md-events {
+    grid-column: 1 / -1;
   }
 }
 </style>

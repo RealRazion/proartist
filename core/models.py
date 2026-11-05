@@ -237,6 +237,7 @@ class FinanceProject(models.Model):
     monthly_savings_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     emergency_buffer_target = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     savings_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, help_text="Prozent vom Rest zur Seite legen (0-100)")
+    daily_living_budget = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Geplantes Alltags-Tagesbudget fuer Tag-fuer-Tag Prognose")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

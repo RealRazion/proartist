@@ -207,3 +207,57 @@ class DebtPaymentActionSerializerTests(TestCase):
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["decision"], "skip_month")
+
+
+class FinanceDailyForecastTests(TestCase):
+    def test_daily_living_budget_and_daily_forecast_endpoint(self):
+        from rest_framework.test import APIClient
+
+        user = get_user_model().objects.create_user(username="finance-daily-test", password="test12345")
+        profile = Profile.objects.create(user=user, name="Daily Test")
+        project = FinanceProject.objects.create(
+            owner=profile,
+            title="Tagesplan",
+            currency="EUR",
+            current_balance=Decimal("500.00"),
+            daily_living_budget=Decimal("10.00"),
+        )
+        FinanceEntry.objects.create(
+            project=project,
+            title="Gehalt",
+            entry_type="INCOME",
+            amount=Decimal("1500.00"),
+            frequency="MONTHLY",
+            due_day=5,
+            is_active=True,
+        )
+        Debt.objects.create(
+            project=project,
+            name="Klarna",
+            payment_type="INSTALLMENT",
+            total_amount=Decimal("200.00"),
+            amount_paid=Decimal("150.00"),
+            monthly_payment=Decimal("50.00"),
+            due_day=3,
+            next_due_date=date(2026, 6, 3),
+            status="ACTIVE",
+            start_date=date(2026, 5, 1),
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=user)
+        resp = client.get(
+            f"/api/finance-projects/{project.id}/daily-forecast/?start_date=2026-06-01&days=6&include_daily_budget=true"
+        )
+        self.assertEqual(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEqual(payload["starting_balance"], 500.0)
+        self.assertEqual(len(payload["timeline"]), 6)
+        # Day 1 (June 1): 500 - 10 = 490
+        self.assertEqual(payload["timeline"][0]["end_balance"], 490.0)
+        # Day 3 (June 3): 480 - 50 (Klarna) - 10 = 420, remaining debt becomes 0
+        self.assertEqual(payload["timeline"][2]["end_balance"], 420.0)
+        self.assertEqual(payload["timeline"][2]["remaining_debt"], 0.0)
+        # Day 5 (June 5): 410 + 1500 (Gehalt) - 10 = 1900
+        self.assertEqual(payload["timeline"][4]["end_balance"], 1900.0)
+

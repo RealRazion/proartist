@@ -112,7 +112,7 @@ const routes = [
       { path: "music", name: "platform-music", component: MusicPlayerView, meta: { requiresAuth: true } },
       { path: "songs", name: "platform-songs", component: Songs, meta: { requiresAuth: true } },
       { path: "team-tasks", name: "platform-team-tasks", component: TeamTasks, meta: { requiresAuth: true } },
-      { path: "finance", name: "platform-finance", component: FinanceContainer, meta: { requiresAuth: true } },
+      { path: "finance", name: "platform-finance", component: FinanceTool, meta: { requiresAuth: true } },
       { path: "finance/planner/:projectId?", name: "finance", component: FinanceTool, meta: { requiresAuth: true } },
       { path: "earn", name: "platform-earn", component: EarnContainer, meta: { requiresAuth: true } },
       { path: "designs", name: "platform-designs", component: DesignsContainer, meta: { requiresAuth: true } },

@@ -59,10 +59,10 @@ export const PLATFORMS_CATALOG = [
     name: "Finance & Budgeting",
     category: "Finanzen & Business",
     icon: "💰",
-    description: "Finanzplaner, Monatsabschlüsse, Einnahmen, Schulden und Budgets.",
+    description: "Tag-für-Tag Besitz-Prognose, Zeitraum- & Spar-Simulator, Langzeit-Entschuldung und Budget-Cockpit.",
     route: "/platforms/finance",
     allow_non_team_users: true,
-    version: "1.2",
+    version: "2.0",
   },
   {
     slug: "earn",

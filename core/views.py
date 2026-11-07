@@ -2480,6 +2480,11 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
 
         active_entries = list(project.entries.filter(is_active=True))
         raw_debts = [d for d in project.debts.filter(status="ACTIVE") if not d.is_fully_paid]
+        end_day = start_day + timedelta(days=days - 1)
+        daily_exp_map = {}
+        for de in project.daily_expenses.filter(date__gte=start_day, date__lte=end_day):
+            daily_exp_map.setdefault(de.date, []).append(de)
+        today_date = timezone.now().date()
 
         debt_states = []
         overdue_total = Decimal("0.00")
@@ -2550,8 +2555,25 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
                     else:
                         ds["next_due"] = None
 
+            manual_spent = Decimal("0.00")
+            is_past_or_today = cur_day <= today_date
+            for de in daily_exp_map.get(cur_day, []):
+                de_amt = Decimal(de.amount or 0)
+                if de_amt <= 0:
+                    continue
+                manual_spent += de_amt
+                if not is_past_or_today:
+                    day_delta -= de_amt
+                day_events.append({
+                    "kind": "DAILY_EXPENSE",
+                    "title": de.title,
+                    "amount": float(-de_amt),
+                    "already_in_balance": is_past_or_today,
+                })
+
             if include_daily_budget and daily_budget > 0:
-                day_delta -= daily_budget
+                unspent_daily = max(Decimal("0.00"), daily_budget - manual_spent)
+                day_delta -= unspent_daily
 
             running_balance += day_delta
             if running_balance < min_balance:
@@ -2565,6 +2587,8 @@ class FinanceProjectViewSet(viewsets.ModelViewSet):
                 "delta": float(day_delta),
                 "end_balance": float(running_balance),
                 "remaining_debt": float(rem_debt_sum),
+                "manual_spent": float(manual_spent),
+                "daily_budget_remaining": float(daily_budget - manual_spent),
                 "events": day_events,
             })
 

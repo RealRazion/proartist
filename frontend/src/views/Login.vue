@@ -93,6 +93,7 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import { Capacitor } from "@capacitor/core";
 import api from "../api";
 
 const router = useRouter();
@@ -143,7 +144,8 @@ async function submit() {
     localStorage.setItem("access", data.access);
     localStorage.setItem("refresh", data.refresh);
     showMessage("Login erfolgreich, weiterleiten...", "success");
-    const redirect = route.query.redirect || "/platforms";
+    const defaultTarget = Capacitor.isNativePlatform() ? "/platforms/finance" : "/platforms";
+    const redirect = route.query.redirect || defaultTarget;
     setTimeout(() => router.replace(redirect), 350);
   } catch (err) {
     console.error(err);

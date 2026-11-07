@@ -1,5 +1,5 @@
 <template>
-  <div class="finance-platform">
+  <div class="finance-platform" :class="{ 'force-mobile-app': forceMobileApp }">
     <!-- Loading State -->
     <section v-if="loading && !project && !initialLoaded" class="card empty-hero">
       <p class="muted">Lade UNYQ Finance...</p>
@@ -53,8 +53,69 @@
 
     <!-- Main Finance Cockpit -->
     <template v-else-if="project">
-      <!-- Top Command Header -->
-      <header class="card finance-header">
+      <!-- =================================================================
+           NATIVE MOBILE APP HEADER & TODAY BUDGET STRIP (HANDY / APK UI)
+           ================================================================= -->
+      <header class="mobile-app-header card">
+        <div class="mah-top">
+          <div class="mah-brand">
+            <button
+              type="button"
+              class="mah-hub-btn"
+              title="UNYQ Menü & Plattformen"
+              @click="showMobileHubMenu = true"
+            >
+              ☰
+            </button>
+            <div class="mah-title-wrap">
+              <span class="mah-kicker">UNYQ Finance</span>
+              <select
+                v-if="projects.length > 1"
+                :value="project.id"
+                class="mah-proj-select"
+                @change="onSwitchProject($event.target.value)"
+              >
+                <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.title }}</option>
+              </select>
+              <strong v-else class="mah-proj-name">{{ project.title }}</strong>
+            </div>
+          </div>
+
+          <button type="button" class="mah-balance-pill" @click="openBalanceModal">
+            <span class="mah-bal-lbl">Besitz</span>
+            <strong :class="currentBalance < 0 ? 'neg-txt' : 'pos-txt'">{{ fmt(currentBalance) }}</strong>
+            <span class="mah-edit-ico">✎</span>
+          </button>
+        </div>
+
+        <!-- Mobile Today Daily-Budget Live Bar -->
+        <div class="mah-today-strip">
+          <div class="mah-today-info" @click="openDailyExpenseModal(today)">
+            <div class="mah-today-topline">
+              <span>Heute ausgegeben: <strong>{{ fmt(todaySpentTotal) }}</strong></span>
+              <span v-if="projectDailyBudget > 0" :class="todayBudgetRemaining >= 0 ? 'pos-txt' : 'neg-txt'">
+                <strong>{{ todayBudgetRemaining >= 0 ? `Noch ${fmt(todayBudgetRemaining)} frei` : `${fmt(Math.abs(todayBudgetRemaining))} drüber` }}</strong>
+              </span>
+              <span v-else class="muted tiny">Kein Tageslimit gesetzt</span>
+            </div>
+            <div v-if="projectDailyBudget > 0" class="mah-budget-bar">
+              <span
+                :class="{ over: todayBudgetRemaining < 0 }"
+                :style="{ width: `${Math.min(100, Math.round((todaySpentTotal / Math.max(1, projectDailyBudget)) * 100))}%` }"
+              ></span>
+            </div>
+          </div>
+
+          <button type="button" class="mah-quick-exp-btn" @click="openDailyExpenseModal(today)">
+            💸 + Ausgabe
+          </button>
+        </div>
+      </header>
+
+      <!-- =================================================================
+           DESKTOP COMMAND HEADER
+           ================================================================= -->
+      <header class="card finance-header desktop-only-header">
         <div class="fh-left">
           <span class="eyebrow">UNYQ Finance</span>
           <div class="project-title-row">
@@ -78,10 +139,37 @@
         </div>
 
         <div class="fh-right">
+          <button
+            type="button"
+            class="btn daily-exp-cta-btn"
+            @click="openDailyExpenseModal(today)"
+          >
+            💸 + Tägliche Ausgabe
+          </button>
+
           <button type="button" class="balance-pill-btn" @click="openBalanceModal" title="Aktuellen Kontostand anpassen">
             <span class="bp-lbl">Aktueller Besitz</span>
             <strong :class="currentBalance < 0 ? 'neg-txt' : 'pos-txt'">{{ fmt(currentBalance) }}</strong>
             <span class="bp-edit">✎</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn ghost sm"
+            :class="{ 'active-preview-btn': forceMobileApp }"
+            title="Handy-App-Oberfläche testen / umschalten"
+            @click="toggleForceMobileApp"
+          >
+            📱 {{ forceMobileApp ? "Web-Ansicht" : "Handy-UI" }}
+          </button>
+
+          <button
+            type="button"
+            class="btn ghost sm apk-dl-btn"
+            title="UNYQ Finance Android App (.apk) herunterladen"
+            @click="showApkModal = true"
+          >
+            🤖 Android APK
           </button>
 
           <button type="button" class="btn ghost sm" @click="exportCsv" title="Monatsübersicht als CSV exportieren">
@@ -96,8 +184,8 @@
         <button type="button" class="banner-close" @click="bannerMessage.text = ''">&times;</button>
       </div>
 
-      <!-- Primary 6-Tab Navigation -->
-      <nav class="finance-tabs" aria-label="Finance Bereiche">
+      <!-- Primary 6-Tab Navigation (Desktop) -->
+      <nav class="finance-tabs desktop-only-tabs" aria-label="Finance Bereiche">
         <button
           v-for="tab in navTabs"
           :key="tab.id"
@@ -111,6 +199,35 @@
           <span v-if="tab.badge" class="tab-badge">{{ tab.badge }}</span>
         </button>
       </nav>
+
+      <!-- Mobile Sub-Switcher when inside "Mehr" Tabs (Debts / Longterm / Entries) -->
+      <div v-if="['debts', 'longterm', 'entries'].includes(activeTab)" class="mobile-more-subbar">
+        <button
+          type="button"
+          class="mms-btn"
+          :class="{ active: activeTab === 'debts' }"
+          @click="setTab('debts')"
+        >
+          💳 Schulden &amp; Raten
+          <span v-if="urgentDebtsCount > 0" class="tab-badge">{{ urgentDebtsCount }}</span>
+        </button>
+        <button
+          type="button"
+          class="mms-btn"
+          :class="{ active: activeTab === 'longterm' }"
+          @click="setTab('longterm')"
+        >
+          📈 36M Langzeit
+        </button>
+        <button
+          type="button"
+          class="mms-btn"
+          :class="{ active: activeTab === 'entries' }"
+          @click="setTab('entries')"
+        >
+          🧾 Fix &amp; Abos
+        </button>
+      </div>
 
       <!-- ===================================================================
            TAB 1: COCKPIT (ÜBERSICHT)
@@ -198,6 +315,108 @@
             </span>
           </article>
         </div>
+
+        <!-- =================================================================
+             TÄGLICHE AUSGABEN & TAGESBUDGET-TRACKER (JEDEN TAG STEUERBAR)
+             ================================================================= -->
+        <article class="card cockpit-panel daily-tracker-card">
+          <div class="dt-header">
+            <div>
+              <span class="section-kicker">Tägliche Ausgaben &amp; Tageslimit</span>
+              <h3>Was hast du am {{ selectedTrackerDate === today ? "heutigen Tag" : formatDateDe(selectedTrackerDate) }} ausgegeben?</h3>
+            </div>
+
+            <div class="dt-date-nav">
+              <button type="button" class="btn ghost tiny" @click="shiftTrackerDate(-1)" title="Ein Tag zurück">
+                ←
+              </button>
+              <button
+                v-if="selectedTrackerDate !== today"
+                type="button"
+                class="btn ghost tiny"
+                @click="selectedTrackerDate = today"
+              >
+                Heute
+              </button>
+              <input v-model="selectedTrackerDate" type="date" class="input dt-date-input" />
+              <button type="button" class="btn ghost tiny" @click="shiftTrackerDate(1)" title="Ein Tag weiter">
+                →
+              </button>
+              <button type="button" class="btn sm daily-exp-cta-btn" @click="openDailyExpenseModal(selectedTrackerDate)">
+                💸 + Ausgabe eintragen
+              </button>
+            </div>
+          </div>
+
+          <div class="dt-summary-grid">
+            <div class="dt-stat-box">
+              <span class="muted tiny">Ausgegeben am {{ formatDateShortDe(selectedTrackerDate) }}</span>
+              <strong :class="trackerDaySpent > 0 ? 'amber-txt' : ''">{{ fmt(trackerDaySpent) }}</strong>
+            </div>
+
+            <div class="dt-stat-box">
+              <div class="dt-lbl-inline">
+                <span class="muted tiny">Geplantes Tagesbudget</span>
+                <button type="button" class="tiny-link" @click="openBalanceModal">Ändern</button>
+              </div>
+              <strong>{{ projectDailyBudget > 0 ? `${fmt(projectDailyBudget)} / Tag` : "Nicht gesetzt" }}</strong>
+            </div>
+
+            <div class="dt-stat-box highlight">
+              <span class="muted tiny">
+                {{ selectedTrackerDate === today ? "Heute noch übrig" : `Am ${formatDateShortDe(selectedTrackerDate)} übrig` }}
+              </span>
+              <strong
+                v-if="projectDailyBudget > 0"
+                :class="trackerDayRemaining >= 0 ? 'pos-txt' : 'neg-txt'"
+              >
+                {{
+                  trackerDayRemaining >= 0
+                    ? `${fmt(trackerDayRemaining)} frei`
+                    : `${fmt(Math.abs(trackerDayRemaining))} über Budget`
+                }}
+              </strong>
+              <strong v-else class="muted tiny">Tagesbudget in Rahmen setzen</strong>
+            </div>
+          </div>
+
+          <div v-if="projectDailyBudget > 0" class="dt-progress-track">
+            <span
+              :class="{ over: trackerDayRemaining < 0 }"
+              :style="{ width: `${Math.min(100, Math.round((trackerDaySpent / Math.max(1, projectDailyBudget)) * 100))}%` }"
+            ></span>
+          </div>
+
+          <!-- Expenses List for Selected Date -->
+          <div v-if="trackerDayExpenses.length" class="dt-exp-list">
+            <div v-for="exp in trackerDayExpenses" :key="exp.id" class="dt-exp-item">
+              <div class="dt-exp-left">
+                <span class="dt-cat-pill">{{ exp.category || "Alltag" }}</span>
+                <strong>{{ exp.title }}</strong>
+                <span v-if="exp.notes" class="muted tiny">· {{ exp.notes }}</span>
+              </div>
+              <div class="dt-exp-right">
+                <strong class="neg-txt">−{{ fmt(exp.amount) }}</strong>
+                <button
+                  type="button"
+                  class="dt-del-btn"
+                  title="Ausgabe löschen"
+                  @click="deleteDailyExpenseById(exp.id)"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="dt-empty-row">
+            <span class="muted tiny">
+              Noch keine Ausgaben für den {{ formatDateDe(selectedTrackerDate) }} eingetragen.
+            </span>
+            <button type="button" class="btn ghost tiny" @click="openDailyExpenseModal(selectedTrackerDate)">
+              + Erste Ausgabe für diesen Tag erfassen
+            </button>
+          </div>
+        </article>
 
         <!-- 2-Column Cockpit Body -->
         <div class="cockpit-columns">
@@ -331,11 +550,14 @@
         :project="project"
         :entries="entries"
         :debts="debts"
+        :daily-expenses="dailyExpenses"
         :currency="currency"
         :saving-budget="saving"
         @open-balance-modal="openBalanceModal"
         @save-daily-budget="saveDailyLivingBudget"
         @quick-add-on-date="handleQuickAddOnDate"
+        @log-daily-expense="openDailyExpenseModal"
+        @delete-daily-expense="deleteDailyExpenseById"
         @jump-to-debts="setTab('debts')"
       />
 
@@ -394,7 +616,329 @@
         @adjust-balance="adjustBalanceByDelta"
         @notify="showBanner"
       />
+
+      <!-- ===================================================================
+           NATIVE MOBILE BOTTOM NAVIGATION BAR (THUMB-ZONE)
+           =================================================================== -->
+      <nav class="mobile-bottom-nav" aria-label="Mobile Finance Navigation">
+        <button
+          type="button"
+          class="mbn-item"
+          :class="{ active: activeTab === 'overview' }"
+          @click="setTab('overview')"
+        >
+          <span class="mbn-ico">🏠</span>
+          <span class="mbn-lbl">Heute</span>
+        </button>
+
+        <button
+          type="button"
+          class="mbn-item"
+          :class="{ active: activeTab === 'daily' }"
+          @click="setTab('daily')"
+        >
+          <span class="mbn-ico">📅</span>
+          <span class="mbn-lbl">Tagesplan</span>
+        </button>
+
+        <button
+          type="button"
+          class="mbn-fab"
+          title="Tägliche Ausgabe eintragen"
+          @click="openDailyExpenseModal(today)"
+        >
+          <span class="mbn-fab-plus">＋</span>
+          <span class="mbn-fab-lbl">Ausgabe</span>
+        </button>
+
+        <button
+          type="button"
+          class="mbn-item"
+          :class="{ active: activeTab === 'simulator' }"
+          @click="setTab('simulator')"
+        >
+          <span class="mbn-ico">🧮</span>
+          <span class="mbn-lbl">Rechner</span>
+        </button>
+
+        <button
+          type="button"
+          class="mbn-item"
+          :class="{ active: ['debts', 'longterm', 'entries'].includes(activeTab) }"
+          @click="setTab(['debts', 'longterm', 'entries'].includes(activeTab) ? activeTab : 'debts')"
+        >
+          <span class="mbn-ico">💳</span>
+          <span class="mbn-lbl">Schulden &amp; +</span>
+          <span v-if="urgentDebtsCount > 0" class="mbn-dot">{{ urgentDebtsCount }}</span>
+        </button>
+      </nav>
     </template>
+
+    <!-- ===== GLOBAL QUICK DAILY EXPENSE MODAL / MOBILE BOTTOM SHEET ===== -->
+    <div v-if="showDailyExpenseModal" class="modal-overlay bottom-sheet-overlay" @click.self="showDailyExpenseModal = false">
+      <div class="modal-box bottom-sheet-box">
+        <div class="sheet-drag-handle"></div>
+        <div class="modal-header">
+          <div>
+            <span class="section-kicker">Tägliche Ausgabe erfassen</span>
+            <h3>Was und wieviel hast du ausgegeben?</h3>
+          </div>
+          <button type="button" class="modal-close" @click="showDailyExpenseModal = false">&times;</button>
+        </div>
+
+        <form class="modal-form exp-sheet-form" @submit.prevent="submitQuickDailyExpense">
+          <!-- Date Quick Bar -->
+          <div class="exp-date-bar">
+            <div class="exp-date-chips">
+              <button
+                type="button"
+                class="chip-pill"
+                :class="{ active: quickExpForm.date === today }"
+                @click="setQuickExpDate(today)"
+              >
+                Heute
+              </button>
+              <button
+                type="button"
+                class="chip-pill"
+                :class="{ active: quickExpForm.date === yesterdayIso }"
+                @click="setQuickExpDate(yesterdayIso)"
+              >
+                Gestern
+              </button>
+              <button
+                type="button"
+                class="chip-pill"
+                :class="{ active: quickExpForm.date === dayBeforeYesterdayIso }"
+                @click="setQuickExpDate(dayBeforeYesterdayIso)"
+              >
+                Vorgestern
+              </button>
+            </div>
+            <input v-model="quickExpForm.date" type="date" class="input exp-date-picker" required />
+          </div>
+
+          <!-- Big Amount Input + Quick Amount Adders -->
+          <div class="exp-amount-block">
+            <label>
+              Betrag (€)
+              <input
+                ref="quickAmountInputRef"
+                v-model="quickExpForm.amount"
+                type="number"
+                 inputmode="decimal"
+                step="0.01"
+                min="0.01"
+                class="input big-exp-input"
+                placeholder="0.00"
+                required
+              />
+            </label>
+            <div class="quick-amt-chips">
+              <button
+                v-for="inc in [2, 5, 10, 20, 50]"
+                :key="inc"
+                type="button"
+                class="amt-add-chip"
+                @click="addQuickAmount(inc)"
+              >
+                +{{ inc }} €
+              </button>
+              <button
+                v-if="toNum(quickExpForm.amount) > 0"
+                type="button"
+                class="amt-add-chip clear"
+                @click="quickExpForm.amount = ''"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- 1-Tap Category Presets -->
+          <div class="exp-cat-section">
+            <span class="tiny muted">Schnell-Kategorie antippen oder unten frei benennen:</span>
+            <div class="exp-cat-grid">
+              <button
+                v-for="preset in expensePresets"
+                :key="preset.label"
+                type="button"
+                class="exp-preset-chip"
+                :class="{ active: quickExpForm.category === preset.category && quickExpForm.title === preset.defaultTitle }"
+                @click="applyExpensePreset(preset)"
+              >
+                <span>{{ preset.icon }}</span>
+                <span>{{ preset.label }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <label>
+              Wofür ausgegeben? (Bezeichnung)
+              <input
+                v-model.trim="quickExpForm.title"
+                class="input"
+                placeholder="z. B. REWE Einkauf, Döner, Tanken, Kaffee"
+                required
+              />
+            </label>
+            <label>
+              Kategorie / Notiz (optional)
+              <input
+                v-model.trim="quickExpForm.notes"
+                class="input"
+                placeholder="Optionaler Hinweis"
+              />
+            </label>
+          </div>
+
+          <!-- Live Budget & Balance Impact Preview -->
+          <div class="exp-live-impact">
+            <div class="eli-row">
+              <span>Bisher ausgegeben am {{ formatDateShortDe(quickExpForm.date) }}:</span>
+              <strong>{{ fmt(modalDateExistingSpent) }}</strong>
+            </div>
+            <div v-if="projectDailyBudget > 0" class="eli-row">
+              <span>Vom Tagesbudget ({{ fmt(projectDailyBudget) }}) danach übrig:</span>
+              <strong :class="modalDateRemainingAfter >= 0 ? 'pos-txt' : 'neg-txt'">
+                {{
+                  modalDateRemainingAfter >= 0
+                    ? `${fmt(modalDateRemainingAfter)} übrig`
+                    : `${fmt(Math.abs(modalDateRemainingAfter))} über Tagesbudget`
+                }}
+              </strong>
+            </div>
+
+            <label class="eli-check-row">
+              <input v-model="quickExpForm.deductFromBalance" type="checkbox" />
+              <span>
+                Direkt vom aktuellen Kontostand abziehen
+                <template v-if="quickExpForm.deductFromBalance && toNum(quickExpForm.amount) > 0">
+                  (Neuer Besitz: <strong>{{ fmt(currentBalance - toNum(quickExpForm.amount)) }}</strong>)
+                </template>
+              </span>
+            </label>
+          </div>
+
+          <!-- Existing Expenses on that Day -->
+          <div v-if="modalDateExpenses.length" class="modal-day-history">
+            <span class="muted tiny">Bereits eingetragen am {{ formatDateDe(quickExpForm.date) }}:</span>
+            <div class="mdh-list">
+              <div v-for="item in modalDateExpenses" :key="item.id" class="mdh-row">
+                <span>{{ item.title }}</span>
+                <div class="mdh-right">
+                  <strong class="neg-txt">−{{ fmt(item.amount) }}</strong>
+                  <button type="button" class="dt-del-btn" @click="deleteDailyExpenseById(item.id)">&times;</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn ghost" @click="showDailyExpenseModal = false">Schließen</button>
+            <button type="submit" class="btn" :disabled="saving">
+              {{ saving ? "Speichere..." : `💸 Ausgabe (${fmt(toNum(quickExpForm.amount, 0))}) speichern` }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== MOBILE UNYQ HUB & QUICK MENU SHEET ===== -->
+    <div v-if="showMobileHubMenu" class="modal-overlay bottom-sheet-overlay" @click.self="showMobileHubMenu = false">
+      <div class="modal-box bottom-sheet-box">
+        <div class="sheet-drag-handle"></div>
+        <div class="modal-header">
+          <div>
+            <span class="section-kicker">UNYQ Ökosystem</span>
+            <h3>UNYQ Finance &amp; Plattformen</h3>
+          </div>
+          <button type="button" class="modal-close" @click="showMobileHubMenu = false">&times;</button>
+        </div>
+
+        <div class="modal-form">
+          <div class="hub-quick-grid">
+            <button type="button" class="hub-nav-tile" @click="showMobileHubMenu = false; openBalanceModal()">
+              <span>⚙️</span>
+              <strong>Kontostand, Dispo &amp; Tageslimit</strong>
+            </button>
+            <button type="button" class="hub-nav-tile" @click="showMobileHubMenu = false; showNewProjectModal = true">
+              <span>➕</span>
+              <strong>Neues Finanzprojekt</strong>
+            </button>
+            <button type="button" class="hub-nav-tile" @click="showMobileHubMenu = false; exportCsv()">
+              <span>📥</span>
+              <strong>CSV-Finanzbericht</strong>
+            </button>
+            <button type="button" class="hub-nav-tile" @click="showMobileHubMenu = false; showApkModal = true">
+              <span>🤖</span>
+              <strong>Android App (.apk)</strong>
+            </button>
+          </div>
+
+          <div class="cf-divider"></div>
+          <span class="muted tiny">Zu einer anderen UNYQ-Plattform wechseln:</span>
+          <div class="hub-quick-grid">
+            <button type="button" class="hub-nav-tile" @click="router.push({ name: 'platforms' })">
+              <span>🌐</span>
+              <strong>UNYQ Hub (Alle Plattformen)</strong>
+            </button>
+            <button type="button" class="hub-nav-tile" @click="router.push({ name: 'dashboard' })">
+              <span>🎵</span>
+              <strong>ProArtist Workspace</strong>
+            </button>
+            <button type="button" class="hub-nav-tile" @click="router.push({ name: 'platform-music' })">
+              <span>🎧</span>
+              <strong>UNYQ Music</strong>
+            </button>
+            <button type="button" class="hub-nav-tile" @click="router.push({ name: 'tournaments' })">
+              <span>🏆</span>
+              <strong>UNYQ Arena &amp; Contests</strong>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ANDROID APK DOWNLOAD & INSTALL MODAL ===== -->
+    <div v-if="showApkModal" class="modal-overlay bottom-sheet-overlay" @click.self="showApkModal = false">
+      <div class="modal-box bottom-sheet-box">
+        <div class="sheet-drag-handle"></div>
+        <div class="modal-header">
+          <div>
+            <span class="section-kicker">UNYQ Finance für Android</span>
+            <h3>🤖 Android App (.apk) installieren</h3>
+          </div>
+          <button type="button" class="modal-close" @click="showApkModal = false">&times;</button>
+        </div>
+
+        <div class="modal-form">
+          <p class="muted small" style="margin:0">
+            Die <strong>UNYQ Finance Android-App</strong> nutzt dieselbe Live-Datenbank wie das Web — dein Kontostand, deine täglichen Ausgaben, Raten und dein Tag-für-Tag-Plan sind auf Handy und PC immer 1:1 synchron.
+          </p>
+
+          <div class="apk-feature-list">
+            <div>✓ Startet nach dem Login direkt in <strong>UNYQ Finance</strong></div>
+            <div>✓ Eigene Handy-Navigation mit Daumen-Steuerung &amp; <strong>+ Ausgabe</strong> Schnellknopf</div>
+            <div>✓ Über das <strong>☰ Menü</strong> oben links jederzeit Zugriff auf alle anderen UNYQ-Plattformen</div>
+          </div>
+
+          <a
+            href="https://github.com/RealRazion/proartist/releases/download/latest-apk/UNYQ-Finance.apk"
+            target="_blank"
+            rel="noopener"
+            class="btn apk-download-hero-btn"
+          >
+            📲 UNYQ-Finance.apk direkt herunterladen
+          </a>
+
+          <span class="muted tiny">
+            Hinweis für Android: Beim ersten Öffnen der heruntergeladenen <code>UNYQ-Finance.apk</code> kurz „Installation aus dieser Quelle zulassen“ bestätigen.
+          </span>
+        </div>
+      </div>
+    </div>
 
     <!-- ===== BALANCE & PROJECT SETTINGS MODAL ===== -->
     <div v-if="showBalanceModal" class="modal-overlay" @click.self="showBalanceModal = false">
@@ -493,6 +1037,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { Capacitor } from "@capacitor/core";
 import api from "../api";
 import FinanceDailyPlanTab from "../components/finance/FinanceDailyPlanTab.vue";
 import FinanceDebtsTab from "../components/finance/FinanceDebtsTab.vue";
@@ -500,6 +1045,7 @@ import FinanceEntriesTab from "../components/finance/FinanceEntriesTab.vue";
 import FinanceLongTermTab from "../components/finance/FinanceLongTermTab.vue";
 import FinanceSimulatorTab from "../components/finance/FinanceSimulatorTab.vue";
 import {
+  addDaysIso,
   calculatePeriodSimulator,
   daysInMonth,
   formatDateDe,
@@ -580,12 +1126,192 @@ function normaliseList(data) {
 }
 
 const today = todayIso();
+const yesterdayIso = addDaysIso(today, -1);
+const dayBeforeYesterdayIso = addDaysIso(today, -2);
 const currency = computed(() => project.value?.currency || "EUR");
 const currentBalance = computed(() => toNum(project.value?.current_balance, 0));
 const projectDailyBudget = computed(() => toNum(project.value?.daily_living_budget, 0));
 
+const forceMobileApp = ref(
+  Capacitor.isNativePlatform() || localStorage.getItem("unyq_finance_mobile_ui") === "1"
+);
+const showMobileHubMenu = ref(false);
+const showApkModal = ref(false);
+
+function toggleForceMobileApp() {
+  forceMobileApp.value = !forceMobileApp.value;
+  localStorage.setItem("unyq_finance_mobile_ui", forceMobileApp.value ? "1" : "0");
+}
+
 function fmt(val) {
   return formatMoney(val, currency.value);
+}
+
+// ── Daily Expenses & Day-by-Day Budget Tracking ────────────────────────────
+const selectedTrackerDate = ref(today);
+
+function shiftTrackerDate(deltaDays) {
+  selectedTrackerDate.value = addDaysIso(selectedTrackerDate.value || today, deltaDays);
+}
+
+function expensesForDate(dateIso) {
+  return (dailyExpenses.value || []).filter((e) => String(e.date).slice(0, 10) === dateIso);
+}
+
+const todayExpensesList = computed(() => expensesForDate(today));
+const todaySpentTotal = computed(() =>
+  round2(todayExpensesList.value.reduce((s, e) => s + Math.max(0, toNum(e.amount)), 0))
+);
+const todayBudgetRemaining = computed(() =>
+  round2(projectDailyBudget.value - todaySpentTotal.value)
+);
+
+const trackerDayExpenses = computed(() => expensesForDate(selectedTrackerDate.value));
+const trackerDaySpent = computed(() =>
+  round2(trackerDayExpenses.value.reduce((s, e) => s + Math.max(0, toNum(e.amount)), 0))
+);
+const trackerDayRemaining = computed(() =>
+  round2(projectDailyBudget.value - trackerDaySpent.value)
+);
+
+// Quick Daily Expense Modal State
+const showDailyExpenseModal = ref(false);
+const quickAmountInputRef = ref(null);
+const quickExpForm = ref({
+  date: today,
+  amount: "",
+  title: "",
+  category: "Lebensmittel",
+  notes: "",
+  deductFromBalance: true,
+});
+
+const expensePresets = [
+  { icon: "🛒", label: "Supermarkt", category: "Lebensmittel", defaultTitle: "Supermarkt / Einkauf" },
+  { icon: "🍔", label: "Essen & Snack", category: "Gastronomie", defaultTitle: "Essen / Snack" },
+  { icon: "☕", label: "Kaffee & Drinks", category: "Alltag", defaultTitle: "Kaffee / Getränke" },
+  { icon: "⛽", label: "Tanken & ÖPNV", category: "Mobilität", defaultTitle: "Tanken / Fahrt" },
+  { icon: "🛍️", label: "Drogerie / Shop", category: "Einkauf", defaultTitle: "Drogerie / Shopping" },
+  { icon: "🎉", label: "Freizeit", category: "Freizeit", defaultTitle: "Freizeit / Unterwegs" },
+  { icon: "📦", label: "Sonstiges", category: "Sonstiges", defaultTitle: "Tägliche Ausgabe" },
+];
+
+const modalDateExpenses = computed(() => expensesForDate(quickExpForm.value.date || today));
+const modalDateExistingSpent = computed(() =>
+  round2(modalDateExpenses.value.reduce((s, e) => s + Math.max(0, toNum(e.amount)), 0))
+);
+const modalDateRemainingAfter = computed(() =>
+  round2(projectDailyBudget.value - modalDateExistingSpent.value - Math.max(0, toNum(quickExpForm.value.amount, 0)))
+);
+
+function setQuickExpDate(dateIso) {
+  quickExpForm.value.date = dateIso;
+  quickExpForm.value.deductFromBalance = dateIso <= today;
+}
+
+function addQuickAmount(inc) {
+  const cur = Math.max(0, toNum(quickExpForm.value.amount, 0));
+  quickExpForm.value.amount = String(round2(cur + inc));
+}
+
+function applyExpensePreset(preset) {
+  const presetTitles = expensePresets.map((p) => p.defaultTitle);
+  quickExpForm.value.category = preset.category;
+  if (!quickExpForm.value.title || presetTitles.includes(quickExpForm.value.title)) {
+    quickExpForm.value.title = preset.defaultTitle;
+  }
+}
+
+async function openDailyExpenseModal(targetDateIso = today) {
+  const cleanDate = typeof targetDateIso === "string" && targetDateIso.length >= 10 ? targetDateIso.slice(0, 10) : today;
+  quickExpForm.value = {
+    date: cleanDate,
+    amount: "",
+    title: "",
+    category: "Lebensmittel",
+    notes: "",
+    deductFromBalance: cleanDate <= today,
+  };
+  showDailyExpenseModal.value = true;
+  await nextTick();
+  quickAmountInputRef.value?.focus?.();
+}
+
+async function submitQuickDailyExpense() {
+  if (!project.value) return;
+  const amt = round2(Math.max(0, toNum(quickExpForm.value.amount, 0)));
+  if (amt <= 0) {
+    showBanner({ type: "error", text: "Bitte einen Betrag größer als 0,00 € eingeben." });
+    return;
+  }
+  const dateStr = quickExpForm.value.date || today;
+  let finalTitle = (quickExpForm.value.title || "Tägliche Ausgabe").trim();
+
+  // Prevent unique_together (project, date, title, amount) collision if user buys same item twice on same day
+  const existingSameDay = expensesForDate(dateStr);
+  let suffix = 2;
+  const baseTitle = finalTitle;
+  while (
+    existingSameDay.some(
+      (e) =>
+        e.title.toLowerCase() === finalTitle.toLowerCase() &&
+        Math.abs(toNum(e.amount) - amt) < 0.005
+    )
+  ) {
+    finalTitle = `${baseTitle} #${suffix}`;
+    suffix += 1;
+  }
+
+  saving.value = true;
+  try {
+    const { data } = await api.post("daily-expenses/", {
+      project: project.value.id,
+      date: dateStr,
+      title: finalTitle,
+      category: quickExpForm.value.category || "Alltag",
+      amount: amt,
+      notes: quickExpForm.value.notes || "",
+    });
+    dailyExpenses.value = [data, ...dailyExpenses.value];
+    selectedTrackerDate.value = dateStr;
+
+    if (quickExpForm.value.deductFromBalance) {
+      await adjustBalanceByDelta(-amt);
+    }
+
+    showDailyExpenseModal.value = false;
+    showBanner({
+      type: "success",
+      text: `Ausgabe „${finalTitle}“ (−${fmt(amt)} am ${formatDateShortDe(dateStr)}) gespeichert.`,
+    });
+  } catch (err) {
+    showBanner({
+      type: "error",
+      text: err?.response?.data?.detail || "Tägliche Ausgabe konnte nicht gespeichert werden.",
+    });
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function deleteDailyExpenseById(expenseId) {
+  const target = dailyExpenses.value.find((e) => e.id === expenseId);
+  if (!target) return;
+  const amt = round2(Math.max(0, toNum(target.amount, 0)));
+  const wasPastOrToday = String(target.date).slice(0, 10) <= today;
+  try {
+    await api.delete(`daily-expenses/${expenseId}/`);
+    dailyExpenses.value = dailyExpenses.value.filter((e) => e.id !== expenseId);
+    if (wasPastOrToday && amt > 0) {
+      await adjustBalanceByDelta(amt);
+    }
+    showBanner({
+      type: "success",
+      text: `Ausgabe „${target.title}“ gelöscht${wasPastOrToday ? ` (+${fmt(amt)} dem Kontostand gutgeschrieben)` : ""}.`,
+    });
+  } catch {
+    showBanner({ type: "error", text: "Ausgabe konnte nicht gelöscht werden." });
+  }
 }
 
 // ── Urgent & Summary Metrics ───────────────────────────────────────────────
@@ -692,6 +1418,7 @@ const preview14d = computed(() =>
     emergencyBuffer: toNum(project.value?.emergency_buffer_target, 0),
     entries: entries.value,
     debts: debts.value,
+    dailyExpenses: dailyExpenses.value,
     includeDailyBudget: projectDailyBudget.value > 0,
     dailyLivingBudget: projectDailyBudget.value,
   })
@@ -1534,9 +2261,693 @@ onMounted(async () => {
 
 .pos-txt { color: #22c55e; }
 .neg-txt { color: #ef4444; }
+.amber-txt { color: #f59e0b; }
 .debt-txt { color: #c084fc; }
 .tiny { font-size: 12px; }
 .small { font-size: 13.5px; }
+
+/* CTA Button for Daily Expense */
+.daily-exp-cta-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+}
+
+.daily-exp-cta-btn:hover {
+  filter: brightness(1.06);
+}
+
+.active-preview-btn {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* Daily Tracker Card inside Cockpit */
+.daily-tracker-card {
+  border-color: color-mix(in srgb, #10b981 32%, var(--border));
+}
+
+.dt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dt-header h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.dt-date-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dt-date-input {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.dt-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.dt-stat-box {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 4px;
+}
+
+.dt-stat-box.highlight {
+  border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+}
+
+.dt-stat-box strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-lbl-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.tiny-link {
+  border: none;
+  background: transparent;
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dt-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.dt-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  transition: width 0.2s ease;
+}
+
+.dt-progress-track span.over {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.dt-exp-list {
+  display: grid;
+  gap: 6px;
+}
+
+.dt-exp-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.dt-exp-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dt-cat-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dt-exp-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dt-del-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dt-del-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.dt-empty-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+}
+
+/* Quick Daily Expense Modal & Bottom Sheet */
+.sheet-drag-handle {
+  display: none;
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border);
+  margin: 10px auto 2px;
+}
+
+.exp-date-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exp-date-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.chip-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip-pill.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+.exp-date-picker {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+
+.exp-amount-block {
+  display: grid;
+  gap: 8px;
+}
+
+.big-exp-input {
+  font-size: 1.55rem;
+  font-weight: 800;
+  padding: 10px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-amt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.amt-add-chip {
+  padding: 5px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.amt-add-chip:hover {
+  border-color: var(--brand);
+}
+
+.amt-add-chip.clear {
+  color: var(--muted);
+}
+
+.exp-cat-section {
+  display: grid;
+  gap: 6px;
+}
+
+.exp-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 6px;
+}
+
+.exp-preset-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.exp-preset-chip.active {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.exp-live-impact {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.eli-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.eli-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+
+.modal-day-history {
+  display: grid;
+  gap: 6px;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.mdh-list {
+  display: grid;
+  gap: 4px;
+}
+
+.mdh-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.mdh-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Hub Quick Grid & APK Modal */
+.hub-quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.hub-nav-tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.hub-nav-tile:hover {
+  border-color: var(--brand);
+}
+
+.apk-feature-list {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.apk-download-hero-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 13px 18px;
+  font-size: 14.5px;
+  font-weight: 800;
+  text-decoration: none;
+  text-align: center;
+}
+
+/* =====================================================================
+   NATIVE MOBILE APP UI (DEFAULT HIDDEN ON DESKTOP UNLESS FORCE-MOBILE)
+   ===================================================================== */
+.mobile-app-header,
+.mobile-bottom-nav,
+.mobile-more-subbar {
+  display: none;
+}
+
+.mah-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.mah-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mah-hub-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mah-title-wrap {
+  display: grid;
+  gap: 1px;
+}
+
+.mah-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--brand);
+}
+
+.mah-proj-name {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.mah-proj-select {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  padding: 0;
+}
+
+.mah-balance-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.mah-bal-lbl {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.mah-edit-ico {
+  font-size: 12px;
+  color: var(--brand);
+}
+
+.mah-today-strip {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.mah-today-info {
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.mah-today-topline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.mah-budget-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.mah-budget-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.mah-budget-bar span.over {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+.mah-quick-exp-btn {
+  padding: 9px 13px;
+  border-radius: 11px;
+  border: none;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+}
+
+.mms-btn {
+  flex: 1;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mms-btn.active {
+  background: var(--brand);
+  color: #fff;
+}
+
+/* Mobile Bottom Nav Bar */
+.mbn-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mbn-item.active {
+  color: var(--brand);
+}
+
+.mbn-ico {
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.mbn-dot {
+  position: absolute;
+  top: 2px;
+  right: 12px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mbn-fab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: -20px;
+  width: 62px;
+  height: 54px;
+  border-radius: 18px;
+  border: 2px solid var(--card);
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.38);
+  cursor: pointer;
+}
+
+.mbn-fab-plus {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mbn-fab-lbl {
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+/* Activate Mobile App Mode when forced OR on screens <= 820px */
+.finance-platform.force-mobile-app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 104px;
+}
+
+.finance-platform.force-mobile-app .mobile-app-header {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.finance-platform.force-mobile-app .desktop-only-header,
+.finance-platform.force-mobile-app .desktop-only-tabs {
+  display: none;
+}
+
+.finance-platform.force-mobile-app .mobile-more-subbar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 13px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.finance-platform.force-mobile-app .mobile-bottom-nav {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(480px, 100vw);
+  display: grid;
+  grid-template-columns: 1fr 1fr auto 1fr 1fr;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  z-index: 85;
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.32);
+}
+
+.finance-platform.force-mobile-app .cockpit-kpi-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.finance-platform.force-mobile-app .cockpit-columns,
+.finance-platform.force-mobile-app .dt-summary-grid {
+  grid-template-columns: 1fr;
+}
 
 @media (max-width: 960px) {
   .onboarding-card,
@@ -1545,9 +2956,88 @@ onMounted(async () => {
   }
 }
 
+@media (max-width: 820px) {
+  .finance-platform {
+    padding-bottom: 100px;
+    gap: 12px;
+  }
+
+  .mobile-app-header {
+    display: grid;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 16px;
+  }
+
+  .desktop-only-header,
+  .desktop-only-tabs {
+    display: none;
+  }
+
+  .mobile-more-subbar {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 13px;
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto 1fr 1fr;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--card) 95%, transparent);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    z-index: 85;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  .cockpit-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .kpi-hero-card {
+    padding: 12px 14px;
+  }
+
+  .kh-val {
+    font-size: 1.2rem;
+  }
+
+  .dt-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom-sheet-overlay {
+    align-items: end;
+    padding: 0;
+  }
+
+  .bottom-sheet-box {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    border-bottom: none;
+  }
+
+  .sheet-drag-handle {
+    display: block;
+  }
+}
+
 @media (max-width: 640px) {
   .two-col,
-  .quick-nav-grid {
+  .quick-nav-grid,
+  .hub-quick-grid {
     grid-template-columns: 1fr;
   }
   .mini-day-row {

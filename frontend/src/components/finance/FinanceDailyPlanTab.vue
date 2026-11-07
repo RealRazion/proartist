@@ -389,9 +389,22 @@
               <strong class="date-num">{{ formatDateDe(day.date) }}</strong>
               <span v-if="day.isToday" class="today-pill">Heute</span>
             </div>
-            <span v-if="day.remainingDebt > 0" class="muted tiny">
-              Restschuld: {{ fmt(day.remainingDebt) }}
-            </span>
+            <div class="day-sub-badges">
+              <span v-if="day.remainingDebt > 0" class="muted tiny">
+                Restschuld: {{ fmt(day.remainingDebt) }}
+              </span>
+              <span
+                v-if="(day.isToday || day.manualSpent > 0) && day.dailyBudgetTarget > 0"
+                class="daily-budget-status-pill"
+                :class="day.dailyBudgetRemaining >= 0 ? 'ok' : 'over'"
+              >
+                {{
+                  day.dailyBudgetRemaining >= 0
+                    ? `Noch ${fmt(day.dailyBudgetRemaining)} vom Tagesbudget übrig`
+                    : `${fmt(Math.abs(day.dailyBudgetRemaining))} über Tagesbudget`
+                }}
+              </span>
+            </div>
           </div>
 
           <div class="day-events-col">
@@ -402,16 +415,28 @@
                 class="ev-chip"
                 :class="evChipClass(ev)"
               >
-                <span class="ev-title">{{ ev.title }}</span>
+                <span class="ev-title">
+                  {{ ev.kind === "DAILY_EXPENSE" ? `💸 ${ev.title}` : ev.title }}
+                </span>
                 <strong>{{ ev.amount > 0 ? "+" : "" }}{{ fmt(ev.amount) }}</strong>
+                <span v-if="ev.alreadyInBalance" class="already-tag" title="Bereits im Kontostand abgezogen">✓ gebucht</span>
                 <span v-if="ev.paidOffToday" class="paid-off-star">🎉 Abbezahlt!</span>
+                <button
+                  v-if="ev.kind === 'DAILY_EXPENSE' && ev.sourceId"
+                  type="button"
+                  class="ev-del-btn"
+                  title="Tägliche Ausgabe löschen"
+                  @click.stop="$emit('delete-daily-expense', ev.sourceId)"
+                >
+                  &times;
+                </button>
               </span>
               <span v-if="day.livingDeduction > 0" class="ev-chip ev-living">
-                <span>Alltagsbudget</span>
+                <span>{{ day.manualSpent > 0 ? "Rest-Tagesbudget" : "Alltagsbudget" }}</span>
                 <strong>−{{ fmt(day.livingDeduction) }}</strong>
               </span>
             </template>
-            <span v-else class="muted tiny quiet-day-lbl">Keine geplanten Buchungen</span>
+            <span v-else class="muted tiny quiet-day-lbl">Keine Buchungen / Ausgaben</span>
           </div>
 
           <div class="day-balance-col">
@@ -431,14 +456,24 @@
               </strong>
             </div>
 
-            <button
-              type="button"
-              class="quick-day-add"
-              title="Einmalzahlung oder Einnahme an diesem Tag planen"
-              @click="$emit('quick-add-on-date', day.date)"
-            >
-              +
-            </button>
+            <div class="day-row-actions">
+              <button
+                type="button"
+                class="quick-exp-add"
+                title="Tägliche Ausgabe für diesen Tag eintragen"
+                @click="$emit('log-daily-expense', day.date)"
+              >
+                💸 +Ausgabe
+              </button>
+              <button
+                type="button"
+                class="quick-day-add"
+                title="Feste Buchung oder Einnahme an diesem Tag planen"
+                @click="$emit('quick-add-on-date', day.date)"
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -500,18 +535,33 @@
               <span class="section-kicker">{{ selectedCalendarDay.weekday }}, {{ formatDateDe(selectedCalendarDay.date) }}</span>
               <h4>Geplanter Soll-Besitz am Abend: {{ fmt(selectedCalendarDay.endBalance) }}</h4>
             </div>
-            <button
-              type="button"
-              class="btn sm ghost"
-              @click="$emit('quick-add-on-date', selectedCalendarDay.date)"
-            >
-              + Buchung an diesem Tag planen
-            </button>
+            <div class="inspector-btn-group">
+              <button
+                type="button"
+                class="btn sm"
+                @click="$emit('log-daily-expense', selectedCalendarDay.date)"
+              >
+                💸 + Tägliche Ausgabe
+              </button>
+              <button
+                type="button"
+                class="btn sm ghost"
+                @click="$emit('quick-add-on-date', selectedCalendarDay.date)"
+              >
+                + Feste Buchung
+              </button>
+            </div>
           </div>
 
           <div class="inspector-metrics">
             <span>Start am Morgen: <strong>{{ fmt(selectedCalendarDay.startBalance) }}</strong></span>
-            <span>Tagesveränderung: <strong>{{ selectedCalendarDay.delta > 0 ? "+" : "" }}{{ fmt(selectedCalendarDay.delta) }}</strong></span>
+            <span>Manuell ausgegeben: <strong>{{ fmt(selectedCalendarDay.manualSpent || 0) }}</strong></span>
+            <span v-if="selectedCalendarDay.dailyBudgetTarget > 0">
+              Vom Tagesbudget übrig:
+              <strong :class="selectedCalendarDay.dailyBudgetRemaining >= 0 ? 'pos-txt' : 'neg-txt'">
+                {{ fmt(selectedCalendarDay.dailyBudgetRemaining) }}
+              </strong>
+            </span>
             <span>Offene Schulden: <strong>{{ fmt(selectedCalendarDay.remainingDebt) }}</strong></span>
           </div>
 
@@ -555,6 +605,7 @@ const props = defineProps({
   project: { type: Object, default: null },
   entries: { type: Array, default: () => [] },
   debts: { type: Array, default: () => [] },
+  dailyExpenses: { type: Array, default: () => [] },
   currency: { type: String, default: "EUR" },
   savingBudget: { type: Boolean, default: false },
 });
@@ -563,6 +614,8 @@ const emit = defineEmits([
   "open-balance-modal",
   "save-daily-budget",
   "quick-add-on-date",
+  "log-daily-expense",
+  "delete-daily-expense",
   "jump-to-debts",
 ]);
 
@@ -632,6 +685,7 @@ const sim = computed(() =>
     emergencyBuffer: toNum(props.project?.emergency_buffer_target, 0),
     entries: props.entries,
     debts: props.debts,
+    dailyExpenses: props.dailyExpenses,
     includeDailyBudget: includeLiving.value,
     dailyLivingBudget: toNum(localDailyBudget.value, 0),
   })
@@ -845,6 +899,7 @@ const selectedCalendarDay = computed(() => {
 
 function evChipClass(ev) {
   if (ev.amount > 0) return "ev-income";
+  if (ev.kind === "DAILY_EXPENSE") return "ev-daily-expense";
   if (ev.kind === "DEBT" || ev.kind === "CREDIT") return "ev-debt";
   if (ev.kind === "SAVING") return "ev-saving";
   return "ev-outflow";
@@ -1379,6 +1434,91 @@ function evChipClass(ev) {
 .ev-chip.ev-living {
   opacity: 0.85;
   font-size: 11.5px;
+}
+
+.ev-chip.ev-daily-expense {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: rgba(245, 158, 11, 0.11);
+}
+
+.already-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.16);
+  color: #22c55e;
+  font-weight: 700;
+}
+
+.ev-del-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.ev-del-btn:hover {
+  color: #ef4444;
+}
+
+.day-sub-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.daily-budget-status-pill {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.daily-budget-status-pill.ok {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.daily-budget-status-pill.over {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.day-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quick-exp-add {
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.quick-exp-add:hover {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 16%, var(--card));
+}
+
+.inspector-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .paid-off-star {

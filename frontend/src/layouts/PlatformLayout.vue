@@ -1,5 +1,5 @@
 <template>
-  <div class="platform-layout">
+  <div class="platform-layout" :class="{ 'is-finance-route': route.name === 'platform-finance' || route.name === 'finance' }">
     <header v-if="showTopbar" class="platform-topbar card">
       <div class="topbar-left">
         <!-- Clean Brand Title (redundant Hub button removed) -->
@@ -395,6 +395,16 @@ onMounted(async () => {
 
   .nav-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 820px) {
+  .platform-layout.is-finance-route .platform-topbar {
+    display: none;
+  }
+
+  .platform-layout.is-finance-route .platform-content {
+    padding: 8px 10px 96px;
   }
 }
 </style>

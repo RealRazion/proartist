@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import { Capacitor } from "@capacitor/core";
 import { useToast } from "../composables/useToast";
 import {
   fetchManagedPlatformAccessState,
@@ -176,7 +177,7 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
   if (guestOnly && token) {
-    next({ name: "platforms" });
+    next({ name: Capacitor.isNativePlatform() ? "platform-finance" : "platforms" });
     return;
   }
 

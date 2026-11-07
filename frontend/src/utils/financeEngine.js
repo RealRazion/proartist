@@ -262,6 +262,7 @@ export function simulateDailyTimeline({
   emergencyBuffer = 0,
   entries = [],
   debts = [],
+  dailyExpenses = [],
   includeDailyBudget = false,
   dailyLivingBudget = 0,
   extraEvents = [],
@@ -270,9 +271,18 @@ export function simulateDailyTimeline({
 } = {}) {
   const horizon = Math.max(1, Math.min(731, Number.parseInt(days, 10) || 90));
   const today = todayIso();
-  const dailyBudget = includeDailyBudget ? Math.max(0, toNum(dailyLivingBudget)) : 0;
+  const baseDailyBudget = Math.max(0, toNum(dailyLivingBudget));
+  const dailyBudget = includeDailyBudget ? baseDailyBudget : 0;
   const dispoAvailable = Math.max(0, toNum(dispoLimit) - toNum(dispoUsed));
   const bufferTarget = Math.max(0, toNum(emergencyBuffer));
+
+  const dailyExpByDate = new Map();
+  for (const exp of dailyExpenses || []) {
+    if (!exp || !exp.date) continue;
+    const dKey = String(exp.date).slice(0, 10);
+    if (!dailyExpByDate.has(dKey)) dailyExpByDate.set(dKey, []);
+    dailyExpByDate.get(dKey).push(exp);
+  }
 
   const activeEntries = (entries || []).filter(
     (e) => e && e.is_active !== false && !disabledEntryIds.has(e.id)
@@ -441,7 +451,31 @@ export function simulateDailyTimeline({
       });
     }
 
-    const livingDed = dailyBudget;
+    const manualList = dailyExpByDate.get(date) || [];
+    let manualSpent = 0;
+    const isPastOrToday = date <= today;
+    for (const exp of manualList) {
+      const amt = round2(Math.abs(toNum(exp.amount)));
+      if (amt <= 0) continue;
+      manualSpent = round2(manualSpent + amt);
+      if (!isPastOrToday) {
+        outflowDay += amt;
+        totalLivingOutflow += amt;
+      }
+      events.push({
+        id: `daily-exp-${exp.id || events.length}-${date}`,
+        sourceId: exp.id,
+        kind: "DAILY_EXPENSE",
+        title: exp.title,
+        category: exp.category || "Alltag",
+        amount: -amt,
+        alreadyInBalance: isPastOrToday,
+      });
+    }
+
+    // Remaining unspent portion of the daily living budget for this day
+    const livingDed =
+      dailyBudget > 0 ? round2(Math.max(0, dailyBudget - manualSpent)) : 0;
     if (livingDed > 0) {
       totalLivingOutflow += livingDed;
     }
@@ -489,6 +523,10 @@ export function simulateDailyTimeline({
       incomeTotal: round2(incomeDay),
       outflowTotal: round2(outflowDay),
       livingDeduction: round2(livingDed),
+      manualExpenses: manualList,
+      manualSpent,
+      dailyBudgetTarget: baseDailyBudget,
+      dailyBudgetRemaining: round2(baseDailyBudget - manualSpent),
       delta,
       endBalance: runningBalance,
       remainingDebt,

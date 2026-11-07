@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.49-beta",
+        "date":  "2026-11-07",
+        "title":  "Patch 2.11.0.49-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "CORS-Freigabe fuer Capacitor Android Origin \u0026 Hostname-Sync fuer Live-Server"
+                       ],
+        "changes":  [
+                        "fix(android): CORS-Freigabe fuer Capacitor Android Origin \u0026 Hostname-Sync fuer Live-Server"
+                    ]
+    },
+    {
         "version":  "2.11.0.48-beta",
         "date":  "2026-11-07",
         "title":  "Patch 2.11.0.48-beta",

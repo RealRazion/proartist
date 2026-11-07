@@ -4,6 +4,7 @@
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {
+    "hostname": "proartist.pages.dev",
     "androidScheme": "https",
     "cleartext": true
   },

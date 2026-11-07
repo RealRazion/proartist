@@ -157,26 +157,29 @@ DATABASES = {
 LANGUAGE_CODE="de-de"; TIME_ZONE="Europe/Berlin"; USE_I18N=True; USE_TZ=True
 STATIC_URL="/static/"; MEDIA_URL="/media/"; MEDIA_ROOT=BASE_DIR/"media"
 
+_default_cors_origins = [
+    "https://proartist.pages.dev",
+    "https://localhost",
+    "http://localhost",
+    "capacitor://localhost",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 _cors_origins = [origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",") if origin.strip()]
-if _cors_origins:
-    CORS_ALLOWED_ORIGINS = _cors_origins
-    CORS_ALLOW_ALL_ORIGINS = False
-    CSRF_TRUSTED_ORIGINS = _cors_origins
-else:
-    CORS_ALLOWED_ORIGINS = [
-        "https://proartist.pages.dev",
-        "https://localhost",
-        "capacitor://localhost",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
-    CORS_ALLOW_ALL_ORIGINS = False
-    CSRF_TRUSTED_ORIGINS = [
-        "https://proartist.pages.dev",
-        "https://localhost",
-    ]
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(_default_cors_origins + _cors_origins))
+CORS_ALLOW_ALL_ORIGINS = False
+CSRF_TRUSTED_ORIGINS = list(
+    dict.fromkeys(
+        [
+            "https://proartist.pages.dev",
+            "https://localhost",
+            "http://localhost",
+            *[o for o in _cors_origins if o.startswith("http://") or o.startswith("https://")],
+        ]
+    )
+)
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [

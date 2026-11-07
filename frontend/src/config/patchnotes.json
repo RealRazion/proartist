@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.46-beta",
+        "date":  "2026-11-07",
+        "title":  "Patch 2.11.0.46-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Mobile-App-UI, Taegliche-Ausgabe-Schnellerfassung mit Tagesbudget-Verrechnung \u0026 automatischer Android-APK-Build"
+                       ],
+        "changes":  [
+                        "feat(finance): Mobile-App-UI, Taegliche-Ausgabe-Schnellerfassung mit Tagesbudget-Verrechnung \u0026 automatischer Android-APK-Build"
+                    ]
+    },
+    {
         "version":  "2.11.0.45-beta",
         "date":  "2026-11-05",
         "title":  "Patch 2.11.0.45-beta",

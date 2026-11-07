@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.47-beta",
+        "date":  "2026-11-07",
+        "title":  "Patch 2.11.0.47-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Node 22 und SDK-Lizenzen fuer automatischen Capacitor Android APK Build"
+                       ],
+        "changes":  [
+                        "fix(ci): Node 22 und SDK-Lizenzen fuer automatischen Capacitor Android APK Build"
+                    ]
+    },
+    {
         "version":  "2.11.0.46-beta",
         "date":  "2026-11-07",
         "title":  "Patch 2.11.0.46-beta",

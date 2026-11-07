@@ -1,5 +1,17 @@
 [
     {
+        "version":  "2.11.0.48-beta",
+        "date":  "2026-11-07",
+        "title":  "Patch 2.11.0.48-beta",
+        "tagline":  "Automatisches Update",
+        "highlights":  [
+                           "Gradle 8.13 passend zu AGP 8.13.0 fuer APK-Build setzen"
+                       ],
+        "changes":  [
+                        "fix(android): Gradle 8.13 passend zu AGP 8.13.0 fuer APK-Build setzen"
+                    ]
+    },
+    {
         "version":  "2.11.0.47-beta",
         "date":  "2026-11-07",
         "title":  "Patch 2.11.0.47-beta",
